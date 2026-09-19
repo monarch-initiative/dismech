@@ -15,7 +15,8 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-import yaml
+
+from dismech.yaml_io import safe_load
 
 EUROPE_PMC_SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 
@@ -226,7 +227,7 @@ def load_disease_terms(kb_dir: Path) -> tuple[list[DiseaseTerm], dict[str, set[s
     for path in sorted(kb_dir.glob("*.yaml")):
         if path.name.endswith(".history.yaml"):
             continue
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        data = safe_load(path.read_text(encoding="utf-8")) or {}
         if not isinstance(data, dict):
             continue
         path_string = str(path)

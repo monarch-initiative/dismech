@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252111384"
+reference_id: DOI:10.3390/ijms252111384
 title: "Tumor Biology Hides Novel Therapeutic Approaches to Diffuse Large B-Cell Lymphoma: A Narrative Review"
 authors:
 - Romana Masnikosa
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252111384
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Tumor Biology Hides Novel Therapeutic Approaches to Diffuse Large B-Cell Lymphoma: A Narrative Review

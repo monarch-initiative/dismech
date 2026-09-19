@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12081635"
+reference_id: DOI:10.3390/biomedicines12081635
 title: "Mechanistic Insights and Therapeutic Strategies in Osteoporosis: A Comprehensive Review"
 authors:
 - Nyruz Ramadan Elahmer
@@ -12,6 +12,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12081635
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mechanistic Insights and Therapeutic Strategies in Osteoporosis: A Comprehensive Review

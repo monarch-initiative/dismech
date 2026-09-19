@@ -23,8 +23,8 @@ Alias: publication
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [ExperimentalModel](../classes/ExperimentalModel.md) | A disease-relevant non-animal experimental model system |  no  |
-| [Dataset](../classes/Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
 | [ComputationalModel](../classes/ComputationalModel.md) | A computational or in-silico model relevant to understanding disease mechanis... |  no  |
+| [Dataset](../classes/Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
 | [ProteinStructure](../classes/ProteinStructure.md) | A 3D protein structure from PDB or AlphaFold relevant to understanding a trea... |  no  |
 
 

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms251910625"
+reference_id: DOI:10.3390/ijms251910625
 title: Blood–Brain Barrier Disruption in Neuroimmunological Disease
 authors:
 - Fumitaka Shimizu
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms251910625
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Blood–Brain Barrier Disruption in Neuroimmunological Disease

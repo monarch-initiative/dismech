@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells11081365"
+reference_id: DOI:10.3390/cells11081365
 title: "Squamous Cell Carcinoma in Patients with Inherited Epidermolysis Bullosa: Review of Current Literature"
 authors:
 - Domenico Bonamonte
@@ -15,6 +15,7 @@ journal: Cells
 year: '2022'
 doi: 10.3390/cells11081365
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Squamous Cell Carcinoma in Patients with Inherited Epidermolysis Bullosa: Review of Current Literature

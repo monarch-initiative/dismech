@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/microorganisms12122669"
+reference_id: DOI:10.3390/microorganisms12122669
 title: "Campylobacter jejuni/coli Infection: Is It Still a Concern?"
 authors:
 - Piero Veronese
@@ -8,6 +8,7 @@ journal: Microorganisms
 year: '2024'
 doi: 10.3390/microorganisms12122669
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Campylobacter jejuni/coli Infection: Is It Still a Concern?

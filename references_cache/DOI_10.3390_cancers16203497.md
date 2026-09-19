@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16203497"
+reference_id: DOI:10.3390/cancers16203497
 title: Proton Therapy in Uveal Melanoma
 authors:
 - Adrian Wai Chan
@@ -12,6 +12,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16203497
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Proton Therapy in Uveal Melanoma

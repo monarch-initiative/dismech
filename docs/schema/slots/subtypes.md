@@ -23,8 +23,8 @@ Alias: subtypes
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [Phenotype](../classes/Phenotype.md) |  |  no  |
-| [Biochemical](../classes/Biochemical.md) |  |  no  |
 | [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [Biochemical](../classes/Biochemical.md) |  |  no  |
 
 
 

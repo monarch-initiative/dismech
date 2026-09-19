@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03380390"
+reference_id: clinicaltrials:NCT03380390
 title: "Multicenter, Open-Label, Interventional Study on the Safety and Tolerability of Oxymetazoline and Energy-Based Therapy in Subjects With Rosacea"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Multicenter, Open-Label, Interventional Study on the Safety and Tolerability of Oxymetazoline and Energy-Based Therapy in Subjects With Rosacea

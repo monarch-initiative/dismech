@@ -9,8 +9,9 @@ import textwrap
 from datetime import datetime
 from pathlib import Path
 
-import yaml
 from jinja2 import Environment
+
+from dismech.yaml_io import safe_load
 
 TEMPLATE = r"""
 # {{ d.name }}
@@ -588,7 +589,7 @@ SCHEMA_PATH = Path(__file__).parent.parent / "src" / "dismech" / "schema" / "dis
 def _load_enum_metadata(schema_path, enum_name):
     """Load title and description from a LinkML enum's permissible_values."""
     with open(schema_path) as f:
-        schema = yaml.safe_load(f)
+        schema = safe_load(f)
     pv = schema.get("enums", {}).get(enum_name, {}).get("permissible_values", {})
     return {
         k: {"title": v.get("title", k), "description": v.get("description", "")}
@@ -877,7 +878,7 @@ def tx_agents(t):
 
 
 def tx_targets(t):
-    """Target-mechanism summary (+ ASO target) for a treatment row."""
+    """Target-mechanism summary (+ oligonucleotide target) for a treatment row."""
     parts = []
     for tm in t.get("target_mechanisms") or []:
         seg = tm.get("target", "")
@@ -885,11 +886,13 @@ def tx_targets(t):
             seg += f" ({tm['treatment_effect']})"
         if seg:
             parts.append(seg)
-    aso = t.get("aso_details") or {}
-    if aso.get("target_gene"):
-        tg = aso["target_gene"].get("preferred_term") or ""
+    # aso_details is the deprecated spelling of oligonucleotide_details; read both.
+    oligo = t.get("oligonucleotide_details") or t.get("aso_details") or {}
+    if oligo.get("target_gene"):
+        tg = oligo["target_gene"].get("preferred_term") or ""
         if tg:
-            parts.append(f"ASO target: {tg}")
+            label = "siRNA" if t.get("therapeutic_modality") == "SIRNA" else "ASO"
+            parts.append(f"{label} target: {tg}")
     return "; ".join(parts) or "—"
 
 
@@ -938,7 +941,7 @@ def main():
 
     yaml_path = Path(args.yaml_file)
     with open(yaml_path) as f:
-        data = DotDict(yaml.safe_load(f))
+        data = DotDict(safe_load(f))
 
     # Reset the glossary collector for each render
     global _glossary

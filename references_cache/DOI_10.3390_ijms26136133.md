@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26136133"
+reference_id: DOI:10.3390/ijms26136133
 title: "Advances in Understanding Intestinal Homeostasis: Lessons from Inflammatory Bowel Disease and Monogenic Intestinal Disorder Pathogenesis"
 authors:
 - Céline Petit
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26136133
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advances in Understanding Intestinal Homeostasis: Lessons from Inflammatory Bowel Disease and Monogenic Intestinal Disorder Pathogenesis

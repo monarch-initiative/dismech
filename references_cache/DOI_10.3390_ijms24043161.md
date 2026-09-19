@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24043161"
+reference_id: DOI:10.3390/ijms24043161
 title: Targeting and Monitoring Acute Myeloid Leukaemia with Nucleophosmin-1 (NPM1) Mutation
 authors:
 - Lynn Chin
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24043161
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Targeting and Monitoring Acute Myeloid Leukaemia with Nucleophosmin-1 (NPM1) Mutation

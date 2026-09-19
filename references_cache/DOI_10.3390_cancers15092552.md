@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15092552"
+reference_id: DOI:10.3390/cancers15092552
 title: Management of Advanced Prostate Cancer in the Precision Oncology Era
 authors:
 - Claire M. Gillette
@@ -10,6 +10,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15092552
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Management of Advanced Prostate Cancer in the Precision Oncology Era

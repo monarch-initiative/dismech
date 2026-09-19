@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medicina61030500"
+reference_id: DOI:10.3390/medicina61030500
 title: "Graves’ Disease: Is It Time for Targeted Therapy? A Narrative Review"
 authors:
 - Nicola Viola
@@ -12,6 +12,7 @@ journal: Medicina
 year: '2025'
 doi: 10.3390/medicina61030500
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Graves’ Disease: Is It Time for Targeted Therapy? A Narrative Review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/microorganisms12122580"
+reference_id: DOI:10.3390/microorganisms12122580
 title: The Significance of the Cell-Mediated Host Immune Response in Syphilis
 authors:
 - Konrad Kaminiów
@@ -9,6 +9,7 @@ journal: Microorganisms
 year: '2024'
 doi: 10.3390/microorganisms12122580
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Significance of the Cell-Mediated Host Immune Response in Syphilis

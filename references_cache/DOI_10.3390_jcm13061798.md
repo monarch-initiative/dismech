@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13061798"
+reference_id: DOI:10.3390/jcm13061798
 title: "The Role of Postoperative Radiotherapy in the Management of Dermatofibrosarcoma Protuberans: A Multidisciplinary Systematic Review"
 authors:
 - Bruno Fionda
@@ -22,6 +22,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13061798
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of Postoperative Radiotherapy in the Management of Dermatofibrosarcoma Protuberans: A Multidisciplinary Systematic Review

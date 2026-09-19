@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers18060888"
+reference_id: DOI:10.3390/cancers18060888
 title: Biological Advances and Current Challenges for Pediatric Rhabdomyosarcoma
 authors:
 - Katie E. Hebron
@@ -46,6 +46,7 @@ journal: Cancers
 year: '2026'
 doi: 10.3390/cancers18060888
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Biological Advances and Current Challenges for Pediatric Rhabdomyosarcoma

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines13030670"
+reference_id: DOI:10.3390/biomedicines13030670
 title: "Serum Biomarkers in Patent Ductus Arteriosus in Preterm Infants: A Narrative Review"
 authors:
 - Manuela Cucerea
@@ -16,6 +16,7 @@ journal: Biomedicines
 year: '2025'
 doi: 10.3390/biomedicines13030670
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Serum Biomarkers in Patent Ductus Arteriosus in Preterm Infants: A Narrative Review

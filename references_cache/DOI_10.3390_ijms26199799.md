@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26199799"
+reference_id: DOI:10.3390/ijms26199799
 title: "Ocular Melanoma: A Comprehensive Review with a Focus on Molecular Biology"
 authors:
 - Lucia Iavarone
@@ -15,6 +15,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26199799
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Ocular Melanoma: A Comprehensive Review with a Focus on Molecular Biology

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pathogens12060787"
+reference_id: DOI:10.3390/pathogens12060787
 title: "Challenges and Strategies for Developing Recombinant Vaccines against Leptospirosis: Role of Expression Platforms and Adjuvants in Achieving Protective Efficacy"
 authors:
 - Natasha Rodrigues de Oliveira
@@ -12,6 +12,7 @@ journal: Pathogens
 year: '2023'
 doi: 10.3390/pathogens12060787
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Challenges and Strategies for Developing Recombinant Vaccines against Leptospirosis: Role of Expression Platforms and Adjuvants in Achieving Protective Efficacy

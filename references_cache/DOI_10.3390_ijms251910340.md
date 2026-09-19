@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms251910340"
+reference_id: DOI:10.3390/ijms251910340
 title: New Insights and Future Perspectives of APRIL in IgA Nephropathy
 authors:
 - Masahiro Muto
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms251910340
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # New Insights and Future Perspectives of APRIL in IgA Nephropathy

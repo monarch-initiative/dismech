@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16132338"
+reference_id: DOI:10.3390/cancers16132338
 title: "Identification and Application of Emerging Biomarkers in Treatment of Non-Small-Cell Lung Cancer: Systematic Review"
 authors:
 - Juan Carlos Restrepo
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16132338
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Identification and Application of Emerging Biomarkers in Treatment of Non-Small-Cell Lung Cancer: Systematic Review

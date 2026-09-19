@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16142510"
+reference_id: DOI:10.3390/cancers16142510
 title: "Impact of Driver Mutations on Metastasis-Free Survival in Uveal Melanoma: A Meta-Analysis"
 authors:
 - David Lamas-Francis
@@ -13,6 +13,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16142510
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Impact of Driver Mutations on Metastasis-Free Survival in Uveal Melanoma: A Meta-Analysis

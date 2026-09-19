@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252413294"
+reference_id: DOI:10.3390/ijms252413294
 title: Systemic and Cardiac Microvascular Dysfunction in Hypertension
 authors:
 - Alessandro Durante
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252413294
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Systemic and Cardiac Microvascular Dysfunction in Hypertension

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24032670"
+reference_id: DOI:10.3390/ijms24032670
 title: "Tumors of the Nose and Paranasal Sinuses: Promoting Factors and Molecular Mechanisms—A Systematic Review"
 authors:
 - Daniela Lucidi
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24032670
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Tumors of the Nose and Paranasal Sinuses: Promoting Factors and Molecular Mechanisms—A Systematic Review

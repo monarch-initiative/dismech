@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12102282"
+reference_id: DOI:10.3390/biomedicines12102282
 title: Characteristics and Prognosis of “Acute Promyelocytic Leukemia-like” Nucleophosmin-1-Mutated Acute Myeloid Leukemia in a Retrospective Patient Cohort
 authors:
 - Vasiliki Papadopoulou
@@ -13,6 +13,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12102282
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Characteristics and Prognosis of “Acute Promyelocytic Leukemia-like” Nucleophosmin-1-Mutated Acute Myeloid Leukemia in a Retrospective Patient Cohort

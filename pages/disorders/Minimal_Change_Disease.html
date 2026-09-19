@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>Minimal Change Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Minimal Change Disease</h1>
             <div class="header-meta">
 
@@ -3203,6 +3962,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3255,6 +4018,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3265,6 +4029,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">6</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -3341,17 +4113,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3372,10 +4151,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3402,17 +4184,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Adaptive Immune Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002250">GO:0002250</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Adaptive Immune Response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3433,10 +4222,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001816">GO:0001816</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001816</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cytokine Production (GO:0001816). GO:0001816 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3453,6 +4245,7 @@
 
 
                 </div>
+
 
 
 
@@ -3505,7 +4298,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35004732" target="_blank">PMID:35004732</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3527,7 +4323,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33194357" target="_blank">PMID:33194357</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3549,7 +4348,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29942802" target="_blank">PMID:29942802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3582,16 +4384,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000653">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3618,16 +4425,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Regulation of Actin Cytoskeleton Organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032956">GO:0032956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0032956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Regulation of Actin Cytoskeleton Organization (GO:0032956). GO:0032956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3644,6 +4456,7 @@
 
 
                 </div>
+
 
 
 
@@ -3680,7 +4493,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23689904" target="_blank">PMID:23689904</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -3696,13 +4512,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29492674" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:29492674" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29492674" target="_blank">PMID:29492674</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3735,17 +4554,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3766,10 +4592,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000653">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3786,6 +4615,7 @@
 
 
                 </div>
+
 
 
 
@@ -3829,7 +4659,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40147632" target="_blank">PMID:40147632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3851,7 +4684,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40726375" target="_blank">PMID:40726375</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3873,7 +4709,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41733080" target="_blank">PMID:41733080</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3908,16 +4747,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000653">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3944,16 +4788,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Regulation of Actin Cytoskeleton Organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032956">GO:0032956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0032956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Regulation of Actin Cytoskeleton Organization (GO:0032956). GO:0032956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3970,6 +4819,7 @@
 
 
                 </div>
+
 
 
 
@@ -4006,7 +4856,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27940460" target="_blank">PMID:27940460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4039,16 +4892,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000653">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4065,6 +4923,7 @@
 
 
                 </div>
+
 
 
 
@@ -4108,7 +4967,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27940460" target="_blank">PMID:27940460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4154,6 +5016,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4166,7 +5029,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27940460" target="_blank">PMID:27940460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4188,7 +5054,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28089478" target="_blank">PMID:28089478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4221,16 +5090,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000653">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4247,6 +5121,7 @@
 
 
                 </div>
+
 
 
 
@@ -4275,7 +5150,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29942802" target="_blank">PMID:29942802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4291,13 +5169,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29942802" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:29942802" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29942802" target="_blank">PMID:29942802</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4332,7 +5213,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-minimal-or-absent-light-microscopic-glomerular-changes">
                 <div class="item-name">
                     Minimal or absent light microscopic glomerular changes
 
@@ -4354,7 +5235,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27940460" target="_blank">PMID:27940460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4377,7 +5261,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-diffuse-podocyte-foot-process-effacement">
                 <div class="item-name">
                     Diffuse podocyte foot process effacement
 
@@ -4399,7 +5283,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35004732" target="_blank">PMID:35004732</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4444,7 +5331,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-Nephrin Autoantibody-Associated Podocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anti-nephrin autoantibodies define an autoantibody-associated subgroup within acquired diffuse podocytopathies that includes many biopsy-proven MCD cases. In adult MCD/primary FSGS cohorts, seropositivity tracks with active nephrotic syndrome, more severe proteinuria, and relapse dynamics, supporting nephrin-directed immune injury in a subset rather than all MCD.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"B cell\", \"Podocyte\"]}}, {\"id\": \"Calcineurin Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cyclosporine and tacrolimus are used as steroid-sparing agents for frequently relapsing or steroid-dependent MCD. Combined with reduced-dose prednisolone, they achieve similar remission rates with fewer steroid toxicities and may also stabilize the podocyte actin cytoskeleton.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cyclosporine\", \"tacrolimus\"]}}, {\"id\": \"Corticosteroid Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment for MCD. Adult cohorts show high remission rates after corticosteroid induction, but frequent relapses drive use of steroid- sparing strategies in frequently relapsing or steroid-dependent disease.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"prednisone\"]}}, {\"id\": \"Cyclophosphamide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alkylating immunosuppressive therapy used as a steroid-sparing option for frequently relapsing, steroid-dependent, or steroid-resistant adult MCD when relapse burden or steroid toxicity justifies escalation.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cyclophosphamide\"]}}, {\"id\": \"Glomerular Filtration Barrier Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Podocyte injury in MCD translates into loss of glomerular barrier integrity, driving selective proteinuria and the nephrotic state.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Podocyte\"]}}, {\"id\": \"Immune Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MCD is best framed as an immune-mediated podocytopathy in which adaptive immune dysregulation is implicated, but no single upstream circulating factor explains all cases. Human relapse cohorts show cytokine perturbations and urinary CD80 elevation, while review literature supports interacting T-cell, B-cell, and podocyte pathways rather than one definitive proximal mediator.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\", \"B cell\"], \"biological_processes\": [\"Adaptive Immune Response\", \"Cytokine Production\"]}}, {\"id\": \"Mycophenolate Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mycophenolate-based immunosuppression, including mycophenolate mofetil and enteric-coated mycophenolate sodium formulations, is used as a steroid- sparing option in frequently relapsing or steroid-dependent adult MCD and as salvage therapy in selected resistant cases.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"mycophenolate mofetil\", \"mycophenolate sodium\"]}}, {\"id\": \"Nephrotic Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Massive proteinuria (\u003e3.5 g/day in adults), hypoalbuminemia, edema, and hyperlipidemia constitute the classic presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000100\"}}, {\"id\": \"Nephrotic Syndrome Manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glomerular barrier failure causes the classic nephrotic syndrome of heavy proteinuria, hypoalbuminemia, edema, and hyperlipidemia. Severe adult nephrosis can also be accompanied by acute kidney injury and thromboembolism.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Podocyte CD80 Upregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A relapse-associated circulating factor can induce podocyte CD80/B7-1 expression in MCD. This state is reflected by elevated urinary CD80 during active disease and is linked to actin cytoskeletal remodeling and slit diaphragm dysfunction rather than being a universally specific marker across all nephrotic syndromes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Podocyte\"], \"biological_processes\": [\"Regulation of Actin Cytoskeleton Organization\"]}}, {\"id\": \"Podocyte Foot Process Effacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hallmark of MCD is diffuse effacement of podocyte foot processes visible on electron microscopy, despite normal-appearing glomeruli on light microscopy. Podocyte injury involves disruption of the actin cytoskeleton, nephrin and slit diaphragm disorganization, and loss of podocyte architecture.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Podocyte\"], \"biological_processes\": [\"Regulation of Actin Cytoskeleton Organization\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heavy proteinuria predominantly of albumin (selective proteinuria) is characteristic. Proteinuria typically exceeds 3.5 g/day in adults and resolves with steroid treatment in steroid-sensitive disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody used for frequently relapsing or steroid- dependent MCD. Adult retrospective data show a 78% overall response rate, but relapse remains common and optimal dosing is still evolving.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\"]}}], \"edges\": [{\"source\": \"Immune Dysregulation\", \"target\": \"Anti-Nephrin Autoantibody-Associated Podocyte Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune dysregulation enables autoreactive B cells to produce anti-nephrin autoantibodies targeting the slit diaphragm.\"}, {\"source\": \"Immune Dysregulation\", \"target\": \"Podocyte CD80 Upregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Relapse-associated circulating factors can induce podocyte CD80/B7-1 expression during active disease.\"}, {\"source\": \"Immune Dysregulation\", \"target\": \"Podocyte Foot Process Effacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune and circulating permeability signals converge on the podocyte, destabilizing foot process architecture and slit diaphragm organization.\"}, {\"source\": \"Podocyte CD80 Upregulation\", \"target\": \"Podocyte Foot Process Effacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CD80 activation is associated with podocyte actin reorganization and subsequent foot process effacement.\"}, {\"source\": \"Anti-Nephrin Autoantibody-Associated Podocyte Injury\", \"target\": \"Podocyte Foot Process Effacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anti-nephrin antibodies directly disrupt slit diaphragm integrity, leading to podocyte foot process effacement.\"}, {\"source\": \"Podocyte Foot Process Effacement\", \"target\": \"Glomerular Filtration Barrier Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Foot process and slit diaphragm disruption reduce barrier permselectivity, allowing albumin-predominant proteinuria.\"}, {\"source\": \"Glomerular Filtration Barrier Failure\", \"target\": \"Nephrotic Syndrome Manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier failure produces heavy proteinuria with downstream hypoalbuminemia, edema, and dyslipidemia.\"}, {\"source\": \"Corticosteroid Therapy\", \"target\": \"Nephrotic Syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Corticosteroid Therapy\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Immune Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Nephrotic Syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Calcineurin Inhibitors\", \"target\": \"Podocyte Foot Process Effacement\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Calcineurin Inhibitors\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Calcineurin Inhibitors\", \"target\": \"Nephrotic Syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cyclophosphamide\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cyclophosphamide\", \"target\": \"Nephrotic Syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mycophenolate Therapy\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mycophenolate Therapy\", \"target\": \"Nephrotic Syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-Nephrin Autoantibody-Associated Podocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anti-nephrin autoantibodies define an autoantibody-associated subgroup within acquired diffuse podocytopathies that includes many biopsy-proven MCD cases. In adult MCD/primary FSGS cohorts, seropositivity tracks with active nephrotic syndrome, more severe proteinuria, and relapse dynamics, supporting nephrin-directed immune injury in a subset rather than all MCD.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"B cell\", \"Podocyte\"]}}, {\"id\": \"Calcineurin Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cyclosporine and tacrolimus are used as steroid-sparing agents for frequently relapsing or steroid-dependent MCD. Combined with reduced-dose prednisolone, they achieve similar remission rates with fewer steroid toxicities and may also stabilize the podocyte actin cytoskeleton.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cyclosporine\", \"tacrolimus\"]}}, {\"id\": \"Corticosteroid Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment for MCD. Adult cohorts show high remission rates after corticosteroid induction, but frequent relapses drive use of steroid-sparing strategies in frequently relapsing or steroid-dependent disease.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"prednisone\"]}}, {\"id\": \"Cyclophosphamide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alkylating immunosuppressive therapy used as a steroid-sparing option for frequently relapsing, steroid-dependent, or steroid-resistant adult MCD when relapse burden or steroid toxicity justifies escalation.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cyclophosphamide\"]}}, {\"id\": \"Glomerular Filtration Barrier Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Podocyte injury in MCD translates into loss of glomerular barrier integrity, driving selective proteinuria and the nephrotic state.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Podocyte\"]}}, {\"id\": \"Immune Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MCD is best framed as an immune-mediated podocytopathy in which adaptive immune dysregulation is implicated, but no single upstream circulating factor explains all cases. Human relapse cohorts show cytokine perturbations and urinary CD80 elevation, while review literature supports interacting T-cell, B-cell, and podocyte pathways rather than one definitive proximal mediator.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\", \"B cell\"], \"biological_processes\": [\"Adaptive Immune Response\", \"Cytokine Production\"]}}, {\"id\": \"Mycophenolate Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mycophenolate-based immunosuppression, including mycophenolate mofetil and enteric-coated mycophenolate sodium formulations, is used as a steroid-sparing option in frequently relapsing or steroid-dependent adult MCD and as salvage therapy in selected resistant cases.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"mycophenolate mofetil\", \"mycophenolate sodium\"]}}, {\"id\": \"Nephrotic Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Massive proteinuria (\u003e3.5 g/day in adults), hypoalbuminemia, edema, and hyperlipidemia constitute the classic presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000100\"}}, {\"id\": \"Nephrotic Syndrome Manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glomerular barrier failure causes the classic nephrotic syndrome of heavy proteinuria, hypoalbuminemia, edema, and hyperlipidemia. Severe adult nephrosis can also be accompanied by acute kidney injury and thromboembolism.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Podocyte CD80 Upregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A relapse-associated circulating factor can induce podocyte CD80/B7-1 expression in MCD. This state is reflected by elevated urinary CD80 during active disease and is linked to actin cytoskeletal remodeling and slit diaphragm dysfunction rather than being a universally specific marker across all nephrotic syndromes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Podocyte\"], \"biological_processes\": [\"Regulation of Actin Cytoskeleton Organization\"]}}, {\"id\": \"Podocyte Foot Process Effacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hallmark of MCD is diffuse effacement of podocyte foot processes visible on electron microscopy, despite normal-appearing glomeruli on light microscopy. Podocyte injury involves disruption of the actin cytoskeleton, nephrin and slit diaphragm disorganization, and loss of podocyte architecture.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Podocyte\"], \"biological_processes\": [\"Regulation of Actin Cytoskeleton Organization\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heavy proteinuria predominantly of albumin (selective proteinuria) is characteristic. Proteinuria typically exceeds 3.5 g/day in adults and resolves with steroid treatment in steroid-sensitive disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody used for frequently relapsing or steroid-dependent MCD. Adult retrospective data show a 78% overall response rate, but relapse remains common and optimal dosing is still evolving.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\"]}}], \"edges\": [{\"source\": \"Immune Dysregulation\", \"target\": \"Anti-Nephrin Autoantibody-Associated Podocyte Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune dysregulation enables autoreactive B cells to produce anti-nephrin autoantibodies targeting the slit diaphragm.\"}, {\"source\": \"Immune Dysregulation\", \"target\": \"Podocyte CD80 Upregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Relapse-associated circulating factors can induce podocyte CD80/B7-1 expression during active disease.\"}, {\"source\": \"Immune Dysregulation\", \"target\": \"Podocyte Foot Process Effacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune and circulating permeability signals converge on the podocyte, destabilizing foot process architecture and slit diaphragm organization.\"}, {\"source\": \"Podocyte CD80 Upregulation\", \"target\": \"Podocyte Foot Process Effacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CD80 activation is associated with podocyte actin reorganization and subsequent foot process effacement.\"}, {\"source\": \"Anti-Nephrin Autoantibody-Associated Podocyte Injury\", \"target\": \"Podocyte Foot Process Effacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anti-nephrin antibodies directly disrupt slit diaphragm integrity, leading to podocyte foot process effacement.\"}, {\"source\": \"Podocyte Foot Process Effacement\", \"target\": \"Glomerular Filtration Barrier Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Foot process and slit diaphragm disruption reduce barrier permselectivity, allowing albumin-predominant proteinuria.\"}, {\"source\": \"Glomerular Filtration Barrier Failure\", \"target\": \"Nephrotic Syndrome Manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier failure produces heavy proteinuria with downstream hypoalbuminemia, edema, and dyslipidemia.\"}, {\"source\": \"Corticosteroid Therapy\", \"target\": \"Nephrotic Syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Corticosteroid Therapy\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Immune Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Nephrotic Syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Calcineurin Inhibitors\", \"target\": \"Podocyte Foot Process Effacement\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Calcineurin Inhibitors\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Calcineurin Inhibitors\", \"target\": \"Nephrotic Syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cyclophosphamide\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cyclophosphamide\", \"target\": \"Nephrotic Syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mycophenolate Therapy\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mycophenolate Therapy\", \"target\": \"Nephrotic Syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4465,11 +5352,9 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4482,19 +5367,26 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thromboembolism" data-dismech-node="Thromboembolism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thromboembolism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thromboembolism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001907">HP:0001907</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001907</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4515,7 +5407,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28089478" target="_blank">PMID:28089478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4547,22 +5442,98 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrotic-syndrome" data-dismech-node="Nephrotic Syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nephrotic Syndrome
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000100</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27940460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27940460" target="_blank">PMID:27940460</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Minimal change disease (MCD) is a major cause of idiopathic nephrotic syndrome (NS), characterized by intense proteinuria leading to edema and intravascular volume depletion."</div>
+
+
+                <div class="evidence-explanation">Directly defines MCD as a major cause of nephrotic syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proteinuria" data-dismech-node="Proteinuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Proteinuria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proteinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000093</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4583,7 +5554,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35004732" target="_blank">PMID:35004732</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4609,19 +5583,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-kidney-injury" data-dismech-node="Acute Kidney Injury" data-dismech-type="phenotype">
                     <div class="item-name">
                         Acute Kidney Injury
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acute kidney injury
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001919">HP:0001919</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001919</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4642,7 +5623,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28089478" target="_blank">PMID:28089478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4677,19 +5661,26 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-edema" data-dismech-node="Peripheral Edema" data-dismech-type="phenotype">
                     <div class="item-name">
                         Peripheral Edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012398">HP:0012398</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012398</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral edema (HP:0012398). HP:0012398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4704,19 +5695,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoalbuminemia" data-dismech-node="Hypoalbuminemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypoalbuminemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoalbuminemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003073">HP:0003073</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003073</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4731,19 +5729,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperlipidemia" data-dismech-node="Hyperlipidemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperlipidemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperlipidemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003077">HP:0003077</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003077</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4751,74 +5756,6 @@
 
 
 
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Nephrotic Syndrome
-
-
-                    <span class="phenotype-id">
-                        Nephrotic syndrome
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000100">HP:0000100</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27940460" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27940460" target="_blank">PMID:27940460</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Minimal change disease (MCD) is a major cause of idiopathic nephrotic syndrome (NS), characterized by intense proteinuria leading to edema and intravascular volume depletion."</div>
-
-
-                <div class="evidence-explanation">Directly defines MCD as a major cause of nephrotic syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
 
 
 
@@ -4865,7 +5802,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-dqa1-susceptibility-locus" data-dismech-node="HLA-DQA1 susceptibility locus" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DQA1 susceptibility locus
 
@@ -4877,13 +5814,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DQA1
 
 
-    <a href="https://bioregistry.io/hgnc:4942" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4942">hgnc:4942</a>
+    <a href="https://bioregistry.io/hgnc:4942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:4942</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DQA1 (hgnc:4942). hgnc:4942 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4907,7 +5849,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29277510" target="_blank">PMID:29277510</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4929,7 +5874,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30761277" target="_blank">PMID:30761277</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4950,9 +5898,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-dqb1-susceptibility-locus" data-dismech-node="HLA-DQB1 susceptibility locus" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DQB1 susceptibility locus
 
@@ -4964,13 +5913,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DQB1
 
 
-    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4944">hgnc:4944</a>
+    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:4944</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4994,7 +5948,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9203175" target="_blank">PMID:9203175</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5016,7 +5973,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29277510" target="_blank">PMID:29277510</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5037,9 +5997,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-drb1-susceptibility-locus" data-dismech-node="HLA-DRB1 susceptibility locus" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DRB1 susceptibility locus
 
@@ -5051,13 +6012,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DRB1
 
 
-    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4948">hgnc:4948</a>
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:4948</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5081,7 +6047,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29903748" target="_blank">PMID:29903748</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5103,7 +6072,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29277510" target="_blank">PMID:29277510</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5124,9 +6096,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nphs1-rare-variants" data-dismech-node="NPHS1 rare variants" data-dismech-type="genetic">
                 <div class="item-name">
                     NPHS1 rare variants
 
@@ -5138,13 +6111,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NPHS1
 
 
-    <a href="https://bioregistry.io/hgnc:7908" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7908">hgnc:7908</a>
+    <a href="https://bioregistry.io/hgnc:7908" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:7908</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPHS1 (hgnc:7908). hgnc:7908 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5166,7 +6144,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15086927" target="_blank">PMID:15086927</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5188,7 +6169,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15086927" target="_blank">PMID:15086927</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5209,9 +6193,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nphs2-podocin-variants" data-dismech-node="NPHS2 (podocin) variants" data-dismech-type="genetic">
                 <div class="item-name">
                     NPHS2 (podocin) variants
 
@@ -5223,13 +6208,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NPHS2
 
 
-    <a href="https://bioregistry.io/hgnc:13394" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13394">hgnc:13394</a>
+    <a href="https://bioregistry.io/hgnc:13394" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:13394</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPHS2 (hgnc:13394). hgnc:13394 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5251,7 +6241,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14978175" target="_blank">PMID:14978175</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5273,7 +6266,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14978175" target="_blank">PMID:14978175</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5295,9 +6291,16 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5309,13 +6312,18 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-corticosteroid-therapy" data-dismech-node="Corticosteroid Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Corticosteroid Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Corticosteroid therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Corticosteroid therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
@@ -5346,23 +6354,42 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         prednisone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8382">CHEBI:8382</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:8382</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">First-line treatment for MCD. Adult cohorts show high remission rates after corticosteroid induction, but frequent relapses drive use of steroid- sparing strategies in frequently relapsing or steroid-dependent disease.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">First-line treatment for MCD. Adult cohorts show high remission rates after corticosteroid induction, but frequent relapses drive use of steroid-sparing strategies in frequently relapsing or steroid-dependent disease.
 </div>
 
 
@@ -5370,17 +6397,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nephrotic syndrome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000100">HP:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
@@ -5388,10 +6422,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5411,7 +6448,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28089478" target="_blank">PMID:28089478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5433,7 +6473,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27940460" target="_blank">PMID:27940460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5456,13 +6499,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-rituximab" data-dismech-node="Rituximab" data-dismech-type="treatment">
                 <div class="item-name">
                     Rituximab
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Rituximab therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Rituximab therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rituximab therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -5493,23 +6541,42 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">Anti-CD20 monoclonal antibody used for frequently relapsing or steroid- dependent MCD. Adult retrospective data show a 78% overall response rate, but relapse remains common and optimal dosing is still evolving.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Anti-CD20 monoclonal antibody used for frequently relapsing or steroid-dependent MCD. Adult retrospective data show a 78% overall response rate, but relapse remains common and optimal dosing is still evolving.
 </div>
 
 
@@ -5538,7 +6605,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24920841" target="_blank">PMID:24920841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5567,17 +6637,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nephrotic syndrome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000100">HP:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
@@ -5585,10 +6662,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5608,7 +6688,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24920841" target="_blank">PMID:24920841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5631,13 +6714,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-calcineurin-inhibitors" data-dismech-node="Calcineurin Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     Calcineurin Inhibitors
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Calcineurin inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Calcineurin inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Calcineurin inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -5668,17 +6756,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cyclosporine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4031">CHEBI:4031</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:4031</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclosporine, annotated with cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         tacrolimus
@@ -5686,13 +6781,30 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_61049" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:61049">CHEBI:61049</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_61049" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:61049</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tacrolimus, annotated with tacrolimus (anhydrous) (CHEBI:61049). CHEBI:61049 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5725,7 +6837,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18724379" target="_blank">PMID:18724379</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5754,17 +6869,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nephrotic syndrome
@@ -5772,10 +6894,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000100">HP:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5795,7 +6920,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35230699" target="_blank">PMID:35230699</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5818,13 +6946,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cyclophosphamide" data-dismech-node="Cyclophosphamide" data-dismech-type="treatment">
                 <div class="item-name">
                     Cyclophosphamide
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Cyclophosphamide therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Cyclophosphamide therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Cyclophosphamide therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -5855,19 +6988,38 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cyclophosphamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4027">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:4027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5879,17 +7031,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nephrotic syndrome
@@ -5897,10 +7056,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000100">HP:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5920,7 +7082,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26064510" target="_blank">PMID:26064510</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5942,7 +7107,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38341276" target="_blank">PMID:38341276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5965,13 +7133,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-mycophenolate-therapy" data-dismech-node="Mycophenolate Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Mycophenolate Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Mycophenolate therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Mycophenolate therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Mycophenolate therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -6002,17 +7175,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         mycophenolate mofetil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8764">CHEBI:8764</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:8764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         mycophenolate sodium
@@ -6020,17 +7200,34 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_67155" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:67155">CHEBI:67155</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_67155" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-44">CHEBI:67155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mycophenolate sodium (CHEBI:67155). CHEBI:67155 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">Mycophenolate-based immunosuppression, including mycophenolate mofetil and enteric-coated mycophenolate sodium formulations, is used as a steroid- sparing option in frequently relapsing or steroid-dependent adult MCD and as salvage therapy in selected resistant cases.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Mycophenolate-based immunosuppression, including mycophenolate mofetil and enteric-coated mycophenolate sodium formulations, is used as a steroid-sparing option in frequently relapsing or steroid-dependent adult MCD and as salvage therapy in selected resistant cases.
 </div>
 
 
@@ -6038,17 +7235,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nephrotic syndrome
@@ -6056,10 +7260,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000100">HP:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6079,7 +7286,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39935927" target="_blank">PMID:39935927</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6095,13 +7305,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30385039" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30385039" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30385039" target="_blank">PMID:30385039</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6136,8 +7349,35 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-drug-induced-mcd" data-dismech-node="Drug-Induced MCD" data-dismech-type="environmental">
                 <div class="item-name">Drug-Induced MCD</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        drug exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000509" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-47">ECTO:0000509</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is drug exposure, annotated with exposure to drug (ECTO:0000509). ECTO:0000509 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -6158,7 +7398,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37973491" target="_blank">PMID:37973491</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6179,6 +7422,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -6193,7 +7437,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-urinary-cd80" data-dismech-node="Urinary CD80" data-dismech-type="biochemical">
                 <div class="item-name">
                     Urinary CD80
 
@@ -6219,7 +7463,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33194357" target="_blank">PMID:33194357</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6235,13 +7482,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29492674" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:29492674" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29492674" target="_blank">PMID:29492674</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6264,7 +7514,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-circulating-anti-nephrin-autoantibodies" data-dismech-node="Circulating anti-nephrin autoantibodies" data-dismech-type="biochemical">
                 <div class="item-name">
                     Circulating anti-nephrin autoantibodies
 
@@ -6290,7 +7540,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40046822" target="_blank">PMID:40046822</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6312,7 +7565,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40147632" target="_blank">PMID:40147632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6335,7 +7591,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-soluble-st2" data-dismech-node="Serum soluble ST2" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum soluble ST2
 
@@ -6361,7 +7617,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37907612" target="_blank">PMID:37907612</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6387,10 +7646,834 @@
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-kidney-biopsy-with-electron-microscopy">
+                <div class="item-name">
+                    Kidney biopsy with electron microscopy
+
+                </div>
+
+                <div class="item-desc">Diagnostic study used in adults and atypical nephrotic syndrome to confirm MCD and exclude alternative glomerulopathies.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Light microscopy is largely normal, whereas electron microscopy shows diffuse podocyte foot process effacement.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27940460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27940460" target="_blank">PMID:27940460</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The pathologic hallmark of disease is absence of visible alterations by light microscopy and effacement of foot processes by electron microscopy."</div>
+
+
+                <div class="evidence-explanation">Supports kidney biopsy with electron microscopy as the defining diagnostic study in MCD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-acute-presentation">
+                <div class="item-name">Acute Presentation</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood to Adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Sudden onset of nephrotic syndrome with massive proteinuria, edema, hypoalbuminemia, and hyperlipidemia. In children, diagnosis is clinical; in adults, kidney biopsy is required.
+</div>
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-initial-remission">
+                <div class="item-name">Initial Remission</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood to Adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Most patients respond promptly to initial corticosteroid treatment. In adults, remission is typically reached within the first month, although a minority remit spontaneously or require alternative induction therapy.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28089478" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28089478" target="_blank">PMID:28089478</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"After 16 weeks of corticosteroid treatment, 92 (88%) of these patients had reached remission. Median time to remission was 4 (IQR, 2-7) weeks."</div>
+
+
+                <div class="evidence-explanation">Supports the rapid and generally favorable initial steroid response pattern in adult-onset MCD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-relapsing-remitting-course">
+                <div class="item-name">Relapsing-Remitting Course</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood to Adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Relapse is common after initial remission and motivates steroid-sparing therapy in frequently relapsing or steroid-dependent disease. Delayed time to remission predicts a higher relapse risk in steroid-sensitive cohorts.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28089478" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28089478" target="_blank">PMID:28089478</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One or more relapses were observed in 57 (54%) patients who received initial corticosteroid treatment."</div>
+
+
+                <div class="evidence-explanation">Quantifies the common relapsing course after adult initial steroid response.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35366214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35366214" target="_blank">PMID:35366214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"During a median observation period of 2.3 years after the end of the 2nd month after initiation of immunosuppressive therapy, 46 (45.1%) patients relapsed."</div>
+
+
+                <div class="evidence-explanation">Adds prospective relapse data in steroid-sensitive MCD/FSGS cohorts relevant to the relapsing-remitting course of MCD.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35366214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35366214" target="_blank">PMID:35366214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The time to remission was identified as a significant predictor of relapse in steroid-sensitive patients."</div>
+
+
+                <div class="evidence-explanation">Supports adding prognosis detail that slower early remission signals higher relapse risk.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-long-term-outcome">
+                <div class="item-name">Long-Term Outcome</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Long-term kidney outcome is generally favorable in steroid-sensitive disease, but steroid-resistant cases can evolve toward FSGS-associated kidney failure. Histologic chronicity at diagnosis independently predicts both relapse and dialysis risk.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28089478" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28089478" target="_blank">PMID:28089478</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At the last follow-up, 113 (90%) patients were in remission and had preserved kidney function. 3 patients with steroid-resistant MCNS progressed to end-stage renal disease, which was associated with focal segmental glomerulosclerosis lesions on repeat biopsy."</div>
+
+
+                <div class="evidence-explanation">Supports favorable renal prognosis overall while preserving the important exception of steroid-resistant cases that evolve toward FSGS and ESRD.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33090339" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33090339" target="_blank">PMID:33090339</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"each one-point increase in score raised with 27% the risk of relapse and with 31% the risk of dialysis initiation."</div>
+
+
+                <div class="evidence-explanation">Demonstrates that histologic chronicity independently predicts both relapse risk and kidney survival in adult MCD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-children">
+                <div class="item-name">Children</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">70-90% of idiopathic nephrotic syndrome cases after age 1 year</span>
+
+
+
+                </div>
+
+                <div class="item-notes">MCD is the dominant cause of idiopathic nephrotic syndrome in children older than 1 year.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27940460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27940460" target="_blank">PMID:27940460</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In adults, it accounts for approximately 15% of patients with idiopathic NS, reaching a much higher percentage at younger ages, up to 70%-90% in children &gt;1 year of age."</div>
+
+
+                <div class="evidence-explanation">Provides epidemiological data for MCD prevalence by age group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-adults">
+                <div class="item-name">Adults</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">approximately 10%-25% of idiopathic nephrotic syndrome cases</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Adult MCD is less common than pediatric disease, usually requires kidney biopsy confirmation, and cohort/review estimates generally place it in the 10%-25% range among adult nephrotic syndrome cases.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27940460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27940460" target="_blank">PMID:27940460</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In adults, it accounts for approximately 15% of patients with idiopathic NS, reaching a much higher percentage at younger ages, up to 70%-90% in children &gt;1 year of age."</div>
+
+
+                <div class="evidence-explanation">Supports the lower relative frequency of MCD in adult idiopathic nephrotic syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38231719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38231719" target="_blank">PMID:38231719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Minimal change disease (MCD) is the most common cause of nephrotic syndrome (NS) in children, and in adults, it contributes to 10%-25% of NS."</div>
+
+
+                <div class="evidence-explanation">Adds a second evidence-backed adult prevalence estimate that broadens the range beyond the older 15% review figure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-allergic-disease-comorbidity">
+                <div class="item-name">Allergic disease comorbidity</div>
+
+                <div class="item-desc">Allergic disease and atopic history are common in MCD, especially in steroid-sensitive disease, supporting overlap between relapse-prone podocytopathy and allergic immune activation.
+</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag">allergic disease</span>
+
+                    <span class="tag">atopy</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25598239" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25598239" target="_blank">PMID:25598239</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of the 30 children investigated, 11 (36.7%) had a history of atopy."</div>
+
+
+                <div class="evidence-explanation">Directly quantifies atopy in pediatric steroid-sensitive nephrotic syndrome, the common pediatric clinical correlate of MCD.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40954986" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40954986" target="_blank">PMID:40954986</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"AIM: Minimal change disease (MCD) is one of the causes of idiopathic nephrotic syndrome, and 40% of patients have allergic diseases."</div>
+
+
+                <div class="evidence-explanation">Supports frequent allergic comorbidity in MCD and connects it to emerging TSLP-linked steroid-resistance biology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse277674">
+                <div class="item-name">
+                    Digital Spatial Profiling of Human Kidney Biopsies from Patients with Minimal Change Disease
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE277674" target="_blank">geo:GSE277674</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Spatial transcriptomic profiling enables precise quantification of gene expression with simultaneous localization of expression profiles onto tissue structures. This new technology promises to improve our understanding of the disease mechanisms. Therefore, there is intense interest in applying these methods in clinical trials or as laboratory developed tests to aid in diagnosis of disease. Before these applications can been more broadly deployed in clinical research and diagnostics, it is necessary to thoroughly understand the technology’s performance in real world conditions.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SPATIAL TRANSCRIPTOMICS</span>
+
+
+                    <span class="tag tag-dataset">n=96</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40311874" target="_blank" style="color: var(--secondary);">PMID:40311874</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse216841">
+                <div class="item-name">
+                    Idiopathic membranous nephropathy and minimal change disease (MCD) transcriptome
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE216841" target="_blank">geo:GSE216841</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Introduction: Minimal change disease (MCD) is a major cause of nephrotic syndrome. With a substantial number of patients requiring long-term immunosuppression leading to significant morbidity, the study aim was to determine MCD glomerular transcriptome to serve as a basis for biomarker discovery and novel drug target identification. Animal work showed podocyte injury induced by IL-7/IL-7R signaling (Zhai S, BBRC, 2018). Methods: Renal biopsies from adult patients representing the following groups were selected from the Norwegian Kidney Biopsy Registry: MCD (n=14), as well as normal tissue (n=8) and primary membranous nephropathy (MN; n=12) as the two reference groups.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=34</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/36672735" target="_blank" style="color: var(--secondary);">PMID:36672735</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse246204">
+                <div class="item-name">
+                    miRNA and mRNA Signatures in Human Acute Kidney Injury Tissue [mRNA, minimal change disease]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE246204" target="_blank">geo:GSE246204</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Acute kidney injury (AKI) is an important contributor to the development of chronic kidney disease (CKD). We performed miRNA and mRNA sequencing on biobanked human kidney tissues obtained in the routine clinical care of patients with the diagnoses of AKI and minimal change disease (MCD), in addition to nephrectomized (Ref) tissue from individuals without known kidney disease. From all renal biopsy samples, 2 cryosections (10 μM) including the entire cross-section of the tissue were placed directly into PicoPure RNA extraction buffer. RNA was isolated using the PicoPure isolation kit. Total RNA was evaluated for quantity and quality using an Agilent Bioanalyzer.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/38954486" target="_blank" style="color: var(--secondary);">PMID:38954486</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st000329">
+                <div class="item-name">
+                    Minimal change disease and focal segmental sclerosis in urine
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST000329" target="_blank">metabolomics_workbench:ST000329</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000097297">
+                <div class="item-name">
+                    Pathogenesis of focal segmental glomerulosclerosis and minimal change disease
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000097297" target="_blank">massive:MSV000097297</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Podocyte injury is the hallmark of both focal segmental glomerulosclerosis (FSGS) and minimal change disease (MCD) and is ultimately reflected in foot process effacement proteinuria. Triggers and pathogenic pathways leading to podocyte cytoskeleton rearrangements are however incompletely explained. Here, we aimed to contribute to the understanding of these pathways using tissue bottom-up proteomic profiling of laser capture micro dissected glomeruli from MCD and FSGS.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000094293">
+                <div class="item-name">
+                    Minimal Change Disease: a proteomics approach
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000094293" target="_blank">massive:MSV000094293</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This study aimed to shed light on the potential pathophysiology of MCD by using glomerular proteomic analysis. Shotgun proteomics using label-free quantitative mass spectrometry was performed on formalin-fixed, paraffin-embedded (FFPE) renal biopsies from two groups of samples: control (CTR) and MCD. Glomeruli were excised from FFPE renal biopsies using laser capture microdissection (LCM), and a single-pot solid-phase-enhanced sample preparation (SP3) digest method was used to improve yield and protein identifications.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -6402,7 +8485,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-turing-trial">
                 <div class="item-name">
                     TURING trial
 
@@ -6420,17 +8503,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nephrotic syndrome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000100">HP:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
@@ -6438,10 +8528,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6460,7 +8553,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39112932" target="_blank">PMID:39112932</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6483,7 +8579,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07233330">
                 <div class="item-name">
                     NCT07233330
 
@@ -6501,17 +8597,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nephrotic syndrome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000100">HP:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
@@ -6519,10 +8622,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6541,7 +8647,10 @@
                         <a href="https://clinicaltrials.gov/study/NCT07233330" target="_blank">clinicaltrials:NCT07233330</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6564,7 +8673,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01763580">
                 <div class="item-name">
                     NCT01763580
 
@@ -6582,17 +8691,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nephrotic syndrome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000100">HP:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
@@ -6600,10 +8716,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6622,7 +8741,10 @@
                         <a href="https://clinicaltrials.gov/study/NCT01763580" target="_blank">clinicaltrials:NCT01763580</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6645,7 +8767,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03210688">
                 <div class="item-name">
                     NCT03210688
 
@@ -6663,17 +8785,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nephrotic syndrome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000100">HP:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
@@ -6681,10 +8810,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6703,7 +8835,10 @@
                         <a href="https://clinicaltrials.gov/study/NCT03210688" target="_blank">clinicaltrials:NCT03210688</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6732,6 +8867,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6748,7 +8886,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Minimal Change Disease
 creation_date: &#34;2026-04-13T00:00:00Z&#34;
-updated_date: &#34;2026-04-16T00:43:54Z&#34;
 description: &gt;-
   Minimal change disease is an immune-mediated podocytopathy in which adaptive immune dysregulation, circulating permeability factors, podocyte CD80 upregulation, and in some cases anti-nephrin autoantibodies injure the podocyte.
   This injury produces diffuse effacement of podocyte foot processes despite glomeruli that appear normal on light microscopy.
@@ -6862,7 +8999,7 @@ pathophysiology:
       factor.
   - reference: PMID:29492674
     reference_title: &#34;Urinary CD80: a biomarker for a favorable response to corticosteroids in minimal change disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Some studies suggest that subjects with steroid-sensitive MCD may express CD80 in their podocytes during relapse and that this expression is associated with high urinary levels of CD80.&#34;
     explanation: Supports relapse-associated podocyte CD80 biology while also
@@ -7000,7 +9137,7 @@ pathophysiology:
     explanation: Supports the core nephrotic syndrome manifestations arising
       from MCD.
   - reference: PMID:28089478
-    reference_title: &#34;Clinical course of adult-onset minimal change disease.&#34;
+    reference_title: &#34;The Clinical Course of Minimal Change Nephrotic Syndrome With Onset in Adulthood or Late Adolescence: A Case Series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Acute kidney injury was observed in 50 (40%) patients. Recovery
@@ -7031,7 +9168,7 @@ pathophysiology:
       to FSGS through chronic podocyte injury.
   - reference: PMID:29942802
     reference_title: &#34;Molecular and Cellular Mechanisms for Proteinuria in Minimal Change Disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;The differences between the two conditions are not well defined, since molecular mechanisms may be shared by the two diseases.&#34;
     explanation: Keeps the MCD-FSGS continuum claim appropriately qualified.
@@ -7118,7 +9255,7 @@ phenotypes:
       label: Acute kidney injury
   evidence:
   - reference: PMID:28089478
-    reference_title: &#34;Clinical course of adult-onset minimal change disease.&#34;
+    reference_title: &#34;The Clinical Course of Minimal Change Nephrotic Syndrome With Onset in Adulthood or Late Adolescence: A Case Series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Acute kidney injury was observed in 50 (40%) patients. Recovery
@@ -7137,7 +9274,7 @@ phenotypes:
       label: Thromboembolism
   evidence:
   - reference: PMID:28089478
-    reference_title: &#34;Clinical course of adult-onset minimal change disease.&#34;
+    reference_title: &#34;The Clinical Course of Minimal Change Nephrotic Syndrome With Onset in Adulthood or Late Adolescence: A Case Series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Arterial or venous thrombosis occurred in 11 (9%) patients.&#34;
@@ -7157,7 +9294,7 @@ biochemical:
       in adult relapse.
   - reference: PMID:29492674
     reference_title: &#34;Urinary CD80: a biomarker for a favorable response to corticosteroids in minimal change disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Thus, urinary CD80 is emerging as a potential biomarker for steroid-responsiveness in children presenting with primary nephrotic syndrome.&#34;
     explanation: Supports biomarker potential while keeping the urinary CD80
@@ -7379,6 +9516,11 @@ genetic:
       podocytopathy interpretation.
 environmental:
 - name: Drug-Induced MCD
+  exposure_term:
+    preferred_term: drug exposure
+    term:
+      id: ECTO:0000509
+      label: exposure to drug
   description: &gt;
     NSAIDs are the most common drug trigger. Interferons, D-penicillamine,
     tiopronin, and bisphosphonates have also been associated with
@@ -7397,8 +9539,8 @@ treatments:
 - name: Corticosteroid Therapy
   description: &gt;
     First-line treatment for MCD. Adult cohorts show high remission rates after
-    corticosteroid induction, but frequent relapses drive use of steroid-
-    sparing strategies in frequently relapsing or steroid-dependent disease.
+    corticosteroid induction, but frequent relapses drive use of steroid-sparing
+    strategies in frequently relapsing or steroid-dependent disease.
   treatment_term:
     preferred_term: Corticosteroid therapy
     term:
@@ -7420,7 +9562,7 @@ treatments:
       label: Proteinuria
   evidence:
   - reference: PMID:28089478
-    reference_title: &#34;Clinical course of adult-onset minimal change disease.&#34;
+    reference_title: &#34;The Clinical Course of Minimal Change Nephrotic Syndrome With Onset in Adulthood or Late Adolescence: A Case Series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;After 16 weeks of corticosteroid treatment, 92 (88%) of these
@@ -7438,8 +9580,8 @@ treatments:
       steroid-sparing agents due to frequent relapse.
 - name: Rituximab
   description: &gt;
-    Anti-CD20 monoclonal antibody used for frequently relapsing or steroid-
-    dependent MCD. Adult retrospective data show a 78% overall response rate,
+    Anti-CD20 monoclonal antibody used for frequently relapsing or steroid-dependent
+    MCD. Adult retrospective data show a 78% overall response rate,
     but relapse remains common and optimal dosing is still evolving.
   treatment_term:
     preferred_term: Rituximab therapy
@@ -7583,8 +9725,8 @@ treatments:
 - name: Mycophenolate Therapy
   description: &gt;
     Mycophenolate-based immunosuppression, including mycophenolate mofetil and
-    enteric-coated mycophenolate sodium formulations, is used as a steroid-
-    sparing option in frequently relapsing or steroid-dependent adult MCD and
+    enteric-coated mycophenolate sodium formulations, is used as a steroid-sparing
+    option in frequently relapsing or steroid-dependent adult MCD and
     as salvage therapy in selected resistant cases.
   treatment_term:
     preferred_term: Mycophenolate therapy
@@ -7620,7 +9762,7 @@ treatments:
       steroid-dependent MCD.
   - reference: PMID:30385039
     reference_title: &#34;An open-label randomized controlled trial of low-dose corticosteroid plus enteric-coated mycophenolate sodium versus standard corticosteroid treatment for minimal change nephrotic syndrome in adults (MSN Study).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Thus, in adult patients, treatment with low-dose prednisone plus enteric-coated mycophenolate sodium was not superior to a standard high-dose prednisone regimen to induce complete remission of MCNS.&#34;
     explanation: &#34;Keeps the mycophenolate entry calibrated: adult randomized
@@ -7672,6 +9814,7 @@ clinical_trials:
       label: Proteinuria
   evidence:
   - reference: clinicaltrials:NCT07233330
+    reference_title: &#34;Obinutuzumab Treatment in Frequently Relapsing and Rituximab-Dependent Idiopathic Nephrotic Syndrome in Adults: a Fully Academic, Single-arm, Open, Prospective, Intervention Trial&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This is a multicenter, open-label, single-arm Phase II
@@ -7698,6 +9841,7 @@ clinical_trials:
       label: Proteinuria
   evidence:
   - reference: clinicaltrials:NCT01763580
+    reference_title: &#34;Open-Label, Randomized, Comparative, Multi-Center Clinical Trial on the Therapeutic Effect of Tacrolimus (Prograf Cap.®) in Combination With Low-Dose Corticosteroid Compared With High-Dose Corticosteroid Alone in Patients With Minimal-Change Nephrotic Syndrome (MCNS)&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;To compare the therapeutic effect of tacrolimus in combination
@@ -7723,6 +9867,7 @@ clinical_trials:
       label: Proteinuria
   evidence:
   - reference: clinicaltrials:NCT03210688
+    reference_title: &#34;Treatment of Primary Minimal Change Nephropathy: A Randomized Open-labeled Non-inferiority Study on Prednisolone and Vitamin D&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The aim is to examine if treatment with reduced dose of
@@ -7873,7 +10018,7 @@ progression:
       important exception of steroid-resistant cases that evolve toward FSGS and
       ESRD.
   - reference: PMID:33090339
-    reference_title: &#34;Histological Chronic Changes Predict Outcomes in Adult MCD.&#34;
+    reference_title: &#34;Adult-onset minimal change disease: the significance of histological chronic changes for clinical presentation and outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;each one-point increase in score raised with 27% the risk
@@ -7947,6 +10092,54 @@ notes: &gt;
   incomplete biomarkers. Recent anti-nephrin autoantibody studies support an
   autoantibody-associated subgroup within biopsy-proven MCD and related
   podocytopathies, while seronegative MCD remains biologically heterogeneous.
+datasets:
+- accession: geo:GSE277674
+  title: Digital Spatial Profiling of Human Kidney Biopsies from Patients with Minimal Change Disease
+  data_type: SPATIAL_TRANSCRIPTOMICS
+  description: Spatial transcriptomic profiling enables precise quantification of gene expression with simultaneous localization of expression profiles onto tissue structures. This new technology promises to improve our understanding of the disease mechanisms. Therefore, there is intense interest in applying these methods in clinical trials or as laboratory developed tests to aid in diagnosis of disease. Before these applications can been more broadly deployed in clinical research and diagnostics, it is necessary to thoroughly understand the technology’s performance in real world conditions.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  sample_count: 96
+  publication: PMID:40311874
+  notes: Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE216841
+  title: Idiopathic membranous nephropathy and minimal change disease (MCD) transcriptome
+  description: &#39;Introduction: Minimal change disease (MCD) is a major cause of nephrotic syndrome. With a substantial number of patients requiring long-term immunosuppression leading to significant morbidity, the study aim was to determine MCD glomerular transcriptome to serve as a basis for biomarker discovery and novel drug target identification. Animal work showed podocyte injury induced by IL-7/IL-7R signaling (Zhai S, BBRC, 2018). Methods: Renal biopsies from adult patients representing the following groups were selected from the Norwegian Kidney Biopsy Registry: MCD (n=14), as well as normal tissue (n=8) and primary membranous nephropathy (MN; n=12) as the two reference groups.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 34
+  publication: PMID:36672735
+  notes: Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE246204
+  title: miRNA and mRNA Signatures in Human Acute Kidney Injury Tissue [mRNA, minimal change disease]
+  description: Acute kidney injury (AKI) is an important contributor to the development of chronic kidney disease (CKD). We performed miRNA and mRNA sequencing on biobanked human kidney tissues obtained in the routine clinical care of patients with the diagnoses of AKI and minimal change disease (MCD), in addition to nephrectomized (Ref) tissue from individuals without known kidney disease. From all renal biopsy samples, 2 cryosections (10 μM) including the entire cross-section of the tissue were placed directly into PicoPure RNA extraction buffer. RNA was isolated using the PicoPure isolation kit. Total RNA was evaluated for quantity and quality using an Agilent Bioanalyzer.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 12
+  publication: PMID:38954486
+  notes: Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: metabolomics_workbench:ST000329
+  title: Minimal change disease and focal segmental sclerosis in urine
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000097297
+  title: Pathogenesis of focal segmental glomerulosclerosis and minimal change disease
+  description: Podocyte injury is the hallmark of both focal segmental glomerulosclerosis (FSGS) and minimal change disease (MCD) and is ultimately reflected in foot process effacement proteinuria. Triggers and pathogenic pathways leading to podocyte cytoskeleton rearrangements are however incompletely explained. Here, we aimed to contribute to the understanding of these pathways using tissue bottom-up proteomic profiling of laser capture micro dissected glomeruli from MCD and FSGS.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000094293
+  title: &#39;Minimal Change Disease: a proteomics approach&#39;
+  description: &#39;This study aimed to shed light on the potential pathophysiology of MCD by using glomerular proteomic analysis. Shotgun proteomics using label-free quantitative mass spectrometry was performed on formalin-fixed, paraffin-embedded (FFPE) renal biopsies from two groups of samples: control (CTR) and MCD. Glomeruli were excised from FFPE renal biopsies using laser capture microdissection (LCM), and a single-pot solid-phase-enhanced sample preparation (SP3) digest method was used to improve yield and protein identifications.&#39;
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -8468,6 +10661,8 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9375,6 +11570,11 @@ A 2023 translational study examined 49 biopsy-proven MCD patients and reported e
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Minimal_Change_Disease.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -9415,7 +11615,7 @@ A 2023 translational study examined 49 biopsy-proven MCD patients and reported e
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Minimal Change Disease", "mondoId": "MONDO:0006835", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Minimal_Change_Disease", "yamlRevision": "dc486ffe9969"};
+        const OS_CONFIG = {"diseaseName": "Minimal Change Disease", "mondoId": "MONDO:0006835", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Minimal_Change_Disease", "yamlRevision": "d4069a255059"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9834,5 +12034,73 @@ A 2023 translational study examined 49 biopsy-proven MCD patients and reported e
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

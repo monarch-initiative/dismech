@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25137311"
+reference_id: DOI:10.3390/ijms25137311
 title: "Beyond Motor Neurons in Spinal Muscular Atrophy: A Focus on Neuromuscular Junction"
 authors:
 - Francesca Torri
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25137311
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Beyond Motor Neurons in Spinal Muscular Atrophy: A Focus on Neuromuscular Junction

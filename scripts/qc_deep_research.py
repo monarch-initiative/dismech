@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 RESEARCH_FILE_RE = re.compile(
     r"^(?P<name>.+)-deep-research-(?P<provider>[^.]+)\.md(?:\.citations\.md)?$"
@@ -308,7 +308,7 @@ def main() -> int:
 
     for path in disorder_paths:
         disorder = path.stem
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        data = safe_load(path.read_text(encoding="utf-8")) or {}
         existing_refs: set[str] = set()
         collect_existing_refs(data, existing_refs)
 

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26062406"
+reference_id: DOI:10.3390/ijms26062406
 title: Identification of POU1F1 Variants in Vietnamese Patients with Combined Pituitary Hormone Deficiency
 authors:
 - Ha Thu Nguyen
@@ -21,6 +21,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26062406
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Identification of POU1F1 Variants in Vietnamese Patients with Combined Pituitary Hormone Deficiency

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pediatric16040101"
+reference_id: DOI:10.3390/pediatric16040101
 title: "PPP2R5D-Related Neurodevelopmental Disorder and Multiple Haemangiomas: A Novel Phenotypic Trait?"
 authors:
 - Francesco Comisi
@@ -14,6 +14,7 @@ journal: Pediatric Reports
 year: '2024'
 doi: 10.3390/pediatric16040101
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # PPP2R5D-Related Neurodevelopmental Disorder and Multiple Haemangiomas: A Novel Phenotypic Trait?

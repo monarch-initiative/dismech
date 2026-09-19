@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252312546"
+reference_id: DOI:10.3390/ijms252312546
 title: "Comprehensive Clinical Genetics, Molecular and Pathological Evaluation Efficiently Assist Diagnostics and Therapy Selection in Breast Cancer Patients with Hereditary Genetic Background"
 authors:
 - Petra Nagy
@@ -14,6 +14,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252312546
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Comprehensive Clinical Genetics, Molecular and Pathological Evaluation Efficiently Assist Diagnostics and Therapy Selection in Breast Cancer Patients with Hereditary Genetic Background

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells12212534"
+reference_id: DOI:10.3390/cells12212534
 title: Signaling Pathways and Therapeutic Strategies in Advanced Basal Cell Carcinoma
 authors:
 - Giulia Vallini
@@ -13,6 +13,7 @@ journal: Cells
 year: '2023'
 doi: 10.3390/cells12212534
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Signaling Pathways and Therapeutic Strategies in Advanced Basal Cell Carcinoma

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms241210119"
+reference_id: DOI:10.3390/ijms241210119
 title: "Targeting MET in Non-Small Cell Lung Cancer (NSCLC): A New Old Story?"
 authors:
 - Calogera Claudia Spagnolo
@@ -15,6 +15,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms241210119
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Targeting MET in Non-Small Cell Lung Cancer (NSCLC): A New Old Story?

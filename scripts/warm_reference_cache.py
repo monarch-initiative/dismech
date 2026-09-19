@@ -52,6 +52,7 @@ from linkml_reference_validator.etl.reference_fetcher import (
 
 # Applying the dismech network-resilience patch also imports the validator.
 import dismech.patch_reference_validator  # noqa: F401
+from dismech.frontmatter import split_frontmatter
 
 try:
     # Reuse the CLI's config loader so we honor conf/reference_validator_config.yaml
@@ -74,12 +75,13 @@ def _frontmatter(path: Path) -> str | None:
         text = path.read_text(encoding="utf-8")
     except OSError:
         return None
-    if not text.startswith("---"):
+    # Delimiter-aware (issue #7697): a ``---`` inside a title used to truncate the
+    # frontmatter here, hiding ``content_type:`` so the record could never be
+    # selected for warming -- and the skip was unlogged.
+    split = split_frontmatter(text)
+    if split is None:
         return None
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        return None
-    return parts[1]
+    return split.frontmatter
 
 
 def find_targets(cache_dir: Path, content_types: set[str]) -> list[tuple[Path, str]]:

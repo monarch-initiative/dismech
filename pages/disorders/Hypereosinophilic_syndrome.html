@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>Hypereosinophilic syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hypereosinophilic syndrome</h1>
             <div class="header-meta">
 
@@ -3074,7 +3833,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hypereosinophilic%20syndrome"
@@ -3203,6 +3962,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3211,7 +3974,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3232,7 +3995,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">20</div>
+                <div class="stat-value">22</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3245,6 +4008,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -3349,7 +4113,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-primary-hes">
 
                     <div class="item-name">
                         Primary HES
@@ -3379,7 +4143,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-lymphocytic-hes">
 
                     <div class="item-name">
                         Lymphocytic HES
@@ -3409,7 +4173,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-idiopathic-hes">
 
                     <div class="item-name">
                         Idiopathic HES
@@ -3427,7 +4191,7 @@
 
                     </div>
 
-                    <div class="item-desc">Persistent eosinophilia with eosinophil-mediated organ damage after exclusion of secondary and presently identifiable clonal causes.</div>
+                    <div class="item-desc">Persistent eosinophilia with eosinophil-mediated organ damage after exclusion of secondary and presently identifiable clonal causes. Curated in depth as its own entry, Idiopathic_Hypereosinophilic_Syndrome (MONDO:0011895), which carries the exclusion work-up, the corticosteroid and anti-IL-5 treatment pathway, and the eosinophil granule-protein cardiac cascade.</div>
 
 
 
@@ -3455,8 +4219,223 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">9</span>
+                <span class="card-count">10</span>
             </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-eosinophil-subset-heterogeneity-and-tissue-specific-dysfunction" data-dismech-node="Eosinophil subset heterogeneity and tissue-specific dysfunction" data-dismech-type="pathophysiology">
+                <div class="item-name">Eosinophil subset heterogeneity and tissue-specific dysfunction</div>
+
+                <div class="item-desc">Resident eosinophils support tissue homeostasis and immune regulation, whereas inflammatory eosinophils are recruited during immune responses. Dysregulation of these functionally distinct subsets may help explain the heterogeneous tissue injury and treatment response seen across HES subtypes.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        eosinophil
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000771</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        inflammatory response
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006954</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        immune response
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006955</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myeloid kinase-driven clonal eosinophilopoiesis</span>
+
+	                            <span class="crosslink-desc">Clonal myeloid lesions can expand pathologic eosinophil subsets.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aberrant T-cell IL-5 overproduction</span>
+
+	                            <span class="crosslink-desc">Dysregulated T-cell cytokine signaling can expand inflammatory eosinophils.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Persistent eosinophil expansion in blood and tissues</span>
+
+	                            <span class="crosslink-desc">Multiple HES drivers converge on persistent pathologic eosinophil accumulation.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42431861" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42431861" target="_blank">PMID:42431861</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recognizing distinct eosinophil subsets is crucial for understanding their contributions to disease progression. This review highlights recent discoveries in eosinophil diversity and explores therapeutic implications of selectively targeting specific eosinophil subsets in clinical practice."</div>
+
+
+                <div class="evidence-explanation">This review identifies eosinophil diversity as relevant to disease progression and subset-selective therapeutic strategies.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42431861" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42431861" target="_blank">PMID:42431861</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Specifically, resident eosinophils (rEos) reside in tissues for local maintenance and immune regulation, whereas inflammatory eosinophils (iEos) are rapidly recruited during immune responses to drive inflammation."</div>
+
+
+                <div class="evidence-explanation">The review distinguishes homeostatic resident eosinophils from recruited inflammatory eosinophils.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myeloid-kinase-driven-clonal-eosinophilopoiesis" data-dismech-node="Myeloid kinase-driven clonal eosinophilopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Myeloid kinase-driven clonal eosinophilopoiesis</div>
@@ -3467,16 +4446,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3503,15 +4487,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PDGFRA
 
 
-    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8803">hgnc:8803</a>
+    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:8803</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3539,16 +4530,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of granulocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030854" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030854">GO:0030854</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030854" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030854</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves positive regulation of granulocyte differentiation (GO:0030854). GO:0030854 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3565,6 +4561,7 @@
 
 
                 </div>
+
 
 
 
@@ -3601,7 +4598,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3633,17 +4633,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD4-positive helper T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000492" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000492">CL:0000492</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000492" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000492</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive helper T cell (CL:0000492). CL:0000492 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3664,10 +4671,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3694,15 +4704,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         IL5
 
 
-    <a href="https://bioregistry.io/hgnc:6016" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6016">hgnc:6016</a>
+    <a href="https://bioregistry.io/hgnc:6016" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:6016</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL5 (hgnc:6016). hgnc:6016 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3730,16 +4747,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3756,6 +4778,7 @@
 
 
                 </div>
+
 
 
 
@@ -3792,7 +4815,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3824,16 +4850,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3860,16 +4891,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of granulocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030854" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030854">GO:0030854</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030854" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030854</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves positive regulation of granulocyte differentiation (GO:0030854). GO:0030854 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3886,6 +4922,7 @@
 
 
                 </div>
+
 
 
 
@@ -3938,7 +4975,12 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3970,16 +5012,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4006,17 +5053,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         eosinophil chemotaxis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048245" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048245">GO:0048245</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048245" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0048245</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves eosinophil chemotaxis (GO:0048245). GO:0048245 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4037,10 +5091,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4063,17 +5120,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         skin of body
@@ -4081,13 +5145,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002097">UBERON:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4145,7 +5213,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4167,7 +5238,12 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4199,16 +5275,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4234,6 +5315,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         inflammatory response
@@ -4241,10 +5324,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4267,19 +5353,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4307,13 +5399,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32184691" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32184691" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4345,16 +5440,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4381,16 +5481,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4407,6 +5512,7 @@
 
 
                 </div>
+
 
 
 
@@ -4443,7 +5549,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4465,7 +5574,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4497,16 +5609,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4532,6 +5649,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         inflammatory response
@@ -4539,10 +5658,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4565,19 +5687,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skin of body
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002097">UBERON:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4619,7 +5747,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4651,16 +5782,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4687,16 +5823,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4713,6 +5854,7 @@
 
 
                 </div>
+
 
 
 
@@ -4749,7 +5891,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4781,16 +5926,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4816,6 +5966,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         inflammatory response
@@ -4823,10 +5975,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4849,19 +6004,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4895,7 +6056,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4943,7 +6107,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant T-cell IL-5 overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In lymphocytic HES, aberrant T-cell populations produce eosinophilopoietic cytokines, especially IL-5, which prolong eosinophil survival and expand the reactive eosinophil compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive helper T cell\", \"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"genes\": [\"IL5\"], \"gene_terms\": [{\"label\": \"IL5\", \"id\": \"hgnc:6016\"}]}}, {\"id\": \"Airway eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic airway inflammation contributes to asthma-like respiratory manifestations in clinically active HES.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"lung\"]}}, {\"id\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Targeted monoclonal antibodies against the IL-5 axis are used for severe or relapsing disease and are especially relevant when eosinophilia remains corticosteroid-dependent or corticosteroid-refractory.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Monoclonal Antibody\"]}}, {\"id\": \"Asthma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002099\"}}, {\"id\": \"Cardiac eosinophilic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophil-mediated tissue injury can extend to the heart, where chronic eosinophilic inflammation is surveilled for endomyocardial fibrosis, pericardial inflammation, and valvular damage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"heart\"]}}, {\"id\": \"Corticosteroid therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic glucocorticoids remain first-line therapy for many patients because they rapidly suppress eosinophilia and clinical manifestations.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Cutaneous eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic infiltration of the skin produces pruritic inflammatory lesions, most commonly urticarial and eczematous eruptions.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"skin of body\"]}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Eczematoid dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000964\"}}, {\"id\": \"Gastrointestinal eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic injury in the digestive tract produces inflammatory gastrointestinal symptoms, including diarrhea.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Imatinib for PDGFRA-rearranged HES\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tyrosine-kinase inhibition is particularly effective in patients with FIP1L1-PDGFRA-associated disease and is used as precision therapy for the clonal myeloid subset.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tyrosine kinase inhibitor\"]}}, {\"id\": \"Increased total eosinophil count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001880\"}}, {\"id\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of HES is initiated by clonal myeloid lesions such as FIP1L1-PDGFRA rearrangement, which drive autonomous eosinophilopoiesis and define the primary myeloid end of the HES spectrum.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"positive regulation of granulocyte differentiation\"], \"genes\": [\"PDGFRA\"], \"gene_terms\": [{\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}]}}, {\"id\": \"PDGFRA rearrangement-associated HES\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDGFRA\"], \"gene_terms\": [{\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}], \"association\": \"Rearrangement-associated clonal driver\"}}, {\"id\": \"Pericarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001701\"}}, {\"id\": \"Persistent eosinophil expansion in blood and tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regardless of whether the upstream driver is clonal or dysimmune, HES is marked by sustained accumulation of eosinophils in the circulation and peripheral tissues, creating the substrate for organ injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"positive regulation of granulocyte differentiation\"]}}, {\"id\": \"Prothrombotic eosinophil activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophil granule proteins and protease systems can directly activate clotting pathways, inhibit endogenous anticoagulant mechanisms, and promote thromboembolic complications. This thromboinflammatory branch is clinically important because thrombosis is a frequent complication and can dominate long-term morbidity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Thromboembolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001907\"}}, {\"id\": \"Tissue eosinophil infiltration and degranulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated eosinophils infiltrate organs and release cytotoxic granule proteins, amplifying local inflammation and directly injuring target tissues.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"eosinophil chemotaxis\", \"inflammatory response\"], \"locations\": [\"lung\", \"skin of body\"]}}, {\"id\": \"Urticaria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001025\"}}], \"edges\": [{\"source\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"target\": \"Persistent eosinophil expansion in blood and tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clonal eosinophilopoiesis sustains pathologic eosinophil burden.\"}, {\"source\": \"Aberrant T-cell IL-5 overproduction\", \"target\": \"Persistent eosinophil expansion in blood and tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-5-rich cytokine signaling amplifies eosinophil burden.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained eosinophil expansion produces the defining laboratory phenotype.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Tissue eosinophil infiltration and degranulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded eosinophils enter tissues and initiate local injury.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Prothrombotic eosinophil activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded activated eosinophils also perturb coagulation pathways.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Cutaneous eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skin infiltration produces eczema-like and urticarial inflammation.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Gastrointestinal eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal infiltration produces inflammatory digestive symptoms.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Airway eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airway infiltration promotes asthma-like respiratory disease.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Cardiac eosinophilic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophilic tissue injury can also involve the heart and pericardium.\"}, {\"source\": \"Cardiac eosinophilic injury\", \"target\": \"Pericarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac eosinophilic inflammation can involve the pericardium.\"}, {\"source\": \"Prothrombotic eosinophil activation\", \"target\": \"Thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophil-driven hypercoagulability produces clinically important thrombosis.\"}, {\"source\": \"Cutaneous eosinophilic inflammation\", \"target\": \"Urticaria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous eosinophilic inflammation can manifest as urticaria.\"}, {\"source\": \"Cutaneous eosinophilic inflammation\", \"target\": \"Eczematoid dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous eosinophilic inflammation can manifest as eczema-like dermatitis.\"}, {\"source\": \"Gastrointestinal eosinophilic inflammation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal eosinophilic inflammation can manifest as diarrhea.\"}, {\"source\": \"Airway eosinophilic inflammation\", \"target\": \"Asthma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airway eosinophilic inflammation can manifest as asthma.\"}, {\"source\": \"Corticosteroid therapy\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Imatinib for PDGFRA-rearranged HES\", \"target\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"target\": \"Aberrant T-cell IL-5 overproduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PDGFRA rearrangement-associated HES\", \"target\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant T-cell IL-5 overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In lymphocytic HES, aberrant T-cell populations produce eosinophilopoietic cytokines, especially IL-5, which prolong eosinophil survival and expand the reactive eosinophil compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive helper T cell\", \"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"genes\": [\"IL5\"], \"gene_terms\": [{\"label\": \"IL5\", \"id\": \"hgnc:6016\"}]}}, {\"id\": \"Absolute eosinophil count\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C188680\", \"term_label\": \"Absolute Eosinophil Count\", \"readouts\": [{\"target\": \"Persistent eosinophil expansion in blood and tissues\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The blood count is the accessible half of this node. It measures the circulating compartment; the tissue burden the node also names is not visible to it, so a count inside the reference interval does not exclude tissue hypereosinophilia.\"}]}}, {\"id\": \"Airway eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic airway inflammation contributes to asthma-like respiratory manifestations in clinically active HES.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"lung\"]}}, {\"id\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Targeted monoclonal antibodies against the IL-5 axis are used for severe or relapsing disease and are especially relevant when eosinophilia remains corticosteroid-dependent or corticosteroid-refractory.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Monoclonal Antibody\"]}}, {\"id\": \"Asthma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002099\"}}, {\"id\": \"Cardiac eosinophilic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophil-mediated tissue injury can extend to the heart, where chronic eosinophilic inflammation is surveilled for endomyocardial fibrosis, pericardial inflammation, and valvular damage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"heart\"]}}, {\"id\": \"Corticosteroid therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic glucocorticoids remain first-line therapy for many patients because they rapidly suppress eosinophilia and clinical manifestations.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Cutaneous eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic infiltration of the skin produces pruritic inflammatory lesions, most commonly urticarial and eczematous eruptions.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"skin of body\"]}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Eczematoid dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000964\"}}, {\"id\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resident eosinophils support tissue homeostasis and immune regulation, whereas inflammatory eosinophils are recruited during immune responses. Dysregulation of these functionally distinct subsets may help explain the heterogeneous tissue injury and treatment response seen across HES subtypes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\", \"immune response\"]}}, {\"id\": \"Gastrointestinal eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic injury in the digestive tract produces inflammatory gastrointestinal symptoms, including diarrhea.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Imatinib for PDGFRA-rearranged HES\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tyrosine-kinase inhibition is particularly effective in patients with FIP1L1-PDGFRA-associated disease and is used as precision therapy for the clonal myeloid subset.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tyrosine kinase inhibitor\"]}}, {\"id\": \"Increased total eosinophil count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001880\"}}, {\"id\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of HES is initiated by clonal myeloid lesions such as FIP1L1-PDGFRA rearrangement, which drive autonomous eosinophilopoiesis and define the primary myeloid end of the HES spectrum.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"positive regulation of granulocyte differentiation\"], \"genes\": [\"PDGFRA\"], \"gene_terms\": [{\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}]}}, {\"id\": \"PDGFRA rearrangement-associated HES\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDGFRA\"], \"gene_terms\": [{\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}], \"association\": \"Rearrangement-associated clonal driver\"}}, {\"id\": \"Pericarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001701\"}}, {\"id\": \"Persistent eosinophil expansion in blood and tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regardless of whether the upstream driver is clonal or dysimmune, HES is marked by sustained accumulation of eosinophils in the circulation and peripheral tissues, creating the substrate for organ injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"positive regulation of granulocyte differentiation\"]}}, {\"id\": \"Prothrombotic eosinophil activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophil granule proteins and protease systems can directly activate clotting pathways, inhibit endogenous anticoagulant mechanisms, and promote thromboembolic complications. This thromboinflammatory branch is clinically important because thrombosis is a frequent complication and can dominate long-term morbidity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Thromboembolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001907\"}}, {\"id\": \"Tissue eosinophil infiltration and degranulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated eosinophils infiltrate organs and release cytotoxic granule proteins, amplifying local inflammation and directly injuring target tissues.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"eosinophil chemotaxis\", \"inflammatory response\"], \"locations\": [\"lung\", \"skin of body\"]}}, {\"id\": \"Urticaria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001025\"}}], \"edges\": [{\"source\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"target\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clonal myeloid lesions can expand pathologic eosinophil subsets.\"}, {\"source\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"target\": \"Aberrant T-cell IL-5 overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated T-cell cytokine signaling can expand inflammatory eosinophils.\"}, {\"source\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"target\": \"Persistent eosinophil expansion in blood and tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multiple HES drivers converge on persistent pathologic eosinophil accumulation.\"}, {\"source\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"target\": \"Persistent eosinophil expansion in blood and tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clonal eosinophilopoiesis sustains pathologic eosinophil burden.\"}, {\"source\": \"Aberrant T-cell IL-5 overproduction\", \"target\": \"Persistent eosinophil expansion in blood and tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-5-rich cytokine signaling amplifies eosinophil burden.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained eosinophil expansion produces the defining laboratory phenotype.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Tissue eosinophil infiltration and degranulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded eosinophils enter tissues and initiate local injury.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Prothrombotic eosinophil activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded activated eosinophils also perturb coagulation pathways.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Cutaneous eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skin infiltration produces eczema-like and urticarial inflammation.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Gastrointestinal eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal infiltration produces inflammatory digestive symptoms.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Airway eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airway infiltration promotes asthma-like respiratory disease.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Cardiac eosinophilic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophilic tissue injury can also involve the heart and pericardium.\"}, {\"source\": \"Cardiac eosinophilic injury\", \"target\": \"Pericarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac eosinophilic inflammation can involve the pericardium.\"}, {\"source\": \"Prothrombotic eosinophil activation\", \"target\": \"Thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophil-driven hypercoagulability produces clinically important thrombosis.\"}, {\"source\": \"Cutaneous eosinophilic inflammation\", \"target\": \"Urticaria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous eosinophilic inflammation can manifest as urticaria.\"}, {\"source\": \"Cutaneous eosinophilic inflammation\", \"target\": \"Eczematoid dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous eosinophilic inflammation can manifest as eczema-like dermatitis.\"}, {\"source\": \"Gastrointestinal eosinophilic inflammation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal eosinophilic inflammation can manifest as diarrhea.\"}, {\"source\": \"Airway eosinophilic inflammation\", \"target\": \"Asthma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airway eosinophilic inflammation can manifest as asthma.\"}, {\"source\": \"Corticosteroid therapy\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Imatinib for PDGFRA-rearranged HES\", \"target\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"target\": \"Aberrant T-cell IL-5 overproduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Absolute eosinophil count\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The blood count is the accessible half of this node. It measures the circulating compartment; the tissue burden the node also names is not visible to it, so a count inside the reference interval does not exclude tissue hypereosinophilia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PDGFRA rearrangement-associated HES\", \"target\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4968,9 +6132,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4983,19 +6145,26 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-total-eosinophil-count" data-dismech-node="Increased total eosinophil count" data-dismech-type="phenotype">
                     <div class="item-name">
                         Increased total eosinophil count
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased total eosinophil count
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001880">HP:0001880</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001880</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5016,7 +6185,12 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5042,19 +6216,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thromboembolism" data-dismech-node="Thromboembolism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thromboembolism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thromboembolism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001907">HP:0001907</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001907</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5075,7 +6256,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5110,19 +6294,26 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-urticaria" data-dismech-node="Urticaria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Urticaria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Urticaria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001025" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001025">HP:0001025</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001025</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5143,7 +6334,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5169,21 +6363,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pericarditis" data-dismech-node="Pericarditis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pericarditis
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pericarditis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001701">HP:0001701</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001701</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5200,13 +6401,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32184691" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32184691" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5241,19 +6445,26 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diarrhea" data-dismech-node="Diarrhea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Diarrhea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diarrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002014">HP:0002014</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002014</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5274,7 +6485,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5306,22 +6520,29 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eczematoid-dermatitis" data-dismech-node="Eczematoid dermatitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Eczematoid dermatitis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Eczematoid dermatitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000964">HP:0000964</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000964</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5342,7 +6563,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5368,28 +6592,26 @@
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-asthma" data-dismech-node="Asthma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Asthma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Asthma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002099">HP:0002099</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002099</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5410,7 +6632,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5475,7 +6700,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pdgfra-rearrangement-associated-hes" data-dismech-node="PDGFRA rearrangement-associated HES" data-dismech-type="genetic">
                 <div class="item-name">
                     PDGFRA rearrangement-associated HES
 
@@ -5487,13 +6712,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PDGFRA
 
 
-    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8803">hgnc:8803</a>
+    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:8803</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5515,7 +6745,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5536,9 +6769,16 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5550,13 +6790,18 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-corticosteroid-therapy" data-dismech-node="Corticosteroid therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Corticosteroid therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5586,19 +6831,38 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50858">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5609,16 +6873,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased total eosinophil count
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001880">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001880</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5638,7 +6907,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30512017" target="_blank">PMID:30512017</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5660,7 +6932,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5683,13 +6958,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-imatinib-for-pdgfra-rearranged-hes" data-dismech-node="Imatinib for PDGFRA-rearranged HES" data-dismech-type="treatment">
                 <div class="item-name">
                     Imatinib for PDGFRA-rearranged HES
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5719,19 +6999,38 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         tyrosine kinase inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1967" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1967">NCIT:C1967</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1967" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C1967</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tyrosine kinase inhibitor (NCIT:C1967). NCIT:C1967 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5772,7 +7071,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5795,13 +7097,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-anti-il-5-or-anti-il-5r-biologic-therapy" data-dismech-node="Anti-IL-5 or anti-IL-5R biologic therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Anti-IL-5 or anti-IL-5R biologic therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5831,19 +7138,38 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         Monoclonal Antibody
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C20401">NCIT:C20401</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C20401</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Monoclonal Antibody (NCIT:C20401). NCIT:C20401 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5872,16 +7198,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased total eosinophil count
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001880">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001880</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5901,7 +7232,10 @@
                         <a href="https://clinicaltrials.gov/study/NCT02836496" target="_blank">clinicaltrials:NCT02836496</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5923,7 +7257,10 @@
                         <a href="https://clinicaltrials.gov/study/NCT04191304" target="_blank">clinicaltrials:NCT04191304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5954,6 +7291,706 @@
 
         <!-- Biochemical Markers -->
 
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-absolute-eosinophil-count" data-dismech-node="Absolute eosinophil count" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Absolute eosinophil count
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+
+                </div>
+
+                <div class="item-desc">Context: The measurement the syndrome is defined by. A blood eosinophil count at or above 1,500 cells/uL, persisting and unexplained by a secondary cause, is what separates this syndrome from the far commoner reactive eosinophilias, and the same count is what treatment is titrated against.</div>
+
+
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Persistent eosinophil expansion in blood and tissues</span>
+
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+
+
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+
+
+                        <div class="readout-interpretation">The blood count is the accessible half of this node. It measures the circulating compartment; the tissue burden the node also names is not visible to it, so a count inside the reference interval does not exclude tissue hypereosinophilia.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19910029" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hypereosinophilic syndrome (HES) is a heterogeneous group of rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x 10(9)/L, absence of a secondary cause, and evidence of eosinophil-associated pathology."</div>
+
+
+                <div class="evidence-explanation">States the count, its persistence, and the exclusion of secondary causes as what defines the syndrome, which is the claim this readout makes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+                <div class="reference-ranges">
+                    <div class="reference-ranges-title">Reference Ranges</div>
+
+                    <div class="reference-range">
+
+                        <a href="https://loinc.org/26449-9" target="_blank" rel="noopener" class="readout-target">Eosinophils [#/volume] in Blood</a>
+
+                        <span class="reference-range-interval">
+
+                            50–500 cells/uL
+
+                        </span>
+
+                        <span class="reference-range-meta">(adults)</span>
+
+
+                        <div class="reference-range-bands">
+
+
+
+
+
+
+
+                            <span class="severity-pill severity-other">
+                                Below 500 cells/uL
+
+                                (–500 cells/uL)
+
+
+                            </span>
+
+
+
+
+
+
+
+                            <span class="severity-pill severity-moderate">
+                                500 to 1499 cells/uL
+
+                                (500–1500 cells/uL)
+
+
+                                <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;" title="Mapped HP phenotype">→ Increased total eosinophil count</a>
+
+                            </span>
+
+
+
+
+
+
+
+                            <span class="severity-pill severity-moderate">
+                                1500 cells/uL or greater
+
+                                (1500– cells/uL)
+
+
+                                <a href="http://purl.obolibrary.org/obo/HP_0032061" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;" title="Mapped HP phenotype">→ Severely increased total eosinophil count</a>
+
+                            </span>
+
+                        </div>
+
+
+                        <div class="reference-range-band-interp"><strong>Below 500 cells/uL:</strong> At or below the reference interval&#39;s upper limit. Results below the interval&#39;s 50 cells/uL floor fall here too, and are deliberately not graded LOW: no cited source addresses eosinopenia, and in treated disease a near-zero count is the therapeutic goal rather than an abnormality. On treatment this band is also the target: hematologic remission is defined as a count below 0.5 x 10^9/L, so a result here in a treated patient reports response rather than absence of disease.</div>
+
+
+
+                        <div class="reference-range-band-interp"><strong>500 to 1499 cells/uL:</strong> Eosinophilia by the ICOG-EO classification, but below the hypereosinophilia threshold this syndrome is defined by. A count in this band is common and mostly reactive; on its own it does not support the diagnosis.</div>
+
+
+
+                        <div class="reference-range-band-interp"><strong>1500 cells/uL or greater:</strong> Hypereosinophilia. This is the diagnostic threshold, not a severity grade: a single count here is not sufficient, since the definition requires persistence and the exclusion of a secondary cause before the syndrome is diagnosed.</div>
+
+
+
+
+                        <div class="reference-range-meta">A genuine laboratory reference interval, and worth distinguishing from the therapy-stratification bands on the Asthma blood eosinophil record, which asserts no interval at all: here a source states the normal range directly. The bands below are the diagnostic tiers of the eosinophilic-disorder classification, not severity grades. Because the sources define eosinophilia as at or above 0.5 x 10^9/L, a result of exactly 500 cells/uL falls in the eosinophilia band rather than inside this interval.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39056762" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39056762" target="_blank">PMID:39056762</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Peripheral blood absolute eosinophil count (AEC) normal value ranges between 0.05 and 0.5 × 109/L, while reference values for mature eosinophils in bone marrow aspirates are between 1% and 6% [1,6,7,8]."</div>
+
+
+                <div class="evidence-explanation">States the adult laboratory reference interval this record carries, as 0.05 to 0.5 x 10^9/L.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38611061" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38611061" target="_blank">PMID:38611061</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A circulating eosinophil count of ≥0.5 × 109/L is defined as eosinophilia."</div>
+
+
+                <div class="evidence-explanation">An independent source for the 500 cells/uL boundary, above which a count is eosinophilia rather than normal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39056762" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39056762" target="_blank">PMID:39056762</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"According to the classification of eosinophilic disorders proposed in 2011 by the International Cooperative Working Group on Eosinophil Disorders (ICOG-EO) and revised in 2022, blood eosinophilia is defined by an AEC above 0.5 × 109/L, while hypereosinophilia (HE) necessitates an AEC of ≥1.5 ×..."</div>
+
+
+                <div class="evidence-explanation">The source of both band boundaries: eosinophilia above 0.5 x 10^9/L, hypereosinophilia at or above 1.5 x 10^9/L.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39056762" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39056762" target="_blank">PMID:39056762</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the case of severe organ damage, a further goal is to achieve hematologic remission (blood eosinophil count &lt; 0.5 × 109/L) to avoid relapse."</div>
+
+
+                <div class="evidence-explanation">Establishes the same count as the treatment target, which is why the normal band carries a monitoring reading as well as a diagnostic one.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-criteria-based-diagnosis-of-persistent-eosinophilia-with-organ-damage">
+                <div class="item-name">
+                    Criteria-based diagnosis of persistent eosinophilia with organ damage
+
+                </div>
+
+                <div class="item-desc">HES diagnosis requires persistent eosinophilia of at least 1.5 x 10^9/L, exclusion of secondary causes, and evidence of eosinophil-associated pathology.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19910029" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BACKGROUND: Hypereosinophilic syndrome (HES) is a heterogeneous group of rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x 10(9)/L, absence of a secondary cause, and evidence of eosinophil-associated pathology."</div>
+
+
+                <div class="evidence-explanation">Provides the core disease-defining diagnostic criteria used in practice.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-multidisciplinary-exclusion-of-overlap-eosinophilic-disorders">
+                <div class="item-name">
+                    Multidisciplinary exclusion of overlap eosinophilic disorders
+
+                </div>
+
+                <div class="item-desc">Early diagnosis depends on distinguishing HES from eosinophilic organ-restricted disease and systemic inflammatory mimics such as EGPA.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31367340" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31367340" target="_blank">PMID:31367340</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Besides primary hypereosinophilic syndromes and secondary (reactive) eosinophilias, many associated or idiopathic forms have been described, making this topic a complex and difficult medical entity."</div>
+
+
+                <div class="evidence-explanation">Supports a structured diagnostic evaluation that excludes reactive and associated eosinophilic disorders before diagnosing HES.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-bone-marrow-and-molecular-evaluation-for-clonal-eosinophilia">
+                <div class="item-name">
+                    Bone marrow and molecular evaluation for clonal eosinophilia
+
+                </div>
+
+                <div class="item-desc">Bone marrow sampling and targeted molecular testing help separate primary or leukemic eosinophilic disorders from idiopathic or dysimmune HES.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32184691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Finally bone marrow aspiration to reveal potential abnormalities as myeloid malignancy or clonal alteration present in clonal idiopathic eosinophilia were also tested without evidence; for this reason, a further test as platelet-derived growth factor receptor (PDGFR) or fibroblast growth factor..."</div>
+
+
+                <div class="evidence-explanation">Supports bone marrow and molecular workup to distinguish clonal eosinophilic neoplasia from nonclonal HES.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-echocardiographic-assessment-for-cardiac-involvement">
+                <div class="item-name">
+                    Echocardiographic assessment for cardiac involvement
+
+                </div>
+
+                <div class="item-desc">Cardiac imaging is used to detect restrictive endomyocardial fibrosis or other intracardiac complications when eosinophil-mediated heart injury is suspected.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32184691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An echocardiogram was planned in order to detect restrictive endomyocardial fibrosis or other intracardiac damages as pericarditis or valves’ damage due to the increase of eosinophil cells but without any evidence."</div>
+
+
+                <div class="evidence-explanation">Supports echocardiographic surveillance for eosinophil-mediated cardiac injury in HES.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
 
         <!-- Differential Diagnoses -->
 
@@ -5969,7 +8006,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-eosinophilic-granulomatosis-with-polyangiitis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Eosinophilic_granulomatosis_with_polyangiitis.html">Eosinophilic granulomatosis with polyangiitis</a>
@@ -6018,7 +8055,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39156600" target="_blank">PMID:39156600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6043,7 +8083,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-chronic-eosinophilic-leukemia">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Chronic eosinophilic leukemia</span>
@@ -6093,7 +8133,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6118,7 +8161,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-helminthiasis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Soil-transmitted_helminthiases.html">Helminthiasis</a>
@@ -6161,13 +8204,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31367340" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31367340" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31367340" target="_blank">PMID:31367340</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6202,9 +8248,9 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse111789">
                 <div class="item-name">
-                    Transcript- and protein-level analyses of the response of human eosinophils to glucocorticoids
+                    RNA-seq of circulating human eosinophils before and after oral prednisone administration
 
                     <span class="dataset-accession">
                         <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE111789" target="_blank">geo:GSE111789</a>
@@ -6261,7 +8307,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30512017" target="_blank">PMID:30512017</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6296,7 +8345,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02836496">
                 <div class="item-name">
                     NCT02836496
 
@@ -6313,16 +8362,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased total eosinophil count
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001880">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001880</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6341,7 +8395,10 @@
                         <a href="https://clinicaltrials.gov/study/NCT02836496" target="_blank">clinicaltrials:NCT02836496</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6364,7 +8421,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04191304">
                 <div class="item-name">
                     NCT04191304
 
@@ -6381,16 +8438,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased total eosinophil count
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001880">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001880</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6409,7 +8471,10 @@
                         <a href="https://clinicaltrials.gov/study/NCT04191304" target="_blank">clinicaltrials:NCT04191304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6438,6 +8503,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6454,7 +8522,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hypereosinophilic syndrome
 creation_date: &#34;2026-04-21T14:07:20Z&#34;
-updated_date: &#34;2026-04-21T21:38:56Z&#34;
 category: Complex
 description: &gt;-
   Hypereosinophilic syndrome (HES) is a heterogeneous syndrome defined by
@@ -6500,8 +8567,63 @@ has_subtypes:
       label: idiopathic hypereosinophilic syndrome
   description: &gt;-
     Persistent eosinophilia with eosinophil-mediated organ damage after
-    exclusion of secondary and presently identifiable clonal causes.
+    exclusion of secondary and presently identifiable clonal causes. Curated
+    in depth as its own entry, Idiopathic_Hypereosinophilic_Syndrome
+    (MONDO:0011895), which carries the exclusion work-up, the corticosteroid
+    and anti-IL-5 treatment pathway, and the eosinophil granule-protein cardiac
+    cascade.
 pathophysiology:
+- name: Eosinophil subset heterogeneity and tissue-specific dysfunction
+  description: &gt;-
+    Resident eosinophils support tissue homeostasis and immune regulation,
+    whereas inflammatory eosinophils are recruited during immune responses.
+    Dysregulation of these functionally distinct subsets may help explain the
+    heterogeneous tissue injury and treatment response seen across HES subtypes.
+  cell_types:
+  - preferred_term: eosinophil
+    term:
+      id: CL:0000771
+      label: eosinophil
+  biological_processes:
+  - preferred_term: inflammatory response
+    term:
+      id: GO:0006954
+      label: inflammatory response
+  - preferred_term: immune response
+    term:
+      id: GO:0006955
+      label: immune response
+  evidence:
+  - reference: PMID:42431861
+    reference_title: &#34;Eosinophil diversity and function: emerging insights into subtypes and therapeutic targets.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Recognizing distinct eosinophil subsets is crucial for understanding
+      their contributions to disease progression. This review highlights recent
+      discoveries in eosinophil diversity and explores therapeutic implications
+      of selectively targeting specific eosinophil subsets in clinical practice.
+    explanation: &gt;-
+      This review identifies eosinophil diversity as relevant to disease
+      progression and subset-selective therapeutic strategies.
+  - reference: PMID:42431861
+    reference_title: &#34;Eosinophil diversity and function: emerging insights into subtypes and therapeutic targets.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Specifically, resident eosinophils (rEos) reside in tissues for local
+      maintenance and immune regulation, whereas inflammatory eosinophils (iEos)
+      are rapidly recruited during immune responses to drive inflammation.
+    explanation: &gt;-
+      The review distinguishes homeostatic resident eosinophils from recruited
+      inflammatory eosinophils.
+  downstream:
+  - target: Myeloid kinase-driven clonal eosinophilopoiesis
+    description: Clonal myeloid lesions can expand pathologic eosinophil subsets.
+  - target: Aberrant T-cell IL-5 overproduction
+    description: Dysregulated T-cell cytokine signaling can expand inflammatory eosinophils.
+  - target: Persistent eosinophil expansion in blood and tissues
+    description: Multiple HES drivers converge on persistent pathologic eosinophil accumulation.
 - name: Myeloid kinase-driven clonal eosinophilopoiesis
   description: &gt;-
     A subset of HES is initiated by clonal myeloid lesions such as
@@ -6594,6 +8716,7 @@ pathophysiology:
     reference_title: &#34;Hypereosinophilic syndrome: a multicenter, retrospective analysis of clinical characteristics and response to therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &gt;-
       BACKGROUND: Hypereosinophilic syndrome (HES) is a heterogeneous group of
       rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x
@@ -6653,6 +8776,7 @@ pathophysiology:
     reference_title: &#34;Hypereosinophilic syndrome: a multicenter, retrospective analysis of clinical characteristics and response to therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &gt;-
       BACKGROUND: Hypereosinophilic syndrome (HES) is a heterogeneous group of
       rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x
@@ -6693,7 +8817,7 @@ pathophysiology:
   evidence:
   - reference: PMID:32184691
     reference_title: &#34;Idiopathic Hypereosinophilia and Venous Thromboembolism: Is There a Pathophysiological or Clinical Link? Description of an Intriguing Clinical Case.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       An echocardiogram was planned in order to detect restrictive
@@ -6864,6 +8988,7 @@ phenotypes:
     reference_title: &#34;Hypereosinophilic syndrome: a multicenter, retrospective analysis of clinical characteristics and response to therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &gt;-
       BACKGROUND: Hypereosinophilic syndrome (HES) is a heterogeneous group of
       rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x
@@ -6982,7 +9107,7 @@ phenotypes:
   evidence:
   - reference: PMID:32184691
     reference_title: &#34;Idiopathic Hypereosinophilia and Venous Thromboembolism: Is There a Pathophysiological or Clinical Link? Description of an Intriguing Clinical Case.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       An echocardiogram was planned in order to detect restrictive
@@ -6993,7 +9118,128 @@ phenotypes:
       Supports pericarditis as a clinically important cardiac manifestation
       considered during HES evaluation, while keeping the claim cautious
       because the cited case had no confirmed cardiac involvement.
-biochemical: []
+biochemical:
+- name: Absolute eosinophil count
+  presence: INCREASED
+  context: &gt;-
+    The measurement the syndrome is defined by. A blood eosinophil count at or above
+    1,500 cells/uL, persisting and unexplained by a secondary cause, is what separates
+    this syndrome from the far commoner reactive eosinophilias, and the same count is
+    what treatment is titrated against.
+  notes: &gt;-
+    The cited sources state these boundaries as 0.05, 0.5 and 1.5 x 10^9/L. This record
+    converts them to cells/uL, multiplying by 1,000, so the values sit on the same scale
+    as the other blood eosinophil records in this knowledge base; each snippet keeps its
+    source&#39;s own form. The Idiopathic_Hypereosinophilic_Syndrome entry carries the same
+    measurement for the idiopathic subtype, where the count must also survive an
+    exclusion workup before the label applies.
+  biomarker_term:
+    preferred_term: absolute blood eosinophil count
+    term:
+      id: NCIT:C188680
+      label: Absolute Eosinophil Count
+  readouts:
+  - target: Persistent eosinophil expansion in blood and tissues
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      The blood count is the accessible half of this node. It measures the circulating
+      compartment; the tissue burden the node also names is not visible to it, so a
+      count inside the reference interval does not exclude tissue hypereosinophilia.
+    evidence:
+    - reference: PMID:19910029
+      reference_title: &#34;Hypereosinophilic syndrome: a multicenter, retrospective analysis of clinical characteristics and response to therapy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: BACKGROUND
+      snippet: &#34;Hypereosinophilic syndrome (HES) is a heterogeneous group of rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x 10(9)/L, absence of a secondary cause, and evidence of eosinophil-associated pathology.&#34;
+      explanation: &#34;States the count, its persistence, and the exclusion of secondary causes as what defines the syndrome, which is the claim this readout makes.&#34;
+  reference_ranges:
+  - loinc_term:
+      id: LOINC:26449-9
+      label: Eosinophils [#/volume] in Blood
+    lower_bound: 50
+    upper_bound: 500
+    unit: cells/uL
+    population: adults
+    notes: &gt;-
+      A genuine laboratory reference interval, and worth distinguishing from the
+      therapy-stratification bands on the Asthma blood eosinophil record, which asserts
+      no interval at all: here a source states the normal range directly. The bands below
+      are the diagnostic tiers of the eosinophilic-disorder classification, not severity
+      grades. Because the sources define eosinophilia as at or above 0.5 x 10^9/L, a
+      result of exactly 500 cells/uL falls in the eosinophilia band rather than inside
+      this interval.
+    evidence:
+    - reference: PMID:39056762
+      reference_title: &#34;Managing Patients with Hypereosinophilic Syndrome: A Statement from the Italian Society of Allergy, Asthma, and Clinical Immunology (SIAAIC).&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;Peripheral blood absolute eosinophil count (AEC) normal value ranges between 0.05 and 0.5 × 109/L, while reference values for mature eosinophils in bone marrow aspirates are between 1% and 6% [1,6,7,8].&#34;
+      explanation: &#34;States the adult laboratory reference interval this record carries, as 0.05 to 0.5 x 10^9/L.&#34;
+    - reference: PMID:38611061
+      reference_title: &#34;Clinical and Therapeutic Intervention of Hypereosinophilia in the Era of Molecular Diagnosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;A circulating eosinophil count of ≥0.5 × 109/L is defined as eosinophilia.&#34;
+      explanation: &#34;An independent source for the 500 cells/uL boundary, above which a count is eosinophilia rather than normal.&#34;
+    interpretation_bands:
+    - name: Below 500 cells/uL
+      upper_bound: 500
+      unit: cells/uL
+      abnormal_flag: NORMAL
+      interpretation: &gt;-
+        At or below the reference interval&#39;s upper limit. Results below the interval&#39;s
+        50 cells/uL floor fall here too, and are deliberately not graded LOW: no cited
+        source addresses eosinopenia, and in treated disease a near-zero count is the
+        therapeutic goal rather than an abnormality. On treatment this band is also the
+        target: hematologic remission is defined as a count below 0.5 x 10^9/L, so a
+        result here in a treated patient reports response rather than absence of disease.
+    - name: 500 to 1499 cells/uL
+      lower_bound: 500
+      upper_bound: 1500
+      unit: cells/uL
+      abnormal_flag: HIGH
+      phenotype_term:
+        preferred_term: Increased total eosinophil count
+        term:
+          id: HP:0001880
+          label: Increased total eosinophil count
+      interpretation: &gt;-
+        Eosinophilia by the ICOG-EO classification, but below the hypereosinophilia
+        threshold this syndrome is defined by. A count in this band is common and mostly
+        reactive; on its own it does not support the diagnosis.
+    - name: 1500 cells/uL or greater
+      lower_bound: 1500
+      unit: cells/uL
+      abnormal_flag: HIGH
+      phenotype_term:
+        preferred_term: Severely increased total eosinophil count
+        term:
+          id: HP:0032061
+          label: Severely increased total eosinophil count
+      interpretation: &gt;-
+        Hypereosinophilia. This is the diagnostic threshold, not a severity grade: a single
+        count here is not sufficient, since the definition requires persistence and the
+        exclusion of a secondary cause before the syndrome is diagnosed.
+  evidence:
+  - reference: PMID:39056762
+    reference_title: &#34;Managing Patients with Hypereosinophilic Syndrome: A Statement from the Italian Society of Allergy, Asthma, and Clinical Immunology (SIAAIC).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;According to the classification of eosinophilic disorders proposed in 2011 by the International Cooperative Working Group on Eosinophil Disorders (ICOG-EO) and revised in 2022, blood eosinophilia is defined by an AEC above 0.5 × 109/L, while hypereosinophilia (HE) necessitates an AEC of ≥1.5 × 109/L [1,6].&#34;
+    explanation: &#34;The source of both band boundaries: eosinophilia above 0.5 x 10^9/L, hypereosinophilia at or above 1.5 x 10^9/L.&#34;
+  - reference: PMID:39056762
+    reference_title: &#34;Managing Patients with Hypereosinophilic Syndrome: A Statement from the Italian Society of Allergy, Asthma, and Clinical Immunology (SIAAIC).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;In the case of severe organ damage, a further goal is to achieve hematologic remission (blood eosinophil count &lt; 0.5 × 109/L) to avoid relapse.&#34;
+    explanation: &#34;Establishes the same count as the treatment target, which is why the normal band carries a monitoring reading as well as a diagnostic one.&#34;
 genetic:
 - name: PDGFRA rearrangement-associated HES
   gene_term:
@@ -7118,6 +9364,7 @@ treatments:
       signaling.
   evidence:
   - reference: clinicaltrials:NCT02836496
+    reference_title: &#34;Study 200622: A Randomized, Double-blind, Placebo-controlled Study to Investigate the Efficacy and Safety of Mepolizumab in the Treatment of Adolescent and Adult Subjects With Severe Hypereosinophilic Syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7131,6 +9378,7 @@ treatments:
       Trial registration directly supports targeted anti-IL-5 therapy in severe
       HES.
   - reference: clinicaltrials:NCT04191304
+    reference_title: &#34;A Multicentre, Randomised, Double-blind, Parallel-group, Placebo-controlled, 24-Week Phase III Study With an Open-label Extension to Evaluate the Efficacy and Safety of Benralizumab in Patients With Hypereosinophilic Syndrome (HES)&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7149,8 +9397,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: diagnostic procedure
     term:
-      id: MAXO:0000003
-      label: diagnostic procedure
+      id: NCIT:C18020
+      label: Diagnostic Procedure
     qualifiers:
     - predicate:
         preferred_term: diagnostic procedure
@@ -7167,6 +9415,7 @@ diagnosis:
     reference_title: &#34;Hypereosinophilic syndrome: a multicenter, retrospective analysis of clinical characteristics and response to therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &gt;-
       BACKGROUND: Hypereosinophilic syndrome (HES) is a heterogeneous group of
       rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x
@@ -7181,8 +9430,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: diagnostic procedure
     term:
-      id: MAXO:0000003
-      label: diagnostic procedure
+      id: NCIT:C18020
+      label: Diagnostic Procedure
     qualifiers:
     - predicate:
         preferred_term: diagnostic procedure
@@ -7213,8 +9462,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: diagnostic procedure
     term:
-      id: MAXO:0000003
-      label: diagnostic procedure
+      id: NCIT:C18020
+      label: Diagnostic Procedure
     qualifiers:
     - predicate:
         preferred_term: diagnostic procedure
@@ -7258,8 +9507,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: diagnostic procedure
     term:
-      id: MAXO:0000003
-      label: diagnostic procedure
+      id: NCIT:C18020
+      label: Diagnostic Procedure
     qualifiers:
     - predicate:
         preferred_term: diagnostic procedure
@@ -7354,7 +9603,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:31367340
     reference_title: &#34;Eosinophilic disorders: evaluation of current classification and diagnostic criteria, proposal of a practical diagnostic algorithm.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Besides primary hypereosinophilic syndromes and secondary (reactive)
@@ -7377,6 +9626,7 @@ clinical_trials:
       label: Increased total eosinophil count
   evidence:
   - reference: clinicaltrials:NCT02836496
+    reference_title: &#34;Study 200622: A Randomized, Double-blind, Placebo-controlled Study to Investigate the Efficacy and Safety of Mepolizumab in the Treatment of Adolescent and Adult Subjects With Severe Hypereosinophilic Syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7400,6 +9650,7 @@ clinical_trials:
       label: Increased total eosinophil count
   evidence:
   - reference: clinicaltrials:NCT04191304
+    reference_title: &#34;A Multicentre, Randomised, Double-blind, Parallel-group, Placebo-controlled, 24-Week Phase III Study With an Open-label Extension to Evaluate the Efficacy and Safety of Benralizumab in Patients With Hypereosinophilic Syndrome (HES)&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7411,7 +9662,7 @@ clinical_trials:
       Directly supports an active phase III HES trial targeting the IL-5R axis.
 datasets:
 - accession: geo:GSE111789
-  title: Transcript- and protein-level analyses of the response of human eosinophils to glucocorticoids
+  title: RNA-seq of circulating human eosinophils before and after oral prednisone administration
   description: &gt;-
     Human eosinophil RNA-seq resource generated before and after oral prednisone
     exposure in subjects with hypereosinophilia of unknown significance, with
@@ -7461,6 +9712,8 @@ references: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7836,6 +10089,11 @@ references: []
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Hypereosinophilic_Syndrome.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -7876,7 +10134,7 @@ references: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypereosinophilic syndrome", "mondoId": "MONDO:0015691", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypereosinophilic_syndrome", "yamlRevision": "8426ed1799f5"};
+        const OS_CONFIG = {"diseaseName": "Hypereosinophilic syndrome", "mondoId": "MONDO:0015691", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypereosinophilic_syndrome", "yamlRevision": "56425c1073b3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8295,5 +10553,73 @@ references: []
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

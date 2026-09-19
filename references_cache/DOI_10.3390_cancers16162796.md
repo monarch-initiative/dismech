@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16162796"
+reference_id: DOI:10.3390/cancers16162796
 title: "Exploring Predictive and Prognostic Biomarkers in Colorectal Cancer: A Comprehensive Review"
 authors:
 - Karam Ashouri
@@ -19,6 +19,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16162796
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring Predictive and Prognostic Biomarkers in Colorectal Cancer: A Comprehensive Review

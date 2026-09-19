@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13175074"
+reference_id: DOI:10.3390/jcm13175074
 title: "Does a Type of Inciting Antigen Correlate with the Presence of Lung Fibrosis in Patients with Hypersensitivity Pneumonitis?"
 authors:
 - Kamila Deutsch
@@ -15,6 +15,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13175074
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Does a Type of Inciting Antigen Correlate with the Presence of Lung Fibrosis in Patients with Hypersensitivity Pneumonitis?

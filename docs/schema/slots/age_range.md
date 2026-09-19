@@ -22,10 +22,10 @@ Alias: age_range
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ProgressionInfo](../classes/ProgressionInfo.md) |  |  no  |
-| [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
 | [SurrogateEndpoint](../classes/SurrogateEndpoint.md) | A regulatory surrogate endpoint assertion curated from FDA's surrogate endpoi... |  no  |
 | [Demographics](../classes/Demographics.md) | Demographic stratification for an association signal |  no  |
+| [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
+| [ProgressionInfo](../classes/ProgressionInfo.md) |  |  no  |
 
 
 

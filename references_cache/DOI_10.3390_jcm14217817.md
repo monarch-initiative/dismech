@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14217817"
+reference_id: DOI:10.3390/jcm14217817
 title: "Gut–Liver Axis, Microbiota, Bile Acids, and Immune Response in Pathogenesis of Primary Sclerosing Cholangitis: An Overview"
 authors:
 - Fotios S. Fousekis
@@ -12,6 +12,7 @@ journal: Journal of Clinical Medicine
 year: '2025'
 doi: 10.3390/jcm14217817
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Gut–Liver Axis, Microbiota, Bile Acids, and Immune Response in Pathogenesis of Primary Sclerosing Cholangitis: An Overview

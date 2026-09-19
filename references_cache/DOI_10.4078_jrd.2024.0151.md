@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4078/jrd.2024.0151"
+reference_id: DOI:10.4078/jrd.2024.0151
 title: Current state and future directions of basic research in rheumatoid arthritis
 authors:
 - Byeongzu Ghang
@@ -10,6 +10,7 @@ journal: Journal of Rheumatic Diseases
 year: '2025'
 doi: 10.4078/jrd.2024.0151
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Current state and future directions of basic research in rheumatoid arthritis

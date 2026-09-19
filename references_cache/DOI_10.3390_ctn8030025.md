@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ctn8030025"
+reference_id: DOI:10.3390/ctn8030025
 title: "Pediatric Narcolepsy Type 1: A State-of-the-Art Review"
 authors:
 - Valentina Baldini
@@ -11,6 +11,7 @@ journal: Clinical and Translational Neuroscience
 year: '2024'
 doi: 10.3390/ctn8030025
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pediatric Narcolepsy Type 1: A State-of-the-Art Review

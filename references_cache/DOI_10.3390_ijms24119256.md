@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24119256"
+reference_id: DOI:10.3390/ijms24119256
 title: Exploring the Functional Roles of Telomere Maintenance 2 in the Tumorigenesis of Glioblastoma Multiforme and Drug Responsiveness to Temozolomide
 authors:
 - Shao-Wei Feng
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24119256
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring the Functional Roles of Telomere Maintenance 2 in the Tumorigenesis of Glioblastoma Multiforme and Drug Responsiveness to Temozolomide

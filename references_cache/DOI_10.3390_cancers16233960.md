@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16233960"
+reference_id: DOI:10.3390/cancers16233960
 title: Circulating Tumor DNA (ctDNA) Dynamics Predict Early Response to Treatment in Metastasized Gastroesophageal Cancer (mGEC) After 2 Weeks of Systemic Treatment
 authors:
 - Stefan Tatalovic
@@ -23,6 +23,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16233960
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Circulating Tumor DNA (ctDNA) Dynamics Predict Early Response to Treatment in Metastasized Gastroesophageal Cancer (mGEC) After 2 Weeks of Systemic Treatment

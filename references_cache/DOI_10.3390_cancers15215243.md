@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15215243"
+reference_id: DOI:10.3390/cancers15215243
 title: "BRAF Inhibitors in Metastatic Colorectal Cancer and Mechanisms of Resistance: A Review of the Literature"
 authors:
 - Patricia Guerrero
@@ -20,6 +20,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15215243
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # BRAF Inhibitors in Metastatic Colorectal Cancer and Mechanisms of Resistance: A Review of the Literature

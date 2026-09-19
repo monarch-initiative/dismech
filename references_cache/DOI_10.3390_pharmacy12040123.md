@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pharmacy12040123"
+reference_id: DOI:10.3390/pharmacy12040123
 title: "Adherence to Cysteamine Therapy Among Patients Diagnosed with Cystinosis in Saudi Arabia: A Prospective Cohort Study"
 authors:
 - Reem Algasem
@@ -14,6 +14,7 @@ journal: Pharmacy
 year: '2024'
 doi: 10.3390/pharmacy12040123
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Adherence to Cysteamine Therapy Among Patients Diagnosed with Cystinosis in Saudi Arabia: A Prospective Cohort Study

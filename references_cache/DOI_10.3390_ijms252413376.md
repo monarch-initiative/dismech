@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252413376"
+reference_id: DOI:10.3390/ijms252413376
 title: "The Biological Roles and Clinical Applications of the PI3K/AKT Pathway in Targeted Therapy Resistance in HER2-Positive Breast Cancer: A Comprehensive Review"
 authors:
 - Hanyi Zhong
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252413376
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Biological Roles and Clinical Applications of the PI3K/AKT Pathway in Targeted Therapy Resistance in HER2-Positive Breast Cancer: A Comprehensive Review

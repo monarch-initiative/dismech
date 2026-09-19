@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25021146"
+reference_id: DOI:10.3390/ijms25021146
 title: Whole Exome Sequencing as a First-Line Molecular Genetic Test in Developmental and Epileptic Encephalopathies
 authors:
 - Luigi Vetri
@@ -15,6 +15,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25021146
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Whole Exome Sequencing as a First-Line Molecular Genetic Test in Developmental and Epileptic Encephalopathies

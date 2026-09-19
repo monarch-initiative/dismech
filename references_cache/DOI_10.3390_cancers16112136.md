@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16112136"
+reference_id: DOI:10.3390/cancers16112136
 title: Site-Specific Response and Resistance Patterns in Patients with Advanced Non-Small-Cell Lung Cancer Treated with First-Line Systemic Therapy
 authors:
 - Lauren Julia Brown
@@ -13,6 +13,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16112136
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Site-Specific Response and Resistance Patterns in Patients with Advanced Non-Small-Cell Lung Cancer Treated with First-Line Systemic Therapy

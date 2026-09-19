@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>Berardinelli-Seip Congenital Lipodystrophy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Berardinelli-Seip Congenital Lipodystrophy</h1>
             <div class="header-meta">
 
@@ -3208,6 +3967,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3264,6 +4027,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">4</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -3382,7 +4154,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3428,7 +4200,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3450,7 +4225,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11967537" target="_blank">PMID:11967537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3511,7 +4289,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cgl1">
 
                     <div class="item-name">
                         Type 1 (AGPAT2)
@@ -3546,7 +4324,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3568,7 +4349,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11967537" target="_blank">PMID:11967537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3594,7 +4378,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cgl2">
 
                     <div class="item-name">
                         Type 2 (BSCL2/seipin)
@@ -3629,7 +4413,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3651,7 +4438,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11479539" target="_blank">PMID:11479539</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3677,7 +4467,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cgl3">
 
                     <div class="item-name">
                         Type 3 (CAV1)
@@ -3712,7 +4502,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3738,7 +4531,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cgl4">
 
                     <div class="item-name">
                         Type 4 (CAVIN1/PTRF)
@@ -3773,7 +4566,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3828,16 +4624,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3858,6 +4659,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -3869,10 +4674,13 @@
         AGPAT2
 
 
-    <a href="https://bioregistry.io/hgnc:325" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:325">hgnc:325</a>
+    <a href="https://bioregistry.io/hgnc:325" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:325</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves AGPAT2 (hgnc:325). hgnc:325 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3899,6 +4707,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         triglyceride biosynthetic process
@@ -3906,10 +4716,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019432" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019432">GO:0019432</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019432" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0019432</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased triglyceride biosynthetic process (GO:0019432). GO:0019432 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3934,16 +4747,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         lysophosphatidic acid acyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042171" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042171">GO:0042171</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042171" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0042171</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased lysophosphatidic acid acyltransferase activity (GO:0042171). GO:0042171 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -3964,6 +4782,7 @@
 
 
                 </div>
+
 
 
 
@@ -3999,7 +4818,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11967537" target="_blank">PMID:11967537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4021,7 +4843,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11967537" target="_blank">PMID:11967537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4054,16 +4879,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4084,6 +4914,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -4095,10 +4929,13 @@
         BSCL2
 
 
-    <a href="https://bioregistry.io/hgnc:15832" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15832">hgnc:15832</a>
+    <a href="https://bioregistry.io/hgnc:15832" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:15832</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BSCL2 (hgnc:15832). hgnc:15832 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4126,16 +4963,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         fat cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045444">GO:0045444</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0045444</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased fat cell differentiation (GO:0045444). GO:0045444 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4144,6 +4986,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4161,10 +5005,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034389" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034389">GO:0034389</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034389" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0034389</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased lipid droplet organization (GO:0034389). GO:0034389 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4191,19 +5038,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lipid droplet
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005811" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005811">GO:0005811</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005811" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0005811</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in decreased lipid droplet (GO:0005811). GO:0005811 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4245,7 +5098,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11479539" target="_blank">PMID:11479539</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4267,7 +5123,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22269949" target="_blank">PMID:22269949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4289,7 +5148,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22269949" target="_blank">PMID:22269949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4322,16 +5184,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4352,6 +5219,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -4363,10 +5234,13 @@
         CAV1
 
 
-    <a href="https://bioregistry.io/hgnc:1527" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1527">hgnc:1527</a>
+    <a href="https://bioregistry.io/hgnc:1527" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:1527</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CAV1 (hgnc:1527). hgnc:1527 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4394,16 +5268,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         caveola assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070836" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070836">GO:0070836</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070836" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0070836</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased caveola assembly (GO:0070836). GO:0070836 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4412,6 +5291,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4429,10 +5310,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034389" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034389">GO:0034389</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034389" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0034389</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased lipid droplet organization (GO:0034389). GO:0034389 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4453,6 +5337,7 @@
 
 
                 </div>
+
 
 
 
@@ -4489,7 +5374,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4511,7 +5399,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4544,16 +5435,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4580,15 +5476,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CAVIN1
 
 
-    <a href="https://bioregistry.io/hgnc:9688" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9688">hgnc:9688</a>
+    <a href="https://bioregistry.io/hgnc:9688" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:9688</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CAVIN1 (hgnc:9688). hgnc:9688 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4616,16 +5519,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         caveola assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070836" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070836">GO:0070836</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070836" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0070836</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased caveola assembly (GO:0070836). GO:0070836 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4646,6 +5554,7 @@
 
 
                 </div>
+
 
 
 
@@ -4698,7 +5607,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4720,7 +5632,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4753,16 +5668,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4796,19 +5716,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001013">UBERON:0001013</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0001013</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in decreased adipose tissue (UBERON:0001013). UBERON:0001013 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4898,7 +5824,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4920,7 +5849,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4953,17 +5885,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4984,10 +5923,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5017,17 +5959,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in increased liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         skeletal muscle tissue
@@ -5035,13 +5984,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001134">UBERON:0001134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0001134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in increased skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5124,7 +6077,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5146,7 +6102,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5174,6 +6133,7 @@
 
                 <div class="item-desc">Near-total adipose tissue loss markedly lowers leptin levels. Severe leptin deficiency can increase appetite and worsen diabetes, hypertriglyceridemia, and hepatic steatosis.
 </div>
+
 
 
 
@@ -5235,7 +6195,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5257,7 +6220,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5297,16 +6263,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         insulin receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008286" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008286">GO:0008286</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008286" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0008286</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased insulin receptor signaling pathway (GO:0008286). GO:0008286 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5327,6 +6298,7 @@
 
 
                 </div>
+
 
 
 
@@ -5403,7 +6375,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11967537" target="_blank">PMID:11967537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5425,7 +6400,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5492,7 +6470,7 @@
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(3)</span></button>
 
@@ -5502,11 +6480,9 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5516,24 +6492,102 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-superficial-veins" data-dismech-node="Prominent superficial veins" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Prominent superficial veins
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent superficial veins (HP:0001015). HP:0001015 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:528" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001015 | Prominent superficial veins | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertrophic-cardiomyopathy" data-dismech-node="Hypertrophic cardiomyopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertrophic cardiomyopathy
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertrophic cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001639">HP:0001639</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001639</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5554,7 +6608,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5576,7 +6633,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12362029" target="_blank">PMID:12362029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5602,21 +6662,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congestive-heart-failure" data-dismech-node="Congestive heart failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Congestive heart failure
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001635</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5637,7 +6704,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5663,19 +6733,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cgl4-cardiac-arrhythmia-risk" data-dismech-node="CGL4 cardiac arrhythmia risk" data-dismech-type="phenotype">
                     <div class="item-name">
                         CGL4 cardiac arrhythmia risk
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arrhythmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011675">HP:0011675</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0011675</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5696,7 +6773,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5731,21 +6811,28 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatomegaly" data-dismech-node="Hepatomegaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hepatomegaly
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002240">HP:0002240</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002240</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5766,7 +6853,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5792,21 +6882,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-steatosis" data-dismech-node="Hepatic steatosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hepatic steatosis
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatic steatosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001397">HP:0001397</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001397</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5827,7 +6924,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5849,7 +6949,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11967537" target="_blank">PMID:11967537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5875,21 +6978,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cirrhosis" data-dismech-node="Cirrhosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cirrhosis
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cirrhosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001394">HP:0001394</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001394</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5910,7 +7020,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5945,21 +7058,28 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diabetes-mellitus" data-dismech-node="Diabetes mellitus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Diabetes mellitus
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diabetes mellitus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000819">HP:0000819</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000819</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5980,7 +7100,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6006,21 +7129,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperinsulinemia" data-dismech-node="Hyperinsulinemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperinsulinemia
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperinsulinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000842" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000842">HP:0000842</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000842" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000842</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperinsulinemia (HP:0000842). HP:0000842 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6041,7 +7171,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6076,21 +7209,28 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertrichosis" data-dismech-node="Hypertrichosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertrichosis
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertrichosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000998" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000998">HP:0000998</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6111,7 +7251,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6137,21 +7280,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acanthosis-nigricans" data-dismech-node="Acanthosis nigricans" data-dismech-type="phenotype">
                     <div class="item-name">
                         Acanthosis nigricans
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acanthosis nigricans
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000956">HP:0000956</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000956</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6172,7 +7322,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6194,7 +7347,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11479539" target="_blank">PMID:11479539</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6229,21 +7385,28 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-insulin-resistance" data-dismech-node="Insulin resistance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Insulin resistance
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Insulin resistance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000855">HP:0000855</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000855</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6264,7 +7427,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6290,21 +7456,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertriglyceridemia" data-dismech-node="Hypertriglyceridemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertriglyceridemia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertriglyceridemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002155">HP:0002155</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002155</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6325,7 +7498,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6351,21 +7527,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypercholesterolemia" data-dismech-node="Hypercholesterolemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypercholesterolemia
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypercholesterolemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003124" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003124">HP:0003124</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003124" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003124</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6386,7 +7569,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6412,19 +7598,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cgl4-elevated-creatine-kinase" data-dismech-node="CGL4 elevated creatine kinase" data-dismech-type="phenotype">
                     <div class="item-name">
                         CGL4 elevated creatine kinase
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating creatine kinase concentration
+
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003236">HP:0003236</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003236</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6445,7 +7640,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6477,24 +7675,31 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-muscle-hypertrophy" data-dismech-node="Skeletal muscle hypertrophy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Lipodystrophy
+                        Skeletal muscle hypertrophy
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lipodystrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009125" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009125">HP:0009125</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003712</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skeletal muscle hypertrophy (HP:0003712). HP:0003712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6515,7 +7720,152 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0003712 | Skeletal muscle hypertrophy | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records skeletal muscle hypertrophy as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-adipose-tissue-loss" data-dismech-node="Adipose tissue loss" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Adipose tissue loss
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008887" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0008887</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Adipose tissue loss (HP:0008887). HP:0008887 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:528" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0008887 | Adipose tissue loss | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records adipose tissue loss as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lipodystrophy" data-dismech-node="Lipodystrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lipodystrophy
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009125" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0009125</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lipodystrophy (HP:0009125). HP:0009125 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:528" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6541,19 +7891,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cgl4-congenital-myopathy" data-dismech-node="CGL4 congenital myopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         CGL4 congenital myopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003198">HP:0003198</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0003198</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6574,7 +7931,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6609,21 +7969,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intellectual disability
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6644,7 +8011,10 @@
                         <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6666,7 +8036,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12362029" target="_blank">PMID:12362029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6677,198 +8050,6 @@
 
 
                 <div class="evidence-explanation">The genotype-phenotype cohort supports intellectual impairment, particularly in BSCL2-associated disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Skeletal muscle hypertrophy
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-                    <span class="phenotype-id">
-                        Skeletal muscle hypertrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003712">HP:0003712</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:528" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003712 | Skeletal muscle hypertrophy | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records skeletal muscle hypertrophy as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Adipose tissue loss
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-                    <span class="phenotype-id">
-                        Adipose tissue loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008887" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008887">HP:0008887</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:528" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0008887 | Adipose tissue loss | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records adipose tissue loss as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Prominent superficial veins
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-                    <span class="phenotype-id">
-                        Prominent superficial veins
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001015">HP:0001015</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:528" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001015 | Prominent superficial veins | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
 
 
 
@@ -6923,7 +8104,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-agpat2-pathogenic-variants" data-dismech-node="AGPAT2 pathogenic variants" data-dismech-type="genetic">
                 <div class="item-name">
                     AGPAT2 pathogenic variants
 
@@ -6935,13 +8116,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: AGPAT2
 
 
-    <a href="https://bioregistry.io/hgnc:325" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:325">hgnc:325</a>
+    <a href="https://bioregistry.io/hgnc:325" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:325</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AGPAT2 (hgnc:325). hgnc:325 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6967,7 +8153,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11967537" target="_blank">PMID:11967537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6988,9 +8177,125 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-biallelic-agpat2-pathogenic-variants" data-dismech-node="Biallelic AGPAT2 pathogenic variants" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Biallelic AGPAT2 pathogenic variants
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: AGPAT2
+
+
+    <a href="https://bioregistry.io/hgnc:325" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:325</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in AGPAT2 (hgnc:325). hgnc:325 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+    </div>
+
+
+    <div class="item-desc">Null and missense AGPAT2 variants can reduce or abolish lysophosphatidic acid acyltransferase activity.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">AGPAT2 triglyceride biosynthesis</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss-of-function</span>
+
+
+
             </div>
 
-            <div class="item-box genetic-box">
+
+            <div class="item-desc">Impairs triacylglycerol synthesis and storage in adipocytes.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11967537" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11967537" target="_blank">PMID:11967537</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"by inhibiting triacylglycerol synthesis and storage in adipocytes."</div>
+
+
+                <div class="evidence-explanation">The paper states the proposed functional effect of AGPAT2 mutations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-bscl2-pathogenic-variants" data-dismech-node="BSCL2 pathogenic variants" data-dismech-type="genetic">
                 <div class="item-name">
                     BSCL2 pathogenic variants
 
@@ -7002,13 +8307,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BSCL2
 
 
-    <a href="https://bioregistry.io/hgnc:15832" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15832">hgnc:15832</a>
+    <a href="https://bioregistry.io/hgnc:15832" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:15832</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BSCL2 (hgnc:15832). hgnc:15832 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7034,7 +8344,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11479539" target="_blank">PMID:11479539</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7055,9 +8368,125 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-biallelic-bscl2-pathogenic-variants" data-dismech-node="Biallelic BSCL2 pathogenic variants" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Biallelic BSCL2 pathogenic variants
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: BSCL2
+
+
+    <a href="https://bioregistry.io/hgnc:15832" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:15832</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in BSCL2 (hgnc:15832). hgnc:15832 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+    </div>
+
+
+    <div class="item-desc">Null and missense BSCL2 variants disrupt seipin-dependent lipid-droplet regulation and adipocyte differentiation.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">Seipin lipid-droplet regulation</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss-of-function</span>
+
+
+
             </div>
 
-            <div class="item-box genetic-box">
+
+            <div class="item-desc">Disrupts lipid-droplet organization and terminal adipocyte differentiation.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22269949" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22269949" target="_blank">PMID:22269949</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"loss of lipid droplets and silencing"</div>
+
+
+                <div class="evidence-explanation">Cell-model evidence links seipin loss to lipid-droplet loss and adipocyte transcriptional silencing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-cav1-pathogenic-variants" data-dismech-node="CAV1 pathogenic variants" data-dismech-type="genetic">
                 <div class="item-name">
                     CAV1 pathogenic variants
 
@@ -7069,13 +8498,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CAV1
 
 
-    <a href="https://bioregistry.io/hgnc:1527" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1527">hgnc:1527</a>
+    <a href="https://bioregistry.io/hgnc:1527" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:1527</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CAV1 (hgnc:1527). hgnc:1527 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7101,7 +8535,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7122,9 +8559,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cavin1-pathogenic-variants" data-dismech-node="CAVIN1 pathogenic variants" data-dismech-type="genetic">
                 <div class="item-name">
                     CAVIN1 pathogenic variants
 
@@ -7136,13 +8574,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CAVIN1
 
 
-    <a href="https://bioregistry.io/hgnc:9688" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9688">hgnc:9688</a>
+    <a href="https://bioregistry.io/hgnc:9688" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:9688</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CAVIN1 (hgnc:9688). hgnc:9688 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7168,7 +8611,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7189,9 +8635,16 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7203,13 +8656,18 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-metreleptin-replacement-therapy" data-dismech-node="Metreleptin replacement therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Metreleptin replacement therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7239,19 +8697,38 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         metreleptin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C170171" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C170171">NCIT:C170171</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170171" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C170171</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metreleptin (NCIT:C170171). NCIT:C170171 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7284,7 +8761,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7325,7 +8805,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25734254" target="_blank">PMID:25734254</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7347,7 +8830,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25734254" target="_blank">PMID:25734254</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7370,19 +8856,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-low-fat-diet-and-exercise" data-dismech-node="Low-fat diet and exercise" data-dismech-type="treatment">
                 <div class="item-name">
                     Low-fat diet and exercise
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000088" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000088">MAXO:0000088</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -7400,6 +8892,31 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7434,7 +8951,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7475,7 +8995,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7498,13 +9021,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-conventional-diabetes-and-hyperlipidemia-therapy" data-dismech-node="Conventional diabetes and hyperlipidemia therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Conventional diabetes and hyperlipidemia therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7528,6 +9056,20 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7562,7 +9104,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7607,7 +9152,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7648,7 +9196,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7671,13 +9222,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cgl4-beta-blocker-and-anti-arrhythmic-therapy" data-dismech-node="CGL4 beta-blocker and anti-arrhythmic therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     CGL4 beta-blocker and anti-arrhythmic therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7707,19 +9263,38 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         beta-adrenergic antagonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29576" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29576">NCIT:C29576</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29576" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-55">NCIT:C29576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7752,7 +9327,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7781,16 +9359,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Arrhythmia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011675">HP:0011675</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0011675</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7810,7 +9393,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7833,13 +9419,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic counseling
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7868,6 +9459,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is indicated for affected families because established subtypes are autosomal recessive and molecular diagnosis informs recurrence risk and subtype-specific anticipatory guidance.
 </div>
 
@@ -7888,7 +9493,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12362029" target="_blank">PMID:12362029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7926,7 +9534,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-hypertriglyceridemia" data-dismech-node="Hypertriglyceridemia" data-dismech-type="biochemical">
                 <div class="item-name">
                     Hypertriglyceridemia
 
@@ -7975,7 +9583,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8015,7 +9626,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8038,7 +9652,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-low-leptin-concentration" data-dismech-node="Low leptin concentration" data-dismech-type="biochemical">
                 <div class="item-name">
                     Low leptin concentration
 
@@ -8087,7 +9701,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8127,7 +9744,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8150,7 +9770,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-hyperinsulinemia" data-dismech-node="Hyperinsulinemia" data-dismech-type="biochemical">
                 <div class="item-name">
                     Hyperinsulinemia
 
@@ -8199,7 +9819,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8239,7 +9862,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8265,6 +9891,379 @@
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-lipodystrophy-assessment">
+                <div class="item-name">
+                    Clinical lipodystrophy assessment
+
+                </div>
+
+                <div class="item-desc">Clinical recognition rests on generalized lack of body fat with extreme muscularity from birth or early infancy, supported by body-fat distribution assessment when available.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        disease screening
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C15419</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Generalized lack of body fat with extreme muscularity supports CGL.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26239609" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"generalized lack of body fat with extreme muscularity from birth"</div>
+
+
+                <div class="evidence-explanation">The review summarizes essential clinical diagnostic criteria for CGL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cgl-molecular-genetic-testing">
+                <div class="item-name">
+                    CGL molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing for biallelic pathogenic variants in AGPAT2, BSCL2, CAV1, or CAVIN1/PTRF confirms the subtype when pathogenic variants are found.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic pathogenic variants in a known CGL gene support molecular diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26239609" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A number of clinical and research laboratories offer genetic testing for CGL."</div>
+
+
+                <div class="evidence-explanation">The review supports genetic testing as part of CGL diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-neonatal-to-childhood-onset">
+                <div class="item-name">Neonatal to childhood onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Birth to childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Generalized lipoatrophy is usually recognized at birth or in infancy, with metabolic complications often emerging during infancy, childhood, or puberty.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:528" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Neonatal"</div>
+
+
+                <div class="evidence-explanation">Orphanet records neonatal onset as one of the onset categories.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26239609" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26239609" target="_blank">PMID:26239609</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"near complete lack of adipose tissue from"</div>
+
+
+                <div class="evidence-explanation">The review states that CGL is characterized by near-complete adipose tissue absence from birth.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">0.1&ndash;0.9 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet reports worldwide point prevalence in the 1-9 per 1,000,000 range.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:528" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:528" target="_blank">ORPHA:528</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 1 000 000 | Worldwide | Point prevalence"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the worldwide point-prevalence class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -8275,6 +10274,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -8294,7 +10296,6 @@
                 <pre class="yaml-preview">name: Berardinelli-Seip Congenital Lipodystrophy
 category: Mendelian
 creation_date: &#39;2026-05-04T00:00:00Z&#39;
-updated_date: &#39;2026-05-21T21:29:20Z&#39;
 synonyms:
 - Congenital generalized lipodystrophy
 - Berardinelli-Seip syndrome
@@ -8409,7 +10410,7 @@ inheritance:
     recessive disorder across the established molecular subtypes.
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -8431,7 +10432,7 @@ prevalence:
     Orphanet reports worldwide point prevalence in the 1-9 per 1,000,000 range.
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;1-9 / 1 000 000 | Worldwide | Point prevalence&#34;
@@ -8444,7 +10445,7 @@ progression:
     metabolic complications often emerging during infancy, childhood, or puberty.
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Age of onset: Neonatal&#34;
@@ -8746,7 +10747,7 @@ pathophysiology:
     modifier: DECREASED
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;generalized lipoatrophy with acromegaloid features&#34;
@@ -8763,7 +10764,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:528
-      reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+      reference_title: &#34;Congenital generalized lipodystrophy&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0009125 | Lipodystrophy | Very frequent (99-80%)&#34;
@@ -8773,7 +10774,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:528
-      reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+      reference_title: &#34;Congenital generalized lipodystrophy&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0008887 | Adipose tissue loss | Very frequent (99-80%)&#34;
@@ -8822,7 +10823,7 @@ pathophysiology:
       snippet: &#34;generalized lack of body fat with extreme muscularity from birth&#34;
       explanation: Review diagnostic criteria link generalized fat loss with extreme muscularity.
     - reference: ORPHA:528
-      reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+      reference_title: &#34;Congenital generalized lipodystrophy&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0003712 | Skeletal muscle hypertrophy | Very frequent (99-80%)&#34;
@@ -8832,7 +10833,7 @@ pathophysiology:
     causal_link_type: UNKNOWN
     evidence:
     - reference: ORPHA:528
-      reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+      reference_title: &#34;Congenital generalized lipodystrophy&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000998 | Hypertrichosis | Frequent (79-30%)&#34;
@@ -8844,7 +10845,7 @@ pathophysiology:
     - Reduced subcutaneous fat coverage
     evidence:
     - reference: ORPHA:528
-      reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+      reference_title: &#34;Congenital generalized lipodystrophy&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001015 | Prominent superficial veins | Occasional (29-5%)&#34;
@@ -8909,7 +10910,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:528
-      reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+      reference_title: &#34;Congenital generalized lipodystrophy&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001394 | Cirrhosis | Occasional (29-5%)&#34;
@@ -8942,7 +10943,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:528
-      reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+      reference_title: &#34;Congenital generalized lipodystrophy&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0003124 | Hypercholesterolemia | Occasional (29-5%)&#34;
@@ -9044,7 +11045,7 @@ pathophysiology:
     snippet: &#34;marked paucity of adipose tissue, extreme insulin resistance,&#34;
     explanation: The AGPAT2 discovery paper includes extreme insulin resistance in the clinical phenotype.
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;muscle hypertrophy, insulin resistance, hypertriglyceridemia&#34;
@@ -9055,7 +11056,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:528
-      reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+      reference_title: &#34;Congenital generalized lipodystrophy&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000855 | Insulin resistance | Very frequent (99-80%)&#34;
@@ -9105,7 +11106,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:528
-      reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+      reference_title: &#34;Congenital generalized lipodystrophy&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001635 | Congestive heart failure | Occasional (29-5%)&#34;
@@ -9121,7 +11122,7 @@ phenotypes:
       label: Insulin resistance
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000855 | Insulin resistance | Very frequent (99-80%)&#34;
@@ -9136,7 +11137,7 @@ phenotypes:
       label: Hepatomegaly
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002240 | Hepatomegaly | Very frequent (99-80%)&#34;
@@ -9151,7 +11152,7 @@ phenotypes:
       label: Skeletal muscle hypertrophy
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003712 | Skeletal muscle hypertrophy | Very frequent (99-80%)&#34;
@@ -9166,7 +11167,7 @@ phenotypes:
       label: Adipose tissue loss
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0008887 | Adipose tissue loss | Very frequent (99-80%)&#34;
@@ -9181,7 +11182,7 @@ phenotypes:
       label: Lipodystrophy
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0009125 | Lipodystrophy | Very frequent (99-80%)&#34;
@@ -9196,7 +11197,7 @@ phenotypes:
       label: Diabetes mellitus
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000819 | Diabetes mellitus | Frequent (79-30%)&#34;
@@ -9211,7 +11212,7 @@ phenotypes:
       label: Hypertrichosis
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000998 | Hypertrichosis | Frequent (79-30%)&#34;
@@ -9226,7 +11227,7 @@ phenotypes:
       label: Prominent superficial veins
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001015 | Prominent superficial veins | Occasional (29-5%)&#34;
@@ -9241,7 +11242,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001249 | Intellectual disability | Frequent (79-30%)&#34;
@@ -9262,7 +11263,7 @@ phenotypes:
       label: Hypertriglyceridemia
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002155 | Hypertriglyceridemia | Frequent (79-30%)&#34;
@@ -9277,7 +11278,7 @@ phenotypes:
       label: Hypercholesterolemia
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003124 | Hypercholesterolemia | Occasional (29-5%)&#34;
@@ -9292,7 +11293,7 @@ phenotypes:
       label: Hepatic steatosis
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001397 | Hepatic steatosis | Occasional (29-5%)&#34;
@@ -9313,7 +11314,7 @@ phenotypes:
       label: Cirrhosis
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001394 | Cirrhosis | Occasional (29-5%)&#34;
@@ -9328,7 +11329,7 @@ phenotypes:
       label: Acanthosis nigricans
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000956 | Acanthosis nigricans | Occasional (29-5%)&#34;
@@ -9349,7 +11350,7 @@ phenotypes:
       label: Hypertrophic cardiomyopathy
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001639 | Hypertrophic cardiomyopathy | Occasional (29-5%)&#34;
@@ -9370,7 +11371,7 @@ phenotypes:
       label: Congestive heart failure
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001635 | Congestive heart failure | Occasional (29-5%)&#34;
@@ -9385,7 +11386,7 @@ phenotypes:
       label: Hyperinsulinemia
   evidence:
   - reference: ORPHA:528
-    reference_title: &#34;Congenital generalized lipodystrophy (Orphanet structured-database record)&#34;
+    reference_title: &#34;Congenital generalized lipodystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000842 | Hyperinsulinemia | Occasional (29-5%)&#34;
@@ -9700,11 +11701,12 @@ treatments:
     Dietary management with a low-fat diet, adequate growth calories for
     children, and regular physical activity is part of supportive metabolic
     management, although controlled-trial evidence is limited.
+  therapeutic_modality: BEHAVIORAL
   treatment_term:
     preferred_term: dietary intervention
     term:
-      id: MAXO:0000088
-      label: dietary intervention
+      id: NCIT:C15447
+      label: Dietary Intervention
   target_mechanisms:
   - target: Ectopic triglyceride accumulation
     treatment_effect: INHIBITS
@@ -9822,8 +11824,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: disease screening
     term:
-      id: MAXO:0000124
-      label: disease screening
+      id: NCIT:C15419
+      label: Disease Screening
   description: &gt;
     Clinical recognition rests on generalized lack of body fat with extreme
     muscularity from birth or early infancy, supported by body-fat distribution
@@ -9840,8 +11842,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: genetic testing
     term:
-      id: MAXO:0000127
-      label: genetic testing
+      id: NCIT:C15709
+      label: Genetic Testing
   description: &gt;
     Molecular testing for biallelic pathogenic variants in AGPAT2, BSCL2, CAV1,
     or CAVIN1/PTRF confirms the subtype when pathogenic variants are found.
@@ -10050,6 +12052,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10167,6 +12171,11 @@ subtype-specific prognosis.</p>
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Berardinelli_Seip_Congenital_Lipodystrophy.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -10207,7 +12216,7 @@ subtype-specific prognosis.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Berardinelli-Seip Congenital Lipodystrophy", "mondoId": "MONDO:0018883", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Berardinelli-Seip_Congenital_Lipodystrophy", "yamlRevision": "9b82b64b8b2e"};
+        const OS_CONFIG = {"diseaseName": "Berardinelli-Seip Congenital Lipodystrophy", "mondoId": "MONDO:0018883", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Berardinelli-Seip_Congenital_Lipodystrophy", "yamlRevision": "d4936eb20f05"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10626,5 +12635,73 @@ subtype-specific prognosis.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

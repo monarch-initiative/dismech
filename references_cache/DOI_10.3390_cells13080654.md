@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13080654"
+reference_id: DOI:10.3390/cells13080654
 title: Inflammation and Exosomes in Fabry Disease Pathogenesis
 authors:
 - Bruna Coelho-Ribeiro
@@ -13,6 +13,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13080654
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Inflammation and Exosomes in Fabry Disease Pathogenesis

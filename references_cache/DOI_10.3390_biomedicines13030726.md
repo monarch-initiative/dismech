@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines13030726"
+reference_id: DOI:10.3390/biomedicines13030726
 title: "Hashimoto’s Encephalopathy: Clinical Features, Therapeutic Strategies, and Rehabilitation Approaches"
 authors:
 - Nicola Manocchio
@@ -12,6 +12,7 @@ journal: Biomedicines
 year: '2025'
 doi: 10.3390/biomedicines13030726
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hashimoto’s Encephalopathy: Clinical Features, Therapeutic Strategies, and Rehabilitation Approaches

@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>Parvovirus B19 Infection</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Parvovirus B19 Infection</h1>
             <div class="header-meta">
 
@@ -3203,6 +3962,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3221,7 +3984,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3239,6 +4002,7 @@
 
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3249,6 +4013,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3316,16 +4088,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Erythroid Progenitor Cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000038">CL:0000038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Erythroid Progenitor Cells, annotated with erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3352,17 +4129,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         viral genome replication
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019079">GO:0019079</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0019079</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves viral genome replication (GO:0019079). GO:0019079 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3383,10 +4167,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006260" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006260">GO:0006260</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves DNA replication (GO:0006260). GO:0006260 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3409,19 +4196,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002371">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -3440,7 +4233,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9372060" target="_blank">PMID:9372060</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3460,8 +4256,13 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26845771" target="_blank">PMID:26845771</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
@@ -3480,8 +4281,13 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37175911" target="_blank">PMID:37175911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
@@ -3525,6 +4331,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -3537,7 +4344,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37434352" target="_blank">PMID:37434352</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3557,7 +4367,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9595838" target="_blank">PMID:9595838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3594,17 +4407,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         viral entry into host cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046718">GO:0046718</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0046718</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves viral entry into host cell, annotated with symbiont entry into host cell (GO:0046718). GO:0046718 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3625,10 +4445,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006897" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006897">GO:0006897</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006897" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006897</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves endocytosis (GO:0006897). GO:0006897 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3651,17 +4474,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002371">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         fetal liver
@@ -3669,10 +4499,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in fetal liver, annotated with liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -3681,6 +4514,92 @@
 
 
 
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25283854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25283854" target="_blank">PMID:25283854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"B19V targets the erythroid progenitors in the bone marrow by binding to the glycosphingolipid globoside (Gb4), leading to large receptor-induced structural changes triggering cell death either by lysis or by apoptosis mediated by the nonstructural (NS)1 protein."</div>
+
+
+                <div class="evidence-explanation">Directly states that B19V uses globoside (Gb4) as its cellular receptor on erythroid progenitor cells. The VP1u/endosomal escape mechanism requires additional cell-biology citations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8139629" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8139629" target="_blank">PMID:8139629</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of the 17 subjects with the p red-cell phenotype, who did not have P antigen on their erythrocytes, none (0 of 11 and 0 of 6) had serologic evidence of previous parvovirus B19 infection. In contrast, the seropositivity rates in the two control groups were 71 percent (53 of 75, P &lt; 0.001) and 47..."</div>
+
+
+                <div class="evidence-explanation">Provides the converse population-level confirmation that globoside (P antigen) is required for productive B19V infection - individuals lacking it show no serologic evidence of past infection, while matched controls are 47-71 percent seropositive.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8139629" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8139629" target="_blank">PMID:8139629</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In vitro, bone marrow from donors with the p phenotype maintained normal erythropoiesis despite very high concentrations of virus, with no evidence of infection of erythroid progenitor cells by parvovirus B19."</div>
+
+
+                <div class="evidence-explanation">The in-vitro arm of the same study shows the resistance is cell-intrinsic to P-null erythroid progenitors rather than a consequence of differential exposure, supporting globoside as required for productive infection of the erythroid lineage.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 	            </div>
@@ -3694,16 +4613,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Erythroid Progenitor Cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000038">CL:0000038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Erythroid Progenitor Cells, annotated with erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3730,16 +4654,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ATR
 
 
-    <a href="https://bioregistry.io/hgnc:882" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:882">hgnc:882</a>
+    <a href="https://bioregistry.io/hgnc:882" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:882</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATR (hgnc:882). hgnc:882 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3767,10 +4702,13 @@
         PRKDC
 
 
-    <a href="https://bioregistry.io/hgnc:9413" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9413">hgnc:9413</a>
+    <a href="https://bioregistry.io/hgnc:9413" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:9413</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRKDC (hgnc:9413). hgnc:9413 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3798,17 +4736,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA damage response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006974">GO:0006974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3829,11 +4774,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051726">GO:0051726</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0051726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cell cycle arrest, annotated with regulation of cell cycle (GO:0051726). GO:0051726 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3854,10 +4804,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3882,6 +4835,42 @@
 
 
 
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21680529" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21680529" target="_blank">PMID:21680529</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"B19V infection induces a broad range of DNA damage responses by triggering phosphorylation of all the upstream kinases of each of three repair pathways: ATM (ataxia-telangiectasi mutated), ATR (ATM and Rad3 related), and DNA-PKcs (DNA-dependent protein kinase catalytic subunit)."</div>
+
+
+                <div class="evidence-explanation">Demonstrates that B19V infection activates the DNA damage response (DDR) including ATR and DNA-PKcs (PRKDC) in human erythroid progenitor cells in vitro, directly supporting the Cell Cycle Arrest and Apoptosis node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 	            </div>
@@ -3895,16 +4884,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Erythroid Progenitor Cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000038">CL:0000038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Erythroid Progenitor Cells, annotated with erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3931,16 +4925,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         EPOR
 
 
-    <a href="https://bioregistry.io/hgnc:3416" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3416">hgnc:3416</a>
+    <a href="https://bioregistry.io/hgnc:3416" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:3416</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EPOR (hgnc:3416). hgnc:3416 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3968,11 +4973,18 @@
         STAT5A
 
 
-    <a href="https://bioregistry.io/hgnc:11366" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11366">hgnc:11366</a>
+    <a href="https://bioregistry.io/hgnc:11366" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:11366</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT5A (hgnc:11366). hgnc:11366 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4000,10 +5012,13 @@
         STAT5B
 
 
-    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11367">hgnc:11367</a>
+    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:11367</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT5B (hgnc:11367). hgnc:11367 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4031,16 +5046,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         JAK-STAT cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007259">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0007259</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves JAK-STAT cascade, annotated with cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4065,6 +5085,42 @@
 
 
 
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28459842" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28459842" target="_blank">PMID:28459842</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Efficient B19V replication also requires hypoxic conditions, which upregulate the signal transducer and activator of transcription 5 (STAT5) pathway, and phosphorylated STAT5 is essential for virus replication."</div>
+
+
+                <div class="evidence-explanation">Directly supports the node&#39;s claim that hypoxia-enhanced STAT5 signaling creates a permissive environment for B19V replication in erythroid progenitor cells; the same study additionally shows phosphorylated STAT5 interacts with the MCM helicase complex at viral DNA replication origins.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 	            </div>
@@ -4094,7 +5150,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Erythema Infectiosum (Fifth Disease)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Classic childhood exanthem characterized by facial erythema (slapped cheek) followed by lacy reticular rash on trunk and extremities.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Slapped Cheek Rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bright red malar erythema giving the face a slapped appearance, pathognomonic for erythema infectiosum.\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025300\"}}], \"edges\": [{\"source\": \"Erythema Infectiosum (Fifth Disease)\", \"target\": \"Slapped Cheek Rash\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Bright red facial erythema confined to the cheeks, giving the appearance of having been slapped.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Erythema Infectiosum (Fifth Disease)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Classic childhood exanthem characterized by facial erythema (slapped cheek) followed by lacy reticular rash on trunk and extremities.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Slapped Cheek Rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bright red malar erythema giving the face a slapped appearance, pathognomonic for erythema infectiosum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025300\"}}], \"edges\": [{\"source\": \"Erythema Infectiosum (Fifth Disease)\", \"target\": \"Slapped Cheek Rash\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Bright red facial erythema confined to the cheeks, giving the appearance of having been slapped.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4107,21 +5163,23 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4130,32 +5188,213 @@
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
-                    <span class="cat-count">1</span>
+                    Blood
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-pure-red-cell-aplasia" data-dismech-node="Chronic Pure Red Cell Aplasia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Myocarditis
+                        Chronic Pure Red Cell Aplasia
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Myocarditis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012819" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012819">HP:0012819</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012410</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic pure red cell aplasia, annotated with Pure red cell aplasia (HP:0012410), qualified as temporality chronic. HP:0012410 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7986722" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7986722" target="_blank">PMID:7986722</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus B19 infection causes chronic anaemia in immunodeficient individuals by selective suppression of erythropoiesis. The bone marrow morphology is characteristic of pure red cell aplasia (PRCA)."</div>
+
+
+                <div class="evidence-explanation">Directly establishes that B19V causes chronic (rather than transient) pure red cell aplasia specifically in immunodeficient hosts, via persistent selective suppression of erythropoiesis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-papular-purpuric-gloves-and-socks-syndrome-ppgss" data-dismech-node="Papular-Purpuric Gloves and Socks Syndrome (PPGSS)" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Papular-Purpuric Gloves and Socks Syndrome (PPGSS)
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Purpura</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000979</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Papular-purpuric gloves and socks syndrome, annotated with Purpura (HP:0000979). HP:0000979 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
-                    <div class="item-desc">More commonly observed in immunocompromised individuals or chronic infection.</div>
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9675471" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9675471" target="_blank">PMID:9675471</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The papular-purpuric gloves and socks syndrome (PPGSS) was first described in 1990. This syndrome is characterized by fever, acral pruritus, edema, petechiae, and oral erosions. Subsequently, parvovirus B19 has been implicated, in most cases, as the causative agent of this syndrome."</div>
+
+
+                <div class="evidence-explanation">Establishes PPGSS as a distinct B19V-associated dermatologic phenotype defined by acral fever, pruritus, edema, petechiae, and oral erosions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12852167" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12852167" target="_blank">PMID:12852167</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"purpuric and papular lesions located mostly on the dorsal areas of his hands and feet with the additional changes on his knees and elbows. Serologic studies confirmed the acute infection by parvovirus B19."</div>
+
+
+                <div class="evidence-explanation">Documents the characteristic distribution of the purpuric/papular eruption over the hands and feet, confirmed serologically as acute B19V infection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12852167" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12852167" target="_blank">PMID:12852167</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Herein the patient&#39;s condition was described together with a brief overview of the PPGSS literature concerning this relatively rare viral exanthema."</div>
+
+
+                <div class="evidence-explanation">Frequency band justification. No quantitative frequency has been reported for PPGSS among B19V infections; the author wording &#34;relatively rare&#34; maps to VERY_RARE (&lt;5%) under the DisMech qualitative mapping (Pattern C, docs/frequency-evidence-guidelines.md). PMID:9675471 is consistent, describing &#34;this unusual syndrome&#34; and its own case as only the second documented B19V-associated PPGSS in the United States.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -4168,32 +5407,74 @@
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Immune
+                    Cardiovascular
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myocarditis" data-dismech-node="Myocarditis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Slapped Cheek Rash
+                        Myocarditis
 
-                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
 
 
                     <span class="phenotype-id">
-                        Malar rash
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025300" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025300">HP:0025300</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012819</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
+                    <div class="item-desc">More commonly observed in immunocompromised individuals or chronic infection.</div>
 
 
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7756792" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7756792" target="_blank">PMID:7756792</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a heterogeneous group of diseases, in which the etiologic role of parvovirus is less clear and sometimes putative (neurologic disease, rheumatologic disease, vasculitic and myocarditic syndromes)."</div>
+
+
+                <div class="evidence-explanation">Identifies myocarditis as one of the broader disease associations with parvovirus B19, though the etiologic role is noted as sometimes putative; additional direct evidence linking B19V to cardiac inflammation is needed.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -4206,25 +5487,114 @@
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-slapped-cheek-rash" data-dismech-node="Slapped Cheek Rash" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Slapped Cheek Rash
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Malar rash</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0025300</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Slapped Cheek Rash, annotated with Malar rash (HP:0025300). HP:0025300 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8668619" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8668619" target="_blank">PMID:8668619</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the virus has been implicated in numerous disorders, including aplastic crisis in patients with chronic hemolytic anemia, erythema infectiosum, arthropathy, arthritis, and fetal infections."</div>
+
+
+                <div class="evidence-explanation">Confirms erythema infectiosum (presenting with the slapped-cheek facial erythema) as an established manifestation of parvovirus B19 infection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hydrops-fetalis" data-dismech-node="Hydrops Fetalis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hydrops Fetalis
 
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydrops fetalis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001789">HP:0001789</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001789</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4247,7 +5617,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21502743" target="_blank">PMID:21502743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4267,7 +5640,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9095492" target="_blank">PMID:9095492</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4287,7 +5663,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30124157" target="_blank">PMID:30124157</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4313,28 +5692,35 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthropathy" data-dismech-node="Arthropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arthropathy
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003040" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003040">HP:0003040</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003040</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4357,7 +5743,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9595838" target="_blank">PMID:9595838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4377,7 +5766,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11993780" target="_blank">PMID:11993780</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -4389,13 +5781,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27511498" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27511498" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27511498" target="_blank">PMID:27511498</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4423,14 +5818,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-erythema-infectiosum-fifth-disease" data-dismech-node="Erythema Infectiosum (Fifth Disease)" data-dismech-type="phenotype">
                     <div class="item-name">
                         Erythema Infectiosum (Fifth Disease)
 
@@ -4462,7 +5857,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37132144" target="_blank">PMID:37132144</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4482,7 +5880,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10821497" target="_blank">PMID:10821497</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4502,7 +5903,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8042568" target="_blank">PMID:8042568</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4528,7 +5932,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-transient-aplastic-crisis" data-dismech-node="Transient Aplastic Crisis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Transient Aplastic Crisis
 
@@ -4553,7 +5957,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8649911" target="_blank">PMID:8649911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4573,7 +5980,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24962467" target="_blank">PMID:24962467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4593,7 +6003,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26940953" target="_blank">PMID:26940953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4652,6 +6065,12 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4661,13 +6080,18 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-care" data-dismech-node="Supportive Care" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive Care
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4696,6 +6120,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Includes rest, fluids, and analgesics for managing symptoms.</div>
 
 
@@ -4715,7 +6153,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31323869" target="_blank">PMID:31323869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4735,7 +6176,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8668619" target="_blank">PMID:8668619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4755,7 +6199,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7899371" target="_blank">PMID:7899371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4776,20 +6223,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-intravenous-immunoglobulin-ivig" data-dismech-node="Intravenous Immunoglobulin (IVIG)" data-dismech-type="treatment">
                 <div class="item-name">
                     Intravenous Immunoglobulin (IVIG)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">intravenous immunoglobulin therapy</span>
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: immunoglobulin infusion therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">intravenous immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunoglobulin Therapy</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0001480" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001480">MAXO:0001480</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62710" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C62710">NCIT:C62710</a>
 
 
 
@@ -4807,6 +6259,20 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4831,7 +6297,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37544998" target="_blank">PMID:37544998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4851,7 +6320,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11560750" target="_blank">PMID:11560750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4871,7 +6343,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33346452" target="_blank">PMID:33346452</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4906,8 +6381,12 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-personal-hygiene" data-dismech-node="Personal Hygiene" data-dismech-type="environmental">
                 <div class="item-name">Personal Hygiene</div>
+
+
+
+
 
 
 
@@ -4927,7 +6406,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32510300" target="_blank">PMID:32510300</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4946,6 +6428,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -4960,7 +6443,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-parvovirus-b19-serology" data-dismech-node="Parvovirus B19 Serology" data-dismech-type="biochemical">
                 <div class="item-name">
                     Parvovirus B19 Serology
 
@@ -4986,7 +6469,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16332455" target="_blank">PMID:16332455</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5006,7 +6492,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9220384" target="_blank">PMID:9220384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5026,7 +6515,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33124969" target="_blank">PMID:33124969</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5049,7 +6541,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-parvovirus-b19-dna-pcr" data-dismech-node="Parvovirus B19 DNA PCR" data-dismech-type="biochemical">
                 <div class="item-name">
                     Parvovirus B19 DNA PCR
 
@@ -5075,7 +6567,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8361022" target="_blank">PMID:8361022</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5095,7 +6590,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32559661" target="_blank">PMID:32559661</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5115,7 +6613,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36619750" target="_blank">PMID:36619750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5141,16 +6642,924 @@
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-examination">
+                <div class="item-name">
+                    Clinical Examination
+
+                </div>
+
+                <div class="item-desc">Physical assessment identifying characteristic slapped cheek rash and lacy reticular exanthem.</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Based on characteristic rash and illness pattern.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32143947" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32143947" target="_blank">PMID:32143947</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The objective of this study was to determine the epidemiology and clinical-analytical manifestations of acute PVB19 infection."</div>
+
+
+                <div class="evidence-explanation">The study discusses the clinical manifestations of Parvovirus B19, including characteristic rashes and illness patterns, but does not explicitly state that clinical examination alone is sufficient for diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36811343" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36811343" target="_blank">PMID:36811343</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Erythema infectiosum, caused by human parvovirus B19 (B19V), is difficult to diagnose by its clinical symptoms and is often misdiagnosed as measles or rubella."</div>
+
+
+                <div class="evidence-explanation">This study indicates that while clinical symptoms are important, they are often not sufficient for a conclusive diagnosis of Parvovirus B19 infection, highlighting the need for laboratory tests.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10821497" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10821497" target="_blank">PMID:10821497</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The prototypical cutaneous manifestations of human parvovirus B19 (B19) infection include a petechial eruption in a glove and stocking distribution, reticular truncal erythema, and the &#39;slapped cheek&#39; sign."</div>
+
+
+                <div class="evidence-explanation">The reference describes characteristic cutaneous manifestations of Parvovirus B19, which can be observed during a clinical examination. However, it does not confirm that these observations alone are sufficient for diagnosis.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serologic-testing">
+                <div class="item-name">
+                    Serologic Testing
+
+                </div>
+
+                <div class="item-desc">ELISA-based detection of parvovirus B19-specific IgM (acute) and IgG (past) antibodies.</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Detection of IgM and IgG antibodies.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8396604" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8396604" target="_blank">PMID:8396604</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Specific IgM antibodies were detected in 94% specimens collected 1 week after the onset of illness and could be detected for up to 2 months. On the other hand, specific IgG antibodies were detected in 85% patients from whom acute- and convalescent-phase serum samples were collected."</div>
+
+
+                <div class="evidence-explanation">The study confirms the detection of IgM and IgG antibodies in patients with parvovirus B19 infection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10590428" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10590428" target="_blank">PMID:10590428</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"We analysed the diagnostic value of B19 IgM antibody testing and polymerase chain reaction (PCR) in the sera from 57 patients and their fetuses with abnormal ultrasonography."</div>
+
+
+                <div class="evidence-explanation">The study highlights the use of IgM antibody testing for the diagnosis of parvovirus B19 infection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11418353" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11418353" target="_blank">PMID:11418353</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The presence of anti-parvovirus B19 (B19V) IgM against viral capsid proteins (VP1 and VP2) has long been used to detect recent infection."</div>
+
+
+                <div class="evidence-explanation">The study discusses the detection of IgM antibodies as a common method for diagnosing recent parvovirus B19 infection.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-pcr-testing">
+                <div class="item-name">
+                    PCR Testing
+
+                </div>
+
+                <div class="item-desc">Molecular detection and quantification of parvovirus B19 DNA in blood, amniotic fluid, or tissues.</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Detection of viral DNA in blood or other tissues.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (7 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32559661" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32559661" target="_blank">PMID:32559661</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis of congenital viral infection at birth is generally attempted by direct detection of the virus by PCR in various neonatal materials."</div>
+
+
+                <div class="evidence-explanation">The study discusses the use of PCR for detecting Parvovirus B19 DNA in neonatal blood samples, supporting the statement that PCR testing can detect viral DNA in blood or other tissues.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37775826" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37775826" target="_blank">PMID:37775826</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"A PCR-based assay with Parvovirus B19 specific primers was implemented to detect the presence of the viral genome."</div>
+
+
+                <div class="evidence-explanation">This study confirms the use of PCR testing for detecting Parvovirus B19 DNA in heart tissue samples.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8361022" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8361022" target="_blank">PMID:8361022</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The development of a polymerase chain reaction (PCR) method for detection of human parvovirus B19 DNA... In fetal infection, the PCR method provides sufficient detection of B19 DNA in cord blood, amniotic fluid, ascitic fluid, and fetal pericardial effusion and pleural effusion."</div>
+
+
+                <div class="evidence-explanation">The study demonstrates the use of PCR for detecting Parvovirus B19 DNA in various clinical specimens, including blood and other tissues.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 4 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global">
+                <div class="item-name">Global</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Lifetime Prevalence</span>
+
+
+
+                    <span class="tag">Common</span>
+
+                </div>
+
+                <div class="item-notes">Seroprevalence (IgG positivity) rises with age; approximately 50–70% of adults worldwide have been exposed.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25990962" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25990962" target="_blank">PMID:25990962</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The overall IgG prevalence in the 1008 representative sera samples was 61.4% and the age-adjusted prevalence rate was 58.2%."</div>
+
+
+                <div class="evidence-explanation">The study provides data on the prevalence of Parvovirus B19 infection in the Israeli population, indicating that a significant portion of the population has been exposed to the virus. However, this is specific to Israel and may not represent the global population.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27806994" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27806994" target="_blank">PMID:27806994</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"These viruses are prevalent worldwide and are culturable in vitro, and serological and molecular assays are available but require careful interpretation of results."</div>
+
+
+                <div class="evidence-explanation">The article mentions that Parvovirus B19 is prevalent worldwide, supporting the statement to some extent. However, it does not provide specific global prevalence percentages.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21040396" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21040396" target="_blank">PMID:21040396</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Human parvovirus B19 infection is widespread. Approximately 30-50% of pregnant women are nonimmune, and vertical transmission is common following maternal infection in pregnancy."</div>
+
+
+                <div class="evidence-explanation">The article indicates that Parvovirus B19 infection is widespread and provides specific data on nonimmune pregnant women, suggesting significant exposure rates. However, it does not provide a comprehensive global percentage.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-parvovirus-b19">
+                <div class="item-name">Parvovirus B19</div>
+
+                <div class="item-desc">A single-stranded DNA virus known to cause several clinical conditions, particularly in children.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Human parvovirus B19
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10798" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-28">NCBITaxon:10798</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25283854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25283854" target="_blank">PMID:25283854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus B19 (B19V) is a small non-enveloped single-stranded DNA (ssDNA) virus of the family Parvoviridae, the subfamily Parvovirinae, the genus Erythrovirus and Human parvovirus B19 type species."</div>
+
+
+                <div class="evidence-explanation">The reference confirms that Parvovirus B19 is a single-stranded DNA virus.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15485533" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15485533" target="_blank">PMID:15485533</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus B19 infections cause a wide range of clinical findings, including erythema infectiosum, &#39;glove-and-socks&#39; syndrome, arthropathies, red cell aplasia, and intrauterine infections."</div>
+
+
+                <div class="evidence-explanation">The reference supports that Parvovirus B19 causes several clinical conditions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33944819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33944819" target="_blank">PMID:33944819</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus B19 (PVB19) is a small DNA virus that causes the fifth disease in children; however it can also affect adults."</div>
+
+
+                <div class="evidence-explanation">The reference supports that Parvovirus B19 causes clinical conditions, particularly in children.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-respiratory-droplets">
+                <div class="item-name">Respiratory Droplets</div>
+
+                <div class="item-desc">Spread through inhalation of respiratory droplets from infected individuals.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25283854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25283854" target="_blank">PMID:25283854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"It is a common community-acquired respiratory pathogen without ethnic, socioeconomic, gender, age or geographic boundaries"</div>
+
+
+                <div class="evidence-explanation">The abstract indicates that Parvovirus B19 is a respiratory pathogen, which supports the statement that it spreads through inhalation of respiratory droplets.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35192759" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35192759" target="_blank">PMID:35192759</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus infection (PVI) is widespread, characterized by airborne, bloodborne and vertical transmission routes."</div>
+
+
+                <div class="evidence-explanation">The abstract mentions that Parvovirus B19 has airborne transmission routes, which supports the statement about respiratory droplets.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-vertical-transmission">
+                <div class="item-name">Vertical Transmission</div>
+
+                <div class="item-desc">Transmission from mother to fetus during pregnancy.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (7 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22777688" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22777688" target="_blank">PMID:22777688</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The vertical transmission rate was 31.7% (20/63)."</div>
+
+
+                <div class="evidence-explanation">The study confirms that Parvovirus B19 can be transmitted from mother to fetus during pregnancy, with a vertical transmission rate of 31.7%.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38861626" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38861626" target="_blank">PMID:38861626</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Vertical transmission of an infectious agent is generally defined as transmission from a pregnant individual to their fetus... Parvovirus B19... are also known to cause transplacental infections."</div>
+
+
+                <div class="evidence-explanation">The article explicitly states that Parvovirus B19 is known to cause transplacental (vertical) infections.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17505458" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17505458" target="_blank">PMID:17505458</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Human parvovirus B19 is a DNA virus with strong tropism for erythroid precursors and infection during pregnancy can result in fetal hydrops and stillbirth."</div>
+
+
+                <div class="evidence-explanation">This reference supports the statement by indicating that Parvovirus B19 infection during pregnancy can lead to severe outcomes like fetal hydrops, which implies vertical transmission.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 4 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-blood-transfusion">
+                <div class="item-name">Blood Transfusion</div>
+
+                <div class="item-desc">Transmission through contaminated blood products.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21332725" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21332725" target="_blank">PMID:21332725</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Eight patients with TT-B19V caused by component transfusion have been identified."</div>
+
+
+                <div class="evidence-explanation">The study identified eight patients who developed parvovirus B19 infection through blood component transfusion, supporting the statement.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9031493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9031493" target="_blank">PMID:9031493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Recent concerns regarding the potential transmission of B19 infection by pooled plasma products."</div>
+
+
+                <div class="evidence-explanation">The review addresses the potential transmission of parvovirus B19 through blood products, supporting the statement.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15645675" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15645675" target="_blank">PMID:15645675</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus B19 is therefore not an uncommon &#39;contaminant&#39; of blood and blood products."</div>
+
+
+                <div class="evidence-explanation">The abstract mentions that parvovirus B19 can contaminate blood and blood products, supporting the statement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse103460">
+                <div class="item-name">
+                    Dynamic transcriptome analysis of human erythroind progenetor cells infected by human Parvovirus B19
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE103460" target="_blank">geo:GSE103460</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Human parvovirus B19 (B19V) infection can cause transient aplastic crisis, persistent viremia, and pure red-cell aplasia. In fetuses, B19V infection can result in non-immune hydrops fetalis and fetal death. To systematically investigate the interaction between B19V and erythoid progenetor cells (EPC), microarray was applied to systematically analyze the dynamic transcriptome of CD36+ EPCs during B19V infection.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=15</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/29237843" target="_blank" style="color: var(--secondary);">PMID:29237843</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Parvovirus B19 Infection (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -5169,7 +7578,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Parvovirus B19 Infection
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
 description: Parvovirus B19 is a single-stranded DNA virus that primarily infects erythroid progenitor cells, causing erythema infectiosum (fifth disease) in children and arthropathy in adults. It can cause severe complications including transient aplastic crisis in patients with hemolytic disorders and hydrops fetalis in pregnant women.
 category: Viral Disease
 parents:
@@ -5177,37 +7585,33 @@ parents:
 - Childhood Infection
 prevalence:
 - population: Global
+  measure_type: LIFETIME_PREVALENCE
   prevalence_class: COMMON
-  percentage: Common
+  notes: Seroprevalence (IgG positivity) rises with age; approximately 50–70% of adults worldwide have been exposed.
   evidence:
   - reference: PMID:25990962
     reference_title: &#34;Parvovirus B19V infection in Israel: prevalence and occurrence of acute infection between 2008 and 2013.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The overall IgG prevalence in the 1008 representative sera samples was 61.4% and the age-adjusted prevalence rate was 58.2%.
     explanation: The study provides data on the prevalence of Parvovirus B19 infection in the Israeli population, indicating that a significant portion of the population has been exposed to the virus. However, this is specific to Israel and may not represent the global population.
   - reference: PMID:27806994
     reference_title: &#34;Human Parvoviruses.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: These viruses are prevalent worldwide and are culturable in vitro, and serological and molecular assays are available but require careful interpretation of results.
     explanation: The article mentions that Parvovirus B19 is prevalent worldwide, supporting the statement to some extent. However, it does not provide specific global prevalence percentages.
   - reference: PMID:21040396
     reference_title: &#34;Parvovirus B19 infection in human pregnancy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Human parvovirus B19 infection is widespread. Approximately 30-50% of pregnant women are nonimmune, and vertical transmission is common following maternal infection in pregnancy.
     explanation: The article indicates that Parvovirus B19 infection is widespread and provides specific data on nonimmune pregnant women, suggesting significant exposure rates. However, it does not provide a comprehensive global percentage.
-  - reference: PMID:31266615
-    reference_title: &#34;Global Perspective on Hepatitis B Virus Infections in the Era of Effective Vaccines.&#34;
-    supports: NO_EVIDENCE
-    snippet: Hepatitis B virus (HBV) infection is a global health burden.
-    explanation: This article focuses on Hepatitis B virus infection and does not provide information relevant to Parvovirus B19 infection.
   - reference: PMID:36619750
     reference_title: &#34;Human parvovirus B19 infection in hospitalized patients suspected of infection with pathogenic microorganism.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The HPV B19 infection rate in hospitalized patients suspected of microbial infection was 2.22%.
     explanation: The study provides specific data on the infection rate among hospitalized patients, which suggests that Parvovirus B19 can be present in specific populations. However, it does not provide global prevalence data.
   - reference: PMID:30843782
     reference_title: &#34;Low human parvovirus B19 (B19V) DNA prevalence in blood donors from Central-West Brazil.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Parvovirus B19 (B19V) transmission may occur through blood transfusion as a result of asymptomatic viral persistence in blood donors.
     explanation: The study indicates that Parvovirus B19 can persist in blood donors, suggesting potential widespread exposure. However, it does not provide specific global prevalence percentages.
 infectious_agent:
@@ -5340,26 +7744,31 @@ pathophysiology:
   - reference: PMID:26845771
     reference_title: &#34;Parvovirus B19 Replication and Expression in Differentiating Erythroid Progenitor Cells.&#34;
     supports: SUPPORT
+    evidence_source: IN_VITRO
     snippet: The pathogenic Parvovirus B19 (B19V) is characterized by a strict adaptation to erythroid progenitor cells (EPCs)...
     explanation: The study describes the infection dynamics of Parvovirus B19 in erythroid progenitor cells, supporting the statement that the virus primarily targets these cells.
   - reference: PMID:37175911
     reference_title: &#34;Non-Permissive Parvovirus B19 Infection: A Reservoir and Questionable Safety Concern in Mesenchymal Stem Cells.&#34;
     supports: SUPPORT
+    evidence_source: IN_VITRO
     snippet: Parvovirus B19V (B19V) is a common human pathogen that infects bone marrow erythroid progenitor cells, leading to transient or persistent anemia.
     explanation: The abstract mentions that Parvovirus B19 infects erythroid progenitor cells in the bone marrow, aligning with the statement.
   - reference: PMID:21680529
     reference_title: &#34;Parvovirus B19 infection of human primary erythroid progenitor cells triggers ATR-Chk1 signaling, which promotes B19 virus replication.&#34;
     supports: SUPPORT
+    evidence_source: IN_VITRO
     snippet: Human parvovirus B19 (B19V) infection is restricted to erythroid progenitor cells of the human bone marrow.
     explanation: The abstract confirms the restriction of Parvovirus B19 infection to erythroid progenitor cells in the bone marrow.
   - reference: PMID:28377277
     reference_title: &#34;Hydroxyurea inhibits parvovirus B19 replication in erythroid progenitor cells.&#34;
     supports: SUPPORT
+    evidence_source: IN_VITRO
     snippet: Parvovirus B19 (B19V) infection is restricted to erythroid progenitor cells (EPCs) of the human bone marrow, leading to transient arrest of erythropoiesis...
     explanation: The study indicates that Parvovirus B19 infection is limited to erythroid progenitor cells and disrupts red blood cell production.
   - reference: PMID:35062288
     reference_title: &#34;A Functional Minigenome of Parvovirus B19.&#34;
     supports: SUPPORT
+    evidence_source: IN_VITRO
     snippet: Parvovirus B19 (B19V) is a human pathogenic virus of clinical relevance, characterized by a selective tropism for erythroid progenitor cells in bone marrow.
     explanation: The abstract highlights the selective tropism of Parvovirus B19 for erythroid progenitor cells in the bone marrow.
   - reference: PMID:12116854
@@ -5400,7 +7809,26 @@ pathophysiology:
     term:
       id: UBERON:0002107
       label: liver
-  notes: The VP1u domain contains a PLA2-like motif critical for membrane penetration and endosomal escape.
+  notes: The VP1u domain contains a PLA2-like motif critical for membrane penetration and endosomal escape. The rare p (P-null) erythrocyte phenotype, which lacks the P antigen/globoside receptor entirely, confers natural resistance to B19V infection.
+  evidence:
+  - reference: PMID:25283854
+    reference_title: &#34;Human parvovirus B19: a review.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;B19V targets the erythroid progenitors in the bone marrow by binding to the glycosphingolipid globoside (Gb4), leading to large receptor-induced structural changes triggering cell death either by lysis or by apoptosis mediated by the nonstructural (NS)1 protein.&#34;
+    explanation: Directly states that B19V uses globoside (Gb4) as its cellular receptor on erythroid progenitor cells. The VP1u/endosomal escape mechanism requires additional cell-biology citations.
+  - reference: PMID:8139629
+    reference_title: &#34;Resistance to parvovirus B19 infection due to lack of virus receptor (erythrocyte P antigen).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Of the 17 subjects with the p red-cell phenotype, who did not have P antigen on their erythrocytes, none (0 of 11 and 0 of 6) had serologic evidence of previous parvovirus B19 infection. In contrast, the seropositivity rates in the two control groups were 71 percent (53 of 75, P &lt; 0.001) and 47 percent (32 of 68, P = 0.03).&#34;
+    explanation: Provides the converse population-level confirmation that globoside (P antigen) is required for productive B19V infection - individuals lacking it show no serologic evidence of past infection, while matched controls are 47-71 percent seropositive.
+  - reference: PMID:8139629
+    reference_title: &#34;Resistance to parvovirus B19 infection due to lack of virus receptor (erythrocyte P antigen).&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;In vitro, bone marrow from donors with the p phenotype maintained normal erythropoiesis despite very high concentrations of virus, with no evidence of infection of erythroid progenitor cells by parvovirus B19.&#34;
+    explanation: The in-vitro arm of the same study shows the resistance is cell-intrinsic to P-null erythroid progenitors rather than a consequence of differential exposure, supporting globoside as required for productive infection of the erythroid lineage.
 - name: Cell Cycle Arrest and Apoptosis
   description: Viral NS1 protein and replication intermediates activate the DNA damage response (DDR) pathway, particularly ATR and DNA-PKcs, leading to late S/G2 phase arrest and apoptotic death of infected erythroid progenitor cells.
   genes:
@@ -5431,6 +7859,13 @@ pathophysiology:
       id: CL:0000038
       label: erythroid progenitor cell
   notes: The transient block in erythropoiesis explains aplastic crises in susceptible individuals.
+  evidence:
+  - reference: PMID:21680529
+    reference_title: &#34;Parvovirus B19 infection of human primary erythroid progenitor cells triggers ATR-Chk1 signaling, which promotes B19 virus replication.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;B19V infection induces a broad range of DNA damage responses by triggering phosphorylation of all the upstream kinases of each of three repair pathways: ATM (ataxia-telangiectasi mutated), ATR (ATM and Rad3 related), and DNA-PKcs (DNA-dependent protein kinase catalytic subunit).&#34;
+    explanation: Demonstrates that B19V infection activates the DNA damage response (DDR) including ATR and DNA-PKcs (PRKDC) in human erythroid progenitor cells in vitro, directly supporting the Cell Cycle Arrest and Apoptosis node.
 - name: EPO-STAT5 Signaling Pathway
   description: Erythropoietin (EPO) signaling through STAT5A and STAT5B creates a permissive transcriptional environment for B19V replication in erythroid progenitor cells. Hypoxic conditions enhance STAT5A activity and viral replication.
   genes:
@@ -5456,6 +7891,13 @@ pathophysiology:
     term:
       id: CL:0000038
       label: erythroid progenitor cell
+  evidence:
+  - reference: PMID:28459842
+    reference_title: &#34;Phosphorylated STAT5 directly facilitates parvovirus B19 DNA replication in human erythroid progenitors through interaction with the MCM complex.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Efficient B19V replication also requires hypoxic conditions, which upregulate the signal transducer and activator of transcription 5 (STAT5) pathway, and phosphorylated STAT5 is essential for virus replication.&#34;
+    explanation: Directly supports the node&#39;s claim that hypoxia-enhanced STAT5 signaling creates a permissive environment for B19V replication in erythroid progenitor cells; the same study additionally shows phosphorylated STAT5 interacts with the MCM helicase complex at viral DNA replication origins.
 phenotypes:
 - category: Dermatologic
   name: Erythema Infectiosum (Fifth Disease)
@@ -5512,6 +7954,23 @@ phenotypes:
     supports: SUPPORT
     snippet: Parvovirus B19 had caused aplastic crisis and HLH.
     explanation: The reference supports the statement by mentioning a case where parvovirus B19 caused aplastic crisis in a patient with hereditary spherocytosis, another hemolytic disorder.
+- category: Hematologic
+  name: Chronic Pure Red Cell Aplasia
+  description: Persistent B19V infection in immunocompromised hosts (e.g., AIDS, transplant recipients, congenital immunodeficiency) causes chronic anemia through sustained selective suppression of erythropoiesis, distinct from the transient aplastic crisis seen in immunocompetent patients with hemolytic disorders.
+  context: In immunocompromised individuals unable to mount an effective humoral response to clear the virus.
+  phenotype_term:
+    preferred_term: Chronic pure red cell aplasia
+    term:
+      id: HP:0012410
+      label: Pure red cell aplasia
+    temporality: CHRONIC
+  evidence:
+  - reference: PMID:7986722
+    reference_title: &#34;Parvovirus B19 as a cause of acquired chronic pure red cell aplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Parvovirus B19 infection causes chronic anaemia in immunodeficient individuals by selective suppression of erythropoiesis. The bone marrow morphology is characteristic of pure red cell aplasia (PRCA).&#34;
+    explanation: Directly establishes that B19V causes chronic (rather than transient) pure red cell aplasia specifically in immunodeficient hosts, via persistent selective suppression of erythropoiesis.
 - category: Musculoskeletal
   name: Arthropathy
   description: Symmetric polyarthritis affecting small joints of hands, wrists, and knees, more common in adult women.
@@ -5524,12 +7983,13 @@ phenotypes:
     snippet: Arthropathy is known to occur in children and adults with acute parvovirus B19 infection. In adults, the arthropathy is common and is usually brief and self-limited, although a chronic arthropathy due to HPV B19 infections can occur rarely.
     explanation: The reference confirms that arthropathy is a common manifestation in adults with acute parvovirus B19 infection.
   - reference: PMID:11993780
+    reference_title: &#34;Parvovirus B 19 infection in adults.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: The reference title suggests it is about Parvovirus B19 infection in adults, but no specific excerpt or abstract is provided to confirm or refute the statement.
   - reference: PMID:27511498
     reference_title: &#34;Serological prevalence of human parvovirus B19 in diseases or disordersrelated to different human body systems.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The highest positivity for IgG alone was found in musculoskeletal system and connective tissue diseases (55.9%)... The highest positivity for IgG was seen in rheumatoid arthritis (72.2%) and pregnancy (52.6%).
     explanation: The reference indicates a high prevalence of parvovirus B19 antibodies in musculoskeletal diseases, but does not specifically mention arthropathy.
   - reference: PMID:29512949
@@ -5538,6 +7998,7 @@ phenotypes:
     snippet: Arthritis and arthralgia during a viral infection are often polyarticular and symmetric and can mimic rheumatoid arthritis. ... Worldwide most common germs are Parvovirus B19, hepatitis B and C, HIV and alphavirus.
     explanation: The reference supports that arthritis and arthralgia, which can be associated with parvovirus B19, are common.
   - reference: PMID:32646497
+    reference_title: &#34;Parvovirus B19 infection and kidney injury: report of 4 cases and analysis of immunization and viremia in an adult cohort of 100 patients undergoing a kidney biopsy.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: The reference discusses parvovirus B19 infection and kidney injury but does not mention arthropathy.
@@ -5605,6 +8066,47 @@ phenotypes:
     term:
       id: HP:0025300
       label: Malar rash
+  evidence:
+  - reference: PMID:8668619
+    reference_title: &#34;Parvovirus B19 infection. Associated diseases, common and uncommon.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the virus has been implicated in numerous disorders, including aplastic crisis in patients with chronic hemolytic anemia, erythema infectiosum, arthropathy, arthritis, and fetal infections.&#34;
+    explanation: Confirms erythema infectiosum (presenting with the slapped-cheek facial erythema) as an established manifestation of parvovirus B19 infection.
+- category: Dermatologic
+  name: Papular-Purpuric Gloves and Socks Syndrome (PPGSS)
+  description: Distinct acral exanthem characterized by fever, pruritus, edema, and petechial/purpuric eruption sharply confined to the hands and feet in a gloves-and-socks distribution, often with oral erosions; a separate presentation from the classic slapped-cheek erythema infectiosum.
+  frequency: VERY_RARE
+  phenotype_term:
+    preferred_term: Papular-purpuric gloves and socks syndrome
+    term:
+      id: HP:0000979
+      label: Purpura
+  evidence:
+  - reference: PMID:9675471
+    reference_title: &#34;Papular-purpuric gloves and socks syndrome associated with acute parvovirus B19 infection: case report and review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The papular-purpuric gloves and socks syndrome (PPGSS) was first described in 1990. This syndrome is characterized by fever, acral pruritus, edema, petechiae, and oral erosions. Subsequently, parvovirus B19 has been implicated, in most cases, as the causative agent of this syndrome.&#34;
+    explanation: Establishes PPGSS as a distinct B19V-associated dermatologic phenotype defined by acral fever, pruritus, edema, petechiae, and oral erosions.
+  - reference: PMID:12852167
+    reference_title: &#34;Papular-purpuric \&#34;gloves and socks\&#34; syndrome caused by parvovirus B19.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;purpuric and papular lesions located mostly on the dorsal areas of his hands and feet with the additional changes on his knees and elbows. Serologic studies confirmed the acute infection by parvovirus B19.&#34;
+    explanation: Documents the characteristic distribution of the purpuric/papular eruption over the hands and feet, confirmed serologically as acute B19V infection.
+  - reference: PMID:12852167
+    reference_title: &#34;Papular-purpuric \&#34;gloves and socks\&#34; syndrome caused by parvovirus B19.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Herein the patient&#39;s condition was described together with a brief overview of the PPGSS literature concerning this relatively rare viral exanthema.&#34;
+    explanation: &gt;-
+      Frequency band justification. No quantitative frequency has been reported
+      for PPGSS among B19V infections; the author wording &#34;relatively rare&#34; maps
+      to VERY_RARE (&lt;5%) under the DisMech qualitative mapping (Pattern C,
+      docs/frequency-evidence-guidelines.md). PMID:9675471 is consistent,
+      describing &#34;this unusual syndrome&#34; and its own case as only the second
+      documented B19V-associated PPGSS in the United States.
 - category: Cardiovascular
   name: Myocarditis
   description: Inflammation of heart muscle associated with endothelial cell infection and viral persistence in cardiac tissues.
@@ -5614,6 +8116,13 @@ phenotypes:
     term:
       id: HP:0012819
       label: Myocarditis
+  evidence:
+  - reference: PMID:7756792
+    reference_title: &#34;Parvovirus: the expanding spectrum of disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;a heterogeneous group of diseases, in which the etiologic role of parvovirus is less clear and sometimes putative (neurologic disease, rheumatologic disease, vasculitic and myocarditic syndromes).&#34;
+    explanation: Identifies myocarditis as one of the broader disease associations with parvovirus B19, though the etiologic role is noted as sometimes putative; additional direct evidence linking B19V to cardiac inflammation is needed.
 biochemical:
 - name: Parvovirus B19 Serology
   presence: Positive
@@ -5690,22 +8199,22 @@ diagnosis:
   evidence:
   - reference: PMID:32143947
     reference_title: &#34;Acute parvovirus B19 infection: analysis of 46 patients.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The objective of this study was to determine the epidemiology and clinical-analytical manifestations of acute PVB19 infection.
     explanation: The study discusses the clinical manifestations of Parvovirus B19, including characteristic rashes and illness patterns, but does not explicitly state that clinical examination alone is sufficient for diagnosis.
   - reference: PMID:36811343
     reference_title: &#34;Contribution of parvovirus B19 in suspected cases of measles/rubella in Osaka, Japan, between 2011 and 2021.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Erythema infectiosum, caused by human parvovirus B19 (B19V), is difficult to diagnose by its clinical symptoms and is often misdiagnosed as measles or rubella.
     explanation: This study indicates that while clinical symptoms are important, they are often not sufficient for a conclusive diagnosis of Parvovirus B19 infection, highlighting the need for laboratory tests.
   - reference: PMID:10821497
     reference_title: &#34;The cutaneous manifestations of human parvovirus B19 infection.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The prototypical cutaneous manifestations of human parvovirus B19 (B19) infection include a petechial eruption in a glove and stocking distribution, reticular truncal erythema, and the &#39;slapped cheek&#39; sign.
     explanation: The reference describes characteristic cutaneous manifestations of Parvovirus B19, which can be observed during a clinical examination. However, it does not confirm that these observations alone are sufficient for diagnosis.
   - reference: PMID:30028234
     reference_title: &#34;The clinical use of parvovirus B19 assays: recent advances.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The complexity of virus-host relationship and the diversity of the clinical course of infection pose a diagnostic challenge that may require non-trivial solutions.
     explanation: This review suggests that while clinical examination is important, the complexity of Parvovirus B19 infection often necessitates a combination of diagnostic approaches beyond just clinical observation.
 - name: Serologic Testing
@@ -5826,8 +8335,8 @@ treatments:
   treatment_term:
     preferred_term: intravenous immunoglobulin therapy
     term:
-      id: MAXO:0001480
-      label: immunoglobulin infusion therapy
+      id: NCIT:C62710
+      label: Immunoglobulin Therapy
 environmental:
 - name: Personal Hygiene
   description: Good hand hygiene to reduce risk of transmission.
@@ -5853,6 +8362,19 @@ references:
 - reference: DOI:10.3390/v12121463
   title: &#39;The VP1u of Human Parvovirus B19: A Multifunctional Capsid Protein with Biotechnological Applications&#39;
   findings: []
+datasets:
+- accession: geo:GSE103460
+  title: Dynamic transcriptome analysis of human erythroind progenetor cells infected by human Parvovirus B19
+  description: Human parvovirus B19 (B19V) infection can cause transient aplastic crisis, persistent viremia, and pure red-cell aplasia. In fetuses, B19V infection can result in non-immune hydrops fetalis and fetal death. To systematically investigate the interaction between B19V and erythoid progenetor cells (EPC), microarray was applied to systematically analyze the dynamic transcriptome of CD36+ EPCs during B19V infection.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 15
+  publication: PMID:29237843
+  notes: Identified by GEO DataSets index search for Parvovirus B19 Infection (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -5930,6 +8452,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Address review: PPGSS frequency band and evidence-source split</strong> · 2026-08-25T06:32:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Parvovirus_B19_Infection/2026-08-25T063207Z-claude-code-0c09b9.yaml">View source</a></p>
+                        <p class="research-review-text">Review-response session for PR 8312. Corrected the PPGSS phenotype frequency from OCCASIONAL to VERY_RARE: neither cited paper supports the 5-29 percent band, and PMID:12852167 calls it a relatively rare viral exanthema while PMID:9675471 calls it an unusual syndrome and reports only the second documented US case. Added a dedicated evidence item quoting the rarity wording and documenting the Pattern C qualitative mapping from docs/frequency-evidence-guidelines.md. Rebound the PPGSS phenotype_term from HP:0031363 Palpable purpura to the more neutral parent HP:0000979 Purpura, since palpable purpura classically connotes cutaneous small-vessel vasculitis, which PPGSS is not. Split the PMID:8139629 evidence into two items so each carries a single evidence_source: the cross-sectional seroprevalence result stays HUMAN_CLINICAL, and a new IN_VITRO item quotes the p-phenotype bone-marrow experiment that the previous explanation relied on without quoting. Softened the receptor claim from the required cellular receptor for entry to required for productive infection, per the refined VP1u/globoside model in the entry deep-research artifact. Validated with just validate, just validate-terms and just count-verified-snippets at 95/95.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6100,6 +8635,11 @@ Key mechanistic claims on receptor/entry, endosomal escape, replication cofactor
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Parvovirus_B19_Infection.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -6140,7 +8680,7 @@ Key mechanistic claims on receptor/entry, endosomal escape, replication cofactor
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Parvovirus B19 Infection", "mondoId": "MONDO:0006544", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Parvovirus_B19_Infection", "yamlRevision": "f92af96bb912"};
+        const OS_CONFIG = {"diseaseName": "Parvovirus B19 Infection", "mondoId": "MONDO:0006544", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Parvovirus_B19_Infection", "yamlRevision": "acc5c689cf02"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6559,5 +9099,73 @@ Key mechanistic claims on receptor/entry, endosomal escape, replication cofactor
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

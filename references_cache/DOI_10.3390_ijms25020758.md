@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25020758"
+reference_id: DOI:10.3390/ijms25020758
 title: Pathophysiology of Atrial Fibrillation and Approach to Therapy in Subjects Less than 60 Years Old
 authors:
 - Antonio Curcio
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25020758
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pathophysiology of Atrial Fibrillation and Approach to Therapy in Subjects Less than 60 Years Old

@@ -25,7 +25,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 ASSERTION_BASE_COLUMNS = [
     "assertion_id",
@@ -163,7 +163,7 @@ class TabularExporter:
         loaded: list[LoadedDisorder] = []
         for disorder_id, file_path in enumerate(disorder_files, start=1):
             with open(file_path) as stream:
-                data = yaml.safe_load(stream) or {}
+                data = safe_load(stream) or {}
             if not isinstance(data, dict):
                 continue
             loaded.append(LoadedDisorder(disorder_id=disorder_id, source_file=file_path.name, data=data))

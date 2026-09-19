@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jof10030173"
+reference_id: DOI:10.3390/jof10030173
 title: The Host Response to Coccidioidomycosis
 authors:
 - Theo N. Kirkland
@@ -11,6 +11,7 @@ journal: Journal of Fungi
 year: '2024'
 doi: 10.3390/jof10030173
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Host Response to Coccidioidomycosis

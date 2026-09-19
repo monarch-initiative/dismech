@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/microorganisms11092323"
+reference_id: DOI:10.3390/microorganisms11092323
 title: The Gut-Wrenching Effects of Cryptosporidiosis and Giardiasis in Children
 authors:
 - Mayuri Prabakaran
@@ -14,6 +14,7 @@ journal: Microorganisms
 year: '2023'
 doi: 10.3390/microorganisms11092323
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Gut-Wrenching Effects of Cryptosporidiosis and Giardiasis in Children

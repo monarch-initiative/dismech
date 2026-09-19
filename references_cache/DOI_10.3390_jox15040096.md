@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jox15040096"
+reference_id: DOI:10.3390/jox15040096
 title: Cooperation Between Aflatoxin-Induced p53 Aberrations and Hepatitis B Virus in Hepatocellular Carcinoma
 authors:
 - Carolina Moreno-León
@@ -8,6 +8,7 @@ journal: Journal of Xenobiotics
 year: '2025'
 doi: 10.3390/jox15040096
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cooperation Between Aflatoxin-Induced p53 Aberrations and Hepatitis B Virus in Hepatocellular Carcinoma

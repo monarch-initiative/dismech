@@ -137,7 +137,7 @@ Default: falcon
   - PMID:40546217 - 2025 multicenter German outcome and cyclophosphamide relapse data
   - PMID:40643487 - serum and CSF neurofilament light chain biomarker study
 - ClinicalTrials.gov entries documented for vessel-wall MRI, ferumoxytol MRI in CNS inflammation, and refractory non-ANCA vasculitis biologics
-- Ontology terms: MONDO/ORPHA disease IDs, UBERON CNS vascular anatomy, CL immune-cell subsets, GO inflammatory and antigen-presentation processes, HPO neurologic/CSF/MRI phenotypes, MAXO diagnosis/treatment terms
+- Ontology terms: MONDO/ORPHA disease IDs, UBERON CNS vascular anatomy, CL immune-cell subsets, GO inflammatory and antigen-presentation processes, HPO neurologic/CSF/MRI phenotypes, NCIT diagnosis/treatment terms
 
 **Anti-NMDA receptor encephalitis curated**:
 - Created `kb/disorders/Anti-NMDA_Receptor_Encephalitis.yaml`
@@ -156,7 +156,7 @@ Default: falcon
   - PMID:39147951 - post-herpes simplex encephalitis anti-NMDAR encephalitis cohort
   - PMID:39566012 - long-term cognitive, functional, and patient-reported outcomes
 - ClinicalTrials.gov entries documented for immunoadsorption therapy, prolonged recovery-stage biomarkers/rehabilitation, and NEOSII prediction modeling
-- Ontology terms: MONDO (anti-NMDA receptor encephalitis), CL (B cell, plasma cell, neuron), GO (B cell mediated immunity, immunoglobulin production, receptor internalization, glutamate receptor signaling, synaptic plasticity, blood-brain barrier maintenance), HP (psychosis, seizure, dyskinesia, memory impairment, coma, autonomic dysfunction, hypoventilation, EEG abnormality, CSF pleocytosis), UBERON (brain, hippocampal formation, blood-brain barrier), MAXO/NCIT/CHEBI treatment terms
+- Ontology terms: MONDO (anti-NMDA receptor encephalitis), CL (B cell, plasma cell, neuron), GO (B cell mediated immunity, immunoglobulin production, receptor internalization, glutamate receptor signaling, synaptic plasticity, blood-brain barrier maintenance), HP (psychosis, seizure, dyskinesia, memory impairment, coma, autonomic dysfunction, hypoventilation, EEG abnormality, CSF pleocytosis), UBERON (brain, hippocampal formation, blood-brain barrier), NCIT/CHEBI treatment terms
 
 **MOGAD curated**:
 - Created `kb/disorders/MOGAD.yaml`
@@ -174,7 +174,7 @@ Default: falcon
   - PMID:40708693 - Current treatment principles review
   - PMID:41657079 and PMID:41865559 - South Wales and Denmark epidemiology
 - ClinicalTrials.gov entries documented for satralizumab, rozanolixizumab, azathioprine, and tocilizumab MOGAD trials
-- Ontology terms: MONDO (MOGAD), CL (oligodendrocyte, T cell), GO (complement activation, ADCC, myelination), HP (optic neuritis, myelitis, CNS demyelination, spinal cord lesion), MAXO/NCIT/CHEBI treatment terms
+- Ontology terms: MONDO (MOGAD), CL (oligodendrocyte, T cell), GO (complement activation, ADCC, myelination), HP (optic neuritis, myelitis, CNS demyelination, spinal cord lesion), NCIT/CHEBI treatment terms
 
 **Acute Disseminated Encephalomyelitis curated**:
 - Created `kb/disorders/Acute_Disseminated_Encephalomyelitis.yaml`
@@ -196,7 +196,7 @@ Default: falcon
   - PMID:31495497 - Inebilizumab N-MOmentum trial
   - PMID:36933107 - Satralizumab review
   - PMID:33420337 - HLA-DRB1*03:01 association meta-analysis
-- Ontology terms: CL (astrocyte, neutrophil, eosinophil, oligodendrocyte), GO (complement activation), HP (optic neuritis, nausea/vomiting), MAXO (pharmacotherapy)
+- Ontology terms: CL (astrocyte, neutrophil, eosinophil, oligodendrocyte), GO (complement activation), HP (optic neuritis, nausea/vomiting), NCIT (pharmacotherapy)
 - Three approved targeted therapies documented: eculizumab (C5 inhibitor), inebilizumab (anti-CD19), satralizumab (IL-6R blocker)
 
 Project initiated. Identified 7 existing neuroimmune diseases in KB:

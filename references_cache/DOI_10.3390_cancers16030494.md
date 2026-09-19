@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16030494"
+reference_id: DOI:10.3390/cancers16030494
 title: "Does Genotype-Specific Phenotype in Patients with Multiple Endocrine Neoplasia Type 2 Occur as Current Guidelines Predict?"
 authors:
 - Teresa Binter
@@ -15,6 +15,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16030494
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Does Genotype-Specific Phenotype in Patients with Multiple Endocrine Neoplasia Type 2 Occur as Current Guidelines Predict?

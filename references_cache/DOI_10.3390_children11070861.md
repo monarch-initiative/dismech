@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/children11070861"
+reference_id: DOI:10.3390/children11070861
 title: Heterogenic Genetic Background of Distal Arthrogryposis—Review of the Literature and Case Report
 authors:
 - Anett Illés
@@ -15,6 +15,7 @@ journal: Children
 year: '2024'
 doi: 10.3390/children11070861
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Heterogenic Genetic Background of Distal Arthrogryposis—Review of the Literature and Case Report

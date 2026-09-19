@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medicina60020272"
+reference_id: DOI:10.3390/medicina60020272
 title: "Unraveling the Complex Web of Fibromyalgia: A Narrative Review"
 authors:
 - Sarah Al Sharie
@@ -13,6 +13,7 @@ journal: Medicina
 year: '2024'
 doi: 10.3390/medicina60020272
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Unraveling the Complex Web of Fibromyalgia: A Narrative Review

@@ -1,0 +1,75 @@
+{# Reader-facing disclaimer, rendered at the top of every generated DisMech page.
+
+   Always present until the reader dismisses it: someone who lands on a single
+   disorder page from a search engine or an external link never sees the project
+   documentation, so the AI-curated provenance of the content and its
+   unsuitability for clinical use have to travel with the page itself.
+
+   Dismissal lasts for the browsing session only, via the sessionStorage key
+   `dismech-disclaimer-dismissed` (issue #7421). sessionStorage is scoped to one
+   tab and cleared when it closes, so moving between DisMech pages in the same
+   tab keeps the bar dismissed, while a fresh tab or a later visit shows it
+   again. Deliberately NOT localStorage: the statement should come back, not be
+   silenced permanently.
+
+   The dismiss button is CSS-hidden by default and revealed by the script below,
+   so a reader without JavaScript is never shown a control that cannot work.
+
+   Because the bar can be dismissed, generated disorder and module pages also
+   carry the non-dismissible one-line `_disclaimer_footer.html.j2` in their page
+   footer, so the statement never disappears from the page entirely.
+
+   The disclaimer URL is deliberately ABSOLUTE, not relative. Pages using this
+   partial live at varying depths (pages/disorders/X.html, pages/modules/X.html,
+   …) and the canonical text is published by MkDocs under /elements/, which is a
+   separate build from these pages — so there is no relative path that is correct
+   everywhere. Please do not "fix" this into a relative link. The trade-off is
+   that a local preview links out to the production copy.
+
+   Rationale: docs/explanation/design-decisions.md (§11).
+   Canonical long-form text: docs/disclaimer.md.
+   Keep the wording here, in docs/disclaimer.md, and in the inlined copies on the
+   hand-maintained site pages (index.html, app/, details/) in step. #}
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+{# Runs synchronously, immediately after the bar, so an already-dismissed bar is
+   hidden before first paint rather than flashing and disappearing. #}
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>

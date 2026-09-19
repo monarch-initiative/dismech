@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes14071391"
+reference_id: DOI:10.3390/genes14071391
 title: The Current State of Charcot–Marie–Tooth Disease Treatment
 authors:
 - Yuji Okamoto
@@ -8,6 +8,7 @@ journal: Genes
 year: '2023'
 doi: 10.3390/genes14071391
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Current State of Charcot–Marie–Tooth Disease Treatment

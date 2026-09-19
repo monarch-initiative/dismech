@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4269/ajtmh.23-0889"
+reference_id: DOI:10.4269/ajtmh.23-0889
 title: "Slaying the Serpent: A Research Agenda to Expand Intervention Development and Accelerate Guinea Worm Eradication Efforts"
 authors:
 - Maryann G. Delea
@@ -15,6 +15,7 @@ journal: The American Journal of Tropical Medicine and Hygiene
 year: '2024'
 doi: 10.4269/ajtmh.23-0889
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Slaying the Serpent: A Research Agenda to Expand Intervention Development and Accelerate Guinea Worm Eradication Efforts

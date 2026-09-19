@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.53582/amj255170s"
+reference_id: DOI:10.53582/amj255170s
 title: "DISRUPTION OF HAIR FOLLICLE IMMUNE PRIVILEGE IN ALOPECIA AREATA: ENIGMATIC MECHANISMS AND EMERGING CONCEPTS"
 authors:
 - Viktor Simeonovski
@@ -12,6 +12,7 @@ journal: Academic Medical Journal
 year: '2025'
 doi: 10.53582/amj255170s
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # DISRUPTION OF HAIR FOLLICLE IMMUNE PRIVILEGE IN ALOPECIA AREATA: ENIGMATIC MECHANISMS AND EMERGING CONCEPTS

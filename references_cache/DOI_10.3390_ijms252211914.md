@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252211914"
+reference_id: DOI:10.3390/ijms252211914
 title: "The Role of T Cells in the Pathogenesis of Narcolepsy Type 1: A Narrative Review"
 authors:
 - Wenqi Xu
@@ -14,6 +14,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252211914
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of T Cells in the Pathogenesis of Narcolepsy Type 1: A Narrative Review

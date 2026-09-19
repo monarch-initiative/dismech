@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms231911968"
+reference_id: DOI:10.3390/ijms231911968
 title: Molecular Mechanisms and Targeted Therapies of Advanced Basal Cell Carcinoma
 authors:
 - Toshihiko Hoashi
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2022'
 doi: 10.3390/ijms231911968
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Mechanisms and Targeted Therapies of Advanced Basal Cell Carcinoma

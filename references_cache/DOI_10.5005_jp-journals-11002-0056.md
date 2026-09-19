@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5005/jp-journals-11002-0056"
+reference_id: DOI:10.5005/jp-journals-11002-0056
 title: Pathophysiology of Enteropathogenic Escherichia coli-induced Diarrhea
 authors:
 - Prabhdeep Kaur
@@ -8,6 +8,7 @@ journal: Newborn
 year: '2023'
 doi: 10.5005/jp-journals-11002-0056
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pathophysiology of Enteropathogenic Escherichia coli-induced Diarrhea

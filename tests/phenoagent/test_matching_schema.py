@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-import yaml
 from linkml.validator import Validator
+
+from dismech.yaml_io import safe_load
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 MATCHING_SCHEMA_PATH = ROOT_DIR / "src" / "phenoagent" / "schema" / "matching.yaml"
@@ -19,7 +20,7 @@ def test_matching_schema_loads():
 def test_valid_matching_run_example():
     """Ensure the matching example validates as a MatchingRun."""
     with open(VALID_MATCHING_FILE) as stream:
-        data = yaml.safe_load(stream)
+        data = safe_load(stream)
 
     validator = Validator(MATCHING_SCHEMA_PATH)
     report = validator.validate(data, target_class="MatchingRun")
@@ -30,7 +31,7 @@ def test_valid_matching_run_example():
 def test_matching_explanation_ids_reference_shared_entries():
     """Matches should reference reusable explanation entries when pointers are present."""
     with open(VALID_MATCHING_FILE) as stream:
-        data = yaml.safe_load(stream)
+        data = safe_load(stream)
 
     explanations = data.get("explanations", [])
     explanation_ids = {
@@ -52,7 +53,7 @@ def test_matching_explanation_ids_reference_shared_entries():
 def test_matching_example_includes_model_only_row():
     """Example should permit rows with model fields present and case fields omitted."""
     with open(VALID_MATCHING_FILE) as stream:
-        data = yaml.safe_load(stream)
+        data = safe_load(stream)
 
     model_only_rows = [
         row

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics14040364"
+reference_id: DOI:10.3390/diagnostics14040364
 title: "Systematic Review of Diagnostic Approaches for Human Giardiasis: Unveiling Optimal Strategies"
 authors:
 - Bruno Vicente
@@ -10,6 +10,7 @@ journal: Diagnostics
 year: '2024'
 doi: 10.3390/diagnostics14040364
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Systematic Review of Diagnostic Approaches for Human Giardiasis: Unveiling Optimal Strategies

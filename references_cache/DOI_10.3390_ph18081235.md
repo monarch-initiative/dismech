@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ph18081235"
+reference_id: DOI:10.3390/ph18081235
 title: "Molecular Basis of BRAF Inhibitor Resistance in Melanoma: A Systematic Review"
 authors:
 - Ilaria Cosci
@@ -16,6 +16,7 @@ journal: Pharmaceuticals
 year: '2025'
 doi: 10.3390/ph18081235
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Basis of BRAF Inhibitor Resistance in Melanoma: A Systematic Review

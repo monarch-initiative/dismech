@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers17132165"
+reference_id: DOI:10.3390/cancers17132165
 title: Navigating Neoplasm Risk in Inflammatory Bowel Disease and Primary Sclerosing Cholangitis
 authors:
 - Demis Pitoni
@@ -16,6 +16,7 @@ journal: Cancers
 year: '2025'
 doi: 10.3390/cancers17132165
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Navigating Neoplasm Risk in Inflammatory Bowel Disease and Primary Sclerosing Cholangitis

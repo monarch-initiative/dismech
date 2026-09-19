@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14228232"
+reference_id: DOI:10.3390/jcm14228232
 title: "Progressive Spastic Paraparesis as the Dominant Manifestation of Adolescent-Onset Alexander Disease: Case Report and Literature Review"
 authors:
 - Katarzyna Anna Smółka
@@ -11,6 +11,7 @@ journal: Journal of Clinical Medicine
 year: '2025'
 doi: 10.3390/jcm14228232
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Progressive Spastic Paraparesis as the Dominant Manifestation of Adolescent-Onset Alexander Disease: Case Report and Literature Review

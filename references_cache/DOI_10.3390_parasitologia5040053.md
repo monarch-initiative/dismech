@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/parasitologia5040053"
+reference_id: DOI:10.3390/parasitologia5040053
 title: "Prevalence of Human and Animal African Trypanosomiasis in Nigeria: A Scoping Review"
 authors:
 - Chinwe Chukwudi
@@ -9,6 +9,7 @@ journal: Parasitologia
 year: '2025'
 doi: 10.3390/parasitologia5040053
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Prevalence of Human and Animal African Trypanosomiasis in Nigeria: A Scoping Review

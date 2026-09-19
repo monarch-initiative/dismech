@@ -16,6 +16,7 @@ URI: [dismech:enum/MechanisticNosologyEnum](https://w3id.org/monarch-initiative/
 | ciliopathy | MONDO:0005308 | Primary cilia structure/function disorders (PKD, Bardet-Biedl, Joubert) |
 | laminopathy | MONDO:0021106 | Nuclear lamina disorders (EDMD, progeria, lipodystrophy) |
 | collagenopathy | MONDO:0004603 | Collagen synthesis/structure disorders (OI, EDS, Alport) |
+| desmosomopathy | None | Desmosomal cell-cell adhesion disorders (Naxos disease, Carvajal syndrome, ar... |
 | mitochondrial disease | MONDO:0044970 | Mitochondrial function/genome disorders (MELAS, MERRF, Leigh) |
 | amyloidopathy | None | Amyloid protein aggregation disorders (Alzheimer's, CAA, hereditary cerebral ... |
 | tauopathy | MONDO:0005574 | Tau protein aggregation disorders (Alzheimer's, PSP, CBD) |
@@ -83,6 +84,11 @@ permissible_values:
     text: collagenopathy
     description: Collagen synthesis/structure disorders (OI, EDS, Alport)
     meaning: MONDO:0004603
+  desmosomopathy:
+    text: desmosomopathy
+    description: Desmosomal cell-cell adhesion disorders (Naxos disease, Carvajal
+      syndrome, arrhythmogenic cardiomyopathy, pemphigus, desmosomal palmoplantar
+      keratodermas)
   mitochondrial disease:
     text: mitochondrial disease
     description: Mitochondrial function/genome disorders (MELAS, MERRF, Leigh)

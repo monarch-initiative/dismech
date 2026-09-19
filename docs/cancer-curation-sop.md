@@ -35,6 +35,32 @@ difference is:
 If you are unsure: prefer one entry with multiple subtype axes over fragmenting
 the mechanism graph across files.
 
+### Say which node the disease starts at
+
+"Different cell of origin" is the first split criterion above, so record it in a
+form the split can actually be checked against. There is **no `cell_of_origin:`
+slot**: put a `genetic_context` with `variant_origin: SOMATIC` on the
+pathophysiology node carrying the initiating lesion, and the cell of origin
+derives from that node's `cell_types`.
+
+```yaml
+- name: KRAS Oncogene Activation
+  genetic_context:
+    variant_origin: SOMATIC
+    functional_impact_category: GAIN_OF_FUNCTION
+  cell_types:
+  - preferred_term: pancreatic acinar cell
+    term:
+      id: CL:0002064
+      label: pancreatic acinar cell
+```
+
+Then read the derivation back with `just check-cancer-origin`. Deriving **more
+than one** cell of origin is the signal to revisit the lump/split call: it is
+usually a grouping, sometimes cell-of-origin subtypes, occasionally an unsettled
+origin. See [cancer-cell-of-origin.md](cancer-cell-of-origin.md) and design
+decisions Sec 3d.
+
 ## `disease_term`: MONDO-first
 
 Always anchor `disease_term` to MONDO when a `MONDO:0000001` (disease) descendant exists:
@@ -153,20 +179,20 @@ The two slots are complementary and can both appear on the same subtype:
 If you find that downstream tooling treats a grounded subtype as a missing
 disease entry, that is a tooling bug — fix the comparator, not the curation.
 
-## NCIT vs. MAXO selection in cancer entries
+## NCIT treatment-term selection in cancer entries
 
-NCIT often provides clinically more specific oncology terms than MAXO. Prefer
-NCIT when it materially improves specificity; otherwise stay with the existing
-MAXO conventions documented in `CLAUDE.md`.
+Treatment terms use NCIT clinical-intervention terms (all reachable from
+`NCIT:C25218`). Prefer the most specific NCIT term; pair generic action terms
+with a `therapeutic_agent`, per the conventions documented in `CLAUDE.md`.
 
 | Use case                              | Preferred ontology                       | Notes |
 |---------------------------------------|------------------------------------------|-------|
 | `disease_term`                        | MONDO                                    | Always MONDO-first |
 | Disease-level `mappings`              | MONDO + ICD-10-CM + NCIT                 | All available |
 | `histopathology.finding_term`         | NCIT (or HP for canonical patterns)      | NCIT has tumor-specific morphology terms |
-| Surgical procedures                   | NCIT or MAXO — whichever is more specific | NCIT often wins for oncologic procedures |
-| Chemotherapy action                   | MAXO:0000647 (chemotherapy)              | Generic; pair with `therapeutic_agent` |
-| Radiation therapy                     | MAXO:0000014                             | |
+| Surgical procedures                   | NCIT (most specific available)           | NCIT has tumor-specific oncologic procedures |
+| Chemotherapy action                   | NCIT:C15632 (Chemotherapy)               | Generic; pair with `therapeutic_agent` |
+| Radiation therapy                     | NCIT:C15313 (Radiation Therapy)          | |
 | Specific drug                         | CHEBI (small molecule) or NCIT (biologic / drug class) | Use `therapeutic_agent` slot |
 | Biomarkers / gene products            | NCIT (clinical biomarker) + HGNC (gene)  | `biomarker_term` / `gene_products` |
 | Staging system terms                  | NCIT                                     | NCIT carries COG, SIOP, AJCC codes |
@@ -185,7 +211,7 @@ When in doubt about a new cancer entry, mirror Wilms tumor's structure.
 
 ## Related documents
 
-- `CLAUDE.md` — repo-wide curation conventions (treatment terms, MAXO/NCIT/CHEBI patterns)
+- `CLAUDE.md` — repo-wide curation conventions (treatment terms, NCIT/CHEBI patterns)
 - `.claude/skills/cancer-curator/SKILL.md` — mechanics of cancer pathophysiology, histopathology, and therapeutic agent curation
 - `.claude/skills/disease-classification/SKILL.md` — deeper guidance on classification axes and the `classifications` block
 - [#795](https://github.com/monarch-initiative/dismech/issues/795) — MONDO disposition/susceptibility anchors and `skos:closeMatch` fallback

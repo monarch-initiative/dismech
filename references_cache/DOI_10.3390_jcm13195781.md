@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13195781"
+reference_id: DOI:10.3390/jcm13195781
 title: "Drug-Related Pyroglutamic Acidosis: Systematic Literature Review"
 authors:
 - Tessa Scafetta
@@ -16,6 +16,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13195781
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Drug-Related Pyroglutamic Acidosis: Systematic Literature Review

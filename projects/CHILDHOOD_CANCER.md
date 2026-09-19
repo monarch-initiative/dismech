@@ -115,7 +115,7 @@ for pediatric oncology curation.
    group, and predisposition context.
 4. Treat `subtype_term` and subtype `mappings` as ontology grounding only.
    They should not imply a separate dismech page or a "Not Yet Curated" badge.
-5. Prefer NCIT over MAXO when NCIT provides materially better oncology
+5. Use the most specific NCIT term that provides materially better oncology
    specificity, especially for histopathology, disease/subtype mappings,
    biomarkers, and cancer procedures or therapeutic concepts.
 6. When a subtype axis is introduced, keep it as explicit and as close to
@@ -125,7 +125,7 @@ for pediatric oncology curation.
 The current Wilms entry already follows this pattern: MONDO-first disease
 anchor, disease-level NCIT mapping, flat subtype axes, ontology-grounded
 subtypes that do not imply separate pages, and NCIT-first oncology treatment
-terms where they are more precise than MAXO.
+terms where they are more precise than the generic NCIT parent.
 
 ## Priority curation targets
 
@@ -286,7 +286,7 @@ A practical alignment strategy:
    laterality, age group, and predisposition context.
 4. Treat `subtype_term` and subtype mappings as ontology grounding only rather
    than signals that a separate dismech page should exist.
-5. Prefer NCIT over MAXO where NCIT gives meaningfully better oncology
+5. Use the most specific NCIT term where it gives meaningfully better oncology
    specificity, especially for cancer procedures, histopathology, and
    disease/subtype mapping.
 6. Use Wilms tumor as the worked example for future childhood-cancer curation,

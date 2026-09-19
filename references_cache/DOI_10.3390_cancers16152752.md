@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16152752"
+reference_id: DOI:10.3390/cancers16152752
 title: "Targeting Isocitrate Dehydrogenase (IDH) in Solid Tumors: Current Evidence and Future Perspectives"
 authors:
 - Francesca Carosi
@@ -15,6 +15,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16152752
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Targeting Isocitrate Dehydrogenase (IDH) in Solid Tumors: Current Evidence and Future Perspectives

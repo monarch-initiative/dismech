@@ -20,7 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-import yaml
+from dismech.yaml_io import safe_load_path
 
 ROOT = Path(__file__).parent.parent
 SCRIPT = ROOT / "scripts" / "gen_nih_topics_enum.py"
@@ -29,7 +29,7 @@ TSV = ROOT / "data" / "nih_highlighted_topics" / "topics.tsv"
 
 
 def _enum_values() -> dict:
-    doc = yaml.safe_load(ENUM_PATH.read_text())
+    doc = safe_load_path(ENUM_PATH)
     return doc["enums"]["NIHResearchPriorityEnum"]["permissible_values"]
 
 

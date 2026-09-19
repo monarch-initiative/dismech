@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5114/ceji.2024.142418"
+reference_id: DOI:10.5114/ceji.2024.142418
 title: "Progression patterns in patients with advanced hepatocellular carcinoma treated with local therapy, targeted drugs, and PD-1/PD-L1 inhibitors"
 authors:
 - Yanan Zhao
@@ -12,6 +12,7 @@ journal: Central European Journal of Immunology
 year: '2024'
 doi: 10.5114/ceji.2024.142418
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Progression patterns in patients with advanced hepatocellular carcinoma treated with local therapy, targeted drugs, and PD-1/PD-L1 inhibitors

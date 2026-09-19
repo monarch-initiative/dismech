@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4274/tjo.galenos.2022.44692"
+reference_id: DOI:10.4274/tjo.galenos.2022.44692
 title: "A Case Series of Cat-Scratch Disease with Ocular Manifestations: Clinical Findings and Treatment Approach"
 authors:
 - Atakan Acar
@@ -12,6 +12,7 @@ journal: Turkish Journal of Ophthalmology
 year: '2023'
 doi: 10.4274/tjo.galenos.2022.44692
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A Case Series of Cat-Scratch Disease with Ocular Manifestations: Clinical Findings and Treatment Approach

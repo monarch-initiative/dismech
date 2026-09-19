@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13216364"
+reference_id: DOI:10.3390/jcm13216364
 title: Imaging in Large Vessel Vasculitis—A Narrative Review
 authors:
 - Ioana Popescu
@@ -20,6 +20,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13216364
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Imaging in Large Vessel Vasculitis—A Narrative Review

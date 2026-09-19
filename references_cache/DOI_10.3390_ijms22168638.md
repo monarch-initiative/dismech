@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms22168638"
+reference_id: DOI:10.3390/ijms22168638
 title: Treatment of Neuromyelitis Optica Spectrum Disorders
 authors:
 - Koon-Ho Chan
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2021'
 doi: 10.3390/ijms22168638
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Treatment of Neuromyelitis Optica Spectrum Disorders

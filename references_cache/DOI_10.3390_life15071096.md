@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/life15071096"
+reference_id: DOI:10.3390/life15071096
 title: "Mycobacterium Ulcerans Ulcer: Current Trends in Antimicrobial Management and Reconstructive Surgical Strategies"
 authors:
 - Bryan Lim
@@ -15,6 +15,7 @@ journal: Life
 year: '2025'
 doi: 10.3390/life15071096
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mycobacterium Ulcerans Ulcer: Current Trends in Antimicrobial Management and Reconstructive Surgical Strategies

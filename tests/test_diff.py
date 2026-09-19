@@ -15,6 +15,7 @@ from dismech.diff import (
     diff_dicts,
     diff_lists,
 )
+from dismech.yaml_io import safe_load, safe_load_path
 
 ROOT_DIR = Path(__file__).parent.parent
 KB_DIR = ROOT_DIR / "kb" / "disorders"
@@ -249,7 +250,7 @@ DISORDER_FILES = [
 )
 def test_roundtrip_zero_diff(filepath):
     """Loading a YAML file and comparing it to itself should produce zero diffs."""
-    data = yaml.safe_load(Path(filepath).read_text())
+    data = safe_load_path(filepath)
     result = diff_dicts(data, data)
     assert result == [], f"Self-diff should be empty for {filepath}"
 
@@ -261,7 +262,7 @@ def test_roundtrip_zero_diff(filepath):
 )
 def test_dump_reload_zero_diff(filepath):
     """Dumping and reloading YAML should not introduce spurious diffs."""
-    data = yaml.safe_load(Path(filepath).read_text())
-    roundtripped = yaml.safe_load(yaml.dump(data, default_flow_style=False))
+    data = safe_load_path(filepath)
+    roundtripped = safe_load(yaml.dump(data, default_flow_style=False))
     result = diff_dicts(data, roundtripped)
     assert result == [], f"Roundtrip diff should be empty for {filepath}"

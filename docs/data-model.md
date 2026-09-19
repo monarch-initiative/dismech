@@ -66,7 +66,7 @@ How the disease is treated, linked back to the mechanism it targets.
 | Class | What it is |
 |-------|------------|
 | [Treatment](schema/classes/Treatment.md) | A treatment, with `target_phenotypes`, `target_mechanisms`, `therapeutic_modality`, and `therapeutic_agent`. |
-| [TreatmentDescriptor](schema/classes/TreatmentDescriptor.md) | The MAXO/NCIT action binding plus therapeutic agent(s). |
+| [TreatmentDescriptor](schema/classes/TreatmentDescriptor.md) | The NCIT action binding plus therapeutic agent(s). |
 | [TreatmentMechanismTarget](schema/classes/TreatmentMechanismTarget.md) | The mechanism node a treatment acts on. |
 
 ## Descriptors & post-composition

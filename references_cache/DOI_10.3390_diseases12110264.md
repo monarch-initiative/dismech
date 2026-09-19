@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diseases12110264"
+reference_id: DOI:10.3390/diseases12110264
 title: "Hereditary Aortopathies as Cause of Sudden Cardiac Death in the Young: State-of-the-Art Review in Molecular Medicine"
 authors:
 - Cecilia Salzillo
@@ -8,6 +8,7 @@ journal: Diseases
 year: '2024'
 doi: 10.3390/diseases12110264
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hereditary Aortopathies as Cause of Sudden Cardiac Death in the Young: State-of-the-Art Review in Molecular Medicine

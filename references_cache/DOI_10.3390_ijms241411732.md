@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms241411732"
+reference_id: DOI:10.3390/ijms241411732
 title: "Frontotemporal Dementia, Where Do We Stand? A Narrative Review"
 authors:
 - Annibale Antonioni
@@ -18,6 +18,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms241411732
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Frontotemporal Dementia, Where Do We Stand? A Narrative Review

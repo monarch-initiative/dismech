@@ -14,7 +14,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-import yaml
+from dismech.yaml_io import safe_load
 
 # Disease name mapping: Zhu/Dann name -> dismech YAML filename
 DISEASE_MAP = {
@@ -51,7 +51,7 @@ def extract_genes_from_disorder(filepath: Path) -> dict:
         gene_details: dict of gene -> {section, association/role, notes}
     """
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     genetic_genes = set()
     pathophys_genes = set()
@@ -147,7 +147,7 @@ def extract_genes_from_disorder(filepath: Path) -> dict:
 def extract_processes_from_disorder(filepath: Path) -> list[dict]:
     """Extract biological processes with GO terms from pathophysiology."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     processes = []
     for entry in data.get("pathophysiology", []):

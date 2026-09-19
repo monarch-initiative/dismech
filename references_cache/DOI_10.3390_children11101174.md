@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/children11101174"
+reference_id: DOI:10.3390/children11101174
 title: "Proteomic Signatures of Multisystem Inflammatory Syndrome in Children (MIS-C) Associated with COVID-19: A Narrative Review"
 authors:
 - Maria-Myrto Dourdouna
@@ -10,6 +10,7 @@ journal: Children
 year: '2024'
 doi: 10.3390/children11101174
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Proteomic Signatures of Multisystem Inflammatory Syndrome in Children (MIS-C) Associated with COVID-19: A Narrative Review

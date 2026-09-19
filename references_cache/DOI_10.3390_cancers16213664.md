@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16213664"
+reference_id: DOI:10.3390/cancers16213664
 title: "Ex Vivo Intestinal Organoid Models: Current State-of-the-Art and Challenges in Disease Modelling and Therapeutic Testing for Colorectal Cancer"
 authors:
 - Sarron Randall-Demllo
@@ -14,6 +14,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16213664
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Ex Vivo Intestinal Organoid Models: Current State-of-the-Art and Challenges in Disease Modelling and Therapeutic Testing for Colorectal Cancer

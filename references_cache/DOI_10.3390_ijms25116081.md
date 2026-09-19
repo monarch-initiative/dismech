@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25116081"
+reference_id: DOI:10.3390/ijms25116081
 title: "Exploring the Pathogenesis of Spondylarthritis beyond HLA-B27: A Descriptive Review"
 authors:
 - Ruxandra-Elena Nagit
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25116081
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring the Pathogenesis of Spondylarthritis beyond HLA-B27: A Descriptive Review

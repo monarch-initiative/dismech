@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medicina55070371"
+reference_id: DOI:10.3390/medicina55070371
 title: "46,XX Testicular Disorder of Sex Development (DSD): A Case Report and Systematic Review"
 authors:
 - Marco Terribile
@@ -15,6 +15,7 @@ journal: Medicina
 year: '2019'
 doi: 10.3390/medicina55070371
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # 46,XX Testicular Disorder of Sex Development (DSD): A Case Report and Systematic Review

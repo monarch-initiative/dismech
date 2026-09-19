@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15030761"
+reference_id: DOI:10.3390/cancers15030761
 title: "Pancreatic Cancer in Chronic Pancreatitis: Pathogenesis and Diagnostic Approach"
 authors:
 - Guillaume Le Cosquer
@@ -12,6 +12,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15030761
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pancreatic Cancer in Chronic Pancreatitis: Pathogenesis and Diagnostic Approach

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms262010058"
+reference_id: DOI:10.3390/ijms262010058
 title: "Recent Advances in the Histopathology, Molecular Biology, and Treatment of Kaposi Sarcoma: A Contemporary Review"
 authors:
 - Tayarv Jayd Bagratee
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms262010058
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recent Advances in the Histopathology, Molecular Biology, and Treatment of Kaposi Sarcoma: A Contemporary Review

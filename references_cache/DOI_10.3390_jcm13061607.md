@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13061607"
+reference_id: DOI:10.3390/jcm13061607
 title: Primary Cutaneous Melanoma—Management in 2024
 authors:
 - Anthony Joseph Dixon
@@ -15,6 +15,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13061607
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Primary Cutaneous Melanoma—Management in 2024

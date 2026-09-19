@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jpm15100455"
+reference_id: DOI:10.3390/jpm15100455
 title: Molecular Profiling of SYT-SSX Fusion Transcripts for Enhanced Diagnosis of Synovial Sarcomas
 authors:
 - Sara Louati
@@ -17,6 +17,7 @@ journal: Journal of Personalized Medicine
 year: '2025'
 doi: 10.3390/jpm15100455
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Profiling of SYT-SSX Fusion Transcripts for Enhanced Diagnosis of Synovial Sarcomas

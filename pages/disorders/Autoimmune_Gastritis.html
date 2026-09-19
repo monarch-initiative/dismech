@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>Autoimmune Gastritis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autoimmune Gastritis</h1>
             <div class="header-meta">
 
@@ -3204,6 +3963,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3280,6 +4043,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3290,6 +4054,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3325,29 +4097,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">GASTROINTESTINAL</span>
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3365,7 +4215,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-polygenic-inheritance">
                 <div class="item-name">
                     Polygenic inheritance
 
@@ -3411,7 +4261,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34145262" target="_blank">PMID:34145262</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3491,10 +4344,19 @@
 
                 </div>
 
-                <div class="item-desc" style="margin-top: 8px;">Autoimmune gastritis is a primary organ-specific autoimmune disease driven by a breakdown of self-tolerance to the parietal-cell H+/K+ ATPase (ATP4A/ATP4B), with CD4 T-cell-mediated parietal cell destruction that is self-sustaining. The tolerance defect implicates the beta subunit: although H/K-ATPase alpha-subunit (ATP4A) mRNA is expressed in the thymus, thymic expression alone does not tolerize the pathogenic T-cell repertoire, and it is the beta subunit (ATP4B), absent from the thymus, that behaves as the dominant autoantigen. The murine disease induced by neonatal thymectomy is T-cell-mediated, and monogenic tolerance defects (AIRE/APECED, FOXP3/IPEX) produce autoimmune gastritis as part of polyautoimmunity. Two independent hypothesis-search runs (see notes) concur that this primary/central-tolerance account is best treated as one of several parallel initiating pathways feeding a shared effector cascade, rather than as an infection-independent sole origin.</div>
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">4 support</span>
+
+                </div>
 
 
-                <div class="mapping-notes">Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED: a claude_code report (kb/hypotheses/Autoimmune_Gastritis/canonical_primary_autoimmune_hk_atpase_origin/claude_code.md) and a deeper openscientist report (same directory, openscientist.md; 127 papers, 17 findings over 5 iterations). Both retain the CD4 T-cell / H+/K+ ATPase effector mechanism as CANONICAL but judge the etiological claim of a purely primary, infection-independent origin overstated: the disease is best modeled as multiple parallel initiating pathways - primary central-tolerance defect, H. pylori molecular mimicry (T-cell level; see alternative_hpylori_molecular_mimicry_origin), neonatal roseolovirus thymic disruption, and peripheral checkpoint failure (anti-PD-1/anti-CTLA-4 gastritis) - all converging on the same self-sustaining effector cascade. The ATP4A/ATP4B tolerance correction flagged by both runs (alpha thymic expression does not tolerize; ATP4B is the thymus-absent dominant autoantigen) has been folded into the description above (PMID:16237067). Follow-up recommended by openscientist: split into separate CANONICAL effector and qualified etiological-trigger hypotheses, and add an upstream &#34;incomplete central tolerance to ATP4B&#34; node.</div>
+                <div class="item-desc" style="margin-top: 8px;">Autoimmune gastritis is a primary organ-specific autoimmune disease driven by a breakdown of self-tolerance to the parietal-cell H+/K+ ATPase (ATP4A/ATP4B), with CD4 T-cell-mediated parietal cell destruction that clinically tends to progress rather than remit. The tolerance defect implicates the beta subunit: although H/K-ATPase alpha-subunit (ATP4A) mRNA is expressed in the thymus, thymic expression alone does not tolerize the pathogenic T-cell repertoire, and in the murine neonatal-thymectomy system it is the beta subunit (ATP4B), absent from the thymus, whose transgenic thymic expression prevents disease - so ATP4B behaves as the dominant autoantigen in mice. Whether ATP4B-specific T cells likewise dominate the surviving human repertoire, or precede ATP4A reactivity, has not been demonstrated. The murine disease induced by neonatal thymectomy is T-cell-mediated, and monogenic tolerance defects (AIRE/APECED, FOXP3/IPEX) produce autoimmune gastritis as part of polyautoimmunity. Two independent hypothesis-search runs (see notes) concur that this primary/central-tolerance account is best treated as one of several candidate initiating pathways feeding a shared effector cascade, rather than as an infection-independent sole origin.</div>
+
+
+                <div class="mapping-notes">Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED: a claude_code report (kb/hypotheses/Autoimmune_Gastritis/canonical_primary_autoimmune_hk_atpase_origin/claude_code.md) and a deeper openscientist report (same directory, openscientist.md; 127 papers, 17 findings over 5 iterations). Both retain the CD4 T-cell / H+/K+ ATPase effector mechanism as CANONICAL but judge the etiological claim of a purely primary, infection-independent origin overstated. Each candidate initiating route is retained only at the evidence level it was actually demonstrated at: primary central-tolerance defect (murine neonatal thymectomy and transgenic thymic ATP4B; PMID:8393475), H. pylori molecular mimicry (human gastric T-cell cross-reactivity only; see alternative_hpylori_molecular_mimicry_origin), neonatal roseolovirus thymic disruption (experimental murine infection; not shown for human roseoloviruses), and peripheral checkpoint failure (anti-PD-1/anti-CTLA-4 gastritis, supported by deeply phenotyped single cases, which cannot establish absence of host predisposition or identity with sporadic AIG). The codex assessment sidecar in the hypothesis directory rejects three of the openscientist run&#39;s stronger readings: that one ATP4A-specific TCR is &#34;necessary and sufficient&#34; (the TxA23 experiment establishes sufficiency only; PMID:11449363), that a prospective progression cohort proves the autoimmune process is mechanistically self-sustaining regardless of trigger (clinical progression is not an immune-mechanism endpoint), and that PTPN22, HLA, ABO and IFIH1 form one confirmed AIG genetic architecture - PTPN22/HLA-DQB1/IL2RA/AIRE come from the pernicious-anemia GWAS (PMID:34145262) while ABO and IFIH1 come from a parietal-cell-antibody GWAS in a type 1 diabetes cohort, a different phenotype and sampling frame. The ATP4A/ATP4B tolerance correction flagged by both runs (alpha thymic expression does not tolerize; ATP4B is the thymus-absent dominant murine autoantigen) has been folded into the description above (PMID:16237067). The report&#39;s candidate GO identifiers were not curated: GO:0006968 is cellular defense response, not central tolerance, and GO:0002513 is tolerance induction to self antigen, not a generic peripheral-tolerance term. Follow-up recommended by openscientist: split into separate CANONICAL effector and qualified etiological-trigger hypotheses, and add an upstream &#34;incomplete central tolerance to ATP4B&#34; node.</div>
 
 
 
@@ -3531,7 +4393,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -3541,7 +4403,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9272282" target="_blank">PMID:9272282</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -3557,13 +4422,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16237067" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:16237067" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16237067" target="_blank">PMID:16237067</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -3579,6 +4447,33 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:8393475" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8393475" target="_blank">PMID:8393475</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We show that transgenic expression of the gastric H/K ATPase beta subunit specifically prevents the onset of autoimmune gastritis after neonatal thymectomy."</div>
+
+
+                <div class="evidence-explanation">The loss-of-function experiment behind the beta-subunit tolerance claim: forcing thymic expression of ATP4B, which is normally absent from the thymus, prevents neonatal-thymectomy gastritis in mice. This establishes ATP4B as a major T-cell target and a central-tolerance target in the murine system; it says nothing about the relative size of the ATP4B- and ATP4A-reactive repertoires in humans.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -3598,10 +4493,21 @@
 
                 </div>
 
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">5 support</span>
+
+                    <span class="evidence-support support-REFUTE">2 refute</span>
+
+                </div>
+
+
                 <div class="item-desc" style="margin-top: 8px;">Autoimmune gastritis is initiated by Helicobacter pylori infection via molecular mimicry between H. pylori antigens and the gastric H+/K+ ATPase, generating cross-reactive T- and B-cell responses that, through epitope spreading and bystander activation in a genetically susceptible host, become self-perpetuating autoimmunity and persist after the organism is cleared (established AIG is frequently H. pylori-negative). A corollary is that a subset of cases are reversible with early eradication. Causation in humans remains unproven and is the basis of a knowledge-gap discussion.</div>
 
 
-                <div class="mapping-notes">Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED / UNRESOLVED: a claude_code report (kb/hypotheses/Autoimmune_Gastritis/alternative_hpylori_molecular_mimicry_origin/claude_code.md) and a deeper openscientist report (same directory, openscientist.md). H. pylori- to-H+/K+ ATPase cross-reactivity is documented at the T-cell level (cross-reactive gastric CD4 Th1 clones; urease beta-subunit homology; LPS Lewis-antigen mimicry), and early-stage non-atrophic AIG is reported to heal after eradication in ~80% of cases (supporting a time-limited &#34;hit-and-run&#34; window). However the model is causally unproven and non-general: molecular mimicry is refuted at the autoantibody level (antigastric autoantibodies do not absorb to H. pylori; Faller), a large fraction of AIG patients (~29-79%) are H. pylori-naive and form a distinct familial/autoimmune-enriched entity (ARIOSO n=1,598; PMID:38976374), Treg-depletion mouse models produce AIG with no infection, and some H. pylori-AIG associations may be inflated by diagnostic misclassification (urease-positive non-H. pylori bacteria overgrowing the achlorhydric stomach). Retained ALTERNATIVE, best read as a subset-initiation mechanism.</div>
+                <div class="mapping-notes">Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED / UNRESOLVED: a claude_code report (kb/hypotheses/Autoimmune_Gastritis/alternative_hpylori_molecular_mimicry_origin/claude_code.md) and a deeper openscientist report (same directory, openscientist.md). H. pylori- to-H+/K+ ATPase cross-reactivity is documented at the T-cell level (cross-reactive gastric CD4 Th1 clones; urease beta-subunit homology; LPS Lewis-antigen mimicry; PMID:14568977), and active, not-yet-atrophic autoimmune corpus gastritis resolved after eradication in 64 of 80 patients in a retrospective, uncontrolled series (PMID:11549834). Neither result reaches the distinctive part of the hypothesis: reversibility achieved while the organism is being cleared is not evidence of a later self-perpetuating &#34;hit-and-run&#34; phase, and epitope spreading and persistence after clearance have no direct human evidence. The model is also refuted at the autoantibody level (antigastric autoantibodies do not absorb to H. pylori; PMID:10738313, PMID:11815766) and is non-general: H. pylori-naive AIG forms a distinct familial/autoimmune-enriched entity (ARIOSO n=1,598; PMID:38976374), and 29.3% of 75 atrophic autoimmune gastritis cases had no reactivity to any of 13 H. pylori antigens on multiplex serology (PMID:41484031). The wider &#34;29-79% H. pylori-naive&#34; range asserted by the openscientist report is not supported - its 21.1% figure was the proportion meeting a stringent multi-antigen positive cutoff, whose complement is not &#34;no evidence of exposure&#34;, and its second source is not traceable in the report. Treg-depletion mouse models produce AIG with no infection, and some H. pylori-AIG associations may be inflated by diagnostic misclassification (urease-positive non-H. pylori bacteria overgrowing the achlorhydric stomach, shown in a referral series selected for repeated eradication failure, which cannot quantify bias in the wider literature). Retained ALTERNATIVE, best read as a subset-initiation mechanism whose full initiation-to-persistence sequence is unproven in humans. See the codex assessment sidecar in the hypothesis directory.</div>
 
 
 
@@ -3638,7 +4544,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (7 references)
         </summary>
         <div class="evidence-list">
 
@@ -3648,7 +4554,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21174235" target="_blank">PMID:21174235</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3664,13 +4573,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42254085" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42254085" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42254085" target="_blank">PMID:42254085</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3686,13 +4598,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38976374" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38976374" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38976374" target="_blank">PMID:38976374</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3708,6 +4623,8 @@
 
             </div>
 
+
+            <div class="evidence-more">+ 4 more references</div>
 
         </div>
     </details>
@@ -3727,10 +4644,19 @@
 
                 </div>
 
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">6 support</span>
+
+                </div>
+
+
                 <div class="item-desc" style="margin-top: 8px;">The effector arm driving parietal-cell destruction has classically been modeled as Th1/IFN-gamma-polarized, based on murine neonatal-thymectomy and TCR-transgenic effector-transfer systems specific for the H+/K+ ATPase.</div>
 
 
-                <div class="mapping-notes">Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED: a claude_code report (kb/hypotheses/Autoimmune_Gastritis/canonical_th1_effector_polarization/claude_code.md) and an openscientist report (same directory, openscientist.md). Both retain Th1/IFN-gamma as foundational and real (anti-IFN-gamma blockade prevents murine disease; human gastric H+/K+ ATPase-reactive CD4 clones are predominantly Th1 and cytotoxic via perforin/Fas-FasL; IFN-gamma directly kills gastric epithelium in organoids; the PTPN22 pernicious-anemia risk variant favors Th1 over Th17), but neither supports a Th1-exclusive model - it is one arm of a cooperative multi-cytokine / multi-cell-type program: CD8 T cells are the dominant IFN-gamma source, IFN-gamma plus IL-17 are co-required for severe disease (PMID:22777705), IL-13 independently drives the post-atrophy metaplastic transformation, and the human intrinsic-factor-reactive / pernicious-anemia compartment is Th17-dominant (see emerging_th17_effector_polarization). Caveat: Th1 dominance is demonstrated most robustly in TCR-transgenic / monoclonal systems, which may overrepresent it relative to polyclonal disease.</div>
+                <div class="mapping-notes">Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED: a claude_code report (kb/hypotheses/Autoimmune_Gastritis/canonical_th1_effector_polarization/claude_code.md) and an openscientist report (same directory, openscientist.md). Both retain Th1/IFN-gamma as foundational and real: human gastric H+/K+ ATPase-reactive CD4 clones are predominantly Th1 and cytotoxic via perforin/Fas-FasL (PMID:11159878, PMID:15763992), and IFN-gamma directly kills murine gastric epithelium in organoids and is required for atrophy and metaplasia in TxA23 mice (PMID:30511397). The causal perturbations are model-specific and are weaker than the openscientist report states: anti-IFN-gamma treatment in the neonatal-thymectomy model cut gastritis incidence from 69% to 16% rather than abolishing disease (PMID:8766575), and in a transfer setting IFN-gamma-deficient T cells could still initiate mild disease (PMID:22777705). Neither run supports a Th1-exclusive model - it is one arm of a cooperative multi-cytokine / multi-cell-type program: CD8 T cells were the dominant IFN-gamma source in that polyclonal mouse model, IFN-gamma plus IL-17 are co-required for severe disease (PMID:22777705), and IL-13 acting through IL-4R-alpha is a separable required arm of the metaplastic transformation - though metaplasia was absent altogether in TxA23 x Ifng-/- mice, so IL-13 independence from IFN-gamma-associated atrophy across the whole trajectory is not established. The codex assessment sidecar in the hypothesis directory rejects two further readings carried by the report: that the PTPN22 pernicious-anemia risk variant wires patients toward Th1 over Th17 (this joins a PA GWAS locus association with Th1/Th17 phenotyping in genotyped healthy donors, and is a hypothesis rather than evidence about gastric polarization; the report also misstates the GWAS p value as 1.91e-10 rather than 1.91e-24), and that a null NK-depletion result rules out innate IFN-gamma sources. The intrinsic-factor-reactive pernicious-anemia compartment is mixed rather than Th17-dominant: the cited 94% is a combined &#34;Th17 or Th1&#34; figure (see emerging_th17_effector_polarization). Caveat: Th1 dominance is demonstrated most robustly in TCR-transgenic / monoclonal systems, which may overrepresent it relative to polyclonal disease, and all human immune data here are cross-sectional, so which effector population dominates over the human disease course is unresolved.</div>
 
 
                 <div class="crosslink-block">
@@ -3793,7 +4719,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (6 references)
         </summary>
         <div class="evidence-list">
 
@@ -3803,7 +4729,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18641328" target="_blank">PMID:18641328</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -3825,7 +4754,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15763992" target="_blank">PMID:15763992</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3841,13 +4773,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22777705" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22777705" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22777705" target="_blank">PMID:22777705</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -3863,6 +4798,8 @@
 
             </div>
 
+
+            <div class="evidence-more">+ 3 more references</div>
 
         </div>
     </details>
@@ -3882,10 +4819,19 @@
 
                 </div>
 
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">4 support</span>
+
+                </div>
+
+
                 <div class="item-desc" style="margin-top: 8px;">Human data show a gastric H+/K+ ATPase-specific Th17/IL-17 signature, and effector-transfer models show that Th1, Th2, and Th17 cells can each induce autoimmune gastritis with distinct pathology and differing susceptibility to regulatory T-cell suppression. Which effector arm dominates human disease, and whether it shifts over the disease course, is unresolved and carries therapeutic implications (e.g., anti-IL-17 blockade).</div>
 
 
-                <div class="mapping-notes">Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED / retain EMERGING: a claude_code report (kb/hypotheses/Autoimmune_Gastritis/emerging_th17_effector_polarization/claude_code.md) and an openscientist report (same directory, openscientist.md). Both confirm a genuine Th17/IL-17 contribution (H+/K+ ATPase-specific gastric IL-17A/F production; 94% of intrinsic-factor-reactive clones Th17/Th1; Th17 transfer gives the most severe, Treg-resistant gastritis in the TxA23 model), but the openscientist run corrects the effector mechanism: IL-17RA signaling on gastric epithelium appears PROTECTIVE rather than directly apoptotic (IL-17RA loss increases B-cell infiltration, autoantibody production, and inflammation, and accelerates gastric carcinogenesis), so the pathogenic Th17-derived signal is more likely IL-21 and STAT3-mediated (STAT3 inhibition restores Th17/Treg balance and alleviates disease; PMID:40471463) than IL-17A/F epithelial cytotoxicity. Consequently anti-IL-17 blockade is cautioned/contraindicated (protective, anti-carcinogenic IL-17), no human anti-IL-17 AIG data exist, Th1 remains the more extensively validated axis, and which arm dominates by disease stage is unresolved. Reframe: Th17 contributes via IL-21/STAT3, not direct IL-17A/F epithelial killing.</div>
+                <div class="mapping-notes">Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED / retain EMERGING: a claude_code report (kb/hypotheses/Autoimmune_Gastritis/emerging_th17_effector_polarization/claude_code.md) and an openscientist report (same directory, openscientist.md). Both confirm a genuine Th17/IL-17 contribution (H+/K+ ATPase-specific gastric IL-17A/F production in all eight AIG patients tested; 94% of intrinsic-factor-reactive clones in a combined &#34;Th17 or Th1&#34; category; Th17 transfer gives the most severe, Treg-resistant gastritis in the TxA23 model). The openscientist run went on to propose a wholesale reframing of the effector mechanism - epithelial IL-17RA signaling as protective, IL-21 as the real pathogenic Th17-derived mediator, and anti-IL-17 blockade as contraindicated - and the codex assessment sidecar in the hypothesis directory rejects that reframing on its sources. The IL-17RA results come from gastrointestinal epithelial Il17ra deletion during H. pylori infection, not sterile autoimmune gastritis and not parietal-cell-specific deletion or apoptosis; the &#34;increased autoantibody production&#34; in Il17ra-deficient mice was in fact enhanced H. pylori-specific antibody, not anti-H+/K+ ATPase or anti-intrinsic-factor autoantibody; and no IL-21 perturbation has been carried out in AIG at all, so the IL-21 bridge remains an untested hypothesis. There is no human anti-IL-17 AIG study and no AIG animal experiment comparing IL-17 blockade with control, so protective IL-17 signaling in H. pylori infection and gastric carcinogenesis raises a real, unresolved safety question about anti-IL-17 therapy in AIG rather than establishing a contraindication. What survives: a Th17 contribution is real but its terminal tissue-damage mechanism is undetermined, direct IL-17A/F epithelial cytotoxicity is not established, STAT3 perturbation is a promising but pleiotropic and model-specific lead (PMID:40471463), Th1 remains the more extensively validated axis, and which arm dominates by disease stage is unresolved because all human evidence here is small and cross-sectional. The report&#39;s candidate ontology block was not curated: CL:0000163 is endocrine cell (parietal cell is CL:0000162, already used above), GO:0032623 is interleukin-2 production rather than interleukin-21 production, and its proposed MONDO identifiers resolve to unrelated disorders.</div>
 
 
                 <div class="crosslink-block">
@@ -3958,7 +4904,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35911678" target="_blank">PMID:35911678</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3980,7 +4929,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18641328" target="_blank">PMID:18641328</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4002,7 +4954,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31080562" target="_blank">PMID:31080562</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4012,7 +4967,7 @@
                 <div class="evidence-snippet">"Most of these clones (94%) showed a T helper 17 or T helper 1 profile."</div>
 
 
-                <div class="evidence-explanation">In pernicious anemia, intrinsic-factor-specific gastric CD4 clones are predominantly Th17/Th1 (Th17-skewed), evidencing a Th17 contribution in the intrinsic-factor-reactive compartment.</div>
+                <div class="evidence-explanation">In pernicious anemia, 94% of intrinsic-factor-specific gastric CD4 clones fell into a combined &#34;Th17 or Th1&#34; category, evidencing a Th17 contribution in the intrinsic-factor-reactive compartment. The combined figure does not show that Th17 outnumbers Th1, so the compartment is mixed rather than Th17-dominant.</div>
 
 
 
@@ -4112,6 +5067,7 @@
 
 
 
+
         </div>
 
 
@@ -4136,35 +5092,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Faithful reproduction would validate the human neoplastic trajectory as a direct consequence of the modeled autoimmune-achlorhydria-hypergastrinemia axis.</li>
 
-
-
-    <span class="entity-ref-chip">Faithful reproduction would validate the human neoplastic trajectory as a direct consequence of the modeled autoimmune-achlorhydria-hypergastrinemia axis.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Failure to progress despite equivalent hypergastrinemia would indicate human-specific ECL/gastric-epithelial biology not captured by rodent models.</li>
 
-
-
-    <span class="entity-ref-chip">Failure to progress despite equivalent hypergastrinemia would indicate human-specific ECL/gastric-epithelial biology not captured by rodent models.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4256,7 +5208,7 @@
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">Whether the effector response persists at a targetable level once corpus atrophy is established determines if immunomodulatory therapy is even mechanistically plausible; the emerging Th17 arm makes anti-IL-17 blockade a concrete but untested candidate.</div>
+                <div class="item-desc" style="margin-top: 10px;">Whether the effector response persists at a targetable level once corpus atrophy is established determines if immunomodulatory therapy is even mechanistically plausible; the emerging Th17 arm makes anti-IL-17 blockade a concrete but untested candidate. That candidate carries an unresolved safety question rather than a straightforward rationale: IL-17RA signaling on gastrointestinal epithelium is protective in H. pylori infection models and IL-17 signaling restrains gastric carcinogenesis, yet no anti-IL-17 study - human or animal - has been performed in autoimmune gastritis, so the net effect of blockade in this disease is unknown in both directions.</div>
 
 
 
@@ -4330,11 +5282,13 @@
 
                     <span class="tag tag-mechanistic">
 
+
                         <a href="#hypothesis-canonical-th1-effector-polarization">Canonical Th1/IFN-gamma Effector Polarization</a>
 
                     </span>
 
                     <span class="tag tag-mechanistic">
+
 
                         <a href="#hypothesis-emerging-th17-effector-polarization">Emerging Th17/IL-17 Effector Contribution</a>
 
@@ -4345,16 +5299,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD4+ T helper cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000492" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000492">CL:0000492</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000492" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000492</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves increased CD4+ T helper cell, annotated with CD4-positive helper T cell (CL:0000492). CL:0000492 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4374,16 +5333,21 @@
 
 
 
+
+
                     <span class="tag tag-cell">
                         parietal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000162">CL:0000162</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000162</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased parietal cell (CL:0000162). CL:0000162 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4414,16 +5378,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         adaptive immune response against the H+/K+ ATPase
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002250">GO:0002250</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased adaptive immune response against the H+/K+ ATPase, annotated with adaptive immune response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4443,16 +5412,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         parietal cell apoptosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased parietal cell apoptosis, annotated with apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4480,6 +5454,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4494,11 +5469,13 @@
 
                                     <span class="tag tag-mechanistic">
 
+
                                         <a href="#hypothesis-canonical-th1-effector-polarization">Canonical Th1/IFN-gamma Effector Polarization</a>
 
                                     </span>
 
                                     <span class="tag tag-mechanistic">
+
 
                                         <a href="#hypothesis-emerging-th17-effector-polarization">Emerging Th17/IL-17 Effector Contribution</a>
 
@@ -4525,7 +5502,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35911678" target="_blank">PMID:35911678</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4547,7 +5527,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35911678" target="_blank">PMID:35911678</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4569,7 +5552,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42367768" target="_blank">PMID:42367768</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4604,16 +5590,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         parietal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000162">CL:0000162</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000162</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves absent parietal cell (CL:0000162). CL:0000162 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4644,16 +5635,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         gastric acid secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001696" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001696">GO:0001696</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001696" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001696</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased gastric acid secretion (GO:0001696). GO:0001696 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4674,6 +5670,7 @@
 
 
                 </div>
+
 
 
 
@@ -4750,7 +5747,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28102858" target="_blank">PMID:28102858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4783,16 +5783,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         parietal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000162">CL:0000162</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000162</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves absent parietal cell (CL:0000162). CL:0000162 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4813,6 +5818,7 @@
 
 
                 </div>
+
 
 
 
@@ -4872,7 +5878,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31080562" target="_blank">PMID:31080562</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4894,7 +5903,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21174235" target="_blank">PMID:21174235</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4927,16 +5939,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         antral G cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000508" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000508">CL:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000508" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves increased antral G cell, annotated with type G enteroendocrine cell (CL:0000508). CL:0000508 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4956,16 +5973,21 @@
 
 
 
+
+
                     <span class="tag tag-cell">
                         enterochromaffin-like cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000504" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000504">CL:0000504</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000504" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000504</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves increased enterochromaffin-like cell (CL:0000504). CL:0000504 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4986,6 +6008,7 @@
 
 
                 </div>
+
 
 
 
@@ -5037,7 +6060,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31963924" target="_blank">PMID:31963924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5059,7 +6085,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34476276" target="_blank">PMID:34476276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5094,7 +6123,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-oxyntic-corpus-restricted-gland-atrophy">
                 <div class="item-name">
                     Oxyntic (Corpus-Restricted) Gland Atrophy
 
@@ -5117,7 +6146,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28102858" target="_blank">PMID:28102858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5140,7 +6172,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-enterochromaffin-like-ecl-cell-hyperplasia">
                 <div class="item-name">
                     Enterochromaffin-Like (ECL) Cell Hyperplasia
 
@@ -5163,7 +6195,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34476276" target="_blank">PMID:34476276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5229,9 +6264,13 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5244,21 +6283,30 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pernicious-anemia" data-dismech-node="Pernicious Anemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pernicious Anemia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Megaloblastic anemia
+
+                        <span class="phenotype-term-label">Megaloblastic anemia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001889" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001889">HP:0001889</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001889" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001889</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Megaloblastic anemia (HP:0001889). HP:0001889 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5279,7 +6327,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42367768" target="_blank">PMID:42367768</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5301,7 +6352,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34829460" target="_blank">PMID:34829460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5327,21 +6381,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-iron-deficiency-anemia" data-dismech-node="Iron Deficiency Anemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Iron Deficiency Anemia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Iron deficiency anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001891">HP:0001891</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001891</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5362,7 +6423,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34829460" target="_blank">PMID:34829460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5393,63 +6457,32 @@
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
+                    Digestive
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Peripheral Neuropathy
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-                    <span class="phenotype-id">
-                        Peripheral neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atrophic-gastritis" data-dismech-node="Atrophic Gastritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atrophic Gastritis
 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrophic gastritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002582" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002582">HP:0002582</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002582" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002582</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrophic gastritis (HP:0002582). HP:0002582 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5464,21 +6497,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-achlorhydria" data-dismech-node="Achlorhydria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Achlorhydria
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Achlorhydria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032448" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032448">HP:0032448</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0032448</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Achlorhydria (HP:0032448). HP:0032448 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5499,7 +6539,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42367768" target="_blank">PMID:42367768</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5525,21 +6568,108 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastric-adenocarcinoma" data-dismech-node="Gastric Adenocarcinoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Gastric Adenocarcinoma
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0033770</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastric adenocarcinoma (HP:0033770). HP:0033770 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42367768" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42367768" target="_blank">PMID:42367768</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we explore precision risk stratification models for gastric neuroendocrine tumors (gNETs) and gastric adenocarcinoma, emphasizing the roles of endoscopic surveillance and molecular biomarkers"</div>
+
+
+                <div class="evidence-explanation">Identifies gastric adenocarcinoma as a neoplastic risk of autoimmune gastritis requiring risk stratification and surveillance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Endocrine
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypergastrinemia" data-dismech-node="Hypergastrinemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypergastrinemia
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypergastrinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500167" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500167">HP:0500167</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500167" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0500167</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypergastrinemia (HP:0500167). HP:0500167 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5554,50 +6684,30 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Glossitis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-                    <span class="phenotype-id">
-                        Glossitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000206" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000206">HP:0000206</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastric-neuroendocrine-tumor" data-dismech-node="Gastric Neuroendocrine Tumor" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gastric Neuroendocrine Tumor
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gastric carcinoid tumor
+
+                        <span class="phenotype-term-label">Gastric carcinoid tumor</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000898">HP:6000898</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:6000898</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastric carcinoid tumor (HP:6000898). HP:6000898 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5618,7 +6728,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31963924" target="_blank">PMID:31963924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5640,7 +6753,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42367768" target="_blank">PMID:42367768</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5666,21 +6782,37 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Gastric Adenocarcinoma
+            </details>
 
-                        <span class="phenotype-freq">VERY_RARE</span>
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-glossitis" data-dismech-node="Glossitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Glossitis
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Gastric adenocarcinoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033770" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033770">HP:0033770</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000206</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glossitis (HP:0000206). HP:0000206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5689,37 +6821,50 @@
 
 
 
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42367768" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42367768" target="_blank">PMID:42367768</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
 
                 </div>
 
-                <div class="evidence-snippet">"we explore precision risk stratification models for gastric neuroendocrine tumors (gNETs) and gastric adenocarcinoma, emphasizing the roles of endoscopic surveillance and molecular biomarkers"</div>
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral Neuropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Peripheral Neuropathy
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                <div class="evidence-explanation">Identifies gastric adenocarcinoma as a neoplastic risk of autoimmune gastritis requiring risk stratification and surveillance.</div>
 
 
 
-            </div>
+
+                    <span class="phenotype-id">
 
 
-        </div>
-    </details>
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0009830</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
 
 
 
@@ -5766,7 +6911,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-atp4a" data-dismech-node="ATP4A" data-dismech-type="genetic">
                 <div class="item-name">
                     ATP4A
 
@@ -5778,13 +6923,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP4A
 
 
-    <a href="https://bioregistry.io/hgnc:819" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:819">hgnc:819</a>
+    <a href="https://bioregistry.io/hgnc:819" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:819</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP4A (hgnc:819). hgnc:819 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5806,7 +6956,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28102858" target="_blank">PMID:28102858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5827,9 +6980,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-atp4b" data-dismech-node="ATP4B" data-dismech-type="genetic">
                 <div class="item-name">
                     ATP4B
 
@@ -5841,13 +6995,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP4B
 
 
-    <a href="https://bioregistry.io/hgnc:820" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:820">hgnc:820</a>
+    <a href="https://bioregistry.io/hgnc:820" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:820</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP4B (hgnc:820). hgnc:820 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5869,7 +7028,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28102858" target="_blank">PMID:28102858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5890,9 +7052,16 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5904,13 +7073,18 @@
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-vitamin-b12-replacement" data-dismech-node="Vitamin B12 Replacement" data-dismech-type="treatment">
                 <div class="item-name">
                     Vitamin B12 Replacement
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5940,19 +7114,38 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         vitamin B12
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_176843" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:176843">CHEBI:176843</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_176843" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:176843</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vitamin B12 (CHEBI:176843). CHEBI:176843 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5967,13 +7160,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-iron-replacement" data-dismech-node="Iron Replacement" data-dismech-type="treatment">
                 <div class="item-name">
                     Iron Replacement
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6003,19 +7201,38 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         iron(2+)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_29033" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:29033">CHEBI:29033</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_29033" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:29033</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses iron(2+) (CHEBI:29033). CHEBI:29033 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6030,19 +7247,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-endoscopic-surveillance" data-dismech-node="Endoscopic Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Endoscopic Surveillance
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">esophagogastroduodenoscopy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">esophagogastroduodenoscopy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is esophagogastroduodenoscopy (NCIT:C78144). NCIT:C78144 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Esophagogastroduodenoscopy</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0001193" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001193">MAXO:0001193</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C78144" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C78144">NCIT:C78144</a>
 
 
 
@@ -6060,6 +7283,20 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6085,7 +7322,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42367768" target="_blank">PMID:42367768</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6108,13 +7348,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-netazepide-gastrin-cck2-receptor-antagonist" data-dismech-node="Netazepide (Gastrin/CCK2 Receptor Antagonist)" data-dismech-type="treatment">
                 <div class="item-name">
                     Netazepide (Gastrin/CCK2 Receptor Antagonist)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6143,6 +7388,31 @@
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Netazepide is an investigational oral gastrin/cholecystokinin-2 receptor (CCK2R) antagonist that blocks the trophic gastrin signal driving ECL cell proliferation, shrinking and eradicating type 1 gastric neuroendocrine tumors and normalizing chromogranin A in autoimmune atrophic gastritis.
 </div>
 
@@ -6151,16 +7421,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Gastric carcinoid tumor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000898">HP:6000898</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:6000898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gastric carcinoid tumor (HP:6000898). HP:6000898 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6180,7 +7455,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27704617" target="_blank">PMID:27704617</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6203,13 +7481,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-endoscopic-resection-of-gastric-neuroendocrine-tumors" data-dismech-node="Endoscopic Resection of Gastric Neuroendocrine Tumors" data-dismech-type="treatment">
                 <div class="item-name">
                     Endoscopic Resection of Gastric Neuroendocrine Tumors
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Endoscopic Mucosal Resection</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Endoscopic Mucosal Resection<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Endoscopic Mucosal Resection (NCIT:C103242). NCIT:C103242 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6238,6 +7521,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Endoscopic resection is the first-line treatment for small, localized type 1 gastric neuroendocrine tumors; larger or higher-risk lesions are referred for surgical resection.
 </div>
 
@@ -6246,16 +7543,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Gastric carcinoid tumor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000898">HP:6000898</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:6000898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gastric carcinoid tumor (HP:6000898). HP:6000898 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6275,7 +7577,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42228075" target="_blank">PMID:42228075</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6298,13 +7603,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-somatostatin-analog-therapy" data-dismech-node="Somatostatin Analog Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Somatostatin Analog Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6334,19 +7644,49 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         octreotide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7726" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:7726">CHEBI:7726</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7726" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:7726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Peptide</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -6358,16 +7698,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Gastric carcinoid tumor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000898">HP:6000898</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:6000898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gastric carcinoid tumor (HP:6000898). HP:6000898 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6387,7 +7732,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40503415" target="_blank">PMID:40503415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6410,19 +7758,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-helicobacter-pylori-eradication" data-dismech-node="Helicobacter pylori Eradication" data-dismech-type="treatment">
                 <div class="item-name">
                     Helicobacter pylori Eradication
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antimicrobial agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">antimicrobial agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antimicrobial agent therapy, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0001021" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001021">MAXO:0001021</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -6440,6 +7794,20 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6465,7 +7833,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42254085" target="_blank">PMID:42254085</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6500,8 +7871,35 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-helicobacter-pylori-infection" data-dismech-node="Helicobacter pylori Infection" data-dismech-type="environmental">
                 <div class="item-name">Helicobacter pylori Infection</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to Helicobacter pylori
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-34">ECTO:3000003</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECTO:3000003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -6522,7 +7920,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21174235" target="_blank">PMID:21174235</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6543,6 +7944,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -6557,7 +7959,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-anti-parietal-cell-antibody" data-dismech-node="Anti-Parietal Cell Antibody" data-dismech-type="biochemical">
                 <div class="item-name">
                     Anti-Parietal Cell Antibody
 
@@ -6581,7 +7983,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28102858" target="_blank">PMID:28102858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6604,7 +8009,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-anti-intrinsic-factor-antibody" data-dismech-node="Anti-Intrinsic Factor Antibody" data-dismech-type="biochemical">
                 <div class="item-name">
                     Anti-Intrinsic Factor Antibody
 
@@ -6619,7 +8024,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-gastrin" data-dismech-node="Serum Gastrin" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum Gastrin
 
@@ -6643,7 +8048,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40831016" target="_blank">PMID:40831016</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6666,7 +8074,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-pepsinogen-i" data-dismech-node="Serum Pepsinogen I" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum Pepsinogen I
 
@@ -6690,7 +8098,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40831016" target="_blank">PMID:40831016</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6716,16 +8127,243 @@
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-general-population">
+                <div class="item-name">General population</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">2.0</span>
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28102858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28102858" target="_blank">PMID:28102858</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"prevalence of ~2% in the general population and up to 10% in patients with other autoimmune diseases, such as type I diabetes or autoimmune thyroid disease."</div>
+
+
+                <div class="evidence-explanation">Establishes ~2% general-population prevalence, rising to ~10% among patients with other autoimmune diseases (thyrogastric clustering).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse233973">
+                <div class="item-name">
+                    Comprehensive gene expression analysis using gastric mucosa with autoimmune gastritis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE233973" target="_blank">geo:GSE233973</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">In this study, we aimed to reveal whether gastric mucosa with AIG has a specific gene expression profile, involving in its histology and chronic inflammation. To approach this, we performed comprehensive analysis of gene expression using gastric mucosa with atuoimmune gastritis, that with H. pylori-associated gastritis and healthy mucosa without any inflammation. Potential mechanisms of the gene expression changes in gastric mucosa with AIG were also explored.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=36</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/37962678" target="_blank" style="color: var(--secondary);">PMID:37962678</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse178925">
+                <div class="item-name">
+                    Genome-wide DNA methylation analysis of gastric mucosa with autoimmune gastritis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE178925" target="_blank">geo:GSE178925</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">DNA methylation in gastric mucosa with autoimmune gastritis and H. pylori-associated gastritis and normal gastric mucosa</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">METHYLATION</span>
+
+
+                    <span class="tag tag-dataset">n=24</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/35034200" target="_blank" style="color: var(--secondary);">PMID:35034200</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse271866">
+                <div class="item-name">
+                    Unveiling Cancer-Related Metaplastic Cells in Both Helicobacter pylori Infection and Autoimmune Gastritis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE271866" target="_blank">geo:GSE271866</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We used 10X 5&#39; single cell RNA sequencing (scRNAseq) technology to examine the transcriptional profiles of distinct gastric metaplastic cell types within the gastric corpus of mice chronically infected with Helicobacter pylori or chronically inflamed with autoimmune gastritis and humans with autoimmune gastritis.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=7</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/39236896" target="_blank" style="color: var(--secondary);">PMID:39236896</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7189,6 +8827,11 @@ genetic:
     explanation: Identifies the ATP4B subunit of the parietal cell H+/K+ ATPase as a target autoantigen in autoimmune (atrophic body) gastritis.
 environmental:
 - name: Helicobacter pylori Infection
+  exposure_term:
+    preferred_term: exposure to Helicobacter pylori
+    term:
+      id: ECTO:3000003
+      label: exposure to Helicobacter pylori
   description: &gt;
     H. pylori infection is proposed to trigger autoimmune gastritis through
     molecular mimicry between H. pylori antigens and the gastric H+/K+ ATPase,
@@ -7292,8 +8935,8 @@ treatments:
   treatment_term:
     preferred_term: esophagogastroduodenoscopy
     term:
-      id: MAXO:0001193
-      label: esophagogastroduodenoscopy
+      id: NCIT:C78144
+      label: Esophagogastroduodenoscopy
   evidence:
   - reference: PMID:42367768
     reference_title: &#34;Autoimmune gastritis: a comprehensive review of pathophysiology, risk stratification, and management.&#34;
@@ -7383,8 +9026,8 @@ treatments:
   treatment_term:
     preferred_term: antimicrobial agent therapy
     term:
-      id: MAXO:0001021
-      label: antimicrobial agent therapy
+      id: NCIT:C15620
+      label: Antibiotic Therapy
   evidence:
   - reference: PMID:42254085
     reference_title: &#34;Pernicious Anemia and Helicobacter pylori Infection: What a Hematologist Needs to Know?&#34;
@@ -7399,16 +9042,20 @@ mechanistic_hypotheses:
   description: &gt;-
     Autoimmune gastritis is a primary organ-specific autoimmune disease driven by
     a breakdown of self-tolerance to the parietal-cell H+/K+ ATPase (ATP4A/ATP4B),
-    with CD4 T-cell-mediated parietal cell destruction that is self-sustaining. The
-    tolerance defect implicates the beta subunit: although H/K-ATPase alpha-subunit
+    with CD4 T-cell-mediated parietal cell destruction that clinically tends to
+    progress rather than remit. The tolerance defect implicates the beta subunit:
+    although H/K-ATPase alpha-subunit
     (ATP4A) mRNA is expressed in the thymus, thymic expression alone does not
-    tolerize the pathogenic T-cell repertoire, and it is the beta subunit (ATP4B),
-    absent from the thymus, that behaves as the dominant autoantigen. The murine
+    tolerize the pathogenic T-cell repertoire, and in the murine neonatal-thymectomy
+    system it is the beta subunit (ATP4B), absent from the thymus, whose transgenic
+    thymic expression prevents disease - so ATP4B behaves as the dominant autoantigen
+    in mice. Whether ATP4B-specific T cells likewise dominate the surviving human
+    repertoire, or precede ATP4A reactivity, has not been demonstrated. The murine
     disease induced by neonatal thymectomy is T-cell-mediated, and monogenic
     tolerance defects (AIRE/APECED, FOXP3/IPEX) produce autoimmune gastritis as part
     of polyautoimmunity. Two independent hypothesis-search runs (see notes) concur
     that this primary/central-tolerance account is best treated as one of several
-    parallel initiating pathways feeding a shared effector cascade, rather than as
+    candidate initiating pathways feeding a shared effector cascade, rather than as
     an infection-independent sole origin.
   evidence:
   - reference: PMID:9272282
@@ -7419,10 +9066,34 @@ mechanistic_hypotheses:
     explanation: The T-cell-mediated neonatal-thymectomy model supports a T-cell-driven autoimmune origin of gastritis.
   - reference: PMID:16237067
     reference_title: &#34;Promiscuous thymic expression of an autoantigen gene does not result in negative selection of pathogenic T cells.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;thymic mRNA expression alone cannot predict a contribution to thymic tolerance.&#34;
     explanation: Corrects the tolerance framing - thymic H/K-ATPase alpha-subunit mRNA expression does not negatively select pathogenic T cells, so central tolerance to the alpha subunit is not protective; the beta subunit (absent from the thymus) is the dominant autoantigen.
+  - reference: PMID:8393475
+    reference_title: An autoimmune disease with multiple molecular targets abrogated by the transgenic expression of a single autoantigen in the thymus.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;We show that transgenic expression of the gastric H/K ATPase beta subunit specifically prevents the onset of autoimmune gastritis after neonatal thymectomy.&#34;
+    explanation: &gt;-
+      The loss-of-function experiment behind the beta-subunit tolerance claim:
+      forcing thymic expression of ATP4B, which is normally absent from the
+      thymus, prevents neonatal-thymectomy gastritis in mice. This establishes
+      ATP4B as a major T-cell target and a central-tolerance target in the
+      murine system; it says nothing about the relative size of the ATP4B- and
+      ATP4A-reactive repertoires in humans.
+  - reference: PMID:11449363
+    reference_title: &#34;A T cell receptor transgenic model of severe, spontaneous organ-specific autoimmunity.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;All A23 transgenic animals spontaneously developed severe autoimmune gastritis, and evidence of disease was detected as early as day 10 of life.&#34;
+    explanation: &gt;-
+      The TxA23 model: a single CD4 TCR specific for H/K ATPase alpha-chain
+      (630-641) is sufficient for fully penetrant spontaneous autoimmune
+      gastritis, and disease transfers with as few as 10^3 transgenic
+      thymocytes. This establishes sufficiency of an engineered, abundant
+      autoreactive specificity - not necessity of that TCR, which the
+      experiment does not test.
   notes: &gt;-
     Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED:
     a claude_code report
@@ -7430,15 +9101,33 @@ mechanistic_hypotheses:
     and a deeper openscientist report (same directory, openscientist.md; 127
     papers, 17 findings over 5 iterations). Both retain the CD4 T-cell / H+/K+
     ATPase effector mechanism as CANONICAL but judge the etiological claim of a
-    purely primary, infection-independent origin overstated: the disease is best
-    modeled as multiple parallel initiating pathways - primary central-tolerance
-    defect, H. pylori molecular mimicry (T-cell level; see
+    purely primary, infection-independent origin overstated. Each candidate
+    initiating route is retained only at the evidence level it was actually
+    demonstrated at: primary central-tolerance defect (murine neonatal
+    thymectomy and transgenic thymic ATP4B; PMID:8393475), H. pylori molecular
+    mimicry (human gastric T-cell cross-reactivity only; see
     alternative_hpylori_molecular_mimicry_origin), neonatal roseolovirus thymic
-    disruption, and peripheral checkpoint failure (anti-PD-1/anti-CTLA-4 gastritis)
-    - all converging on the same self-sustaining effector cascade. The ATP4A/ATP4B
-    tolerance correction flagged by both runs (alpha thymic expression does not
-    tolerize; ATP4B is the thymus-absent dominant autoantigen) has been folded into
-    the description above (PMID:16237067). Follow-up recommended by openscientist:
+    disruption (experimental murine infection; not shown for human
+    roseoloviruses), and peripheral checkpoint failure (anti-PD-1/anti-CTLA-4
+    gastritis, supported by deeply phenotyped single cases, which cannot
+    establish absence of host predisposition or identity with sporadic AIG).
+    The codex assessment sidecar in the hypothesis directory rejects three of
+    the openscientist run&#39;s stronger readings: that one ATP4A-specific TCR is
+    &#34;necessary and sufficient&#34; (the TxA23 experiment establishes sufficiency
+    only; PMID:11449363), that a prospective progression cohort proves the
+    autoimmune process is mechanistically self-sustaining regardless of trigger
+    (clinical progression is not an immune-mechanism endpoint), and that
+    PTPN22, HLA, ABO and IFIH1 form one confirmed AIG genetic architecture -
+    PTPN22/HLA-DQB1/IL2RA/AIRE come from the pernicious-anemia GWAS
+    (PMID:34145262) while ABO and IFIH1 come from a parietal-cell-antibody GWAS
+    in a type 1 diabetes cohort, a different phenotype and sampling frame. The
+    ATP4A/ATP4B tolerance correction flagged by both runs (alpha thymic
+    expression does not tolerize; ATP4B is the thymus-absent dominant murine
+    autoantigen) has been folded into the description above (PMID:16237067).
+    The report&#39;s candidate GO identifiers were not curated: GO:0006968 is
+    cellular defense response, not central tolerance, and GO:0002513 is
+    tolerance induction to self antigen, not a generic peripheral-tolerance
+    term. Follow-up recommended by openscientist:
     split into separate CANONICAL effector and qualified etiological-trigger
     hypotheses, and add an upstream &#34;incomplete central tolerance to ATP4B&#34; node.
 - hypothesis_group_id: alternative_hpylori_molecular_mimicry_origin
@@ -7462,33 +9151,88 @@ mechanistic_hypotheses:
     explanation: States H. pylori as a candidate infective trigger of autoimmune gastritis via molecular mimicry.
   - reference: PMID:42254085
     reference_title: &#34;Pernicious Anemia and Helicobacter pylori Infection: What a Hematologist Needs to Know?&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Rapid eradication of H. pylori can significantly improve hematologic parameters and prevent the progression of autoimmune gastritis.&#34;
     explanation: A reversible, H. pylori-attributable presentation is consistent with an infection-triggered origin in a subset of cases.
   - reference: PMID:38976374
-    reference_title: &#34;Distinguishing Features of Autoimmune Gastritis Depending on Previous Helicobacter pylori Infection or Positivity to Anti-Parietal Cell Antibodies: Results From the Autoimmune gastRItis Study grOup (ARIOSO).&#34;
-    supports: PARTIAL
+    reference_title: &#34;Distinguishing Features of Autoimmune Gastritis Depending on Previous Helicobacter pylori Infection or Positivity to Anti-Parietal Cell Antibodies: Results From the Autoimmune gastRitis Italian netwOrk Study grOup (ARIOSO).&#34;
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;H. pylori -naive patients were more likely to have a first-degree family history of AIG (14.7% vs 8.9%; P = 0.012), type 1 diabetes mellitus (4.9% vs 2.3%; P = 0.025), and pernicious anemia (30.9% vs 21.1%; P = 0.003).&#34;
     explanation: The largest AIG cohort (n=1,598) identifies H. pylori-naive AIG as a distinct entity with stronger familial/autoimmune signatures, limiting the mimicry hypothesis to a subset rather than a general etiology.
+  - reference: PMID:14568977
+    reference_title: &#34;Molecular mimicry between Helicobacter pylori antigens and H+, K+ --adenosine triphosphatase in human gastric autoimmunity.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;H. pylori-infected patients with gastric autoimmunity harbor in vivo-activated gastric CD4+ T cells that recognize both H+, K+-adenosine triphosphatase and H. pylori antigens&#34;
+    explanation: &gt;-
+      The primary source for cellular cross-reactivity: gastric CD4 clones from
+      selected H. pylori-infected patients with gastric autoimmunity recognized
+      both the H+/K+ ATPase and epitopes from nine H. pylori proteins. This
+      establishes mechanistic plausibility at the T-cell level only; it is
+      cross-sectional and does not establish temporal initiation or an
+      attributable fraction of human AIG.
+  - reference: PMID:11549834
+    reference_title: &#34;Healing of active, non-atrophic autoimmune gastritis by H. pylori eradication.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In 64 patients (80%), H. pylori eradication treatment was followed by healing of the active autoimmune corpus gastritis&#34;
+    explanation: &gt;-
+      The primary source for the frequently cited &#34;80% healing&#34; figure. It
+      supports an H. pylori-dependent early phenotype in a selected series
+      restricted to active, not-yet-atrophic disease, and the study describes
+      itself as retrospective and uncontrolled. Resolution achieved while the
+      organism is being removed does not demonstrate the post-clearance
+      self-perpetuating (&#34;hit-and-run&#34;) step.
+  - reference: PMID:10738313
+    reference_title: Role of antigastric autoantibodies in chronic Helicobacter pylori infection.
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Molecular mimicry between H. pylori and the host does not seem to be responsible for the generation of this type of autoreactivity.&#34;
+    explanation: &gt;-
+      Refutes the humoral arm of the mimicry model: antigastric autoantibodies
+      arising in chronic H. pylori infection are not attributable to mimicry
+      with the organism. This qualifies rather than erases the separate
+      cellular cross-reactivity finding.
+  - reference: PMID:11815766
+    reference_title: Prevalence and specificity of antigastric autoantibodies in adolescents infected with Helicobacter pylori.
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;AGA were detected in 9 (18%) of the 51 infected patients and in 1 (4 %) of the 27 noninfected patients (P =.08; nonsignificant) and could not be absorbed to H pylori.&#34;
+    explanation: &gt;-
+      Absorption assay in infected children and adolescents: antigastric
+      autoantibodies could not be absorbed out with H. pylori antigen, so the
+      autoantibody response is not cross-reactive with the organism. Independent
+      support for the same humoral-arm refutation, in a different age group.
   notes: &gt;-
     Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED /
     UNRESOLVED: a claude_code report
     (kb/hypotheses/Autoimmune_Gastritis/alternative_hpylori_molecular_mimicry_origin/claude_code.md)
     and a deeper openscientist report (same directory, openscientist.md). H. pylori-
     to-H+/K+ ATPase cross-reactivity is documented at the T-cell level (cross-reactive
-    gastric CD4 Th1 clones; urease beta-subunit homology; LPS Lewis-antigen mimicry),
-    and early-stage non-atrophic AIG is reported to heal after eradication in ~80% of
-    cases (supporting a time-limited &#34;hit-and-run&#34; window). However the model is
-    causally unproven and non-general: molecular mimicry is refuted at the
+    gastric CD4 Th1 clones; urease beta-subunit homology; LPS Lewis-antigen mimicry;
+    PMID:14568977), and active, not-yet-atrophic autoimmune corpus gastritis resolved
+    after eradication in 64 of 80 patients in a retrospective, uncontrolled series
+    (PMID:11549834). Neither result reaches the distinctive part of the hypothesis:
+    reversibility achieved while the organism is being cleared is not evidence of a
+    later self-perpetuating &#34;hit-and-run&#34; phase, and epitope spreading and persistence
+    after clearance have no direct human evidence. The model is also refuted at the
     autoantibody level (antigastric autoantibodies do not absorb to H. pylori;
-    Faller), a large fraction of AIG patients (~29-79%) are H. pylori-naive and form a
-    distinct familial/autoimmune-enriched entity (ARIOSO n=1,598; PMID:38976374),
-    Treg-depletion mouse models produce AIG with no infection, and some H. pylori-AIG
-    associations may be inflated by diagnostic misclassification (urease-positive
-    non-H. pylori bacteria overgrowing the achlorhydric stomach). Retained ALTERNATIVE,
-    best read as a subset-initiation mechanism.
+    PMID:10738313, PMID:11815766) and is non-general: H. pylori-naive AIG forms a
+    distinct familial/autoimmune-enriched entity (ARIOSO n=1,598; PMID:38976374), and
+    29.3% of 75 atrophic autoimmune gastritis cases had no reactivity to any of 13
+    H. pylori antigens on multiplex serology (PMID:41484031). The wider &#34;29-79%
+    H. pylori-naive&#34; range asserted by the openscientist report is not supported - its
+    21.1% figure was the proportion meeting a stringent multi-antigen positive cutoff,
+    whose complement is not &#34;no evidence of exposure&#34;, and its second source is not
+    traceable in the report. Treg-depletion mouse models produce AIG with no infection,
+    and some H. pylori-AIG associations may be inflated by diagnostic misclassification
+    (urease-positive non-H. pylori bacteria overgrowing the achlorhydric stomach, shown
+    in a referral series selected for repeated eradication failure, which cannot
+    quantify bias in the wider literature). Retained ALTERNATIVE, best read as a
+    subset-initiation mechanism whose full initiation-to-persistence sequence is
+    unproven in humans. See the codex assessment sidecar in the hypothesis directory.
 - hypothesis_group_id: canonical_th1_effector_polarization
   hypothesis_label: Canonical Th1/IFN-gamma Effector Polarization
   status: CANONICAL
@@ -7511,28 +9255,81 @@ mechanistic_hypotheses:
     explanation: Human gastric H+/K+ ATPase-reactive CD4 clones are predominantly Th1 (IFN-gamma) and cytotoxic, directly supporting the Th1 effector arm in human disease.
   - reference: PMID:22777705
     reference_title: &#34;Both IFN-gamma and IL-17 are required for the development of severe autoimmune gastritis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;both are required for the disease to progress to the late pathogenic stage that includes significant tissue disruption.&#34;
     explanation: IFN-gamma and IL-17 are co-required for severe disease (and CD8 T cells are the dominant IFN-gamma source), qualifying a Th1-exclusive model.
+  - reference: PMID:11159878
+    reference_title: &#34;H(+),K(+)-atpase (proton pump) is the target autoantigen of Th1-type cytotoxic T cells in autoimmune gastritis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Most of these clones (88%) showed a Th1 profile, whereas a few secreted both Th1 and Th2 cytokines.&#34;
+    explanation: &gt;-
+      Gastric H+/K+ ATPase-reactive CD4 clones isolated from five AIG patients
+      were predominantly Th1, and most expressed perforin-mediated cytotoxicity
+      and Fas-FasL-mediated apoptosis - the second small human clonal study
+      supporting a real Th1 cytotoxic effector arm. Being a selected clonal
+      panel, it does not sample the whole infiltrate or establish
+      population-level Th1 dominance.
+  - reference: PMID:8766575
+    reference_title: Interferon-gamma is required during the initiation of an organ-specific autoimmune disease.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Treatment of neonatally thymectomized mice at weekly intervals for 6 or 12 weeks with a neutralizing rat monoclonal antibody to mouse IFN-gamma abolished the production of anti-gastric autoantibodies and decreased the incidence of gastric mononuclear infiltrates from the 69% observed in normal rat immunoglobulin (Ig)-injected mice to 16%.&#34;
+    explanation: &gt;-
+      The loss-of-function experiment behind the &#34;IFN-gamma is required for
+      initiation&#34; claim, quoted with its actual effect size: incidence fell
+      from 69% to 16%, not to zero. It supports a major, model-specific early
+      role for IFN-gamma rather than universal necessity or abolition of
+      disease.
+  - reference: PMID:30511397
+    reference_title: &#34;Interferon-γ directly induces gastric epithelial cell death and is required for progression to metaplasia.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Gastric epithelial cells in gastroid cultures expressed IFN-γ receptor in the basolateral membrane, and gastroids died when treated with IFN-γ in an IFN-γ receptor-dependent manner.&#34;
+    explanation: &gt;-
+      Murine gastric organoids die on direct IFN-gamma exposure in a
+      receptor-dependent manner, and TxA23 x Ifng-/- mice show near-complete
+      abrogation of atrophy and metaplasia. This is direct epithelial
+      cytotoxicity in the mouse system; it does not isolate human
+      parietal-cell killing in vivo or make IFN-gamma the sole cause of human
+      atrophy.
   notes: &gt;-
     Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED: a
     claude_code report
     (kb/hypotheses/Autoimmune_Gastritis/canonical_th1_effector_polarization/claude_code.md)
     and an openscientist report (same directory, openscientist.md). Both retain
-    Th1/IFN-gamma as foundational and real (anti-IFN-gamma blockade prevents murine
-    disease; human gastric H+/K+ ATPase-reactive CD4 clones are predominantly Th1
-    and cytotoxic via perforin/Fas-FasL; IFN-gamma directly kills gastric
-    epithelium in organoids; the PTPN22 pernicious-anemia risk variant favors Th1
-    over Th17), but neither supports a Th1-exclusive model - it is one arm of a
-    cooperative multi-cytokine / multi-cell-type program: CD8 T cells are the
-    dominant IFN-gamma source, IFN-gamma plus IL-17 are co-required for severe
-    disease (PMID:22777705), IL-13 independently drives the post-atrophy
-    metaplastic transformation, and the human intrinsic-factor-reactive /
-    pernicious-anemia compartment is Th17-dominant (see
+    Th1/IFN-gamma as foundational and real: human gastric H+/K+ ATPase-reactive
+    CD4 clones are predominantly Th1 and cytotoxic via perforin/Fas-FasL
+    (PMID:11159878, PMID:15763992), and IFN-gamma directly kills murine gastric
+    epithelium in organoids and is required for atrophy and metaplasia in
+    TxA23 mice (PMID:30511397). The causal perturbations are model-specific and
+    are weaker than the openscientist report states: anti-IFN-gamma treatment
+    in the neonatal-thymectomy model cut gastritis incidence from 69% to 16%
+    rather than abolishing disease (PMID:8766575), and in a transfer setting
+    IFN-gamma-deficient T cells could still initiate mild disease
+    (PMID:22777705). Neither run supports a Th1-exclusive model - it is one arm
+    of a cooperative multi-cytokine / multi-cell-type program: CD8 T cells were
+    the dominant IFN-gamma source in that polyclonal mouse model, IFN-gamma
+    plus IL-17 are co-required for severe disease (PMID:22777705), and IL-13
+    acting through IL-4R-alpha is a separable required arm of the metaplastic
+    transformation - though metaplasia was absent altogether in TxA23 x Ifng-/-
+    mice, so IL-13 independence from IFN-gamma-associated atrophy across the
+    whole trajectory is not established. The codex assessment sidecar in the
+    hypothesis directory rejects two further readings carried by the report:
+    that the PTPN22 pernicious-anemia risk variant wires patients toward Th1
+    over Th17 (this joins a PA GWAS locus association with Th1/Th17 phenotyping
+    in genotyped healthy donors, and is a hypothesis rather than evidence about
+    gastric polarization; the report also misstates the GWAS p value as
+    1.91e-10 rather than 1.91e-24), and that a null NK-depletion result rules
+    out innate IFN-gamma sources. The intrinsic-factor-reactive
+    pernicious-anemia compartment is mixed rather than Th17-dominant: the cited
+    94% is a combined &#34;Th17 or Th1&#34; figure (see
     emerging_th17_effector_polarization). Caveat: Th1 dominance is demonstrated
     most robustly in TCR-transgenic / monoclonal systems, which may overrepresent
-    it relative to polyclonal disease.
+    it relative to polyclonal disease, and all human immune data here are
+    cross-sectional, so which effector population dominates over the human
+    disease course is unresolved.
 - hypothesis_group_id: emerging_th17_effector_polarization
   hypothesis_label: Emerging Th17/IL-17 Effector Contribution
   status: EMERGING
@@ -7561,32 +9358,46 @@ mechanistic_hypotheses:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Most of these clones (94%) showed a T helper 17 or T helper 1 profile.&#34;
-    explanation: In pernicious anemia, intrinsic-factor-specific gastric CD4 clones are predominantly Th17/Th1 (Th17-skewed), evidencing a Th17 contribution in the intrinsic-factor-reactive compartment.
+    explanation: In pernicious anemia, 94% of intrinsic-factor-specific gastric CD4 clones fell into a combined &#34;Th17 or Th1&#34; category, evidencing a Th17 contribution in the intrinsic-factor-reactive compartment. The combined figure does not show that Th17 outnumbers Th1, so the compartment is mixed rather than Th17-dominant.
   - reference: PMID:40471463
     reference_title: &#34;STAT3 inhibition mitigates experimental autoimmune gastritis by restoring Th17/Treg immune balance.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;STA-21 treatment alleviated gastric atrophy, reduced inflammatory infiltration, suppressed Th17 differentiation, and enhanced Treg function, reversing the Th17/Treg imbalance.&#34;
-    explanation: STAT3 inhibition corrects the Th17/Treg imbalance and alleviates experimental autoimmune gastritis, implicating a STAT3-driven Th17/Treg axis rather than direct IL-17A/F epithelial cytotoxicity.
+    explanation: STAT3 inhibition corrects the Th17/Treg imbalance and alleviates experimental autoimmune gastritis. STAT3 is pleiotropic across immune and epithelial programs, so this implicates a STAT3-dependent Th17/Treg axis without isolating Th17 mediation or a specific downstream cytokine.
   notes: &gt;-
     Two independent hypothesis-search runs concur on PARTIALLY SUPPORTED / retain
     EMERGING: a claude_code report
     (kb/hypotheses/Autoimmune_Gastritis/emerging_th17_effector_polarization/claude_code.md)
     and an openscientist report (same directory, openscientist.md). Both confirm a
     genuine Th17/IL-17 contribution (H+/K+ ATPase-specific gastric IL-17A/F
-    production; 94% of intrinsic-factor-reactive clones Th17/Th1; Th17 transfer
-    gives the most severe, Treg-resistant gastritis in the TxA23 model), but the
-    openscientist run corrects the effector mechanism: IL-17RA signaling on gastric
-    epithelium appears PROTECTIVE rather than directly apoptotic (IL-17RA loss
-    increases B-cell infiltration, autoantibody production, and inflammation, and
-    accelerates gastric carcinogenesis), so the pathogenic Th17-derived signal is
-    more likely IL-21 and STAT3-mediated (STAT3 inhibition restores Th17/Treg
-    balance and alleviates disease; PMID:40471463) than IL-17A/F epithelial
-    cytotoxicity. Consequently anti-IL-17 blockade is cautioned/contraindicated
-    (protective, anti-carcinogenic IL-17), no human anti-IL-17 AIG data exist, Th1
-    remains the more extensively validated axis, and which arm dominates by disease
-    stage is unresolved. Reframe: Th17 contributes via IL-21/STAT3, not direct
-    IL-17A/F epithelial killing.
+    production in all eight AIG patients tested; 94% of intrinsic-factor-reactive
+    clones in a combined &#34;Th17 or Th1&#34; category; Th17 transfer
+    gives the most severe, Treg-resistant gastritis in the TxA23 model). The
+    openscientist run went on to propose a wholesale reframing of the effector
+    mechanism - epithelial IL-17RA signaling as protective, IL-21 as the real
+    pathogenic Th17-derived mediator, and anti-IL-17 blockade as contraindicated -
+    and the codex assessment sidecar in the hypothesis directory rejects that
+    reframing on its sources. The IL-17RA results come from gastrointestinal
+    epithelial Il17ra deletion during H. pylori infection, not sterile autoimmune
+    gastritis and not parietal-cell-specific deletion or apoptosis; the &#34;increased
+    autoantibody production&#34; in Il17ra-deficient mice was in fact enhanced
+    H. pylori-specific antibody, not anti-H+/K+ ATPase or anti-intrinsic-factor
+    autoantibody; and no IL-21 perturbation has been carried out in AIG at all, so
+    the IL-21 bridge remains an untested hypothesis. There is no human anti-IL-17
+    AIG study and no AIG animal experiment comparing IL-17 blockade with control,
+    so protective IL-17 signaling in H. pylori infection and gastric carcinogenesis
+    raises a real, unresolved safety question about anti-IL-17 therapy in AIG
+    rather than establishing a contraindication. What survives: a Th17 contribution
+    is real but its terminal tissue-damage mechanism is undetermined, direct
+    IL-17A/F epithelial cytotoxicity is not established, STAT3 perturbation is a
+    promising but pleiotropic and model-specific lead (PMID:40471463), Th1 remains
+    the more extensively validated axis, and which arm dominates by disease stage
+    is unresolved because all human evidence here is small and cross-sectional.
+    The report&#39;s candidate ontology block was not curated: CL:0000163 is endocrine
+    cell (parietal cell is CL:0000162, already used above), GO:0032623 is
+    interleukin-2 production rather than interleukin-21 production, and its
+    proposed MONDO identifiers resolve to unrelated disorders.
 discussions:
 - discussion_id: hmm_aig_mouse_model_neoplastic_trajectory
   prompt: &gt;-
@@ -7625,12 +9436,12 @@ discussions:
     decision_criterion: &gt;-
       Whether comparable degrees and durations of hypergastrinemia reproduce the
       human ECL-to-NET-to-adenocarcinoma sequence.
-    would_support:
+    supporting_outcome:
     - &gt;-
       Faithful reproduction would validate the human neoplastic trajectory as a
       direct consequence of the modeled autoimmune-achlorhydria-hypergastrinemia
       axis.
-    would_refute:
+    refuting_outcome:
     - &gt;-
       Failure to progress despite equivalent hypergastrinemia would indicate
       human-specific ECL/gastric-epithelial biology not captured by rodent models.
@@ -7676,7 +9487,12 @@ discussions:
     Whether the effector response persists at a targetable level once corpus
     atrophy is established determines if immunomodulatory therapy is even
     mechanistically plausible; the emerging Th17 arm makes anti-IL-17 blockade a
-    concrete but untested candidate.
+    concrete but untested candidate. That candidate carries an unresolved safety
+    question rather than a straightforward rationale: IL-17RA signaling on
+    gastrointestinal epithelium is protective in H. pylori infection models and
+    IL-17 signaling restrains gastric carcinogenesis, yet no anti-IL-17 study -
+    human or animal - has been performed in autoimmune gastritis, so the net
+    effect of blockade in this disease is unknown in both directions.
 - discussion_id: gap_aig_natural_history_pediatric
   prompt: &gt;-
     What is the natural history and timeline of autoimmune gastritis from the
@@ -7692,6 +9508,38 @@ discussions:
     early detection, but the rate and determinants of progression to irreversible
     atrophy and to neoplasia are not established prospectively, and the
     pediatric-onset subgroup&#39;s long-term course is largely unstudied.
+datasets:
+- accession: geo:GSE233973
+  title: Comprehensive gene expression analysis using gastric mucosa with autoimmune gastritis
+  description: In this study, we aimed to reveal whether gastric mucosa with AIG has a specific gene expression profile, involving in its histology and chronic inflammation. To approach this, we performed comprehensive analysis of gene expression using gastric mucosa with atuoimmune gastritis, that with H. pylori-associated gastritis and healthy mucosa without any inflammation. Potential mechanisms of the gene expression changes in gastric mucosa with AIG were also explored.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 36
+  publication: PMID:37962678
+  notes: Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE178925
+  title: Genome-wide DNA methylation analysis of gastric mucosa with autoimmune gastritis
+  description: DNA methylation in gastric mucosa with autoimmune gastritis and H. pylori-associated gastritis and normal gastric mucosa
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: METHYLATION
+  sample_count: 24
+  publication: PMID:35034200
+  notes: Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE271866
+  title: Unveiling Cancer-Related Metaplastic Cells in Both Helicobacter pylori Infection and Autoimmune Gastritis
+  description: We used 10X 5&#39; single cell RNA sequencing (scRNAseq) technology to examine the transcriptional profiles of distinct gastric metaplastic cell types within the gastric corpus of mice chronically infected with Helicobacter pylori or chronically inflamed with autoimmune gastritis and humans with autoimmune gastritis.
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 7
+  publication: PMID:39236896
+  notes: Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -7837,6 +9685,8 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8245,6 +10095,11 @@ discussions:
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Autoimmune_Gastritis.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -8285,7 +10140,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autoimmune Gastritis", "mondoId": "MONDO:0031014", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Gastritis", "yamlRevision": "bfaf839e7216"};
+        const OS_CONFIG = {"diseaseName": "Autoimmune Gastritis", "mondoId": "MONDO:0031014", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Gastritis", "yamlRevision": "252b850c3fdd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8704,5 +10559,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

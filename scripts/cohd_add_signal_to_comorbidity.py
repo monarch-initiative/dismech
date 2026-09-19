@@ -24,6 +24,8 @@ from pathlib import Path
 
 import yaml
 
+from dismech.yaml_io import safe_load
+
 _HELPER_PATH = Path(__file__).with_name("cohd_pair_to_signal.py")
 _SPEC = importlib.util.spec_from_file_location("cohd_pair_to_signal", _HELPER_PATH)
 if _SPEC is None or _SPEC.loader is None:
@@ -91,7 +93,7 @@ def parse_args() -> argparse.Namespace:
 def _load_yaml(path: Path) -> dict:
     if not path.exists():
         raise SystemExit(f"Comorbidity file does not exist: {path}")
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data = safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise SystemExit(f"Comorbidity file must contain a YAML mapping at top level: {path}")
     return data

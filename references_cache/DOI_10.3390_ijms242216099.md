@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms242216099"
+reference_id: DOI:10.3390/ijms242216099
 title: "Current Medical Therapy and Revascularization in Peripheral Artery Disease of the Lower Limbs: Impacts on Subclinical Chronic Inflammation"
 authors:
 - Andrea Leonardo Cecchini
@@ -18,6 +18,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms242216099
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Current Medical Therapy and Revascularization in Peripheral Artery Disease of the Lower Limbs: Impacts on Subclinical Chronic Inflammation

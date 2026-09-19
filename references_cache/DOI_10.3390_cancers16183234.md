@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16183234"
+reference_id: DOI:10.3390/cancers16183234
 title: "Real-World Survival Outcomes of First-Line Therapies in Patients with Metastatic Clear Cell Renal Cell Carcinoma: A Retrospective Analysis from Two Centres in Saudi Arabia"
 authors:
 - Mubarak M. Al-Mansour
@@ -18,6 +18,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16183234
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Real-World Survival Outcomes of First-Line Therapies in Patients with Metastatic Clear Cell Renal Cell Carcinoma: A Retrospective Analysis from Two Centres in Saudi Arabia

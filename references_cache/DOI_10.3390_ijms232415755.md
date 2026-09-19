@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms232415755"
+reference_id: DOI:10.3390/ijms232415755
 title: "TDP-43 Proteinopathy and Tauopathy: Do They Have Pathomechanistic Links?"
 authors:
 - Yuichi Riku
@@ -12,6 +12,7 @@ journal: International Journal of Molecular Sciences
 year: '2022'
 doi: 10.3390/ijms232415755
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # TDP-43 Proteinopathy and Tauopathy: Do They Have Pathomechanistic Links?

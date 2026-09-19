@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14041233"
+reference_id: DOI:10.3390/jcm14041233
 title: "Clear Cell Sarcoma (CCS) of the Soft Tissue: An Update Narrative Review with Emphasis on the Utility of PRAME in Differential Diagnosis"
 authors:
 - Gerardo Cazzato
@@ -16,6 +16,7 @@ journal: Journal of Clinical Medicine
 year: '2025'
 doi: 10.3390/jcm14041233
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clear Cell Sarcoma (CCS) of the Soft Tissue: An Update Narrative Review with Emphasis on the Utility of PRAME in Differential Diagnosis

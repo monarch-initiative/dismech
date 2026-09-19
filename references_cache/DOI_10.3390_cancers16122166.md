@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16122166"
+reference_id: DOI:10.3390/cancers16122166
 title: "Gorlin Syndrome-Associated Basal Cell Carcinomas Treated with Vismodegib or Sonidegib: A Retrospective Study"
 authors:
 - Giulia Murgia
@@ -14,6 +14,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16122166
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Gorlin Syndrome-Associated Basal Cell Carcinomas Treated with Vismodegib or Sonidegib: A Retrospective Study

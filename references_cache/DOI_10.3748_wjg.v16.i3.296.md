@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3748/wjg.v16.i3.296"
+reference_id: DOI:10.3748/wjg.v16.i3.296
 title: Update on collagenous sprue
 authors:
 - Hugh James Freeman
@@ -7,6 +7,7 @@ journal: World Journal of Gastroenterology
 year: '2010'
 doi: 10.3748/wjg.v16.i3.296
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Update on collagenous sprue

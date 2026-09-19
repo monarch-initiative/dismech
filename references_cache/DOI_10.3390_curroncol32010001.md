@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/curroncol32010001"
+reference_id: DOI:10.3390/curroncol32010001
 title: The Real-World Clinical Outcomes of Heavily Pretreated HER2+ and HER2-Low Metastatic Breast Cancer Patients Treated with Trastuzumab Deruxtecan at a Single Centre
 authors:
 - Anna-Maria Lazaratos
@@ -18,6 +18,7 @@ journal: Current Oncology
 year: '2024'
 doi: 10.3390/curroncol32010001
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Real-World Clinical Outcomes of Heavily Pretreated HER2+ and HER2-Low Metastatic Breast Cancer Patients Treated with Trastuzumab Deruxtecan at a Single Centre

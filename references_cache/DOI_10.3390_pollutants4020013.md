@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pollutants4020013"
+reference_id: DOI:10.3390/pollutants4020013
 title: "Arsenic Contamination Needs Serious Attention: An Opinion and Global Scenario"
 authors:
 - Abhijnan Bhat
@@ -10,6 +10,7 @@ journal: Pollutants
 year: '2024'
 doi: 10.3390/pollutants4020013
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Arsenic Contamination Needs Serious Attention: An Opinion and Global Scenario

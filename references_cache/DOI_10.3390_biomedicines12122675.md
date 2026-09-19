@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12122675"
+reference_id: DOI:10.3390/biomedicines12122675
 title: Hypertrophic Cardiomyopathy with Special Focus on Mavacamten and Its Future in Cardiology
 authors:
 - Ewelina Młynarska
@@ -15,6 +15,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12122675
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hypertrophic Cardiomyopathy with Special Focus on Mavacamten and Its Future in Cardiology

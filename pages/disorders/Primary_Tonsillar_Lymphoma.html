@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>Primary_Tonsillar_Lymphoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Primary_Tonsillar_Lymphoma</h1>
             <div class="header-meta">
 
@@ -3199,6 +3958,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3225,10 +3988,11 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+
 
 
 
@@ -3272,34 +4036,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Lymphoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3341,16 +4192,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         germinal center B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000844">CL:0000844</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves germinal center B cell (CL:0000844). CL:0000844 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3377,16 +4233,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         BCL2
 
 
-    <a href="https://bioregistry.io/hgnc:990" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:990">hgnc:990</a>
+    <a href="https://bioregistry.io/hgnc:990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:990</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BCL2 (hgnc:990). hgnc:990 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3414,11 +4281,18 @@
         EZH2
 
 
-    <a href="https://bioregistry.io/hgnc:3527" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3527">hgnc:3527</a>
+    <a href="https://bioregistry.io/hgnc:3527" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:3527</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EZH2 (hgnc:3527). hgnc:3527 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3446,10 +4320,13 @@
         BCL6
 
 
-    <a href="https://bioregistry.io/hgnc:1001" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1001">hgnc:1001</a>
+    <a href="https://bioregistry.io/hgnc:1001" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:1001</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BCL6 (hgnc:1001). hgnc:1001 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3477,16 +4354,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042981" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042981">GO:0042981</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042981" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042981</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves regulation of apoptotic process (GO:0042981). GO:0042981 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3502,10 +4384,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-6">
                         histone H3-K27 methylation
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves histone H3-K27 methylation.</span>
                     </span>
+
+
 
 
 
@@ -3526,10 +4414,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002467" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002467">GO:0002467</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002467" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0002467</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves germinal center formation (GO:0002467). GO:0002467 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3552,19 +4443,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         palatine tonsil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002373">UBERON:0002373</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002373</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in palatine tonsil (UBERON:0002373). UBERON:0002373 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -3583,16 +4480,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3619,16 +4521,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CD79B
 
 
-    <a href="https://bioregistry.io/hgnc:1699" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1699">hgnc:1699</a>
+    <a href="https://bioregistry.io/hgnc:1699" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:1699</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CD79B (hgnc:1699). hgnc:1699 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3656,10 +4569,13 @@
         MYD88
 
 
-    <a href="https://bioregistry.io/hgnc:7562" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7562">hgnc:7562</a>
+    <a href="https://bioregistry.io/hgnc:7562" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:7562</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYD88 (hgnc:7562). hgnc:7562 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3687,17 +4603,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         B cell receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050853" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050853">GO:0050853</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050853" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0050853</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves B cell receptor signaling pathway (GO:0050853). GO:0050853 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3718,10 +4641,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007249">GO:0007249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007249</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves NF-kappaB signaling, annotated with canonical NF-kappaB signal transduction (GO:0007249). GO:0007249 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3744,19 +4670,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         palatine tonsil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002373">UBERON:0002373</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002373</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in palatine tonsil (UBERON:0002373). UBERON:0002373 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -3775,17 +4707,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         germinal center B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000844">CL:0000844</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves germinal center B cell (CL:0000844). CL:0000844 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3806,10 +4745,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000980" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000980">CL:0000980</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000980" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000980</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasmablast (CL:0000980). CL:0000980 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3836,15 +4778,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         IRF4
 
 
-    <a href="https://bioregistry.io/hgnc:6119" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6119">hgnc:6119</a>
+    <a href="https://bioregistry.io/hgnc:6119" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:6119</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IRF4 (hgnc:6119). hgnc:6119 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3867,10 +4816,32 @@
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
+
+
 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         plasma cell differentiation
@@ -3878,10 +4849,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002317" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002317">GO:0002317</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002317" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0002317</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves plasma cell differentiation (GO:0002317). GO:0002317 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3904,19 +4878,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         palatine tonsil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002373">UBERON:0002373</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0002373</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in palatine tonsil (UBERON:0002373). UBERON:0002373 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -3935,16 +4915,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3971,17 +4956,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to virus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009615">GO:0009615</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0009615</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to virus (GO:0009615). GO:0009615 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4002,10 +4994,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042783" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042783">GO:0042783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0042783</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves immune evasion, annotated with symbiont-mediated evasion of host immune response (GO:0042783). GO:0042783 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4028,19 +5023,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         palatine tonsil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002373">UBERON:0002373</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0002373</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in palatine tonsil (UBERON:0002373). UBERON:0002373 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4059,16 +5060,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4095,16 +5101,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MYC
 
 
-    <a href="https://bioregistry.io/hgnc:7553" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7553">hgnc:7553</a>
+    <a href="https://bioregistry.io/hgnc:7553" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:7553</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4132,11 +5149,18 @@
         BCL2
 
 
-    <a href="https://bioregistry.io/hgnc:990" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:990">hgnc:990</a>
+    <a href="https://bioregistry.io/hgnc:990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:990</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BCL2 (hgnc:990). hgnc:990 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4164,10 +5188,13 @@
         BCL6
 
 
-    <a href="https://bioregistry.io/hgnc:1001" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1001">hgnc:1001</a>
+    <a href="https://bioregistry.io/hgnc:1001" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:1001</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BCL6 (hgnc:1001). hgnc:1001 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4195,17 +5222,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006357">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0006357</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4226,10 +5260,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043066" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043066">GO:0043066</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043066" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0043066</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves negative regulation of apoptotic process (GO:0043066). GO:0043066 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4252,19 +5289,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         palatine tonsil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002373">UBERON:0002373</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0002373</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in palatine tonsil (UBERON:0002373). UBERON:0002373 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4286,7 +5329,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-diffuse-large-b-cell-lymphoma">
                 <div class="item-name">
                     Diffuse Large B-Cell Lymphoma
 
@@ -4310,7 +5353,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20440503" target="_blank">PMID:20440503</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4343,23 +5389,23 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">8</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4368,25 +5414,112 @@
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-b-cell-lymphoma" data-dismech-node="B-Cell Lymphoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        B-Cell Lymphoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012191" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012191</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is B-cell lymphoma (HP:0012191). HP:0012191 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16613685" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16613685" target="_blank">PMID:16613685</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diffuse large B-cell lymphoma is the most common pathologic subtype."</div>
+
+
+                <div class="evidence-explanation">A 89-patient cohort of primary tonsillar NHL found diffuse large B-cell lymphoma to be the most common pathologic subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-enlarged-tonsil" data-dismech-node="Enlarged Tonsil" data-dismech-type="phenotype">
                     <div class="item-name">
                         Enlarged Tonsil
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Enlarged tonsils
+
+                        <span class="phenotype-term-label">Enlarged tonsils</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030812" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030812">HP:0030812</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030812" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030812</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Enlarged Tonsil, annotated with Enlarged tonsils (HP:0030812). HP:0030812 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4403,13 +5536,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19558906" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19558906" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19558906" target="_blank">PMID:19558906</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4423,13 +5559,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:2190267" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:2190267" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2190267" target="_blank">PMID:2190267</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4443,13 +5582,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34754855" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34754855" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34754855" target="_blank">PMID:34754855</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4475,21 +5617,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lymphadenopathy" data-dismech-node="Lymphadenopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lymphadenopathy
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lymphadenopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002716">HP:0002716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4502,7 +5651,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4512,7 +5661,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24387945" target="_blank">PMID:24387945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4526,13 +5678,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:2190267" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:2190267" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2190267" target="_blank">PMID:2190267</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4541,118 +5696,6 @@
 
 
                 <div class="evidence-explanation">This reference indicates that lymphoma can frequently involve the head and neck region, which includes the tonsils, but does not specifically mention lymphadenopathy.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38779794" data-dismech-supports="NO_EVIDENCE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38779794" target="_blank">PMID:38779794</a>
-                    </span>
-
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"A 30-year-old female patient presented with a swelling of a cervical left lymph node measuring 1x3 cm, which had been presenting for three weeks. Lymph node excision revealed a metastasis of a malignant melanoma, but the primary tumor was not found."</div>
-
-
-                <div class="evidence-explanation">This reference discusses lymphadenopathy in the context of metastatic melanoma, not primary tonsillar lymphoma.</div>
-
-
-
-            </div>
-
-
-            <div class="evidence-more">+ 1 more reference</div>
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Digestive
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Dysphagia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-                    <span class="phenotype-id">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
-
-
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Difficulty swallowing.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:3891063" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3891063" target="_blank">PMID:3891063</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"Tonsillar and base of tongue lesions presented with sore throat and dysphagia, whereas nasopharyngeal lymphomas most commonly presented with nasal, auditory, and cranial nerve sympatomatology."</div>
-
-
-                <div class="evidence-explanation">The study indicates that dysphagia is a common presenting symptom in tonsillar lymphoma.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38044117" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38044117" target="_blank">PMID:38044117</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"Tonsillar Peripheral T-cell Lymphoma Detected by Esophagogastroduodenoscopy."</div>
-
-
-                <div class="evidence-explanation">Although the specific symptoms are not detailed, the detection of tonsillar lymphoma via esophagogastroduodenoscopy suggests an association with dysphagia.</div>
 
 
 
@@ -4673,25 +5716,112 @@
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
+                    Digestive
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphagia" data-dismech-node="Dysphagia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Fever
+                        Dysphagia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Difficulty swallowing.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:3891063" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3891063" target="_blank">PMID:3891063</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Tonsillar and base of tongue lesions presented with sore throat and dysphagia, whereas nasopharyngeal lymphomas most commonly presented with nasal, auditory, and cranial nerve sympatomatology."</div>
+
+
+                <div class="evidence-explanation">The study indicates that dysphagia is a common presenting symptom in tonsillar lymphoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
+                    <div class="item-name">
                         Fever
 
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
 
 
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4706,13 +5836,39 @@
         </summary>
         <div class="evidence-list">
 
+            <div class="evidence-item" data-dismech-evidence="PMID:11338097" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11338097" target="_blank">PMID:11338097</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Systemic symptoms (fever, weight loss or night sweats) occurred in two patients."</div>
+
+
+                <div class="evidence-explanation">In this series of eight patients with primary NHL of the palatine tonsil, systemic symptoms including fever occurred in two of eight (25%), supporting fever as an occasional rather than frequent manifestation.</div>
+
+
+
+            </div>
+
             <div class="evidence-item" data-dismech-evidence="PMID:37997620" data-dismech-supports="NO_EVIDENCE">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37997620" target="_blank">PMID:37997620</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -4732,7 +5888,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35314548" target="_blank">PMID:35314548</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -4741,26 +5900,6 @@
 
 
                 <div class="evidence-explanation">Fever is not mentioned as a symptom in this case of palatine tonsillar follicular lymphoma.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28351195" data-dismech-supports="NO_EVIDENCE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28351195" target="_blank">PMID:28351195</a>
-                    </span>
-
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"Hematolymphoid malignancy was diagnosed in 6 adults by histology/immunohistochemistry: diffuse large B-cell lymphoma (2), small B-cell lymphoma (2), concomitant follicular lymphoma and histiocytic sarcoma (1), and extraosseous plasmacytoma (1)."</div>
-
-
-                <div class="evidence-explanation">The study does not mention fever as a common symptom in cases of tonsillar hematolymphoid malignancy.</div>
 
 
 
@@ -4780,28 +5919,35 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-night-sweats" data-dismech-node="Night Sweats" data-dismech-type="phenotype">
                     <div class="item-name">
                         Night Sweats
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Night sweats
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030166">HP:0030166</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0030166</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4812,37 +5958,20 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12643362" data-dismech-supports="REFUTE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12643362" target="_blank">PMID:12643362</a>
-                    </span>
-
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"Tuberculosis and lymphoma are diseases in which night sweats are a dominant symptom, but these are infrequently found to be the cause of night sweats in modern practice."</div>
-
-
-                <div class="evidence-explanation">While lymphoma can cause night sweats, they are not frequently found to be the cause in modern practice, suggesting that night sweats are not a frequent systemic symptom of primary tonsillar lymphoma.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24387945" data-dismech-supports="REFUTE">
+            <div class="evidence-item" data-dismech-evidence="PMID:24387945" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24387945" target="_blank">PMID:24387945</a>
                     </span>
 
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4850,7 +5979,7 @@
                 <div class="evidence-snippet">"The presence of B symptoms occurred in only 16% of the patients."</div>
 
 
-                <div class="evidence-explanation">Night sweats are considered a B symptom, and they were present in only 16% of pediatric tonsillar lymphoma cases, indicating that they are not a frequent symptom.</div>
+                <div class="evidence-explanation">Night sweats are part of the B-symptom complex, which occurred in 16% of tonsillar lymphoma cases in this systematic review, supporting an occasional (rather than frequent) frequency for night sweats.</div>
 
 
 
@@ -4866,30 +5995,30 @@
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sore-throat" data-dismech-node="Sore Throat" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Weight Loss
+                        Sore Throat
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
+
+                        <span class="phenotype-term-label">Pharyngalgia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033050" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0033050</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sore Throat, annotated with Pharyngalgia (HP:0033050). HP:0033050 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4900,25 +6029,28 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:10592134" data-dismech-supports="NO_EVIDENCE">
+            <div class="evidence-item" data-dismech-evidence="PMID:3891063" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10592134" target="_blank">PMID:10592134</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3891063" target="_blank">PMID:3891063</a>
                     </span>
 
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
 
-                <div class="evidence-snippet">"We report six cases of primary tonsillar lymphoma with a median patient age of 42 years... All patients achieved durable complete remission."</div>
+                <div class="evidence-snippet">"Tonsillar and base of tongue lesions presented with sore throat and dysphagia, whereas nasopharyngeal lymphomas most commonly presented with nasal, auditory, and cranial nerve sympatomatology."</div>
 
 
-                <div class="evidence-explanation">The literature does not mention weight loss as a frequent systemic symptom in primary tonsillar lymphoma.</div>
+                <div class="evidence-explanation">This clinicopathologic series of primary Waldeyer&#39;s ring lymphoma reports sore throat as a characteristic presenting symptom of tonsillar lesions, supporting sore throat as a frequent manifestation.</div>
 
 
 
@@ -4930,15 +6062,41 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38742359" target="_blank">PMID:38742359</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
 
-                <div class="evidence-snippet">"Objective: To analyze the ultrasonic features of tonsillar lymphoma to improve the diagnostic accuracy... Conclusions: The ultrasonic features of tonsillar lymphoma include hypoechoic area, clear boundary, full shape, irregular and uniform internal echo, no or low linear signal of internal blood flow."</div>
+                <div class="evidence-snippet">"The ultrasonic features of tonsillar lymphoma include hypoechoic area, clear boundary, full shape, irregular and uniform internal echo, no or low linear signal of internal blood flow."</div>
 
 
-                <div class="evidence-explanation">The study focuses on the ultrasonic characteristics of tonsillar lymphoma and does not mention systemic symptoms such as weight loss.</div>
+                <div class="evidence-explanation">This reference discusses the ultrasonic features of tonsillar lymphoma but does not provide information on the frequency of sore throat as a symptom.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39080655" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39080655" target="_blank">PMID:39080655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"A 13-year-old girl presented with an unexplained sore throat for more than 2 months, together with intermittent fever and suppurative tonsilitis."</div>
+
+
+                <div class="evidence-explanation">While this case report mentions sore throat as a symptom in a child with extranodal NK/T-cell lymphoma involving the tonsil, it does not provide sufficient evidence to categorize sore throat as a frequent symptom of primary tonsillar lymphoma.</div>
 
 
 
@@ -4959,25 +6117,32 @@
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Growth
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight Loss" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Sore Throat
+                        Weight Loss
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Pharyngalgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033050" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033050">HP:0033050</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4992,21 +6157,47 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35373599" data-dismech-supports="NO_EVIDENCE">
+            <div class="evidence-item" data-dismech-evidence="PMID:11338097" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35373599" target="_blank">PMID:35373599</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11338097" target="_blank">PMID:11338097</a>
                     </span>
 
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
 
-                <div class="evidence-snippet">"Primary tongue lymphoma is exceedingly rare, with only case reports or small case series in the literature."</div>
+                <div class="evidence-snippet">"Systemic symptoms (fever, weight loss or night sweats) occurred in two patients."</div>
 
 
-                <div class="evidence-explanation">The reference discusses the rarity of primary tongue lymphoma, implying that similar conditions like primary tonsillar lymphoma are also rare, but does not provide evidence regarding the frequency of sore throat as a symptom.</div>
+                <div class="evidence-explanation">In this series of eight patients with primary NHL of the palatine tonsil, systemic symptoms including weight loss occurred in two of eight (25%), supporting weight loss as an occasional rather than frequent manifestation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10592134" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10592134" target="_blank">PMID:10592134</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"We report six cases of primary tonsillar lymphoma with a median patient age of 42 years... All patients achieved durable complete remission."</div>
+
+
+                <div class="evidence-explanation">The literature does not mention weight loss as a frequent systemic symptom in primary tonsillar lymphoma.</div>
 
 
 
@@ -5018,35 +6209,18 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38742359" target="_blank">PMID:38742359</a>
                     </span>
 
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"The ultrasonic features of tonsillar lymphoma include hypoechoic area, clear boundary, full shape, irregular and uniform internal echo, no or low linear signal of internal blood flow."</div>
-
-
-                <div class="evidence-explanation">This reference discusses the ultrasonic features of tonsillar lymphoma but does not provide information on the frequency of sore throat as a symptom.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39080655" data-dismech-supports="NO_EVIDENCE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39080655" target="_blank">PMID:39080655</a>
-                    </span>
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                 </div>
 
-                <div class="evidence-snippet">"A 13-year-old girl presented with an unexplained sore throat for more than 2 months, together with intermittent fever and suppurative tonsilitis."</div>
+                <div class="evidence-snippet">"Objective: To analyze the ultrasonic features of tonsillar lymphoma to improve the diagnostic accuracy... Conclusions: The ultrasonic features of tonsillar lymphoma include hypoechoic area, clear boundary, full shape, irregular and uniform internal echo, no or low linear signal of internal blood flow."</div>
 
 
-                <div class="evidence-explanation">While this case report mentions sore throat as a symptom in a child with extranodal NK/T-cell lymphoma involving the tonsil, it does not provide sufficient evidence to categorize sore throat as a frequent symptom of primary tonsillar lymphoma.</div>
+                <div class="evidence-explanation">The study focuses on the ultrasonic characteristics of tonsillar lymphoma and does not mention systemic symptoms such as weight loss.</div>
 
 
 
@@ -5095,6 +6269,12 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5104,13 +6284,18 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-chemotherapy" data-dismech-node="Chemotherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Chemotherapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5139,6 +6324,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Systemic treatment aimed at eradicating lymphoma cells, often using CHOP regimen (Cyclophosphamide, Doxorubicin, Vincristine, Prednisone).</div>
 
 
@@ -5158,7 +6357,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10592134" target="_blank">PMID:10592134</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5166,7 +6368,7 @@
                 <div class="evidence-snippet">"We report six cases of primary tonsillar lymphoma with a median patient age of 42 years. There were two lymphoma cases with diffuse large cells, two cases with mixed small and large cells, one with small cells and one indeterminate. They were treated with six cycles of chemotherapy and cervical..."</div>
 
 
-                <div class="evidence-explanation">The study discusses the use of chemotherapy, including CHOP regimen, for the treatment of primary tonsillar lymphoma, which supports the statement.</div>
+                <div class="evidence-explanation">This case series of primary tonsillar lymphoma treated all patients with six cycles of chemotherapy (with radiotherapy) and achieved durable complete remission, supporting systemic chemotherapy as an effective treatment; the specific regimen is not named in the abstract.</div>
 
 
 
@@ -5178,7 +6380,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31894937" target="_blank">PMID:31894937</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5199,13 +6404,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-radiation-therapy" data-dismech-node="Radiation Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Radiation Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Radiation Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5234,6 +6444,31 @@
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Targeted radiation to the tonsil and surrounding structures to control local disease.</div>
 
 
@@ -5243,72 +6478,79 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (5 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:8189757" data-dismech-supports="NO_EVIDENCE">
+            <div class="evidence-item" data-dismech-evidence="PMID:34600539" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8189757" target="_blank">PMID:8189757</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34600539" target="_blank">PMID:34600539</a>
                     </span>
 
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
 
-                <div class="evidence-snippet">"CONCLUSION: This study substantiates the effectiveness of radiation therapy in patients with squamous cell carcinoma of the tonsil."</div>
+                <div class="evidence-snippet">"RT significantly improved overall survival in both univariate (P &lt; 0.001) and multivariate (P = 0.002) analyses."</div>
 
 
-                <div class="evidence-explanation">The study is focused on squamous cell carcinoma of the tonsil, not primary tonsillar lymphoma.</div>
+                <div class="evidence-explanation">In the largest population-based series of primary tonsil diffuse large B cell lymphoma to date, radiation therapy was associated with significantly improved overall survival, directly supporting radiation therapy as a treatment for this disease.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20706049" data-dismech-supports="NO_EVIDENCE">
+            <div class="evidence-item" data-dismech-evidence="PMID:6690005" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20706049" target="_blank">PMID:20706049</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6690005" target="_blank">PMID:6690005</a>
                     </span>
 
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
 
-                <div class="evidence-snippet">"Non-Hodgkin lymphomas quite often present in the head and neck but primary tonsillar lymphomas of extranodal non-Hodgkin lymphomas are far less than 1% of head and neck malignancies."</div>
+                <div class="evidence-snippet">"From this limited series, radiotherapy alone would appear to be sufficient initial therapy for Stage IE patients, whereas Stage IIE patients probably benefit from the addition of prophylactic chemotherapy."</div>
 
 
-                <div class="evidence-explanation">This reference mentions primary tonsillar lymphoma but does not provide specific evidence on the effectiveness of targeted radiation therapy for local disease control.</div>
+                <div class="evidence-explanation">This 65-case clinicopathologic series of primary tonsillar lymphoma concludes that radiotherapy alone can be sufficient initial therapy for localized (Stage IE) disease, supporting radiation to the tonsil for local disease control.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23790512" data-dismech-supports="NO_EVIDENCE">
+            <div class="evidence-item" data-dismech-evidence="PMID:10592134" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23790512" target="_blank">PMID:23790512</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10592134" target="_blank">PMID:10592134</a>
                     </span>
 
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
 
-                <div class="evidence-snippet">"Radiation therapy (RT) is the most effective single modality for local control of Hodgkin lymphoma (HL) and an important component of therapy for many patients."</div>
+                <div class="evidence-snippet">"There have been many reports that favor aggressive systemic treatment with chemotherapy and radiotherapy, even for well-localized lymphomas, avoiding the need for tonsillectomy of the normal tonsil."</div>
 
 
-                <div class="evidence-explanation">This reference discusses radiation therapy for Hodgkin lymphoma, not primary tonsillar lymphoma.</div>
+                <div class="evidence-explanation">This case series of primary tonsillar lymphoma treated all six patients with chemotherapy plus cervical radiotherapy, reflecting the use of radiotherapy as part of standard management of localized disease.</div>
 
 
 
             </div>
 
-
-            <div class="evidence-more">+ 2 more references</div>
 
         </div>
     </details>
@@ -5316,13 +6558,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-targeted-therapy" data-dismech-node="Targeted Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Targeted Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -5352,6 +6599,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Use of drugs like rituximab for B-cell lymphomas.</div>
 
 
@@ -5371,7 +6632,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15252219" target="_blank">PMID:15252219</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5391,7 +6655,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10592134" target="_blank">PMID:10592134</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -5411,7 +6678,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18381106" target="_blank">PMID:18381106</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5419,7 +6689,7 @@
                 <div class="evidence-snippet">"Iodine 131-tositumomab and ibritumomab tiuxetan, radioimmunoconjugates that target the CD20 antigen, have been approved in the United States for use in relapsed or refractory, indolent, and transformed B-cell lymphomas."</div>
 
 
-                <div class="evidence-explanation">This reference supports the use of targeted therapies, specifically mentioning CD20-targeting agents for B-cell lymphomas, which includes rituximab.</div>
+                <div class="evidence-explanation">This reference documents approved CD20-targeted radioimmunoconjugates (tositumomab and ibritumomab tiuxetan) for B-cell lymphomas, supporting CD20-directed targeted therapy as a treatment class for B-cell lymphoma; it does not itself discuss rituximab.</div>
 
 
 
@@ -5434,19 +6704,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-stem-cell-transplant" data-dismech-node="Stem Cell Transplant" data-dismech-type="treatment">
                 <div class="item-name">
                     Stem Cell Transplant
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000647">MAXO:0000647</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -5469,6 +6745,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Considered in certain cases where high-dose chemotherapy is followed by infusion of healthy stem cells to restore bone marrow function.</div>
 
 
@@ -5478,29 +6768,9 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32725379" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32725379" target="_blank">PMID:32725379</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"Based on high rates of long-term remission, our first choice for consolidation therapy is high-dose chemotherapy with autologous stem-cell transplant using thiotepa, busulfan, and cyclophosphamide as a myeloablative regimen, with a curative intent."</div>
-
-
-                <div class="evidence-explanation">The reference discusses the use of high-dose chemotherapy followed by stem-cell transplant as a consolidation therapy, which aligns with the statement about primary tonsillar lymphoma.</div>
-
-
-
-            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:20359581" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -5508,7 +6778,12 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20359581" target="_blank">PMID:20359581</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                 </div>
@@ -5516,7 +6791,7 @@
                 <div class="evidence-snippet">"Results of conventional or high-dose chemotherapy for peripheral T-cell lymphoma (PTCL) are unsatisfactory, leaving a potential role for autologous or allogeneic stem cell transplantation."</div>
 
 
-                <div class="evidence-explanation">The reference indicates that high-dose chemotherapy followed by stem cell transplantation is considered for certain types of lymphoma, supporting the statement.</div>
+                <div class="evidence-explanation">This review concerns peripheral T-cell lymphoma in general rather than tonsillar lymphoma specifically; it partially supports the claim by showing that stem cell transplantation is considered for lymphoma subtypes (including the T-cell histologies that can present in the tonsil) when chemotherapy results are unsatisfactory.</div>
 
 
 
@@ -5544,7 +6819,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-lactate-dehydrogenase-ldh" data-dismech-node="Lactate Dehydrogenase (LDH)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Lactate Dehydrogenase (LDH)
 
@@ -5570,7 +6845,12 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6583472" target="_blank">PMID:6583472</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                 </div>
@@ -5578,7 +6858,7 @@
                 <div class="evidence-snippet">"Serum lactate dehydrogenase activity (LDH) was examined in 66 children with acute lymphoblastic leukemia (ALL), 26 with acute non-lymphocytic leukemia (ANLL), and 116 with non-Hodgkin&#39;s lymphoma (NHL). The mean serum LDH value for the ALL and ANLL groups was not significantly different: 970 +/-..."</div>
 
 
-                <div class="evidence-explanation">The study shows that elevated serum LDH levels are associated with non-Hodgkin&#39;s lymphoma, which includes primary tonsillar lymphoma, indicating LDH as a marker of tumor burden and cell turnover.</div>
+                <div class="evidence-explanation">This pediatric leukemia/lymphoma series documents serum LDH measurement in non-Hodgkin&#39;s lymphoma, with stage IV NHL values comparable to leukemia, consistent with LDH tracking disease burden; it is not specific to tonsillar lymphoma, so the support is partial.</div>
 
 
 
@@ -5594,6 +6874,988 @@
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-tonsillar-biopsy">
+                <div class="item-name">
+                    Tonsillar Biopsy
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive for malignant lymphocytes)</span>
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Essential for confirming the presence of lymphoma.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11107690" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11107690" target="_blank">PMID:11107690</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Only one case of malignancy was detected: a non-Hodgkin&#39;s lymphoma in one tonsil of a patient who was a cigarette smoker and who had asymmetric tonsils."</div>
+
+
+                <div class="evidence-explanation">The study mentions the detection of a non-Hodgkin&#39;s lymphoma in a tonsil, but it does not specifically address the need for tonsillar biopsy to confirm primary tonsillar lymphoma.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37997620" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37997620" target="_blank">PMID:37997620</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Lymphoma of the palatine tonsils is among the concerns leading to tonsillectomy, but chronic lymphocytic leukemia/small lymphocytic lymphoma (CLL/SLL) of the tonsil is rare. We report a case of primary CLL/SLL of the palatine tonsil in a 51-year-old gentleman who presented with tonsillar..."</div>
+
+
+                <div class="evidence-explanation">The case report highlights the importance of biopsy for diagnosing primary tonsillar lymphoma, even in the absence of typical malignancy symptoms.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20706049" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20706049" target="_blank">PMID:20706049</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Non-Hodgkin lymphomas quite often present in the head and neck but primary tonsillar lymphomas of extranodal non-Hodgkin lymphomas are far less than 1% of head and neck malignancies. Reports of F-18 fluorodeoxyglucose positron emission tomography (F-18 FDG PET/CT) related to primary tonsillar..."</div>
+
+
+                <div class="evidence-explanation">The diagnosis of diffuse large B-cell lymphoma in the tonsils was confirmed through biopsy, supporting the necessity of biopsy for diagnosing primary tonsillar lymphoma.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-imaging-studies">
+                <div class="item-name">
+                    Imaging Studies
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">CT, MRI, or PET scans to evaluate the extent of disease and involvement of surrounding structures and distant sites.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11338097" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11338097" target="_blank">PMID:11338097</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical records and MR images of eight patients with primary NHL of the palatine tonsil were reviewed. Patients had a short duration of symptoms (mean 1 month). Systemic symptoms (fever, weight loss or night sweats) occurred in two patients. Tumours were round or lobulated and ranged in..."</div>
+
+
+                <div class="evidence-explanation">The study describes the use of MRI to evaluate primary non-Hodgkin&#39;s lymphoma of the palatine tonsil, supporting the use of imaging studies to evaluate the extent of disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20422687" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20422687" target="_blank">PMID:20422687</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Using a retrospective approach, the aim of this study was to confirm the previously described value of fluorine-18-fluorodeoxyglucose positron emission tomography/computed tomography ((18)F-FDG-PET/CT) in patients with primary extranodal lymphoma of the head and neck region."</div>
+
+
+                <div class="evidence-explanation">The study confirms the value of PET/CT in staging primary extranodal lymphoma of the head and neck, which includes tonsillar lymphoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-blood-tests">
+                <div class="item-name">
+                    Blood Tests
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">CBC, LDH levels, and other markers for evaluating overall health and disease involvement.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20440503" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20440503" target="_blank">PMID:20440503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The present study aimed to define the natural history, World Health Organization (WHO) classification, prognostic factors, and treatment outcome of 87 patients with primary lymphoma of the palatine tonsil and literature review and analysis."</div>
+
+
+                <div class="evidence-explanation">The study focuses on the classification, prognostic factors, and treatment outcomes of primary tonsillar lymphoma but does not mention the use of blood tests such as CBC or LDH levels for evaluating overall health and disease involvement.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28876549" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28876549" target="_blank">PMID:28876549</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"In the BMI group, platelets in peripheral blood (PLT) and megakaryocyte count in bone marrow (MgK) were significantly lower than those in the non-BMI group... The rate of peripheral blood involvement by malignant lymphoma (PBI), red blood cell distribution width (RDW), D-dimer (DD), soluble..."</div>
+
+
+                <div class="evidence-explanation">This study indicates that certain blood markers, including LDH, are elevated in cases of bone marrow involvement by malignant lymphoma, which may relate to primary tonsillar lymphoma. However, it does not specifically address primary tonsillar lymphoma.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6931618" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6931618" target="_blank">PMID:6931618</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Serum total lactic dehydrogenase (LDH) levels were examined in 42 patients with acute leukemia, 9 patients with chronic myeloid leukemia, 6 of them in blastic crisis, and 53 patients with lymphoma and other lymphoproliferative disorders."</div>
+
+
+                <div class="evidence-explanation">The study shows that LDH levels are elevated in patients with lymphoma, which could be relevant for primary tonsillar lymphoma. However, it does not specifically mention primary tonsillar lymphoma or the use of CBC.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Mid-adult to elderly</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Typically presents with a rapidly enlarging tonsillar mass.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10592134" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10592134" target="_blank">PMID:10592134</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"We report six cases of primary tonsillar lymphoma with a median patient age of 42 years."</div>
+
+
+                <div class="evidence-explanation">The median age of 42 years falls into the mid-adult range, supporting the age range aspect of the statement.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33091144" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33091144" target="_blank">PMID:33091144</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"An 81-year-old man presented with persistent odynophagia, dysphagia, and obstructive hypertrophic palatine tonsils with purulent exudate."</div>
+
+
+                <div class="evidence-explanation">A single case report of a rare blastoid mantle cell lymphoma variant presenting in the palatine tonsils of an 81-year-old; consistent with elderly presentations of tonsillar lymphoma but too limited to establish the typical age range on its own.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29571929" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29571929" target="_blank">PMID:29571929</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The majority likewise had non-Hodgkin lymphoma and all shared a history of rapid tonsillar enlargement over ≤12 weeks."</div>
+
+
+                <div class="evidence-explanation">This institutional series documents rapid tonsillar enlargement over weeks as the presenting picture, supporting the rapidly enlarging tonsillar mass aspect of the claim; however, the study concerns pediatric patients and therefore does not support the mid-adult-to-elderly age range.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-localized-stage">
+                <div class="item-name">Localized Stage</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">May involve the tonsils, oropharynx, and nearby lymph nodes.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16613685" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16613685" target="_blank">PMID:16613685</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Most patients with NHL of the tonsil are at early stages, with good prognosis."</div>
+
+
+                <div class="evidence-explanation">The literature supports that primary tonsillar lymphoma is often at an early stage (localized), but it specifically mentions the tonsils and not the oropharynx or nearby lymph nodes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-advanced-stage">
+                <div class="item-name">Advanced Stage</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Potential for systemic spread to distant lymph nodes and organs.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16613685" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16613685" target="_blank">PMID:16613685</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Stage I-II patients received radiochemotherapy-predominant treatment, whereas stage III-IV patients received chemotherapy-predominant treatment."</div>
+
+
+                <div class="evidence-explanation">The study mentions treatment for advanced stages (III-IV) of primary non-Hodgkin&#39;s lymphoma of the tonsil but does not explicitly state the potential for systemic spread to distant lymph nodes and organs.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:3891063" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3891063" target="_blank">PMID:3891063</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Thirty-seven (54%) patients died with disease (median survival, 27 months). Of these, 89% had disseminated lymphoma."</div>
+
+
+                <div class="evidence-explanation">In this clinicopathologic series of primary Waldeyer&#39;s ring lymphoma (tonsil the most common site), the large majority of disease deaths occurred with disseminated lymphoma, directly supporting the potential for systemic spread in advanced disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+        <div class="card" id="stages">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">🪜</div>
+                <h2 class="card-title">Stages</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="stage-stage-i">
+                <div class="item-name">Stage I</div>
+
+                <div class="item-desc">Cancer is found in a single region of lymph nodes or a single extralymphatic organ.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Stage IA</span>
+
+
+
+
+                    <span class="tag">Stage IB</span>
+
+
+
+
+                    <span class="tag">Stage IE</span>
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-bio">Localized Lymphocyte Proliferation</span>
+
+
+
+                    <span class="tag tag-bio">Minimal Tissue Disruption</span>
+
+
+
+                    <span class="tag tag-bio">Systemic Effects in IB</span>
+
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6690005" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6690005" target="_blank">PMID:6690005</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"All cases were non-Hodgkin&#39;s lymphomas, with the majority being diffuse large cell lymphoma (85%). Initial therapy was radiotherapy alone in 54 patients, radiotherapy combined with chemotherapy in 8 patients, and chemotherapy alone in 3 patients. Stage was the most important prognostic factor,..."</div>
+
+
+                <div class="evidence-explanation">The literature supports the statement that primary tonsillar lymphoma can be classified as Stage I when it is localized to a single region (the tonsil). The study indicates that Stage IE involves a single extralymphatic organ like the tonsil.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-stage-ii">
+                <div class="item-name">Stage II</div>
+
+                <div class="item-desc">Cancer is found in two or more lymph regions on the same side of the diaphragm, or the cancer has spread from one lymph node region to a nearby organ.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Stage IIA</span>
+
+
+
+
+                    <span class="tag">Stage IIB</span>
+
+
+
+
+                    <span class="tag">Stage IIE</span>
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-bio">Regional Lymphatic Spread</span>
+
+
+
+                    <span class="tag tag-bio">Localized Extranodal Involvement</span>
+
+
+
+                    <span class="tag tag-bio">Systemic Effects in IIB</span>
+
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6690005" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6690005" target="_blank">PMID:6690005</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Stage was the most important prognostic factor, with 86% and 41% 5-year survivals for Stages IE and IIE, respectively (P = 0.006)."</div>
+
+
+                <div class="evidence-explanation">The literature supports the definition of Stage II lymphoma, specifically mentioning Stage IIE, which involves cancer spreading to nearby organs or tissues.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-stage-iii">
+                <div class="item-name">Stage III</div>
+
+                <div class="item-desc">Cancer is found in lymph node regions or organs on both sides of the diaphragm.</div>
+
+
+
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-bio">Widespread Lymphatic Involvement</span>
+
+
+
+                    <span class="tag tag-bio">Systemic Symptom Induction</span>
+
+
+
+                    <span class="tag tag-bio">Hematogenous Spread</span>
+
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16613685" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16613685" target="_blank">PMID:16613685</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Stage I-II patients received radiochemotherapy-predominant treatment, whereas stage III-IV patients received chemotherapy-predominant treatment."</div>
+
+
+                <div class="evidence-explanation">The reference confirms that there are Stage III-IV classifications for primary non-Hodgkin&#39;s lymphoma of the tonsil, which implies that Stage III involves cancer found in lymph node regions or organs on both sides of the diaphragm. However, it does not provide specific details about the pathophysiology described in the statement.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31785002" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31785002" target="_blank">PMID:31785002</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with abdominal nodal disease had inferior lymphoma-specific survival (P = .04) and presented with higher age-adjusted IPI (P &lt; .001), lactate dehydrogenase (P &lt; .001) and more often advanced stage (P &lt; .001), bulky disease (P &lt; .001), B symptoms (P &lt; .001), and double expression of MYC..."</div>
+
+
+                <div class="evidence-explanation">The reference indicates that advanced stages of diffuse large B-cell lymphomas (which can include primary tonsillar lymphoma) involve more aggressive behavior and systemic symptoms, which aligns with some aspects of the pathophysiology described. However, it does not explicitly confirm the spread of cancer to both sides of the diaphragm as described for Stage III.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-stage-iv">
+                <div class="item-name">Stage IV</div>
+
+                <div class="item-desc">Cancer has spread throughout one or more organs outside the lymph system or to the liver, bone marrow, or lungs.</div>
+
+
+
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-bio">Extensive Systemic Involvement</span>
+
+
+
+                    <span class="tag tag-bio">Organ Function Disruption</span>
+
+
+
+                    <span class="tag tag-bio">Bone Marrow Involvement</span>
+
+
+
+                    <span class="tag tag-bio">Paraneoplastic Syndrome Development</span>
+
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11709688" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11709688" target="_blank">PMID:11709688</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Localized low-grade lymphomas have a more favorable prognosis compared with those that are disseminated and/or have high-grade cellular changes."</div>
+
+
+                <div class="evidence-explanation">This population-based series of oral-region lymphoma (tonsil the most prevalent site) documents that disseminated forms occur and carry worse prognosis; it supports the existence and severity of disseminated (Stage IV) disease without detailing the specific organ involvement described here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:3891063" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3891063" target="_blank">PMID:3891063</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Ten patients (15%) developed extranodal disease, eight involving the gastrointestinal (GI) tract, and all died within 1 year of its occurrence."</div>
+
+
+                <div class="evidence-explanation">In this primary Waldeyer&#39;s ring lymphoma series, a subset of patients developed extranodal organ disease (most often gastrointestinal) with poor outcomes, directly supporting Stage IV spread to organs outside the lymphatic system.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-general-population">
+                <div class="item-name">General Population</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Rare</span>
+
+                    <span class="tag">Rare</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11338097" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11338097" target="_blank">PMID:11338097</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Non-Hodgkin&#39;s lymphoma (NHL) arising primarily in the palatine tonsil is uncommon."</div>
+
+
+                <div class="evidence-explanation">The literature explicitly states that primary non-Hodgkin&#39;s lymphoma of the palatine tonsil is uncommon, which supports the statement that primary tonsillar lymphoma is rare in the general population.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30639969" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30639969" target="_blank">PMID:30639969</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"One hundred forty-one cases of tonsil cancer were identified... Lymphoma remains the predominant histological type of cancer."</div>
+
+
+                <div class="evidence-explanation">This SEER analysis is restricted to pediatric patients, so it only partially supports rarity in the general population; identifying just 141 pediatric tonsil cancers over four decades of national registry data, with lymphoma the predominant histology, is nonetheless consistent with primary tonsillar lymphoma being rare.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -5604,6 +7866,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -5622,7 +7887,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Primary_Tonsillar_Lymphoma
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
 description: &gt;-
   Primary tonsillar lymphoma is an aggressive B-cell non-Hodgkin lymphoma of Waldeyer&#39;s ring arising through several molecular routes.
   Germinal-center-type tumors carry BCL2 and EZH2 lesions, while activated B-cell-type tumors depend on chronic B-cell receptor and NF-kB signaling driven by CD79B and MYD88 mutations.
@@ -5643,8 +7907,9 @@ prevalence:
   - reference: PMID:30639969
     reference_title: &#34;A Survival Analysis of Pediatric Tonsillar Malignancies and Review of a Rare Case.&#34;
     supports: SUPPORT
+    directness: INDIRECT
     snippet: One hundred forty-one cases of tonsil cancer were identified... Lymphoma remains the predominant histological type of cancer.
-    explanation: Although this reference discusses pediatric tonsillar cancers, it mentions that lymphoma is a predominant type. However, the overall context supports the rarity of primary tonsillar lymphoma, as it is a specific and less common type of cancer within a rare subset.
+    explanation: This SEER analysis is restricted to pediatric patients, so it only partially supports rarity in the general population; identifying just 141 pediatric tonsil cancers over four decades of national registry data, with lymphoma the predominant histology, is nonetheless consistent with primary tonsillar lymphoma being rare.
 progression:
 - phase: Onset
   age_range: Mid-adult to elderly
@@ -5658,19 +7923,21 @@ progression:
   - reference: PMID:33091144
     reference_title: &#34;Palatine Tonsils Primary Presentation of Blastoid Variant of Mantle Cell Lymphoma: Case Report.&#34;
     supports: SUPPORT
+    directness: INDIRECT
     snippet: An 81-year-old man presented with persistent odynophagia, dysphagia, and obstructive hypertrophic palatine tonsils with purulent exudate.
-    explanation: The patient&#39;s age of 81 years supports the elderly aspect of the statement.
+    explanation: A single case report of a rare blastoid mantle cell lymphoma variant presenting in the palatine tonsils of an 81-year-old; consistent with elderly presentations of tonsillar lymphoma but too limited to establish the typical age range on its own.
   - reference: PMID:29571929
     reference_title: &#34;Pediatric Tonsil Cancer: A National and Institutional Perspective.&#34;
-    supports: PARTIAL
-    snippet: The Surveillance, Epidemiology and End Results 18 database included 138 pediatric patients with tonsil cancer with an age-adjusted incidence rate of 0.021/100 000 patients per year.
-    explanation: This reference primarily discusses pediatric cases, which does not support the age range of mid-adult to elderly. However, it mentions rapid tonsillar enlargement, which partially supports the statement.
+    supports: SUPPORT
+    directness: INDIRECT
+    snippet: The majority likewise had non-Hodgkin lymphoma and all shared a history of rapid tonsillar enlargement over ≤12 weeks.
+    explanation: This institutional series documents rapid tonsillar enlargement over weeks as the presenting picture, supporting the rapidly enlarging tonsillar mass aspect of the claim; however, the study concerns pediatric patients and therefore does not support the mid-adult-to-elderly age range.
 - phase: Localized Stage
   notes: May involve the tonsils, oropharynx, and nearby lymph nodes.
   evidence:
   - reference: PMID:16613685
     reference_title: &#34;[Clinical features of 89 patients with primary non-Hodgkin&#39;s lymphoma of the tonsil].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Most patients with NHL of the tonsil are at early stages, with good prognosis.
     explanation: The literature supports that primary tonsillar lymphoma is often at an early stage (localized), but it specifically mentions the tonsils and not the oropharynx or nearby lymph nodes.
 - phase: Advanced Stage
@@ -5678,14 +7945,14 @@ progression:
   evidence:
   - reference: PMID:16613685
     reference_title: &#34;[Clinical features of 89 patients with primary non-Hodgkin&#39;s lymphoma of the tonsil].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Stage I-II patients received radiochemotherapy-predominant treatment, whereas stage III-IV patients received chemotherapy-predominant treatment.
     explanation: The study mentions treatment for advanced stages (III-IV) of primary non-Hodgkin&#39;s lymphoma of the tonsil but does not explicitly state the potential for systemic spread to distant lymph nodes and organs.
-  - reference: PMID:36943852
-    reference_title: &#34;Predictive factors of distant metastasis in surgically treated HPV-positive tonsil cancer.&#34;
+  - reference: PMID:3891063
+    reference_title: &#34;Primary lymphoma of Waldeyer&#39;s ring. Clinicopathologic study of 68 cases.&#34;
     supports: SUPPORT
-    snippet: HPV-positive tonsil cancer patients with an advanced T stage and a positive surgical margin have a substantial risk of distant metastases.
-    explanation: The reference discusses the risk of distant metastasis in HPV-positive tonsil cancer, supporting the statement about the potential for systemic spread in advanced stages.
+    snippet: Thirty-seven (54%) patients died with disease (median survival, 27 months). Of these, 89% had disseminated lymphoma.
+    explanation: In this clinicopathologic series of primary Waldeyer&#39;s ring lymphoma (tonsil the most common site), the large majority of disease deaths occurred with disseminated lymphoma, directly supporting the potential for systemic spread in advanced disease.
 pathophysiology:
 - name: Malignant B-cell Proliferation (Germinal Center Type)
   description: Abnormal growth of germinal center B-cells with mutations in BCL2 and EZH2, affecting apoptosis regulation and epigenetic control.
@@ -5760,6 +8027,8 @@ pathophysiology:
       label: palatine tonsil
   notes: ABC-type represents approximately 50% of tonsillar DLBCL cases and has poorer prognosis than GCB-type.
 - name: IRF4-rearranged Large B-cell Lymphoma
+  genetic_context:
+    variant_origin: SOMATIC
   description: IRF4 rearrangement drives transcriptional programs at germinal center exit and plasmacytic differentiation, enriched in Waldeyer&#39;s ring.
   cell_types:
   - preferred_term: germinal center B cell
@@ -5910,11 +8179,6 @@ stages:
     supports: SUPPORT
     snippet: Stage was the most important prognostic factor, with 86% and 41% 5-year survivals for Stages IE and IIE, respectively (P = 0.006).
     explanation: The literature supports the definition of Stage II lymphoma, specifically mentioning Stage IIE, which involves cancer spreading to nearby organs or tissues.
-  - reference: PMID:9157474
-    reference_title: &#34;[Radiologic diagnosis of primary extranodal lymphoma manifestations].&#34;
-    supports: SUPPORT
-    snippet: Primary extranodal lymphoma manifestation in the narrow sense is the term used to define the primary organ manifestation of a malignant lymphoma, excluding the thymus, spleen, Waldeyer&#39;s tonsillar ring, the appendix and Peyer&#39;s patches.
-    explanation: The literature provides context on extranodal manifestations, which aligns with the description of Stage IIE involving non-lymphatic tissue adjacent to involved lymph nodes.
 - name: Stage III
   description: Cancer is found in lymph node regions or organs on both sides of the diaphragm.
   pathophysiology:
@@ -5936,12 +8200,12 @@ stages:
   evidence:
   - reference: PMID:16613685
     reference_title: &#34;[Clinical features of 89 patients with primary non-Hodgkin&#39;s lymphoma of the tonsil].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Stage I-II patients received radiochemotherapy-predominant treatment, whereas stage III-IV patients received chemotherapy-predominant treatment.
     explanation: The reference confirms that there are Stage III-IV classifications for primary non-Hodgkin&#39;s lymphoma of the tonsil, which implies that Stage III involves cancer found in lymph node regions or organs on both sides of the diaphragm. However, it does not provide specific details about the pathophysiology described in the statement.
   - reference: PMID:31785002
     reference_title: &#34;Prognostic impact of abdominal lymph node involvement in diffuse large B-cell lymphoma.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Patients with abdominal nodal disease had inferior lymphoma-specific survival (P = .04) and presented with higher age-adjusted IPI (P &lt; .001), lactate dehydrogenase (P &lt; .001) and more often advanced stage (P &lt; .001), bulky disease (P &lt; .001), B symptoms (P &lt; .001), and double expression of MYC and BCL2 (P = .02) compared to patients without nodal abdominal involvement.
     explanation: The reference indicates that advanced stages of diffuse large B-cell lymphomas (which can include primary tonsillar lymphoma) involve more aggressive behavior and systemic symptoms, which aligns with some aspects of the pathophysiology described. However, it does not explicitly confirm the spread of cancer to both sides of the diaphragm as described for Stage III.
 - name: Stage IV
@@ -5968,18 +8232,14 @@ stages:
   - reference: PMID:11709688
     reference_title: &#34;Characteristics of oral and paraoral malignant lymphoma: a population-based review of 361 cases.&#34;
     supports: SUPPORT
+    directness: INDIRECT
     snippet: Localized low-grade lymphomas have a more favorable prognosis compared with those that are disseminated and/or have high-grade cellular changes.
-    explanation: This indicates that lymphomas with widespread dissemination, such as Stage IV primary tonsillar lymphoma described, have a more severe prognosis due to extensive systemic involvement.
-  - reference: PMID:32352191
-    reference_title: &#34;Canine tonsillar neoplasia and tonsillar metastasis from various primary neoplasms.&#34;
+    explanation: This population-based series of oral-region lymphoma (tonsil the most prevalent site) documents that disseminated forms occur and carry worse prognosis; it supports the existence and severity of disseminated (Stage IV) disease without detailing the specific organ involvement described here.
+  - reference: PMID:3891063
+    reference_title: &#34;Primary lymphoma of Waldeyer&#39;s ring. Clinicopathologic study of 68 cases.&#34;
     supports: SUPPORT
-    snippet: The palatine tonsil is an important site of metastasis for a variety of primary tumour types from many locations.
-    explanation: The literature supports the notion that cancer, including lymphoma, can metastasize to the tonsils and spread to other organs, consistent with Stage IV classification.
-  - reference: PMID:20466616
-    reference_title: &#34;Lymphoma of the testis as primary location: tumour review.&#34;
-    supports: SUPPORT
-    snippet: Testicular lymphoma often disseminates to other extranodal organs, such as contralateral testis, central nervous system (CNS), lung, pleura, Waldeyer&#39;s ring and soft tissue.
-    explanation: This reference supports the concept of widespread dissemination of lymphoma to multiple organ systems, aligning with the characteristics of Stage IV primary tonsillar lymphoma.
+    snippet: Ten patients (15%) developed extranodal disease, eight involving the gastrointestinal (GI) tract, and all died within 1 year of its occurrence.
+    explanation: In this primary Waldeyer&#39;s ring lymphoma series, a subset of patients developed extranodal organ disease (most often gastrointestinal) with poor outcomes, directly supporting Stage IV spread to organs outside the lymphatic system.
 histopathology:
 - name: Diffuse Large B-Cell Lymphoma
   finding_term:
@@ -5997,6 +8257,24 @@ histopathology:
     explanation: Abstract reports diffuse large B-cell lymphoma as the most frequent histology.
 
 phenotypes:
+- category: Neoplastic
+  name: B-Cell Lymphoma
+  description: &gt;-
+    Diffuse large B-cell lymphoma is the most common pathologic subtype of
+    primary tonsillar lymphoma, making B-cell lymphoma the predominant
+    classification for this entry.
+  phenotype_term:
+    preferred_term: B-cell lymphoma
+    term:
+      id: HP:0012191
+      label: B-cell lymphoma
+  evidence:
+  - reference: PMID:16613685
+    reference_title: &#34;[Clinical features of 89 patients with primary non-Hodgkin&#39;s lymphoma of the tonsil].&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Diffuse large B-cell lymphoma is the most common pathologic subtype.&#34;
+    explanation: A 89-patient cohort of primary tonsillar NHL found diffuse large B-cell lymphoma to be the most common pathologic subtype.
 - category: ENT
   name: Enlarged Tonsil
   frequency: VERY_FREQUENT
@@ -6005,24 +8283,24 @@ phenotypes:
   evidence:
   - reference: PMID:19558906
     reference_title: &#34;[Clinical significance of unilateral tonsillar enlargement].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Histopathologic study revealed 80 % to be benign and 20 % malignant. The risk factors with the strongest association were enlargement of cervical lymphatic nodes and suspicious appearance of the tonsil.
     explanation: The reference supports that tonsillar enlargement can be a diagnostic sign for malignancies, including lymphoma, but it does not specifically state that primary tonsillar lymphoma is very frequent.
   - reference: PMID:2190267
     reference_title: &#34;Lymphoma of the head and neck.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Lymphoma is the second most common neoplasm of the head and neck region and should be considered in the differential diagnosis of any lesion in this region, especially if the typical factors for squamous cell carcinoma are not present.
     explanation: This reference indicates that lymphoma, including primary tonsillar lymphoma, is common in the head and neck region but does not specify it as very frequent.
   - reference: PMID:34754855
     reference_title: &#34;Ultrasound features of primary non-Hodgkin&#39;s lymphoma of the palatine tonsil: A case report.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Lymphomas are the second most common malignancy of the head and neck. In this region, the vast majority of extranodal lymphomas are located in the palatine tonsil, accounting for about 51%.
     explanation: The reference supports that primary tonsillar lymphoma is common in the head and neck region but does not specify it as very frequent.
-  - reference: PMID:38044117
-    reference_title: &#34;Tonsillar Peripheral T-cell Lymphoma Detected by Esophagogastroduodenoscopy.&#34;
-    supports: PARTIAL
-    snippet: Tonsillar Peripheral T-cell Lymphoma Detected by Esophagogastroduodenoscopy.
-    explanation: This reference indicates the occurrence of tonsillar lymphoma but does not provide information on its frequency.
+  - reference: PMID:24387945
+    reference_title: &#34;Clinical manifestations in children with tonsillar lymphoma: A systematic review.&#34;
+    supports: SUPPORT
+    snippet: The most common clinical manifestations found in children with lymphoma in palatine tonsils were unilateral tonsillar enlargement (72.7%), alteration in appearance of the tonsil (45.4%) and cervical lymphadenopathy (30.3%).
+    explanation: A systematic review of tonsillar lymphoma found unilateral tonsillar enlargement to be the most common clinical manifestation (72.7%), supporting enlarged tonsil as a very frequent, often unilateral presenting sign.
   phenotype_term:
     preferred_term: Enlarged Tonsil
     term:
@@ -6030,8 +8308,13 @@ phenotypes:
       label: Enlarged tonsils
 - category: Systemic
   name: Fever
-  frequency: FREQUENT
+  frequency: OCCASIONAL
   evidence:
+  - reference: PMID:11338097
+    reference_title: &#34;MRI of primary non-Hodgkin&#39;s lymphoma of the palatine tonsil.&#34;
+    supports: SUPPORT
+    snippet: Systemic symptoms (fever, weight loss or night sweats) occurred in two patients.
+    explanation: In this series of eight patients with primary NHL of the palatine tonsil, systemic symptoms including fever occurred in two of eight (25%), supporting fever as an occasional rather than frequent manifestation.
   - reference: PMID:37997620
     reference_title: &#34;Unilateral Tonsillar Enlargement as Initial Presentation of Bilateral Chronic Lymphocytic Leukemia/Small Lymphocytic Lymphoma.&#34;
     supports: NO_EVIDENCE
@@ -6052,11 +8335,6 @@ phenotypes:
     supports: NO_EVIDENCE
     snippet: Burkitt lymphoma (32.6%) followed by diffuse large B-cell lymphoma (DLBCL) (27.0%) were the two most common histological types of tonsillar cancers.
     explanation: The study on pediatric tonsillar malignancies does not mention fever as a frequent symptom.
-  - reference: PMID:29025800
-    reference_title: &#34;Approach to recurrent fever in childhood.&#34;
-    supports: NO_EVIDENCE
-    snippet: Fever is a common sign of illness in children and is most frequently due to infection. However, when acute and chronic infections have been excluded and when the fever pattern becomes recurrent or periodic, the expanding spectrum of autoinflammatory diseases, including periodic fever syndromes, should be considered.
-    explanation: This study discusses fever in the context of infections and autoinflammatory diseases, not specifically in primary tonsillar lymphoma.
   phenotype_term:
     preferred_term: Fever
     term:
@@ -6064,18 +8342,13 @@ phenotypes:
       label: Fever
 - category: Systemic
   name: Night Sweats
-  frequency: FREQUENT
+  frequency: OCCASIONAL
   evidence:
-  - reference: PMID:12643362
-    reference_title: &#34;Diagnosing night sweats.&#34;
-    supports: REFUTE
-    snippet: Tuberculosis and lymphoma are diseases in which night sweats are a dominant symptom, but these are infrequently found to be the cause of night sweats in modern practice.
-    explanation: While lymphoma can cause night sweats, they are not frequently found to be the cause in modern practice, suggesting that night sweats are not a frequent systemic symptom of primary tonsillar lymphoma.
   - reference: PMID:24387945
     reference_title: &#34;Clinical manifestations in children with tonsillar lymphoma: A systematic review.&#34;
-    supports: REFUTE
+    supports: SUPPORT
     snippet: The presence of B symptoms occurred in only 16% of the patients.
-    explanation: Night sweats are considered a B symptom, and they were present in only 16% of pediatric tonsillar lymphoma cases, indicating that they are not a frequent symptom.
+    explanation: Night sweats are part of the B-symptom complex, which occurred in 16% of tonsillar lymphoma cases in this systematic review, supporting an occasional (rather than frequent) frequency for night sweats.
   phenotype_term:
     preferred_term: Night sweats
     term:
@@ -6083,8 +8356,13 @@ phenotypes:
       label: Night sweats
 - category: Systemic
   name: Weight Loss
-  frequency: FREQUENT
+  frequency: OCCASIONAL
   evidence:
+  - reference: PMID:11338097
+    reference_title: &#34;MRI of primary non-Hodgkin&#39;s lymphoma of the palatine tonsil.&#34;
+    supports: SUPPORT
+    snippet: Systemic symptoms (fever, weight loss or night sweats) occurred in two patients.
+    explanation: In this series of eight patients with primary NHL of the palatine tonsil, systemic symptoms including weight loss occurred in two of eight (25%), supporting weight loss as an occasional rather than frequent manifestation.
   - reference: PMID:10592134
     reference_title: &#34;Clinical management of six cases of low-risk primary tonsillar non-Hodgkin&#39;s lymphoma.&#34;
     supports: NO_EVIDENCE
@@ -6112,19 +8390,9 @@ phenotypes:
     explanation: This reference supports the statement that primary tonsillar lymphoma is frequently associated with lymphadenopathy, particularly in the neck.
   - reference: PMID:2190267
     reference_title: &#34;Lymphoma of the head and neck.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The head and neck is the second most common site for extranodal lymphoma. It can involve virtually any region, including the orbit, paranasal sinuses, Waldeyer&#39;s ring, salivary glands, or thyroid.
     explanation: This reference indicates that lymphoma can frequently involve the head and neck region, which includes the tonsils, but does not specifically mention lymphadenopathy.
-  - reference: PMID:38779794
-    reference_title: &#34;[Swelling on the neck].&#34;
-    supports: NO_EVIDENCE
-    snippet: A 30-year-old female patient presented with a swelling of a cervical left lymph node measuring 1x3 cm, which had been presenting for three weeks. Lymph node excision revealed a metastasis of a malignant melanoma, but the primary tumor was not found.
-    explanation: This reference discusses lymphadenopathy in the context of metastatic melanoma, not primary tonsillar lymphoma.
-  - reference: PMID:32719287
-    reference_title: &#34;A metastatic histiocytic sarcoma case with primary involvement of the tonsil.&#34;
-    supports: NO_EVIDENCE
-    snippet: Histiocytic sarcoma (HS) is an extremely rare and aggressive hematopoietic tumor.
-    explanation: This reference is about histiocytic sarcoma, not primary tonsillar lymphoma.
   phenotype_term:
     preferred_term: Lymphadenopathy
     term:
@@ -6139,11 +8407,11 @@ phenotypes:
       label: Pharyngalgia
   frequency: FREQUENT
   evidence:
-  - reference: PMID:35373599
-    reference_title: &#34;Epidemiology and Prognostic Indicators of Survival in Tongue Lymphoma.&#34;
-    supports: NO_EVIDENCE
-    snippet: Primary tongue lymphoma is exceedingly rare, with only case reports or small case series in the literature.
-    explanation: The reference discusses the rarity of primary tongue lymphoma, implying that similar conditions like primary tonsillar lymphoma are also rare, but does not provide evidence regarding the frequency of sore throat as a symptom.
+  - reference: PMID:3891063
+    reference_title: &#34;Primary lymphoma of Waldeyer&#39;s ring. Clinicopathologic study of 68 cases.&#34;
+    supports: SUPPORT
+    snippet: Tonsillar and base of tongue lesions presented with sore throat and dysphagia, whereas nasopharyngeal lymphomas most commonly presented with nasal, auditory, and cranial nerve sympatomatology.
+    explanation: This clinicopathologic series of primary Waldeyer&#39;s ring lymphoma reports sore throat as a characteristic presenting symptom of tonsillar lesions, supporting sore throat as a frequent manifestation.
   - reference: PMID:38742359
     reference_title: &#34;[Analysis on the ultrasonic characteristics of tonsillar lymphoma].&#34;
     supports: NO_EVIDENCE
@@ -6164,11 +8432,6 @@ phenotypes:
     supports: SUPPORT
     snippet: Tonsillar and base of tongue lesions presented with sore throat and dysphagia, whereas nasopharyngeal lymphomas most commonly presented with nasal, auditory, and cranial nerve sympatomatology.
     explanation: The study indicates that dysphagia is a common presenting symptom in tonsillar lymphoma.
-  - reference: PMID:38044117
-    reference_title: &#34;Tonsillar Peripheral T-cell Lymphoma Detected by Esophagogastroduodenoscopy.&#34;
-    supports: SUPPORT
-    snippet: Tonsillar Peripheral T-cell Lymphoma Detected by Esophagogastroduodenoscopy.
-    explanation: Although the specific symptoms are not detailed, the detection of tonsillar lymphoma via esophagogastroduodenoscopy suggests an association with dysphagia.
   phenotype_term:
     preferred_term: Dysphagia
     term:
@@ -6182,8 +8445,9 @@ biochemical:
   - reference: PMID:6583472
     reference_title: &#34;Serum LDH values in childhood acute leukemias and non-Hodgkin&#39;s lymphoma.&#34;
     supports: SUPPORT
+    directness: INDIRECT
     snippet: &#39;Serum lactate dehydrogenase activity (LDH) was examined in 66 children with acute lymphoblastic leukemia (ALL), 26 with acute non-lymphocytic leukemia (ANLL), and 116 with non-Hodgkin&#39;&#39;s lymphoma (NHL). The mean serum LDH value for the ALL and ANLL groups was not significantly different: 970 +/- 105 units/L (mean +/- standard error of the mean) and 817 +/- 161 units/L, respectively. The difference between the LDH values in patients with ALL (970 +/- 105 units/L) and NHL (551 +/- 51 units/L) was significant (P = .001).&#39;
-    explanation: The study shows that elevated serum LDH levels are associated with non-Hodgkin&#39;s lymphoma, which includes primary tonsillar lymphoma, indicating LDH as a marker of tumor burden and cell turnover.
+    explanation: This pediatric leukemia/lymphoma series documents serum LDH measurement in non-Hodgkin&#39;s lymphoma, with stage IV NHL values comparable to leukemia, consistent with LDH tracking disease burden; it is not specific to tonsillar lymphoma, so the support is partial.
 diagnosis:
 - name: Tonsillar Biopsy
   presence: Positive for malignant lymphocytes
@@ -6191,7 +8455,7 @@ diagnosis:
   evidence:
   - reference: PMID:11107690
     reference_title: &#34;The histopathology of routine tonsillectomy specimens: results of a study and review of literature.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#39;Only one case of malignancy was detected: a non-Hodgkin&#39;&#39;s lymphoma in one tonsil of a patient who was a cigarette smoker and who had asymmetric tonsils.&#39;
     explanation: The study mentions the detection of a non-Hodgkin&#39;s lymphoma in a tonsil, but it does not specifically address the need for tonsillar biopsy to confirm primary tonsillar lymphoma.
   - reference: PMID:37997620
@@ -6222,11 +8486,6 @@ diagnosis:
     supports: SUPPORT
     snippet: Using a retrospective approach, the aim of this study was to confirm the previously described value of fluorine-18-fluorodeoxyglucose positron emission tomography/computed tomography ((18)F-FDG-PET/CT) in patients with primary extranodal lymphoma of the head and neck region.
     explanation: The study confirms the value of PET/CT in staging primary extranodal lymphoma of the head and neck, which includes tonsillar lymphoma.
-  - reference: PMID:34600539
-    reference_title: &#34;Role of radiation therapy in primary tonsil large B cell lymphoma: a SEER-based analysis.&#34;
-    supports: SUPPORT
-    snippet: Primary tonsil diffuse large B cell lymphoma (PT-DLBCL) is an uncommon disease entity. The role of radiation therapy (RT) in PT-DLBCL is debatable in both the pre- and post-rituximab era. The purpose of this study was to evaluate the treatment outcome and establish a prognostic model in PT-DLBCL based on the Surveillance, Epidemiology, and End Results (SEER) database.
-    explanation: The study discusses the evaluation and treatment of primary tonsil diffuse large B cell lymphoma, indicating the use of imaging studies to assess the extent of the disease.
 - name: Blood Tests
   notes: CBC, LDH levels, and other markers for evaluating overall health and disease involvement.
   evidence:
@@ -6237,17 +8496,17 @@ diagnosis:
     explanation: The study focuses on the classification, prognostic factors, and treatment outcomes of primary tonsillar lymphoma but does not mention the use of blood tests such as CBC or LDH levels for evaluating overall health and disease involvement.
   - reference: PMID:28876549
     reference_title: &#34;Useful laboratory markers for the diagnosis of bone marrow involvement by malignant lymphoma.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: In the BMI group, platelets in peripheral blood (PLT) and megakaryocyte count in bone marrow (MgK) were significantly lower than those in the non-BMI group... The rate of peripheral blood involvement by malignant lymphoma (PBI), red blood cell distribution width (RDW), D-dimer (DD), soluble interleukin-2 receptor (sIL2R), aspartate aminotransferase (AST), and lactate dehydrogenase (LDH) was significantly higher in the BMI group than in the non-BMI group.
     explanation: This study indicates that certain blood markers, including LDH, are elevated in cases of bone marrow involvement by malignant lymphoma, which may relate to primary tonsillar lymphoma. However, it does not specifically address primary tonsillar lymphoma.
   - reference: PMID:6931618
     reference_title: &#34;Serum lactic dehydrogenase (LDH) levels in acute leukemia: marked elevations in lymphoblastic leukemia.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Serum total lactic dehydrogenase (LDH) levels were examined in 42 patients with acute leukemia, 9 patients with chronic myeloid leukemia, 6 of them in blastic crisis, and 53 patients with lymphoma and other lymphoproliferative disorders.
     explanation: The study shows that LDH levels are elevated in patients with lymphoma, which could be relevant for primary tonsillar lymphoma. However, it does not specifically mention primary tonsillar lymphoma or the use of CBC.
   - reference: PMID:18479855
     reference_title: &#34;Biopsy of cervical lymph node.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Serum levels of LDH, sIL-2r, age and lymph node size in the ML group were significantly higher than in the benign group.
     explanation: The study indicates that elevated LDH levels could be indicative of malignant lymphoma, which may include primary tonsillar lymphoma. However, it does not specifically address primary tonsillar lymphoma or the use of CBC.
 treatments:
@@ -6258,7 +8517,7 @@ treatments:
     reference_title: &#34;Clinical management of six cases of low-risk primary tonsillar non-Hodgkin&#39;s lymphoma.&#34;
     supports: SUPPORT
     snippet: We report six cases of primary tonsillar lymphoma with a median patient age of 42 years. There were two lymphoma cases with diffuse large cells, two cases with mixed small and large cells, one with small cells and one indeterminate. They were treated with six cycles of chemotherapy and cervical radiotherapy. All patients achieved durable complete remission.
-    explanation: The study discusses the use of chemotherapy, including CHOP regimen, for the treatment of primary tonsillar lymphoma, which supports the statement.
+    explanation: This case series of primary tonsillar lymphoma treated all patients with six cycles of chemotherapy (with radiotherapy) and achieved durable complete remission, supporting systemic chemotherapy as an effective treatment; the specific regimen is not named in the abstract.
   - reference: PMID:31894937
     reference_title: &#34;Lymphoma: Diagnosis and Treatment.&#34;
     supports: SUPPORT
@@ -6272,31 +8531,22 @@ treatments:
 - name: Radiation Therapy
   description: Targeted radiation to the tonsil and surrounding structures to control local disease.
   evidence:
-  - reference: PMID:8189757
-    reference_title: &#34;Radiation therapy for squamous cell carcinoma of the tonsil.&#34;
-    supports: NO_EVIDENCE
-    snippet: &#39;CONCLUSION: This study substantiates the effectiveness of radiation therapy in patients with squamous cell carcinoma of the tonsil.&#39;
-    explanation: The study is focused on squamous cell carcinoma of the tonsil, not primary tonsillar lymphoma.
-  - reference: PMID:20706049
-    reference_title: &#34;F-18 FDG PET/CT in primary tonsillar lymphoma.&#34;
-    supports: NO_EVIDENCE
-    snippet: Non-Hodgkin lymphomas quite often present in the head and neck but primary tonsillar lymphomas of extranodal non-Hodgkin lymphomas are far less than 1% of head and neck malignancies.
-    explanation: This reference mentions primary tonsillar lymphoma but does not provide specific evidence on the effectiveness of targeted radiation therapy for local disease control.
-  - reference: PMID:23790512
-    reference_title: &#34;Modern radiation therapy for Hodgkin lymphoma: field and dose guidelines from the international lymphoma radiation oncology group (ILROG).&#34;
-    supports: NO_EVIDENCE
-    snippet: Radiation therapy (RT) is the most effective single modality for local control of Hodgkin lymphoma (HL) and an important component of therapy for many patients.
-    explanation: This reference discusses radiation therapy for Hodgkin lymphoma, not primary tonsillar lymphoma.
+  - reference: PMID:34600539
+    reference_title: &#34;Role of radiation therapy in primary tonsil large B cell lymphoma: a SEER-based analysis.&#34;
+    supports: SUPPORT
+    snippet: RT significantly improved overall survival in both univariate (P &lt; 0.001) and multivariate (P = 0.002) analyses.
+    explanation: In the largest population-based series of primary tonsil diffuse large B cell lymphoma to date, radiation therapy was associated with significantly improved overall survival, directly supporting radiation therapy as a treatment for this disease.
+  - reference: PMID:6690005
+    reference_title: &#34;Non-Hodgkin&#39;s lymphoma of the tonsil. A clinicopathologic study of 65 cases.&#34;
+    supports: SUPPORT
+    snippet: From this limited series, radiotherapy alone would appear to be sufficient initial therapy for Stage IE patients, whereas Stage IIE patients probably benefit from the addition of prophylactic chemotherapy.
+    explanation: This 65-case clinicopathologic series of primary tonsillar lymphoma concludes that radiotherapy alone can be sufficient initial therapy for localized (Stage IE) disease, supporting radiation to the tonsil for local disease control.
   - reference: PMID:10592134
     reference_title: &#34;Clinical management of six cases of low-risk primary tonsillar non-Hodgkin&#39;s lymphoma.&#34;
-    supports: NO_EVIDENCE
+    supports: SUPPORT
     snippet: There have been many reports that favor aggressive systemic treatment with chemotherapy and radiotherapy, even for well-localized lymphomas, avoiding the need for tonsillectomy of the normal tonsil.
-    explanation: The reference discusses a combination of chemotherapy and radiotherapy for primary tonsillar lymphoma but does not provide specific details on targeted radiation therapy for local disease control.
-  - reference: PMID:38742359
-    reference_title: &#34;[Analysis on the ultrasonic characteristics of tonsillar lymphoma].&#34;
-    supports: NO_EVIDENCE
-    snippet: The clinical, pathological and ultrasonic data of nine patients with tonsillar lymphoma confirmed by pathology at Tianjin Medical University Cancer Institute and Hospital during June 2015 and June 2022 were analyzed retrospectively.
-    explanation: This reference focuses on the ultrasonic features of tonsillar lymphoma and does not provide evidence on targeted radiation therapy for local disease control.
+    explanation: This case series of primary tonsillar lymphoma treated all six patients with chemotherapy plus cervical radiotherapy, reflecting the use of radiotherapy as part of standard management of localized disease.
+  therapeutic_modality: RADIOTHERAPY
   treatment_term:
     preferred_term: Radiation Therapy
     term:
@@ -6319,10 +8569,10 @@ treatments:
     reference_title: &#34;Non-myeloablative radioimmunotherapy for non-Hodgkin&#39;s lymphoma.&#34;
     supports: SUPPORT
     snippet: Iodine 131-tositumomab and ibritumomab tiuxetan, radioimmunoconjugates that target the CD20 antigen, have been approved in the United States for use in relapsed or refractory, indolent, and transformed B-cell lymphomas.
-    explanation: This reference supports the use of targeted therapies, specifically mentioning CD20-targeting agents for B-cell lymphomas, which includes rituximab.
+    explanation: This reference documents approved CD20-targeted radioimmunoconjugates (tositumomab and ibritumomab tiuxetan) for B-cell lymphomas, supporting CD20-directed targeted therapy as a treatment class for B-cell lymphoma; it does not itself discuss rituximab.
   - reference: PMID:30709635
     reference_title: &#34;[Primary skin lymphomas: Current therapy].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: While the innovations in terms of B-cell lymphomas are certainly less significant, mention must also be made of the value of rituximab combined with polychemotherapy (CHOP) and of lenalidomide (as second-line therapy) in primary cutaneous diffuse large B-cell lymphoma, leg type.
     explanation: This reference mentions rituximab as part of the treatment for a specific type of B-cell lymphoma, but not specifically for primary tonsillar lymphoma.
   - reference: PMID:32755987
@@ -6338,21 +8588,17 @@ treatments:
 - name: Stem Cell Transplant
   description: Considered in certain cases where high-dose chemotherapy is followed by infusion of healthy stem cells to restore bone marrow function.
   evidence:
-  - reference: PMID:32725379
-    reference_title: &#34;Consolidation Therapy in Primary Central Nervous System Lymphoma.&#34;
-    supports: SUPPORT
-    snippet: Based on high rates of long-term remission, our first choice for consolidation therapy is high-dose chemotherapy with autologous stem-cell transplant using thiotepa, busulfan, and cyclophosphamide as a myeloablative regimen, with a curative intent.
-    explanation: The reference discusses the use of high-dose chemotherapy followed by stem-cell transplant as a consolidation therapy, which aligns with the statement about primary tonsillar lymphoma.
   - reference: PMID:20359581
     reference_title: &#34;High-dose therapy and stem cell transplantation.&#34;
     supports: SUPPORT
+    directness: INDIRECT
     snippet: Results of conventional or high-dose chemotherapy for peripheral T-cell lymphoma (PTCL) are unsatisfactory, leaving a potential role for autologous or allogeneic stem cell transplantation.
-    explanation: The reference indicates that high-dose chemotherapy followed by stem cell transplantation is considered for certain types of lymphoma, supporting the statement.
+    explanation: This review concerns peripheral T-cell lymphoma in general rather than tonsillar lymphoma specifically; it partially supports the claim by showing that stem cell transplantation is considered for lymphoma subtypes (including the T-cell histologies that can present in the tonsil) when chemotherapy results are unsatisfactory.
   treatment_term:
     preferred_term: chemotherapy
     term:
-      id: MAXO:0000647
-      label: chemotherapy
+      id: NCIT:C15632
+      label: Chemotherapy
 notes: Primary Tonsillar Lymphoma is a rare subtype of lymphoma that occurs in the tonsils and can spread to nearby and distant lymph nodes. Early symptoms often mimic other ENT conditions but require biopsy and imaging for accurate diagnosis. Treatment usually involves a combination of chemotherapy, radiation, and potentially targeted therapies to manage the disease and prevent recurrence.
 disease_term:
   preferred_term: tonsillar lymphoma
@@ -6552,6 +8798,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6778,6 +9026,11 @@ Primary tonsillar lymphoma most commonly comprises large B‑cell lymphomas aris
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Primary_Tonsillar_Lymphoma.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -6818,7 +9071,7 @@ Primary tonsillar lymphoma most commonly comprises large B‑cell lymphomas aris
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Primary_Tonsillar_Lymphoma", "mondoId": "MONDO:0044884", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Tonsillar_Lymphoma", "yamlRevision": "239f4cdd96e2"};
+        const OS_CONFIG = {"diseaseName": "Primary_Tonsillar_Lymphoma", "mondoId": "MONDO:0044884", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Tonsillar_Lymphoma", "yamlRevision": "a3d42f3044d9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7237,5 +9490,73 @@ Primary tonsillar lymphoma most commonly comprises large B‑cell lymphomas aris
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

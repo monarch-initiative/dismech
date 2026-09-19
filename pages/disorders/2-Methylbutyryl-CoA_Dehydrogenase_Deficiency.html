@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>2-Methylbutyryl-CoA Dehydrogenase Deficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>2-Methylbutyryl-CoA Dehydrogenase Deficiency</h1>
             <div class="header-meta">
 
@@ -3203,6 +3962,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3251,6 +4014,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -3349,35 +4121,35 @@
 
 
 
-    <span class="entity-ref-chip">phenotypes#Largely asymptomatic course</span>
+    <a class="entity-ref-chip" href="#phenotype-largely-asymptomatic-course">phenotypes#Largely asymptomatic course</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotypes#Developmental delay</span>
+    <a class="entity-ref-chip" href="#phenotype-developmental-delay">phenotypes#Developmental delay</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotypes#Seizures</span>
+    <a class="entity-ref-chip" href="#phenotype-seizures">phenotypes#Seizures</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotypes#Autism</span>
+    <a class="entity-ref-chip" href="#phenotype-autism">phenotypes#Autism</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotypes#Metabolic acidosis</span>
+    <a class="entity-ref-chip" href="#phenotype-metabolic-acidosis">phenotypes#Metabolic acidosis</a>
 
 
 
@@ -3430,6 +4202,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -3461,7 +4239,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31555323" target="_blank">PMID:31555323</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3483,7 +4264,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41722717" target="_blank">PMID:41722717</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3527,28 +4311,28 @@
 
 
 
-    <span class="entity-ref-chip">treatments#Carnitine supplementation</span>
+    <a class="entity-ref-chip" href="#treatment-carnitine-supplementation">treatments#Carnitine supplementation</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Precautionary fasting avoidance and illness plan</span>
+    <a class="entity-ref-chip" href="#treatment-precautionary-fasting-avoidance-and-illness-plan">treatments#Precautionary fasting avoidance and illness plan</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Dietary management</span>
+    <a class="entity-ref-chip" href="#treatment-dietary-management">treatments#Dietary management</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Valproate avoidance (theoretical precaution)</span>
+    <a class="entity-ref-chip" href="#treatment-valproate-avoidance-theoretical-precaution">treatments#Valproate avoidance (theoretical precaution)</a>
 
 
 
@@ -3576,6 +4360,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Within a multicenter natural-history network, compare prespecified strategies using clinical outcomes, treatment burden, adverse effects, free carnitine, and metabolite trajectories, adjusting for indication.</div>
+
+
+
+
+
+
 
 
 
@@ -3625,7 +4415,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36147814" target="_blank">PMID:36147814</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3647,7 +4440,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17883863" target="_blank">PMID:17883863</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3698,15 +4494,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ACADSB
 
 
-    <a href="https://bioregistry.io/hgnc:91" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:91">hgnc:91</a>
+    <a href="https://bioregistry.io/hgnc:91" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:91</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ACADSB (hgnc:91). hgnc:91 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3733,6 +4536,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         L-isoleucine catabolic process
@@ -3740,10 +4545,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006550" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006550">GO:0006550</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006550" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006550</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased L-isoleucine catabolic process (GO:0006550). GO:0006550 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3767,6 +4575,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         short/branched-chain acyl-CoA dehydrogenase activity
@@ -3774,10 +4584,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003995" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003995">GO:0003995</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003995" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0003995</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased short/branched-chain acyl-CoA dehydrogenase activity, annotated with acyl-CoA dehydrogenase activity (GO:0003995). GO:0003995 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -3803,19 +4616,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -3849,7 +4668,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11013134" target="_blank">PMID:11013134</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -3871,7 +4693,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10832746" target="_blank">PMID:10832746</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -3910,16 +4735,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         L-isoleucine catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006550" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006550">GO:0006550</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006550" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006550</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased L-isoleucine catabolic process (GO:0006550). GO:0006550 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3939,16 +4769,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         branched-chain amino acid catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009083" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009083">GO:0009083</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009083" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0009083</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased branched-chain amino acid catabolic process (GO:0009083). GO:0009083 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3969,6 +4804,7 @@
 
 
                 </div>
+
 
 
 
@@ -4045,7 +4881,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15615815" target="_blank">PMID:15615815</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4084,16 +4923,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         L-isoleucine catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006550" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006550">GO:0006550</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006550" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006550</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves L-isoleucine catabolic process (GO:0006550). GO:0006550 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4116,19 +4960,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4170,7 +5020,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15615815" target="_blank">PMID:15615815</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4202,16 +5055,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         glial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000125" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000125">CL:0000125</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000125" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000125</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glial cell (CL:0000125). CL:0000125 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4238,17 +5096,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4269,10 +5134,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034440" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034440">GO:0034440</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034440" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0034440</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased lipid oxidation (GO:0034440). GO:0034440 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4302,6 +5170,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4314,7 +5183,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22967964" target="_blank">PMID:22967964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4336,7 +5208,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22967964" target="_blank">PMID:22967964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4379,6 +5254,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4402,13 +5278,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30730842" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30730842" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30730842" target="_blank">PMID:30730842</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4430,7 +5309,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41722717" target="_blank">PMID:41722717</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4497,11 +5379,11 @@
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
 
@@ -4509,7 +5391,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4519,22 +5401,31 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-2-methylbutyrylglycinuria" data-dismech-node="2-Methylbutyrylglycinuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         2-Methylbutyrylglycinuria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Organic aciduria
+
+                        <span class="phenotype-term-label">Organic aciduria</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001992" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001992">HP:0001992</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001992</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Organic aciduria (HP:0001992). HP:0001992 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4555,7 +5446,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15615815" target="_blank">PMID:15615815</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4577,7 +5471,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598537" target="_blank">PMID:40598537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4593,13 +5490,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36709932" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36709932" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36709932" target="_blank">PMID:36709932</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4625,28 +5525,28 @@
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-2-ethylhydracrylic-aciduria" data-dismech-node="2-Ethylhydracrylic aciduria" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Microcephaly
+                        2-Ethylhydracrylic aciduria
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Microcephaly
+
+                        <span class="phenotype-term-label">2-ethylhydracylic aciduria</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0033220</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is 2-ethylhydracrylic aciduria, annotated with 2-ethylhydracylic aciduria (HP:0033220). HP:0033220 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4661,13 +5561,119 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15615815" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15615815" target="_blank">PMID:15615815</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In multiple urine samples, organic acid analysis revealed a prominent 2-EHA peak usually exceeding the size of the 2-MBG peak."</div>
+
+
+                <div class="evidence-explanation">Repeated samples from four patients established 2-EHA as a prominent finding.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40598537" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598537" target="_blank">PMID:40598537</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the lower specificity of 2-EHA and the fact that it can be elevated in several other congenital metabolic disorders means that it should be used as a diagnostic marker only in conjunction with other markers and clinical factors."</div>
+
+
+                <div class="evidence-explanation">The diagnostic study directly limits 2-EHA to an adjunctive role.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Microcephaly
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4683,13 +5689,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4721,22 +5730,125 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-c5-acylcarnitine-on-newborn-screening" data-dismech-node="Elevated C5-acylcarnitine on newborn screening" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated C5-acylcarnitine on newborn screening
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating C5 acylcarnitine concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0035019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0035019</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating C5 acylcarnitine concentration (HP:0035019). HP:0035019 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31555323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31555323" target="_blank">PMID:31555323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"all patients showed slightly or moderately elevated C5-carnitine concentrations"</div>
+
+
+                <div class="evidence-explanation">C5 was the initial signal in all 12 screen-ascertained cases; selection prevents a feature-frequency estimate.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40598537" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598537" target="_blank">PMID:40598537</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ten individuals showed elevated C5 in blood, ranging from 0.32 to 1.64 µmol/L; the remaining two individuals showed C5 levels within the normal reference range."</div>
+
+
+                <div class="evidence-explanation">Two of 12 genotyped cases had C5 within the local reference interval.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-metabolic-acidosis" data-dismech-node="Metabolic acidosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Metabolic acidosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Metabolic acidosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001942">HP:0001942</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001942</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4751,13 +5863,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4792,19 +5907,26 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-muscular-hypotonia" data-dismech-node="Muscular hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Muscular hypotonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4819,13 +5941,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12837870" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12837870" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12837870" target="_blank">PMID:12837870</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4851,19 +5976,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-muscle-atrophy" data-dismech-node="Skeletal muscle atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Skeletal muscle atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Skeletal muscle atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003202">HP:0003202</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003202</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4878,13 +6010,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12837870" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12837870" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12837870" target="_blank">PMID:12837870</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4919,19 +6054,28 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-delay" data-dismech-node="Developmental delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Developmental delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
+
+                        <span class="phenotype-term-label">Global developmental delay</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4946,13 +6090,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12837870" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12837870" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12837870" target="_blank">PMID:12837870</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4968,13 +6115,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5000,19 +6150,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5027,13 +6184,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5059,19 +6219,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autism" data-dismech-node="Autism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000717">HP:0000717</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000717</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5086,13 +6253,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5127,19 +6297,26 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
                     <div class="item-name">
                         Failure to thrive
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5154,13 +6331,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30730842" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30730842" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30730842" target="_blank">PMID:30730842</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5192,10 +6372,10 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-largely-asymptomatic-course" data-dismech-node="Largely asymptomatic course" data-dismech-type="phenotype">
                     <div class="item-name">
                         Largely asymptomatic course
 
@@ -5220,7 +6400,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30730842" target="_blank">PMID:30730842</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5242,7 +6425,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5264,7 +6450,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41722717" target="_blank">PMID:41722717</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5290,169 +6479,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Elevated C5-acylcarnitine on newborn screening
-
-
-                    <span class="phenotype-id">
-                        Elevated circulating C5 acylcarnitine concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0035019" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0035019">HP:0035019</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31555323" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31555323" target="_blank">PMID:31555323</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"all patients showed slightly or moderately elevated C5-carnitine concentrations"</div>
-
-
-                <div class="evidence-explanation">C5 was the initial signal in all 12 screen-ascertained cases; selection prevents a feature-frequency estimate.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40598537" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598537" target="_blank">PMID:40598537</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Ten individuals showed elevated C5 in blood, ranging from 0.32 to 1.64 µmol/L; the remaining two individuals showed C5 levels within the normal reference range."</div>
-
-
-                <div class="evidence-explanation">Two of 12 genotyped cases had C5 within the local reference interval.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        2-Ethylhydracrylic aciduria
-
-
-                    <span class="phenotype-id">
-                        2-ethylhydracylic aciduria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033220" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033220">HP:0033220</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15615815" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15615815" target="_blank">PMID:15615815</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In multiple urine samples, organic acid analysis revealed a prominent 2-EHA peak usually exceeding the size of the 2-MBG peak."</div>
-
-
-                <div class="evidence-explanation">Repeated samples from four patients established 2-EHA as a prominent finding.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40598537" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598537" target="_blank">PMID:40598537</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the lower specificity of 2-EHA and the fact that it can be elevated in several other congenital metabolic disorders means that it should be used as a diagnostic marker only in conjunction with other markers and clinical factors."</div>
-
-
-                <div class="evidence-explanation">The diagnostic study directly limits 2-EHA to an adjunctive role.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-athetoid-cerebral-palsy" data-dismech-node="Athetoid cerebral palsy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Athetoid cerebral palsy
 
@@ -5469,13 +6496,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12837870" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12837870" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12837870" target="_blank">PMID:12837870</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5540,7 +6570,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-acadsb-pathogenic-variants" data-dismech-node="ACADSB pathogenic variants" data-dismech-type="genetic">
                 <div class="item-name">
                     ACADSB pathogenic variants
 
@@ -5552,13 +6582,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ACADSB
 
 
-    <a href="https://bioregistry.io/hgnc:91" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:91">hgnc:91</a>
+    <a href="https://bioregistry.io/hgnc:91" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:91</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ACADSB (hgnc:91). hgnc:91 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5586,7 +6621,10 @@
                         <a href="https://bioregistry.io/CGGV:assertion_8bfa3857-c96c-40ac-b4c1-2cf04fd4eb4f-2019-03-22T160000.000Z" target="_blank">CGGV:assertion_8bfa3857-c96c-40ac-b4c1-2cf04fd4eb4f-2019-03-22T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5607,9 +6645,248 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (3)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-1165a-g-exon-10-skipping-hmong-founder-variant" data-dismech-node="c.1165A&gt;G (exon 10 skipping), Hmong founder variant" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.1165A&gt;G (exon 10 skipping), Hmong founder variant
+
+    </div>
+
+
+    <div class="item-desc">c.1165A&gt;G causes exon 10 skipping and is a founder variant in the Hmong population. In random Wisconsin Hmong newborn cards, 1.3% were homozygous and 21.8% heterozygous. The variant is enriched in Miao and Dong groups in China, but those data do not prove a separate founder event.</div>
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12837870" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12837870" target="_blank">PMID:12837870</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Molecular genetic analysis performed for 3 of these patients revealed that all are homozygous for an 1165A&gt;G mutation that causes skipping of exon 10 of the SBCAD gene."</div>
+
+
+                <div class="evidence-explanation">Directly supports the exon-skipping effect.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23712021" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23712021" target="_blank">PMID:23712021</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This corresponds to a prevalence in this ethnic group of being homozygous for the mutation of 1.3% (95% confidence interval 0.8-2.2%) and of being heterozygous for the mutation of 21.8% (95% confidence interval 19.4-24.3%)"</div>
+
+
+                <div class="evidence-explanation">Random newborn-card genotyping supplies the Hmong homozygote and carrier estimates.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38784038" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38784038" target="_blank">PMID:38784038</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NM_001609.4:c.1165A&gt;G in the ACADSB gene for Miao and Dong ethnic groups"</div>
+
+
+                <div class="evidence-explanation">The cohort identifies ethnic enrichment but not an independent founder event.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-303-3a-g-somali-eritrean-population-enriched-splice-variant" data-dismech-node="c.303+3A&gt;G, Somali/Eritrean population-enriched splice variant" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.303+3A&gt;G, Somali/Eritrean population-enriched splice variant
+
+    </div>
+
+
+    <div class="item-desc">The intron 3 c.303+3A&gt;G splice-region variant was observed homozygously in a Somali child and in two previously reported people of Somali and Eritrean origin. This small case series suggests population enrichment but does not establish a founder effect or penetrance for neurologic findings.</div>
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17883863" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17883863" target="_blank">PMID:17883863</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This mutation was also found in two previously reported cases with SBCADD, both originating from Somalia and Eritrea, indicating that it is relatively prevalent in this population."</div>
+
+
+                <div class="evidence-explanation">The report supports recurrence of c.303+3A&gt;G in people of Somali and Eritrean origin while leaving the population frequency uncertain.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-diverse-acadsb-loss-of-function-and-missense-variants" data-dismech-node="Diverse ACADSB loss-of-function and missense variants" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Diverse ACADSB loss-of-function and missense variants
+
+    </div>
+
+
+    <div class="item-desc">Nonsense, splice, frameshift, and missense variants occur outside the Hmong founder background. Expression studies of selected missense alleles demonstrated inactive or unstable SBCAD protein; genotype-phenotype correlations remain unresolved.</div>
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Escherichia coli expression studies revealed that the missense mutations identified lead to inactivation or instability of the mutant SBCAD enzymes."</div>
+
+
+                <div class="evidence-explanation">Functional expression assays support loss of function for selected alleles.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5621,7 +6898,7 @@
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-carnitine-supplementation" data-dismech-node="Carnitine supplementation" data-dismech-type="treatment">
                 <div class="item-name">
                     Carnitine supplementation
                 </div>
@@ -5629,13 +6906,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">carnitine supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">carnitine supplementation<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is carnitine supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0010006" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0010006">MAXO:0010006</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15433">NCIT:C15433</a>
 
 
 
@@ -5659,19 +6942,38 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         (R)-carnitine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16347" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:16347">CHEBI:16347</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16347" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:16347</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses (R)-carnitine (CHEBI:16347). CHEBI:16347 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5688,13 +6990,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30730842" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30730842" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30730842" target="_blank">PMID:30730842</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5710,13 +7015,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36147814" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36147814" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36147814" target="_blank">PMID:36147814</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5739,7 +7047,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-precautionary-fasting-avoidance-and-illness-plan" data-dismech-node="Precautionary fasting avoidance and illness plan" data-dismech-type="treatment">
                 <div class="item-name">
                     Precautionary fasting avoidance and illness plan
                 </div>
@@ -5747,13 +7055,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5771,6 +7085,20 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5798,13 +7126,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30730842" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30730842" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30730842" target="_blank">PMID:30730842</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5839,13 +7170,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5868,7 +7202,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-dietary-management" data-dismech-node="Dietary management" data-dismech-type="treatment">
                 <div class="item-name">
                     Dietary management
                 </div>
@@ -5876,13 +7210,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000088" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000088">MAXO:0000088</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -5900,6 +7240,31 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -5927,13 +7292,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12837870" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12837870" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12837870" target="_blank">PMID:12837870</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5968,13 +7336,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17883863" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17883863" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17883863" target="_blank">PMID:17883863</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5990,13 +7361,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6019,7 +7393,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-valproate-avoidance-theoretical-precaution" data-dismech-node="Valproate avoidance (theoretical precaution)" data-dismech-type="treatment">
                 <div class="item-name">
                     Valproate avoidance (theoretical precaution)
                 </div>
@@ -6027,6 +7401,20 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6051,7 +7439,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21430231" target="_blank">PMID:21430231</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6067,13 +7458,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30730842" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30730842" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30730842" target="_blank">PMID:30730842</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6096,7 +7490,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-newborn-screening-via-tandem-mass-spectrometry" data-dismech-node="Newborn screening via tandem mass spectrometry" data-dismech-type="treatment">
                 <div class="item-name">
                     Newborn screening via tandem mass spectrometry
                 </div>
@@ -6104,13 +7498,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Screening</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">disease screening</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">disease screening<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Disease Screening</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000124" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000124">MAXO:0000124</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15419">NCIT:C15419</a>
 
 
 
@@ -6128,6 +7528,20 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6152,7 +7566,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12837870" target="_blank">PMID:12837870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6168,13 +7585,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23712021" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23712021" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23712021" target="_blank">PMID:23712021</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6197,7 +7617,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic counseling
                 </div>
@@ -6205,7 +7625,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6234,6 +7659,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling should explain autosomal-recessive inheritance, a 25% recurrence risk when both parents carry a pathogenic variant, familial testing options, the high c.1165A&gt;G carrier frequency in Hmong people, and uncertain penetrance.</div>
 
 
@@ -6253,7 +7692,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23712021" target="_blank">PMID:23712021</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6276,7 +7718,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-longitudinal-clinical-follow-up" data-dismech-node="Longitudinal clinical follow-up" data-dismech-type="treatment">
                 <div class="item-name">
                     Longitudinal clinical follow-up
                 </div>
@@ -6284,14 +7726,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">clinical monitoring</span>
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: clinical assessment</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">clinical monitoring<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is clinical monitoring, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Clinical Evaluation</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000487" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000487">MAXO:0000487</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C124351">NCIT:C124351</a>
 
 
 
@@ -6314,6 +7761,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Periodic clinical assessment is reasonable to document development, intercurrent illnesses, and treatment exposure because natural history is incompletely defined. It should not be presented as surveillance for established late neurologic complications, which have not been causally linked.</div>
 
 
@@ -6327,13 +7788,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31555323" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31555323" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31555323" target="_blank">PMID:31555323</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6371,7 +7835,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-c5-acylcarnitine-signal-in-blood" data-dismech-node="C5-acylcarnitine signal in blood" data-dismech-type="biochemical">
                 <div class="item-name">
                     C5-acylcarnitine signal in blood
 
@@ -6419,7 +7883,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6453,13 +7920,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40598537" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40598537" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598537" target="_blank">PMID:40598537</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6482,7 +7952,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-2-methylbutyrylglycine-2-mbg-in-urine" data-dismech-node="2-Methylbutyrylglycine (2-MBG) in urine" data-dismech-type="biochemical">
                 <div class="item-name">
                     2-Methylbutyrylglycine (2-MBG) in urine
 
@@ -6530,7 +8000,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15615815" target="_blank">PMID:15615815</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6570,7 +8043,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598537" target="_blank">PMID:40598537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6593,7 +8069,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-2-ethylhydracrylic-acid-2-eha-in-urine" data-dismech-node="2-Ethylhydracrylic acid (2-EHA) in urine" data-dismech-type="biochemical">
                 <div class="item-name">
                     2-Ethylhydracrylic acid (2-EHA) in urine
 
@@ -6641,7 +8117,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15615815" target="_blank">PMID:15615815</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6675,13 +8154,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40598537" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40598537" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598537" target="_blank">PMID:40598537</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6707,6 +8189,871 @@
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-follow-up-of-an-elevated-c5-newborn-screen">
+                <div class="item-name">
+                    Follow-up of an elevated C5 newborn screen
+
+                </div>
+
+                <div class="item-desc">An elevated C5 result requires prompt follow-up because standard tandem mass spectrometry cannot distinguish 2-methylbutyrylcarnitine from isovalerylcarnitine, and pivaloylcarnitine can cause an analytic false positive. C5 magnitude and ratios may inform triage but do not establish SBCADD.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> An unresolved elevated C5 signal prompts evaluation for SBCADD, isovaleric acidemia, and pivalate-related interference.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23499962" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23499962" target="_blank">PMID:23499962</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"further differentiation of C5-acylcarnitines in order to separate different metabolic disorders and to detect interferents like pivalic acid originating from antibiotics."</div>
+
+
+                <div class="evidence-explanation">The study establishes both C5-isomer resolution and pivalate interference.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-urine-organic-acid-and-acylglycine-analysis">
+                <div class="item-name">
+                    Urine organic-acid and acylglycine analysis
+
+                </div>
+
+                <div class="item-desc">Urinary 2-MBG strongly supports SBCADD; 2-EHA is a sensitive but less specific adjunct. Normal or fluctuating values do not alone exclude the condition, and the whole pattern distinguishes other isoleucine disorders.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Increased 2-MBG, often with 2-EHA and without isovalerylglycine, supports SBCADD.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40598537" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598537" target="_blank">PMID:40598537</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The urinary markers 2-MBG and 2-EHA show similar sensitivity for diagnosing 2-methylbutyrylglycinuria, but the lower specificity of 2-EHA and the fact that it can be elevated in several other congenital metabolic disorders"</div>
+
+
+                <div class="evidence-explanation">The 12-case study supports both markers while directly limiting 2-EHA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-acadsb-molecular-genetic-testing">
+                <div class="item-name">
+                    ACADSB molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Identification of biallelic pathogenic ACADSB variants confirms the molecular diagnosis in a person with a concordant biochemical profile.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic pathogenic or likely pathogenic ACADSB variants confirm the molecular diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40598537" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598537" target="_blank">PMID:40598537</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"12 individuals diagnosed with 2-methylbutyrylglycinuria based on ACADSB genotyping"</div>
+
+
+                <div class="evidence-explanation">The diagnostic-marker study used ACADSB genotyping to define its case group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-sbcad-enzyme-activity-testing">
+                <div class="item-name">
+                    SBCAD enzyme activity testing
+
+                </div>
+
+                <div class="item-desc">When molecular results are incomplete or uncertain, direct SBCAD activity in patient fibroblasts can demonstrate the functional biochemical defect.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Deficient activity toward 2-methylbutyryl-CoA supports functional confirmation.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11013134" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11013134" target="_blank">PMID:11013134</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Enzyme assay of the patient&#39;s fibroblasts, using 2-methylbutyryl-CoA as substrate, confirmed the defect."</div>
+
+
+                <div class="evidence-explanation">Directly demonstrates functional confirmation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-newborn-screening-ascertainment">
+                <div class="item-name">Newborn-screening ascertainment</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Neonatal period</span>
+
+
+
+                </div>
+
+                <div class="item-notes">SBCADD is usually detected incidentally through elevated C5. Urine organic acid or acylglycine analysis and ACADSB testing distinguish it from isovaleric acidemia and pivalate-related C5 elevations. C5 and urinary metabolites can vary, so a single normal follow-up value does not exclude the biochemical phenotype.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41722717" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41722717" target="_blank">PMID:41722717</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Accurate differentiation from isovaleric acidemia and careful integration of biochemical, genetic and clinical data remain essential."</div>
+
+
+                <div class="evidence-explanation">The current clinical series emphasizes integrated confirmation after the nonspecific C5 screening signal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-predominantly-asymptomatic-follow-up">
+                <div class="item-name">Predominantly asymptomatic follow-up</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Infancy through adulthood; long-term data remain limited</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Most newborn-screened individuals remain clinically well. A 2019 review counted symptoms in about 10% of published patients, but that literature is enriched for symptom-ascertained cases and later cohorts question whether the neurologic findings were caused by SBCADD. Isolated reports of acute decompensation justify clinical awareness, but the absolute risk and benefit of preventive treatment remain unknown.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20547083" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our patients have been well without treatment and call for careful follow-up studies to learn the true clinical impact of this disorder."</div>
+
+
+                <div class="evidence-explanation">Eleven newborn-screened non-Hmong patients remained well without treatment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41722717" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41722717" target="_blank">PMID:41722717</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our findings support SBCADD as a primarily biochemical phenotype with a largely benign course"</div>
+
+
+                <div class="evidence-explanation">The newest clinical series supports a largely benign biochemical phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-hmong-wisconsin-usa">
+                <div class="item-name">Hmong (Wisconsin, USA)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1300.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Homozygosity for the founder c.1165A&gt;G variant was found in 1.3% of randomly sampled Hmong newborn screening cards. This is a genotype-based birth-prevalence estimate, not clinical penetrance or C5-screen sensitivity.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23712021" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23712021" target="_blank">PMID:23712021</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This corresponds to a prevalence in this ethnic group of being homozygous for the mutation of 1.3% (95% confidence interval 0.8-2.2%) and of being heterozygous for the mutation of 21.8% (95% confidence interval 19.4-24.3%)"</div>
+
+
+                <div class="evidence-explanation">Random newborn-card genotyping directly supplies the 1.3% homozygous estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-hmong-c-1165a-g-carriers-wisconsin-usa">
+                <div class="item-name">Hmong c.1165A&gt;G carriers (Wisconsin, USA)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Carrier Frequency</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        21800.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000 (carriers)</span>
+
+                </div>
+
+                <div class="item-notes">Heterozygosity for the founder ACADSB c.1165A&gt;G variant was found in 21.8% of randomly sampled Hmong newborn screening cards. This carrier-frequency record is distinct from homozygous genotype-based birth prevalence.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23712021" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23712021" target="_blank">PMID:23712021</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This corresponds to a prevalence in this ethnic group of being homozygous for the mutation of 1.3% (95% confidence interval 0.8-2.2%) and of being heterozygous for the mutation of 21.8% (95% confidence interval 19.4-24.3%)"</div>
+
+
+                <div class="evidence-explanation">Random newborn-card genotyping directly supplies the 21.8% carrier frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-newborns-huaihua-china">
+                <div class="item-name">Newborns, Huaihua, China</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        14.0115 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 10,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Birth prevalence was 1 in 7,137 in a 206,977-newborn screening cohort (2015-2021); ascertainment may vary by ethnicity and C5 cutoff.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38784038" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38784038" target="_blank">PMID:38784038</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The two most common disorders were 2-methylbutyryl glycinuria (1:7,137) and phenylalanine hydroxylase deficiency (1:22,997)."</div>
+
+
+                <div class="evidence-explanation">One in 7,137 equals 14.0115 per 100,000 births.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-newborns-quanzhou-china-2014-2023">
+                <div class="item-name">Newborns, Quanzhou, China (2014-2023)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        2.5944 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Eighteen confirmed cases among 693,797 screened newborns (1 in 38,544) in the updated 10-year cohort, superseding the earlier 2014-2018 subset estimate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40835664" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40835664" target="_blank">PMID:40835664</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A total of 693,797 newborns were screened for OADs from 2014 to 2023"</div>
+
+
+                <div class="evidence-explanation">Supplies the denominator for the updated Quanzhou cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40835664" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40835664" target="_blank">PMID:40835664</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seven types of OADs were identified, of which 18 were 2-methylbutyryl-CoA dehydrogenase deficiency (MBAD)"</div>
+
+
+                <div class="evidence-explanation">Eighteen of 693,797 equals 2.5944 per 100,000 births.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-newborns-zhejiang-china-2016-2021">
+                <div class="item-name">Newborns, Zhejiang, China (2016-2021)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.4394 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Twelve screen-detected cases among 2,730,852 newborns (1 in 227,571), illustrating geographic and ascertainment variation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36709932" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36709932" target="_blank">PMID:36709932</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Twelve cases of SBCAD deficiency were diagnosed, which yielded a prevalence of 1/227 571."</div>
+
+
+                <div class="evidence-explanation">One in 227,571 equals 0.4394 per 100,000 births.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6721,7 +9068,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-isovaleric-acidemia">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Isovaleric_Acidemia.html">Isovaleric acidemia</a>
@@ -6768,7 +9115,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6793,7 +9143,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pivaloylcarnitine-interference">
                 <div class="item-name">
 
                     Pivaloylcarnitine interference
@@ -6834,7 +9184,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23499962" target="_blank">PMID:23499962</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6859,7 +9212,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-other-disorders-with-2-eha-aciduria">
                 <div class="item-name">
 
                     Other disorders with 2-EHA aciduria
@@ -6900,7 +9253,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598537" target="_blank">PMID:40598537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6922,7 +9278,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20547083" target="_blank">PMID:20547083</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6957,6 +9316,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6974,7 +9336,6 @@
                 <pre class="yaml-preview">name: 2-Methylbutyryl-CoA Dehydrogenase Deficiency
 category: Mendelian
 creation_date: &#39;2026-02-23T00:00:00Z&#39;
-updated_date: &#39;2026-07-14T00:00:00Z&#39;
 synonyms:
 - Short/branched-chain acyl-CoA dehydrogenase deficiency
 - SBCADD
@@ -7381,7 +9742,7 @@ pathophysiology:
       reference_title: &gt;-
         Clinical, biochemical, and molecular spectrum of short/branched-chain
         acyl-CoA dehydrogenase deficiency: two new cases and review of literature.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Catabolic situations can precipitate acute metabolic decompensation.
@@ -7503,7 +9864,7 @@ pathophysiology:
     reference_title: &gt;-
       Clinical, biochemical, and molecular spectrum of short/branched-chain
       acyl-CoA dehydrogenase deficiency: two new cases and review of literature.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Acute metabolic decompensation due to catabolic stressors can occur, as
@@ -7533,7 +9894,7 @@ pathophysiology:
         Characterization of new ACADSB gene sequence mutations and clinical
         implications in patients with 2-methylbutyrylglycinuria identified by
         newborn screening.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         The first reported patient presented with acute metabolic acidosis at
@@ -7614,7 +9975,7 @@ phenotypes:
     reference_title: &gt;-
       Usefulness of levels of 2-methylbutyrylglycine and 2-ethylhydracrylic acid
       in urine for diagnosing 2-methylbutyrylglycinuria.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Ten individuals showed elevated C5 in blood, ranging from 0.32 to 1.64
@@ -7683,7 +10044,7 @@ phenotypes:
       [Analysis of clinical features, biochemical indices and genetic variants
       among children with Short/branched-chain acyl-CoA dehydrogenase
       deficiency detected by neonatal screening].
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Urine organic acid analysis was carried out in 9 cases, and
@@ -7718,7 +10079,7 @@ phenotypes:
     reference_title: &gt;-
       Usefulness of levels of 2-methylbutyrylglycine and 2-ethylhydracrylic acid
       in urine for diagnosing 2-methylbutyrylglycinuria.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       the lower specificity of 2-EHA and the fact that it can be elevated in
@@ -7741,7 +10102,7 @@ phenotypes:
     reference_title: &gt;-
       Prospective diagnosis of 2-methylbutyryl-CoA dehydrogenase deficiency in
       the Hmong population by newborn screening using tandem mass spectrometry.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       One patient developed athetoid cerebral palsy, and another had severe
@@ -7753,7 +10114,7 @@ phenotypes:
       Characterization of new ACADSB gene sequence mutations and clinical
       implications in patients with 2-methylbutyrylglycinuria identified by
       newborn screening.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Notably, our one patient identified through an evaluation for significant
@@ -7776,7 +10137,7 @@ phenotypes:
       Characterization of new ACADSB gene sequence mutations and clinical
       implications in patients with 2-methylbutyrylglycinuria identified by
       newborn screening.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The first reported patient presented with acute metabolic acidosis at
@@ -7798,7 +10159,7 @@ phenotypes:
     reference_title: &gt;-
       Prospective diagnosis of 2-methylbutyryl-CoA dehydrogenase deficiency in
       the Hmong population by newborn screening using tandem mass spectrometry.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Except for 1 patient who developed mild muscle hypotonia, all patients
@@ -7819,7 +10180,7 @@ phenotypes:
     reference_title: &gt;-
       Clinical, biochemical, and molecular spectrum of short/branched-chain
       acyl-CoA dehydrogenase deficiency: two new cases and review of literature.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Clinical onset occurs in newborns or later in life with seizures,
@@ -7841,7 +10202,7 @@ phenotypes:
       Characterization of new ACADSB gene sequence mutations and clinical
       implications in patients with 2-methylbutyrylglycinuria identified by
       newborn screening.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       dysmorphic features including microcephaly (head circumference 46.5 cm; &lt;3)
@@ -7852,7 +10213,7 @@ phenotypes:
       Characterization of new ACADSB gene sequence mutations and clinical
       implications in patients with 2-methylbutyrylglycinuria identified by
       newborn screening.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       In addition the symptomatic patient had findings suggestive of a primary
@@ -7874,7 +10235,7 @@ phenotypes:
       Characterization of new ACADSB gene sequence mutations and clinical
       implications in patients with 2-methylbutyrylglycinuria identified by
       newborn screening.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       One patient was reported to have autism and mental retardation, but
@@ -7890,7 +10251,7 @@ phenotypes:
     reference_title: &gt;-
       Prospective diagnosis of 2-methylbutyryl-CoA dehydrogenase deficiency in
       the Hmong population by newborn screening using tandem mass spectrometry.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       One patient developed athetoid cerebral palsy, and another had severe
@@ -7911,7 +10272,7 @@ phenotypes:
     reference_title: &gt;-
       Prospective diagnosis of 2-methylbutyryl-CoA dehydrogenase deficiency in
       the Hmong population by newborn screening using tandem mass spectrometry.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       One patient developed athetoid cerebral palsy, and another had severe
@@ -7933,7 +10294,7 @@ phenotypes:
       Characterization of new ACADSB gene sequence mutations and clinical
       implications in patients with 2-methylbutyrylglycinuria identified by
       newborn screening.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The first reported patient presented with acute metabolic acidosis at
@@ -7973,7 +10334,7 @@ biochemical:
     reference_title: &gt;-
       Usefulness of levels of 2-methylbutyrylglycine and 2-ethylhydracrylic acid
       in urine for diagnosing 2-methylbutyrylglycinuria.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Ten individuals showed elevated C5 in blood, ranging from 0.32 to 1.64
@@ -8053,7 +10414,7 @@ biochemical:
     reference_title: &gt;-
       Usefulness of levels of 2-methylbutyrylglycine and 2-ethylhydracrylic acid
       in urine for diagnosing 2-methylbutyrylglycinuria.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       it should be used as a diagnostic marker only in conjunction with other
@@ -8118,7 +10479,7 @@ genetic:
       reference_title: &gt;-
         206,977 newborn screening results reveal the ethnic differences in the
         spectrum of inborn errors of metabolism in Huaihua, China.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         NM_001609.4:c.1165A&gt;G in the ACADSB gene for Miao and Dong ethnic groups
@@ -8191,8 +10552,8 @@ treatments:
   treatment_term:
     preferred_term: carnitine supplementation
     term:
-      id: MAXO:0010006
-      label: carnitine supplementation
+      id: NCIT:C15433
+      label: Nutritional Support
     therapeutic_agent:
     - preferred_term: (R)-carnitine
       term:
@@ -8203,7 +10564,7 @@ treatments:
     reference_title: &gt;-
       Clinical, biochemical, and molecular spectrum of short/branched-chain
       acyl-CoA dehydrogenase deficiency: two new cases and review of literature.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Longitudinal biochemical monitoring of the two patients while on treatment
@@ -8214,7 +10575,7 @@ treatments:
     reference_title: &gt;-
       Long-term monitoring for short/branched-chain acyl-CoA dehydrogenase
       deficiency: A single-center 4-year experience and open issues.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       the effects of proposed treatments remain uncertain as follow-data are lacking.
@@ -8230,8 +10591,8 @@ treatments:
   treatment_term:
     preferred_term: supportive care
     term:
-      id: MAXO:0000950
-      label: supportive care
+      id: NCIT:C15747
+      label: Supportive Care
   target_mechanisms:
   - target: Possible catabolic-stress susceptibility
     treatment_effect: MODULATES
@@ -8243,7 +10604,7 @@ treatments:
       reference_title: &gt;-
         Clinical, biochemical, and molecular spectrum of short/branched-chain
         acyl-CoA dehydrogenase deficiency: two new cases and review of literature.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Providing an emergency protocol for the management of acute catabolic
@@ -8256,7 +10617,7 @@ treatments:
       Characterization of new ACADSB gene sequence mutations and clinical
       implications in patients with 2-methylbutyrylglycinuria identified by
       newborn screening.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       it would seem more prudent to continue a normal diet in these infants but
@@ -8270,11 +10631,12 @@ treatments:
     dietary treatment, but efficacy was explicitly unestablished; one autism
     case had no measurable benefit from a five-month low-protein trial.
   action_category: THERAPEUTIC
+  therapeutic_modality: BEHAVIORAL
   treatment_term:
     preferred_term: dietary intervention
     term:
-      id: MAXO:0000088
-      label: dietary intervention
+      id: NCIT:C15447
+      label: Dietary Intervention
   target_mechanisms:
   - target: Impaired isoleucine catabolism via SBCAD loss-of-function
     treatment_effect: MODULATES
@@ -8286,7 +10648,7 @@ treatments:
       reference_title: &gt;-
         Prospective diagnosis of 2-methylbutyryl-CoA dehydrogenase deficiency in
         the Hmong population by newborn screening using tandem mass spectrometry.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         The continued efficacy of long-term dietary therapy instituted
@@ -8297,7 +10659,7 @@ treatments:
     reference_title: &gt;-
       2-methylbutyryl-CoA dehydrogenase deficiency associated with autism and
       mental retardation: a case report.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       No beneficial effect was detected after 5 months with a low protein diet.
@@ -8308,7 +10670,7 @@ treatments:
       Characterization of new ACADSB gene sequence mutations and clinical
       implications in patients with 2-methylbutyrylglycinuria identified by
       newborn screening.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       disruptive dietary manipulations for infants identified by newborn
@@ -8339,7 +10701,7 @@ treatments:
     reference_title: &gt;-
       Clinical, biochemical, and molecular spectrum of short/branched-chain
       acyl-CoA dehydrogenase deficiency: two new cases and review of literature.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Carnitine supplementation and valproate avoidance appear to be indicated.
@@ -8355,8 +10717,8 @@ treatments:
   treatment_term:
     preferred_term: disease screening
     term:
-      id: MAXO:0000124
-      label: disease screening
+      id: NCIT:C15419
+      label: Disease Screening
   evidence:
   - reference: PMID:12837870
     reference_title: &gt;-
@@ -8372,7 +10734,7 @@ treatments:
     reference_title: &gt;-
       Prevalence and mutation analysis of short/branched chain acyl-CoA
       dehydrogenase deficiency (SBCADD) detected on newborn screening in Wisconsin.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Detection of homozygous individuals who were not identified on newborn
@@ -8413,14 +10775,14 @@ treatments:
   treatment_term:
     preferred_term: clinical monitoring
     term:
-      id: MAXO:0000487
-      label: clinical assessment
+      id: NCIT:C124351
+      label: Clinical Evaluation
   evidence:
   - reference: PMID:31555323
     reference_title: &gt;-
       Biochemical, Clinical, and Genetic Characteristics of Short/Branched Chain
       Acyl-CoA Dehydrogenase Deficiency in Chinese Patients by Newborn Screening.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       longitudinal follow-up may be helpful to further define the natural history of SBCADD.
@@ -8436,8 +10798,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: clinical assessment
     term:
-      id: MAXO:0000487
-      label: clinical assessment
+      id: NCIT:C124351
+      label: Clinical Evaluation
   results: &gt;-
     An unresolved elevated C5 signal prompts evaluation for SBCADD, isovaleric
     acidemia, and pivalate-related interference.
@@ -8460,8 +10822,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: clinical assessment
     term:
-      id: MAXO:0000487
-      label: clinical assessment
+      id: NCIT:C124351
+      label: Clinical Evaluation
   results: &gt;-
     Increased 2-MBG, often with 2-EHA and without isovalerylglycine, supports SBCADD.
   evidence:
@@ -8484,8 +10846,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: molecular genetic testing
     term:
-      id: MAXO:0000533
-      label: molecular genetic testing
+      id: NCIT:C19770
+      label: Molecular Analysis
   results: &gt;-
     Biallelic pathogenic or likely pathogenic ACADSB variants confirm the
     molecular diagnosis.
@@ -8507,8 +10869,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: clinical assessment
     term:
-      id: MAXO:0000487
-      label: clinical assessment
+      id: NCIT:C124351
+      label: Clinical Evaluation
   results: &gt;-
     Deficient activity toward 2-methylbutyryl-CoA supports functional confirmation.
   evidence:
@@ -9137,6 +11499,18 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/2-Methylbutyryl-CoA_Dehydrogenase_Deficiency-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10653,6 +13027,11 @@ Propionyl-CoA + Acetyl-CoA → TCA cycle
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/2-Methylbutyryl-CoA_Dehydrogenase_Deficiency.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -10693,7 +13072,7 @@ Propionyl-CoA + Acetyl-CoA → TCA cycle
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "2-Methylbutyryl-CoA Dehydrogenase Deficiency", "mondoId": "MONDO:0012392", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "2-Methylbutyryl-CoA_Dehydrogenase_Deficiency", "yamlRevision": "a191355add8d"};
+        const OS_CONFIG = {"diseaseName": "2-Methylbutyryl-CoA Dehydrogenase Deficiency", "mondoId": "MONDO:0012392", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "2-Methylbutyryl-CoA_Dehydrogenase_Deficiency", "yamlRevision": "2a62e889db4c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11112,5 +13491,73 @@ Propionyl-CoA + Acetyl-CoA → TCA cycle
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

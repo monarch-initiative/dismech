@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijerph110807575"
+reference_id: DOI:10.3390/ijerph110807575
 title: "Assessing Health Risk due to Exposure to Arsenic in Drinking Water in Hanam Province, Vietnam"
 authors:
 - Tung Huy
@@ -10,6 +10,7 @@ journal: International Journal of Environmental Research and Public Health
 year: '2014'
 doi: 10.3390/ijerph110807575
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Assessing Health Risk due to Exposure to Arsenic in Drinking Water in Hanam Province, Vietnam

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25073775"
+reference_id: DOI:10.3390/ijms25073775
 title: Molecular Features of HHV8 Monoclonal Microlymphoma Associated with Kaposi Sarcoma and Multicentric Castleman Disease in an HIV-Negative Patient
 authors:
 - Evelina Rogges
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25073775
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Features of HHV8 Monoclonal Microlymphoma Associated with Kaposi Sarcoma and Multicentric Castleman Disease in an HIV-Negative Patient

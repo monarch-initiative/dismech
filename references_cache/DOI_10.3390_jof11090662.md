@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jof11090662"
+reference_id: DOI:10.3390/jof11090662
 title: "Malassezia Folliculitis: An Underdiagnosed Mimicker of Acneiform Eruptions"
 authors:
 - Natalia V. Chalupczak
@@ -8,6 +8,7 @@ journal: Journal of Fungi
 year: '2025'
 doi: 10.3390/jof11090662
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Malassezia Folliculitis: An Underdiagnosed Mimicker of Acneiform Eruptions

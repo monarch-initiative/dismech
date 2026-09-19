@@ -6,7 +6,16 @@ present in an enum cache can be accepted before the validator asks OAK whether
 the CURIE is actually reachable from the enum's current roots.
 
 This module verifies that every tracked enum cache row still belongs to the
-current schema enum, with enum cache reads disabled during the check.
+current schema enum, with enum cache reads disabled during the check.  It also
+provides a read-only ordering audit for both enum membership and ontology term
+caches.
+
+Sibling module: ``dismech.term_cache_integrity`` owns the *structural* half of
+``cache/**`` — CSV field counts, CURIE shape, label/timestamp well-formedness,
+duplicate CURIEs — for both ``cache/<ontology>/terms.csv`` and
+``cache/enums/*.csv``. This module owns the *semantic* half (membership,
+reachability) plus ordering. Keep new cache checks in whichever of the two
+fits rather than adding a third scanner.
 """
 
 from __future__ import annotations
@@ -14,6 +23,7 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,11 +36,9 @@ from linkml_term_validator.plugins import BindingValidationPlugin
 class EnumCacheFinding:
     """A single enum cache integrity problem.
 
-    ``is_warning`` is True for stale-filename findings (a file whose name no
-    longer matches the expected hash, usually because ``linkml-term-validator``
-    changed its internal cache-key serialization).  Stale files are printed as
-    warnings and do **not** fail CI; run ``check-enum-cache --fix`` to prune
-    them.  All other findings (malformed headers, duplicate rows, invalid
+    ``is_warning`` is True for findings that are advisory during the current
+    migration: stale filenames and non-canonical row order.  Warnings do **not**
+    fail CI.  All other findings (malformed headers, duplicate rows, invalid
     CURIEs) are errors and do fail CI.
     """
 
@@ -53,6 +61,95 @@ class CurrentEnumCache:
     enum_name: str
     enum_def: EnumDefinition
     path: Path
+
+
+@dataclass(frozen=True)
+class CacheOrderFinding:
+    """The first descending CURIE pair in a cache CSV."""
+
+    path: Path
+    row_count: int
+    sorted_through: int
+    first_bad_curie: str
+    previous_curie: str
+
+    @property
+    def tail_size(self) -> int:
+        """Count every row after the first inversion, not only misplaced rows."""
+
+        return self.row_count - self.sorted_through
+
+    def format(self) -> str:
+        return (
+            f"{self.path}: sorted through row {self.sorted_through} of "
+            f"{self.row_count}; out-of-order tail {self.tail_size}; first bad "
+            f"CURIE {self.first_bad_curie!r} follows {self.previous_curie!r}"
+        )
+
+
+@dataclass(frozen=True)
+class CacheOrderReadFinding:
+    """A cache CSV that could not be inspected for canonical ordering."""
+
+    path: Path
+    reason: str
+
+    def format(self) -> str:
+        return f"{self.path}: {self.reason}"
+
+
+def canonical_curie_rows(rows: Iterable[str]) -> list[str]:
+    """Return the canonical enum-cache body (C/codepoint order, deduplicated)."""
+
+    return sorted(set(rows))
+
+
+def _cache_order_finding(path: Path, rows: list[str]) -> CacheOrderFinding | None:
+    """Return the first ordering inversion, or ``None`` when rows are sorted."""
+
+    for index in range(1, len(rows)):
+        if rows[index] < rows[index - 1]:
+            return CacheOrderFinding(
+                path=path,
+                row_count=len(rows),
+                sorted_through=index,
+                first_bad_curie=rows[index],
+                previous_curie=rows[index - 1],
+            )
+    return None
+
+
+def _read_first_column(path: Path) -> list[str]:
+    """Read non-empty CURIE values from the first column of a cache CSV."""
+
+    with path.open(newline="", encoding="utf-8") as stream:
+        reader = csv.reader(stream)
+        header = next(reader, None)
+        if not header or header[0] != "curie":
+            raise ValueError(
+                f"expected first CSV column to be 'curie', found {header!r}"
+            )
+        return [row[0] for row in reader if row and row[0]]
+
+
+def scan_cache_order(
+    cache_dir: Path,
+) -> list[CacheOrderFinding | CacheOrderReadFinding]:
+    """Audit canonical CURIE order without modifying caches or consulting OAK."""
+
+    paths = sorted((cache_dir / "enums").glob("*.csv"))
+    paths.extend(sorted(cache_dir.glob("*/terms.csv")))
+    findings: list[CacheOrderFinding | CacheOrderReadFinding] = []
+    for path in paths:
+        try:
+            rows = _read_first_column(path)
+        except (OSError, csv.Error, UnicodeError, ValueError) as error:
+            findings.append(CacheOrderReadFinding(path=path, reason=str(error)))
+            continue
+        finding = _cache_order_finding(path, rows)
+        if finding is not None:
+            findings.append(finding)
+    return findings
 
 
 def _naming_plugin(cache_dir: Path, oak_config: Path | None) -> BindingValidationPlugin:
@@ -111,15 +208,18 @@ def scan_enum_cache_dir(
     cache_dir: Path,
     oak_config: Path | None,
     offline: bool = False,
+    strict_order: bool = False,
 ) -> list[EnumCacheFinding]:
-    """Scan enum cache files for stale files, duplicate rows, and invalid rows.
+    """Scan enum caches for stale files, ordering, duplicates, and invalid rows.
 
     When ``offline`` is true the per-CURIE membership re-derivation
     (``is_value_in_enum``, which asks OAK to expand the enum and can trigger
     multi-GB ``sqlite:obo:*`` downloads) is skipped. The structural checks that
-    need no ontology access — stale-file detection, malformed headers, and
-    duplicate rows — still run. Use this in network- or disk-constrained
-    environments where the committed ``cache/*.csv`` is trusted.
+    need no ontology access — stale-file detection, malformed headers,
+    duplicate rows, and canonical ordering — still run. Use this in network-
+    or disk-constrained environments where the committed ``cache/*.csv`` is
+    trusted. Ordering is warning-only unless ``strict_order`` is true; that
+    switch is the Phase 2 hook for promoting the invariant to a hard gate.
     """
 
     enum_dir = cache_dir / "enums"
@@ -159,6 +259,23 @@ def scan_enum_cache_dir(
                 for f in row_findings
             )
             continue
+
+        order_finding = _cache_order_finding(path, rows)
+        if order_finding is not None:
+            findings.append(
+                EnumCacheFinding(
+                    path=path,
+                    enum_name=current.enum_name,
+                    reason=(
+                        "rows are not in canonical order "
+                        f"(sorted through row {order_finding.sorted_through}; "
+                        f"out-of-order tail {order_finding.tail_size}; "
+                        f"previous CURIE {order_finding.previous_curie!r})"
+                    ),
+                    curie=order_finding.first_bad_curie,
+                    is_warning=not strict_order,
+                )
+            )
 
         seen: set[str] = set()
         for curie in rows:
@@ -262,7 +379,7 @@ def repair_enum_cache_dir(
         with path.open("w", newline="", encoding="utf-8") as stream:
             writer = csv.DictWriter(stream, fieldnames=["curie"], lineterminator="\n")
             writer.writeheader()
-            for curie in sorted(valid_rows):
+            for curie in canonical_curie_rows(valid_rows):
                 writer.writerow({"curie": curie})
 
     return findings
@@ -284,8 +401,24 @@ def main(argv: list[str] | None = None) -> int:
         help=(
             "Skip the OAK-backed membership re-derivation (which can trigger "
             "multi-GB sqlite:obo:* downloads) and run only the structural checks "
-            "(stale files, malformed headers, duplicate rows) that trust the "
-            "committed cache. Incompatible with --fix."
+            "(stale files, malformed headers, duplicate rows, ordering) that "
+            "trust the committed cache. Incompatible with --fix."
+        ),
+    )
+    parser.add_argument(
+        "--check-order",
+        action="store_true",
+        help=(
+            "Read-only ordering audit for cache/enums/*.csv and "
+            "cache/*/terms.csv; does not load the schema or consult OAK"
+        ),
+    )
+    parser.add_argument(
+        "--strict-order",
+        action="store_true",
+        help=(
+            "Promote out-of-order rows from warnings to errors. Reserved for "
+            "the coordinated cache-order cutover."
         ),
     )
     parser.add_argument(
@@ -298,13 +431,50 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.offline and args.fix:
         parser.error("--offline cannot be combined with --fix (repair needs OAK)")
+    if args.check_order and args.fix:
+        parser.error("--check-order cannot be combined with --fix")
+
+    if args.check_order:
+        order_findings = scan_cache_order(args.cache_dir)
+        if not order_findings:
+            print(f"OK: cache CSV rows are in canonical order in {args.cache_dir}")
+            return 0
+        print(
+            f"Cache order: {len(order_findings)} file(s) have non-canonical ordering:",
+            file=sys.stderr,
+        )
+        for finding in order_findings[: args.max_findings]:
+            level = (
+                "ERROR"
+                if args.strict_order and isinstance(finding, CacheOrderFinding)
+                else "WARNING"
+            )
+            print(f"  - [{level}] {finding.format()}", file=sys.stderr)
+        if len(order_findings) > args.max_findings:
+            print(
+                f"  ... {len(order_findings) - args.max_findings} more",
+                file=sys.stderr,
+            )
+        print(
+            "  Advisory only; run 'just normalize-cache' during the coordinated "
+            "cache-order cutover.",
+            file=sys.stderr,
+        )
+        has_order_error = any(
+            isinstance(finding, CacheOrderFinding) for finding in order_findings
+        )
+        return 1 if args.strict_order and has_order_error else 0
 
     oak_config = args.oak_config if args.oak_config.exists() else None
     findings = (
         repair_enum_cache_dir(args.schema, args.cache_dir, oak_config)
         if args.fix
         else scan_enum_cache_dir(
-            args.schema, args.cache_dir, oak_config, offline=args.offline
+            args.schema,
+            args.cache_dir,
+            oak_config,
+            offline=args.offline,
+            strict_order=args.strict_order,
         )
     )
 
@@ -332,14 +502,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if warnings:
         print(
-            f"Enum cache: {len(warnings)} stale file(s) found "
-            f"(run 'just check-enum-cache --fix' to prune):",
+            f"Enum cache: {len(warnings)} warning(s) found:",
             file=sys.stderr,
         )
         for finding in warnings[: args.max_findings]:
             print(f"  - {finding.format()}", file=sys.stderr)
         if len(warnings) > args.max_findings:
             print(f"  ... {len(warnings) - args.max_findings} more", file=sys.stderr)
+        print(
+            "  Remediation: use 'just check-enum-cache --fix' for stale files; "
+            "use 'just normalize-cache' for ordering during the coordinated cutover.",
+            file=sys.stderr,
+        )
 
     if errors:
         print(

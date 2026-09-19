@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25031518"
+reference_id: DOI:10.3390/ijms25031518
 title: "Mitochondrial Signaling, the Mechanisms of AKI-to-CKD Transition and Potential Treatment Targets"
 authors:
 - Li-Yun Chang
@@ -11,6 +11,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25031518
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mitochondrial Signaling, the Mechanisms of AKI-to-CKD Transition and Potential Treatment Targets

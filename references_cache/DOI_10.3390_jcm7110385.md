@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm7110385"
+reference_id: DOI:10.3390/jcm7110385
 title: "High Risk of Deep Neck Infection in Patients with Type 1 Diabetes Mellitus: A Nationwide Population-Based Cohort Study"
 authors:
 - Geng-He Chang
@@ -15,6 +15,7 @@ journal: Journal of Clinical Medicine
 year: '2018'
 doi: 10.3390/jcm7110385
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # High Risk of Deep Neck Infection in Patients with Type 1 Diabetes Mellitus: A Nationwide Population-Based Cohort Study

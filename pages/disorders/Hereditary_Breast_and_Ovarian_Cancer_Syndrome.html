@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>Hereditary Breast and Ovarian Cancer Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hereditary Breast and Ovarian Cancer Syndrome</h1>
             <div class="header-meta">
 
@@ -3199,6 +3958,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3241,6 +4004,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -3325,7 +4089,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-brca1-associated-hboc">
 
                     <div class="item-name">
                         BRCA1-Associated HBOC
@@ -3353,7 +4117,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-brca2-associated-hboc">
 
                     <div class="item-name">
                         BRCA2-Associated HBOC
@@ -3416,16 +4180,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA repair
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006281">GO:0006281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006281</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA repair (GO:0006281). GO:0006281 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3446,6 +4215,7 @@
 
 
                 </div>
+
 
 
 
@@ -3470,6 +4240,41 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29625052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29625052" target="_blank">PMID:29625052</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The 659 predisposition variants and 18 additional large deletions in tumor suppressors, including ATM, BRCA1, and NF1, showed low gene expression and frequent (43%) loss of heterozygosity or biallelic two-hit events."</div>
+
+
+                <div class="evidence-explanation">Pan-cancer germline-plus-tumor evidence, naming BRCA1 explicitly, that carriers reach a biallelic state in their tumors with measurable loss of expression. This node previously carried no evidence at all while asserting the two-hit mechanism in its description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
@@ -3489,16 +4294,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         homologous recombination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035825" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035825">GO:0035825</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035825" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0035825</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased homologous recombination (GO:0035825). GO:0035825 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3519,6 +4329,7 @@
 
 
                 </div>
+
 
 
 
@@ -3549,13 +4360,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22193408" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22193408" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22193408" target="_blank">PMID:22193408</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3594,16 +4408,21 @@ homologous recombination."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of DNA damage checkpoint
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_2000001" target="_blank" class="curie-chip curie-chip-go" title="Open GO:2000001">GO:2000001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_2000001" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:2000001</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of DNA damage checkpoint (GO:2000001). GO:2000001 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3624,6 +4443,7 @@ homologous recombination."</div>
 
 
                 </div>
+
 
 
 
@@ -3667,16 +4487,21 @@ homologous recombination."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3706,6 +4531,7 @@ homologous recombination."</div>
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -3718,7 +4544,10 @@ homologous recombination."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30424539" target="_blank">PMID:30424539</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3766,7 +4595,7 @@ homologous recombination."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRCA1/2 Tumor Suppressor Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline heterozygous BRCA1 or BRCA2 mutations result in one functional allele. Somatic loss or mutation of the remaining wild-type allele (second hit) eliminates BRCA function, initiating tumorigenesis. This follows Knudson\u0027s two-hit hypothesis for tumor suppressor gene inactivation.\", \"meta\": {\"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of HR-mediated repair leads to accumulation of chromosomal aberrations, large-scale genomic rearrangements, and copy number alterations. This pattern of genomic instability, termed \u0027BRCAness\u0027 or homologous recombination deficiency (HRD), is characteristic of BRCA-deficient tumors and creates therapeutic vulnerability to PARP inhibitors.\", \"meta\": {\"biological_processes\": [\"regulation of DNA damage checkpoint\"]}}, {\"id\": \"Homologous Recombination Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRCA1 and BRCA2 are essential components of the homologous recombination (HR) pathway for error-free repair of DNA double-strand breaks. Loss of BRCA function forces cells to rely on error-prone repair pathways such as non-homologous end joining, leading to genomic instability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homologous recombination\"]}}, {\"id\": \"Tumor Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive accumulation of genomic alterations in BRCA-deficient cells leads to transformation and tumor development. The tissue specificity (breast, ovary) may relate to estrogen exposure and proliferative demands on these tissues, though the precise mechanisms remain incompletely understood. Emerging evidence identifies serous tubal intraepithelial carcinoma (STIC) in the fallopian tube as a precursor for BRCA-associated high-grade serous ovarian cancer.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"BRCA1/2 Tumor Suppressor Loss\", \"target\": \"Homologous Recombination Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRCA loss impairs error-free DNA double-strand break repair\"}, {\"source\": \"Homologous Recombination Deficiency\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Error-prone repair mechanisms cause chromosomal rearrangements\"}, {\"source\": \"Genomic Instability\", \"target\": \"Tumor Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated genomic aberrations drive malignant transformation\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRCA1/2 Tumor Suppressor Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline heterozygous BRCA1 or BRCA2 mutations result in one functional allele. Somatic loss or mutation of the remaining wild-type allele (second hit) eliminates BRCA function, initiating tumorigenesis. This follows Knudson\u0027s two-hit hypothesis for tumor suppressor gene inactivation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of HR-mediated repair leads to accumulation of chromosomal aberrations, large-scale genomic rearrangements, and copy number alterations. This pattern of genomic instability, termed \u0027BRCAness\u0027 or homologous recombination deficiency (HRD), is characteristic of BRCA-deficient tumors and creates therapeutic vulnerability to PARP inhibitors.\", \"meta\": {\"biological_processes\": [\"regulation of DNA damage checkpoint\"]}}, {\"id\": \"Homologous Recombination Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRCA1 and BRCA2 are essential components of the homologous recombination (HR) pathway for error-free repair of DNA double-strand breaks. Loss of BRCA function forces cells to rely on error-prone repair pathways such as non-homologous end joining, leading to genomic instability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homologous recombination\"]}}, {\"id\": \"Tumor Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive accumulation of genomic alterations in BRCA-deficient cells leads to transformation and tumor development. The tissue specificity (breast, ovary) may relate to estrogen exposure and proliferative demands on these tissues, though the precise mechanisms remain incompletely understood. Emerging evidence identifies serous tubal intraepithelial carcinoma (STIC) in the fallopian tube as a precursor for BRCA-associated high-grade serous ovarian cancer.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"BRCA1/2 Tumor Suppressor Loss\", \"target\": \"Homologous Recombination Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRCA loss impairs error-free DNA double-strand break repair\"}, {\"source\": \"Homologous Recombination Deficiency\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Error-prone repair mechanisms cause chromosomal rearrangements\"}, {\"source\": \"Genomic Instability\", \"target\": \"Tumor Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated genomic aberrations drive malignant transformation\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3787,11 +4616,13 @@ homologous recombination."</div>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Breast<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Neoplasm<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -3804,21 +4635,30 @@ homologous recombination."</div>
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-breast-cancer" data-dismech-node="Breast Cancer" data-dismech-type="phenotype">
                     <div class="item-name">
                         Breast Cancer
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Breast carcinoma
+
+                        <span class="phenotype-term-label">Breast carcinoma</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003002">HP:0003002</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0003002</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -3839,7 +4679,10 @@ homologous recombination."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28632866" target="_blank">PMID:28632866</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3865,21 +4708,30 @@ homologous recombination."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-male-breast-cancer" data-dismech-node="Male Breast Cancer" data-dismech-type="phenotype">
                     <div class="item-name">
                         Male Breast Cancer
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Breast carcinoma
+
+                        <span class="phenotype-term-label">Breast carcinoma</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003002">HP:0003002</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0003002</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -3896,21 +4748,30 @@ homologous recombination."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-contralateral-breast-cancer" data-dismech-node="Contralateral Breast Cancer" data-dismech-type="phenotype">
                     <div class="item-name">
                         Contralateral Breast Cancer
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Breast carcinoma
+
+                        <span class="phenotype-term-label">Breast carcinoma</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003002">HP:0003002</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0003002</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -3933,7 +4794,10 @@ homologous recombination."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28632866" target="_blank">PMID:28632866</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3965,24 +4829,102 @@ homologous recombination."</div>
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-primary-peritoneal-carcinoma" data-dismech-node="Primary Peritoneal Carcinoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Primary Peritoneal Carcinoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030406" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0030406</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary peritoneal carcinoma (HP:0030406). HP:0030406 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/genes15020219" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/genes15020219" target="_blank">DOI:10.3390/genes15020219</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Germline variants occurring in BRCA1 and BRCA2 give rise to hereditary breast and ovarian cancer (HBOC) syndrome, predisposing to breast, ovarian, fallopian tube, and peritoneal cancers marked by elevated incidences of genomic aberrations that correspond to poor prognoses."</div>
+
+
+                <div class="evidence-explanation">Review explicitly includes peritoneal cancer in the BRCA1/2-associated HBOC cancer spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pancreatic-cancer" data-dismech-node="Pancreatic Cancer" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pancreatic Cancer
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pancreatic adenocarcinoma
+
+                        <span class="phenotype-term-label">Pancreatic adenocarcinoma</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006725" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006725">HP:0006725</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0006725</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4003,7 +4945,10 @@ homologous recombination."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10433620" target="_blank">PMID:10433620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4035,24 +4980,33 @@ homologous recombination."</div>
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ovarian-cancer" data-dismech-node="Ovarian Cancer" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ovarian Cancer
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ovarian carcinoma
+
+                        <span class="phenotype-term-label">Ovarian carcinoma</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025318" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025318">HP:0025318</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025318" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0025318</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ovarian carcinoma (HP:0025318). HP:0025318 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4073,7 +5027,10 @@ homologous recombination."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28632866" target="_blank">PMID:28632866</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4099,21 +5056,97 @@ homologous recombination."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fallopian-tube-carcinoma" data-dismech-node="Fallopian Tube Carcinoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fallopian Tube Carcinoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0030394</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fallopian tube carcinoma (HP:0030394). HP:0030394 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/genes15020219" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/genes15020219" target="_blank">DOI:10.3390/genes15020219</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Germline variants occurring in BRCA1 and BRCA2 give rise to hereditary breast and ovarian cancer (HBOC) syndrome, predisposing to breast, ovarian, fallopian tube, and peritoneal cancers marked by elevated incidences of genomic aberrations that correspond to poor prognoses."</div>
+
+
+                <div class="evidence-explanation">Review explicitly includes fallopian tube cancer in the BRCA1/2-associated HBOC cancer spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prostate-cancer" data-dismech-node="Prostate Cancer" data-dismech-type="phenotype">
                     <div class="item-name">
                         Prostate Cancer
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prostate cancer
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012125" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012125">HP:0012125</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012125" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012125</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prostate cancer (HP:0012125). HP:0012125 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4134,7 +5167,10 @@ homologous recombination."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10433620" target="_blank">PMID:10433620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4165,202 +5201,32 @@ homologous recombination."</div>
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
+                    Neoplasm
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Triple-Negative Breast Carcinoma
-
-
-                    <span class="phenotype-id">
-                        triple-negative breast carcinoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/MONDO_0005494" target="_blank" class="curie-chip curie-chip-mondo" title="Open MONDO:0005494">MONDO:0005494</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32029870" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32029870" target="_blank">PMID:32029870</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"associated with triple-negative breast cancer (TNBC), whereas BRCA2 mutation"</div>
-
-
-                <div class="evidence-explanation">Multigene germline testing cohort supports triple-negative breast carcinoma as a BRCA1-enriched HBOC phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Fallopian Tube Carcinoma
-
-
-                    <span class="phenotype-id">
-                        Fallopian tube carcinoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030394">HP:0030394</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/genes15020219" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3390/genes15020219" target="_blank">DOI:10.3390/genes15020219</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Germline variants occurring in BRCA1 and BRCA2 give rise to hereditary breast and ovarian cancer (HBOC) syndrome, predisposing to breast, ovarian, fallopian tube, and peritoneal cancers marked by elevated incidences of genomic aberrations that correspond to poor prognoses."</div>
-
-
-                <div class="evidence-explanation">Review explicitly includes fallopian tube cancer in the BRCA1/2-associated HBOC cancer spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Primary Peritoneal Carcinoma
-
-
-                    <span class="phenotype-id">
-                        Primary peritoneal carcinoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030406" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030406">HP:0030406</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/genes15020219" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3390/genes15020219" target="_blank">DOI:10.3390/genes15020219</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Germline variants occurring in BRCA1 and BRCA2 give rise to hereditary breast and ovarian cancer (HBOC) syndrome, predisposing to breast, ovarian, fallopian tube, and peritoneal cancers marked by elevated incidences of genomic aberrations that correspond to poor prognoses."</div>
-
-
-                <div class="evidence-explanation">Review explicitly includes peritoneal cancer in the BRCA1/2-associated HBOC cancer spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-melanoma" data-dismech-node="Melanoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Melanoma
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Melanoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002861" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002861">HP:0002861</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002861" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002861</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Melanoma (HP:0002861). HP:0002861 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4381,7 +5247,10 @@ homologous recombination."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10433620" target="_blank">PMID:10433620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4392,6 +5261,84 @@ homologous recombination."</div>
 
 
                 <div class="evidence-explanation">Breast Cancer Linkage Consortium study demonstrates a statistically significant 2.6-fold increased risk of melanoma in BRCA2 mutation carriers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-triple-negative-breast-carcinoma" data-dismech-node="Triple-Negative Breast Carcinoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Triple-Negative Breast Carcinoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/MONDO_0005494" target="_blank" class="curie-chip curie-chip-mondo" aria-describedby="pill-tip-14">MONDO:0005494</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Mondo Disease Ontology (MONDO)
+Relation: this clinical feature is this phenotype
+This clinical feature is triple-negative breast carcinoma (MONDO:0005494). MONDO:0005494 is a phenotype from the Mondo Disease Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32029870" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32029870" target="_blank">PMID:32029870</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"associated with triple-negative breast cancer (TNBC), whereas BRCA2 mutation"</div>
+
+
+                <div class="evidence-explanation">Multigene germline testing cohort supports triple-negative breast carcinoma as a BRCA1-enriched HBOC phenotype.</div>
 
 
 
@@ -4446,11 +5393,33 @@ homologous recombination."</div>
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-brca1" data-dismech-node="BRCA1" data-dismech-type="genetic">
                 <div class="item-name">
                     BRCA1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Germline Loss-of-Function Mutations)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BRCA1
+
+
+    <a href="https://bioregistry.io/hgnc:1100" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:1100</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRCA1 (hgnc:1100). hgnc:1100 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -4475,7 +5444,10 @@ homologous recombination."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22193408" target="_blank">PMID:22193408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4495,13 +5467,36 @@ damage during DNA replication."</div>
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-brca2" data-dismech-node="BRCA2" data-dismech-type="genetic">
                 <div class="item-name">
                     BRCA2
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Germline Loss-of-Function Mutations)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BRCA2
+
+
+    <a href="https://bioregistry.io/hgnc:1101" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:1101</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRCA2 (hgnc:1101). hgnc:1101 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -4515,9 +5510,10 @@ damage during DNA replication."</div>
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-expanded-hboc-panel-genes" data-dismech-node="Expanded HBOC Panel Genes" data-dismech-type="genetic">
                 <div class="item-name">
                     Expanded HBOC Panel Genes
 
@@ -4540,7 +5536,10 @@ damage during DNA replication."</div>
                         <a href="https://bioregistry.io/DOI:10.3390/ijms252312546" target="_blank">DOI:10.3390/ijms252312546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4561,9 +5560,16 @@ damage during DNA replication."</div>
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -4575,13 +5581,18 @@ damage during DNA replication."</div>
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-risk-reducing-mastectomy" data-dismech-node="Risk-Reducing Mastectomy" data-dismech-type="treatment">
                 <div class="item-name">
                     Risk-Reducing Mastectomy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Prophylactic Mastectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Prophylactic Mastectomy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Prophylactic Mastectomy (NCIT:C94445). NCIT:C94445 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4610,6 +5621,20 @@ damage during DNA replication."</div>
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Bilateral prophylactic mastectomy reduces breast cancer risk by approximately 90% in BRCA mutation carriers. Timing and decision require careful counseling about risks, benefits, reconstruction options, and psychological impact.</div>
 
 
@@ -4629,7 +5654,10 @@ damage during DNA replication."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31302855" target="_blank">PMID:31302855</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4652,19 +5680,25 @@ damage during DNA replication."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-risk-reducing-salpingo-oophorectomy" data-dismech-node="Risk-Reducing Salpingo-Oophorectomy" data-dismech-type="treatment">
                 <div class="item-name">
                     Risk-Reducing Salpingo-Oophorectomy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -4682,6 +5716,31 @@ damage during DNA replication."</div>
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -4706,7 +5765,10 @@ damage during DNA replication."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19141781" target="_blank">PMID:19141781</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4729,13 +5791,18 @@ damage during DNA replication."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-parp-inhibitors" data-dismech-node="PARP Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     PARP Inhibitors
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -4766,19 +5833,38 @@ damage during DNA replication."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         olaparib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_83766" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:83766">CHEBI:83766</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_83766" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:83766</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses olaparib (CHEBI:83766). CHEBI:83766 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4801,7 +5887,10 @@ damage during DNA replication."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34081848" target="_blank">PMID:34081848</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4823,7 +5912,10 @@ or distant disease than was placebo."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28578601" target="_blank">PMID:28578601</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4845,7 +5937,10 @@ or distant disease than was placebo."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27749330" target="_blank">PMID:27749330</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4868,19 +5963,25 @@ or distant disease than was placebo."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-enhanced-surveillance" data-dismech-node="Enhanced Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Enhanced Surveillance
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cancer screening</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">cancer screening<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cancer screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cancer Screening</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000126" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000126">MAXO:0000126</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15406" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15406">NCIT:C15406</a>
 
 
 
@@ -4903,6 +6004,20 @@ or distant disease than was placebo."</div>
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For women who do not undergo prophylactic surgery, enhanced surveillance includes annual breast MRI (starting age 25-30), mammography (starting age 30), and clinical breast exam. No proven effective ovarian cancer screening exists. Consider transvaginal ultrasound and CA-125, though sensitivity is limited.</div>
 
 
@@ -4913,13 +6028,18 @@ or distant disease than was placebo."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic Counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4943,6 +6063,20 @@ or distant disease than was placebo."</div>
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4973,7 +6107,7 @@ or distant disease than was placebo."</div>
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-brca1-2-genetic-testing" data-dismech-node="BRCA1/2 Genetic Testing" data-dismech-type="biochemical">
                 <div class="item-name">
                     BRCA1/2 Genetic Testing
 
@@ -4986,7 +6120,7 @@ or distant disease than was placebo."</div>
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-homologous-recombination-deficiency-testing" data-dismech-node="Homologous Recombination Deficiency Testing" data-dismech-type="biochemical">
                 <div class="item-name">
                     Homologous Recombination Deficiency Testing
 
@@ -5002,6 +6136,33 @@ or distant disease than was placebo."</div>
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -5012,6 +6173,9 @@ or distant disease than was placebo."</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -5030,7 +6194,6 @@ or distant disease than was placebo."</div>
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hereditary Breast and Ovarian Cancer Syndrome
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-05-03T00:00:00Z&#39;
 description: &gt;-
   Hereditary breast and ovarian cancer syndrome (HBOC) is an autosomal dominant
   hereditary cancer syndrome caused by germline pathogenic variants in the BRCA1
@@ -5059,6 +6222,7 @@ has_subtypes:
     cancer risk.
 pathophysiology:
 - name: BRCA1/2 Tumor Suppressor Loss
+  conforms_to: &#34;germline_two_hit_tumor_predisposition#Biallelic Tumor Suppressor Inactivation in a Susceptible Cell&#34;
   description: &gt;-
     Germline heterozygous BRCA1 or BRCA2 mutations result in one functional allele.
     Somatic loss or mutation of the remaining wild-type allele (second hit) eliminates
@@ -5070,10 +6234,25 @@ pathophysiology:
     term:
       id: GO:0006281
       label: DNA repair
+  evidence:
+  - reference: PMID:29625052
+    reference_title: &#34;Pathogenic Germline Variants in 10,389 Adult Cancers.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The 659 predisposition variants and 18 additional large deletions in tumor
+      suppressors, including ATM, BRCA1, and NF1, showed low gene expression and
+      frequent (43%) loss of heterozygosity or biallelic two-hit events.
+    explanation: &gt;-
+      Pan-cancer germline-plus-tumor evidence, naming BRCA1 explicitly, that
+      carriers reach a biallelic state in their tumors with measurable loss of
+      expression. This node previously carried no evidence at all while
+      asserting the two-hit mechanism in its description.
   downstream:
   - target: Homologous Recombination Deficiency
     description: BRCA loss impairs error-free DNA double-strand break repair
 - name: Homologous Recombination Deficiency
+  conforms_to: &#34;dna_repair_synthetic_lethality#HRR or FA/BRCA Repair Deficiency&#34;
   description: &gt;-
     BRCA1 and BRCA2 are essential components of the homologous recombination (HR)
     pathway for error-free repair of DNA double-strand breaks. Loss of BRCA function
@@ -5091,12 +6270,13 @@ pathophysiology:
   evidence:
   - reference: PMID:22193408
     reference_title: &#34;BRCA1 and BRCA2: different roles in a common pathway of genome protection.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;BRCA1 is a pleiotropic DDR protein that functions in both checkpoint \nactivation and DNA repair, whereas BRCA2 is a mediator of the core mechanism of \nhomologous recombination.&#34;
     explanation: &gt;-
       Review distinguishes BRCA1 and BRCA2 roles in DNA damage response and homologous
       recombination repair.
 - name: Genomic Instability
+  conforms_to: &#34;genome_instability_mutation#Mutator Phenotype and Chromosomal Instability&#34;
   description: &gt;-
     Loss of HR-mediated repair leads to accumulation of chromosomal aberrations,
     large-scale genomic rearrangements, and copy number alterations. This pattern
@@ -5113,6 +6293,7 @@ pathophysiology:
   - target: Tumor Development
     description: Accumulated genomic aberrations drive malignant transformation
 - name: Tumor Development
+  conforms_to: &#34;germline_two_hit_tumor_predisposition#Clonal Expansion and Tumor Initiation&#34;
   description: &gt;-
     Progressive accumulation of genomic alterations in BRCA-deficient cells leads
     to transformation and tumor development. The tissue specificity (breast, ovary)
@@ -5372,6 +6553,11 @@ biochemical:
     mutations.
 genetic:
 - name: BRCA1
+  gene_term:
+    preferred_term: BRCA1
+    term:
+      id: hgnc:1100
+      label: BRCA1
   association: Germline Loss-of-Function Mutations
   inheritance:
   - name: Autosomal Dominant
@@ -5391,12 +6577,17 @@ genetic:
       Review confirms BRCA1 and BRCA2 work together to protect the genome from
       DNA double-strand damage.
 - name: BRCA2
+  gene_term:
+    preferred_term: BRCA2
+    term:
+      id: hgnc:1101
+      label: BRCA2
   association: Germline Loss-of-Function Mutations
   inheritance:
   - name: Autosomal Dominant
   notes: &gt;-
-    BRCA2 (13q13.1) encodes a protein that facilitates RAD51 loading onto single-
-    stranded DNA at sites of DNA double-strand breaks, enabling homologous
+    BRCA2 (13q13.1) encodes a protein that facilitates RAD51 loading onto single-stranded
+    DNA at sites of DNA double-strand breaks, enabling homologous
     recombination repair. Also known as FANCD1 as biallelic mutations cause Fanconi
     anemia. Founder mutations include 6174delT in Ashkenazi Jewish and 999del5 in
     Icelandic populations.
@@ -5445,11 +6636,12 @@ treatments:
     Bilateral salpingo-oophorectomy recommended after completion of childbearing
     (typically age 35-40 for BRCA1, 40-45 for BRCA2). Reduces ovarian cancer risk
     by 80-90% and breast cancer risk by approximately 50% when performed premenopausally.
+  therapeutic_modality: SURGERY
   treatment_term:
     preferred_term: surgical procedure
     term:
-      id: MAXO:0000004
-      label: surgical procedure
+      id: NCIT:C15329
+      label: Surgical Procedure
   evidence:
   - reference: PMID:19141781
     reference_title: &#34;Meta-analysis of risk reduction estimates associated with risk-reducing salpingo-oophorectomy in BRCA1 or BRCA2 mutation carriers.&#34;
@@ -5512,8 +6704,8 @@ treatments:
   treatment_term:
     preferred_term: cancer screening
     term:
-      id: MAXO:0000126
-      label: cancer screening
+      id: NCIT:C15406
+      label: Cancer Screening
 - name: Genetic Counseling
   description: &gt;-
     Genetic counseling for at-risk family members with cascade testing. Children
@@ -5995,7 +7187,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1001/jamaoncol.2024.2185" target="_blank">DOI:10.1001/jamaoncol.2024.2185</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6064,7 +7259,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1002/cam4.70321" target="_blank">DOI:10.1002/cam4.70321</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6170,7 +7368,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1007/s10689-024-00412-0" target="_blank">DOI:10.1007/s10689-024-00412-0</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6350,7 +7551,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1038/s41416-024-02827-z" target="_blank">DOI:10.1038/s41416-024-02827-z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6419,7 +7623,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01507-5" target="_blank">DOI:10.1038/s41431-023-01507-5</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6488,7 +7695,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-023-40956-w" target="_blank">DOI:10.1038/s41467-023-40956-w</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6557,7 +7767,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1038/s41525-024-00400-4" target="_blank">DOI:10.1038/s41525-024-00400-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6626,7 +7839,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1038/s41698-024-00741-4" target="_blank">DOI:10.1038/s41698-024-00741-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6695,7 +7911,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1093/jnci/djae160" target="_blank">DOI:10.1093/jnci/djae160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6764,7 +7983,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1158/2767-9764.crc-24-0144" target="_blank">DOI:10.1158/2767-9764.crc-24-0144</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6833,7 +8055,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1159/000533391" target="_blank">DOI:10.1159/000533391</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6902,7 +8127,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1177/09636897241281869" target="_blank">DOI:10.1177/09636897241281869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6971,7 +8199,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1186/s12864-024-10311-4" target="_blank">DOI:10.1186/s12864-024-10311-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7040,7 +8271,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1186/s13048-023-01222-1" target="_blank">DOI:10.1186/s13048-023-01222-1</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7109,7 +8343,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1186/s40001-024-01767-x" target="_blank">DOI:10.1186/s40001-024-01767-x</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7252,7 +8489,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3389/fphar.2024.1460285" target="_blank">DOI:10.3389/fphar.2024.1460285</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7321,7 +8561,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15133420" target="_blank">DOI:10.3390/cancers15133420</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7390,7 +8633,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16010103" target="_blank">DOI:10.3390/cancers16010103</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7459,7 +8705,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers17010008" target="_blank">DOI:10.3390/cancers17010008</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7528,7 +8777,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/cimb46050281" target="_blank">DOI:10.3390/cimb46050281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7597,7 +8849,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/genes14030684" target="_blank">DOI:10.3390/genes14030684</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7666,7 +8921,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/genes15020219" target="_blank">DOI:10.3390/genes15020219</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7735,7 +8993,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/ijms242115507" target="_blank">DOI:10.3390/ijms242115507</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7804,7 +9065,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/ijms25020886" target="_blank">DOI:10.3390/ijms25020886</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7873,7 +9137,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/ijms252312546" target="_blank">DOI:10.3390/ijms252312546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7942,7 +9209,10 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12041422" target="_blank">DOI:10.3390/jcm12041422</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7979,6 +9249,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8395,6 +9667,11 @@ references:
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Hereditary_Breast_and_Ovarian_Cancer_Syndrome.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -8435,7 +9712,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Breast and Ovarian Cancer Syndrome", "mondoId": "MONDO:0011450", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Breast_and_Ovarian_Cancer_Syndrome", "yamlRevision": "eda6090fa198"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Breast and Ovarian Cancer Syndrome", "mondoId": "MONDO:0011450", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Breast_and_Ovarian_Cancer_Syndrome", "yamlRevision": "eff373fd7ab4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8854,5 +10131,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

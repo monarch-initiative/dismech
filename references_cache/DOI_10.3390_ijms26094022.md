@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26094022"
+reference_id: DOI:10.3390/ijms26094022
 title: Morphometric and Molecular Interplay in Hypertension-Induced Cardiac Remodeling with an Emphasis on the Potential Therapeutic Implications
 authors:
 - Lyubomir Gaydarski
@@ -15,6 +15,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26094022
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Morphometric and Molecular Interplay in Hypertension-Induced Cardiac Remodeling with an Emphasis on the Potential Therapeutic Implications

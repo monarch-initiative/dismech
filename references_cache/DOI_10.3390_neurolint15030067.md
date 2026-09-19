@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/neurolint15030067"
+reference_id: DOI:10.3390/neurolint15030067
 title: "Migraine: Advances in the Pathogenesis and Treatment"
 authors:
 - Horia Pleș
@@ -15,6 +15,7 @@ journal: Neurology International
 year: '2023'
 doi: 10.3390/neurolint15030067
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Migraine: Advances in the Pathogenesis and Treatment

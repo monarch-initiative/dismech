@@ -17,13 +17,14 @@ Alias: subtype
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Prevalence](../classes/Prevalence.md) |  |  no  |
-| [Biochemical](../classes/Biochemical.md) |  |  no  |
-| [Genetic](../classes/Genetic.md) |  |  no  |
 | [ProgressionInfo](../classes/ProgressionInfo.md) |  |  no  |
-| [Phenotype](../classes/Phenotype.md) |  |  no  |
+| [Genetic](../classes/Genetic.md) |  |  no  |
+| [Biochemical](../classes/Biochemical.md) |  |  no  |
 | [HistopathologyFinding](../classes/HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  no  |
+| [Phenotype](../classes/Phenotype.md) |  |  no  |
+| [Prevalence](../classes/Prevalence.md) |  |  no  |
 | [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
+| [ImagingFinding](../classes/ImagingFinding.md) | A finding detected by in-vivo medical imaging (MRI, CT, PET, ultrasound, etc |  no  |
 
 
 
@@ -37,7 +38,7 @@ Alias: subtype
 | Property | Value |
 | --- | --- |
 | Range | [String](../types/String.md) |
-| Domain Of | [PhenotypeContext](../classes/PhenotypeContext.md), [Prevalence](../classes/Prevalence.md), [ProgressionInfo](../classes/ProgressionInfo.md), [Phenotype](../classes/Phenotype.md), [Biochemical](../classes/Biochemical.md), [HistopathologyFinding](../classes/HistopathologyFinding.md), [Genetic](../classes/Genetic.md) |
+| Domain Of | [PhenotypeContext](../classes/PhenotypeContext.md), [Prevalence](../classes/Prevalence.md), [ProgressionInfo](../classes/ProgressionInfo.md), [Phenotype](../classes/Phenotype.md), [Biochemical](../classes/Biochemical.md), [HistopathologyFinding](../classes/HistopathologyFinding.md), [ImagingFinding](../classes/ImagingFinding.md), [Genetic](../classes/Genetic.md) |
 
 ### Cardinality and Requirements
 
@@ -101,6 +102,7 @@ domain_of:
 - Phenotype
 - Biochemical
 - HistopathologyFinding
+- ImagingFinding
 - Genetic
 range: string
 

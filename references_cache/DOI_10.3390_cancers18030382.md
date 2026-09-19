@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers18030382"
+reference_id: DOI:10.3390/cancers18030382
 title: "Drug Therapy for Melanoma: Current Updates and Future Prospects"
 authors:
 - Hiroshi Kato
@@ -7,6 +7,7 @@ journal: Cancers
 year: '2026'
 doi: 10.3390/cancers18030382
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Drug Therapy for Melanoma: Current Updates and Future Prospects

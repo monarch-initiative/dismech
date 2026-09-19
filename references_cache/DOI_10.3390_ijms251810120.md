@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms251810120"
+reference_id: DOI:10.3390/ijms251810120
 title: "Immune Checkpoint Inhibitor Therapy for Metastatic Melanoma: What Should We Focus on to Improve the Clinical Outcomes?"
 authors:
 - Sultana Mehbuba Hossain
@@ -11,6 +11,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms251810120
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Immune Checkpoint Inhibitor Therapy for Metastatic Melanoma: What Should We Focus on to Improve the Clinical Outcomes?

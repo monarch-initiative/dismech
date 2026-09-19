@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ph18030313"
+reference_id: DOI:10.3390/ph18030313
 title: "Cardiac Fibrosis: Mechanistic Discoveries Linked to SGLT2 Inhibitors"
 authors:
 - Filip Rolski
@@ -8,6 +8,7 @@ journal: Pharmaceuticals
 year: '2025'
 doi: 10.3390/ph18030313
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cardiac Fibrosis: Mechanistic Discoveries Linked to SGLT2 Inhibitors

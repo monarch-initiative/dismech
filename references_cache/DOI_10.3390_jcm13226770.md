@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13226770"
+reference_id: DOI:10.3390/jcm13226770
 title: "Beyond the Liver: A Comprehensive Review of Strategies to Prevent Hepatocellular Carcinoma"
 authors:
 - Natchaya Polpichai
@@ -15,6 +15,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13226770
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Beyond the Liver: A Comprehensive Review of Strategies to Prevent Hepatocellular Carcinoma

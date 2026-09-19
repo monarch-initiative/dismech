@@ -1,6 +1,6 @@
 
 
-# Slot: percentage 
+# Slot: percentage  <span style="color: red;"><strong> (DEPRECATED) </strong></span> 
 
 
 
@@ -94,6 +94,10 @@ Value must satisfy at least one of:
 <details>
 ```yaml
 name: percentage
+deprecated: 'Overloaded free-text/Any field that conflated measure type, rate, unit,
+  and qualitative bands in incompatible notations. Superseded by the structured prevalence
+  slots: measure_type, prevalence_class, and rate_per_100000 (with rate_low/rate_high
+  for ranges). Retained read-only during migration; do not populate on new records.'
 examples:
 - value: '0.1'
 from_schema: https://w3id.org/monarch-initiative/dismech

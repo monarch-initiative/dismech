@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/microorganisms11071695"
+reference_id: DOI:10.3390/microorganisms11071695
 title: "Cellular Pathophysiology of Leptospirosis: Role of Na/K-ATPase"
 authors:
 - Cassiano Felippe Gonçalves-de-Albuquerque
@@ -13,6 +13,7 @@ journal: Microorganisms
 year: '2023'
 doi: 10.3390/microorganisms11071695
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cellular Pathophysiology of Leptospirosis: Role of Na/K-ATPase

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25094728"
+reference_id: DOI:10.3390/ijms25094728
 title: "Systemic Sclerosis-Associated Pulmonary Arterial Hypertension: From Bedside to Bench and Back Again"
 authors:
 - Milan Bahi
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25094728
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Systemic Sclerosis-Associated Pulmonary Arterial Hypertension: From Bedside to Bench and Back Again

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01493947"
+reference_id: clinicaltrials:NCT01493947
 title: "Efficacy and Safety of CD5024 1% Cream Versus Metronidazole 0.75% Cream in Subjects With Papulopustular Rosacea Over 16 Weeks Treatment, Followed by a 36-week Extension Period."
 content_type: summary
+full_text_attempted: true
 ---
 
 # Efficacy and Safety of CD5024 1% Cream Versus Metronidazole 0.75% Cream in Subjects With Papulopustular Rosacea Over 16 Weeks Treatment, Followed by a 36-week Extension Period.

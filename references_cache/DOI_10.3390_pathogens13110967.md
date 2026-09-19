@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pathogens13110967"
+reference_id: DOI:10.3390/pathogens13110967
 title: Prevalence and Sociodemographic Risk Factors of Soil-Transmitted Helminths in Rural Communities Living in Endemic Foci of Onchocerciasis in Southern Gabon
 authors:
 - Reinne Moutongo Mouandza
@@ -17,6 +17,7 @@ journal: Pathogens
 year: '2024'
 doi: 10.3390/pathogens13110967
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Prevalence and Sociodemographic Risk Factors of Soil-Transmitted Helminths in Rural Communities Living in Endemic Foci of Onchocerciasis in Southern Gabon

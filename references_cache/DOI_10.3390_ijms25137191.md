@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25137191"
+reference_id: DOI:10.3390/ijms25137191
 title: "Inflammatory Response in the Pathogenesis and Treatment of Hepatocellular Carcinoma: A Double-Edged Weapon"
 authors:
 - Linda Galasso
@@ -16,6 +16,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25137191
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Inflammatory Response in the Pathogenesis and Treatment of Hepatocellular Carcinoma: A Double-Edged Weapon

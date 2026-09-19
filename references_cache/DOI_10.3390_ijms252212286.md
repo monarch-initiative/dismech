@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252212286"
+reference_id: DOI:10.3390/ijms252212286
 title: "Metabolic Dysfunctions, Dysregulation of the Autonomic Nervous System, and Echocardiographic Parameters in Borderline Personality Disorder: A Narrative Review"
 authors:
 - Paola Bozzatello
@@ -12,6 +12,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252212286
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Metabolic Dysfunctions, Dysregulation of the Autonomic Nervous System, and Echocardiographic Parameters in Borderline Personality Disorder: A Narrative Review

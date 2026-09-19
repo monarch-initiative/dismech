@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 
 from dismech.render import render_all_groupings, render_grouping_index
+from dismech.yaml_io import safe_load_path
 
 
 def _write_yaml(path: Path, data: dict) -> None:
@@ -42,8 +43,14 @@ def test_render_grouping_index_shows_explicit_grouping_tree(tmp_path: Path) -> N
 
     html = output_path.read_text()
     assert "Grouping Tree" in html
-    assert "2 roots" in html
+    assert "1 nested tree" in html
     assert "1 nested relation" in html
+    assert "1 standalone" in html
+    # The standalone grouping is folded into the collapsed list, not drawn as
+    # a childless root beside the real tree.
+    assert "Standalone groupings (1)" in html
+    tree = html[html.index('class="tree-root-list"') : html.index('class="standalone"')]
+    assert "Tubulinopathies" not in tree
     assert (
         'href="Lysosomal_Storage_Disorders.html">Lysosomal Storage Disorders</a>'
         in html
@@ -135,7 +142,7 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
             },
         },
     )
-    beta_group = yaml.safe_load((input_dir / "Beta_Group.yaml").read_text())
+    beta_group = safe_load_path(input_dir / "Beta_Group.yaml")
     beta_group["members"] = [
         {
             "member": "Beta Disorder",

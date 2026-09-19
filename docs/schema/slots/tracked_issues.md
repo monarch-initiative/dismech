@@ -22,13 +22,13 @@ Alias: tracked_issues
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [FDASurrogateEndpointCollection](../classes/FDASurrogateEndpointCollection.md) | FDA surrogate endpoint table import preserving row-level source provenance |  no  |
-| [TermMapping](../classes/TermMapping.md) | Mapping from this disease entry to an external term or code |  no  |
-| [ICD10CMMapping](../classes/ICD10CMMapping.md) | ICD-10-CM diagnosis code mapping |  no  |
 | [ICD11FMapping](../classes/ICD11FMapping.md) | ICD-11 Foundation diagnosis code mapping |  no  |
-| [MondoMapping](../classes/MondoMapping.md) | MONDO disease ontology mapping |  no  |
 | [SurrogateEndpointCollection](../classes/SurrogateEndpointCollection.md) | A source-level collection of curated regulatory surrogate endpoint assertions |  no  |
+| [TermMapping](../classes/TermMapping.md) | Mapping from this disease entry to an external term or code |  no  |
+| [MondoMapping](../classes/MondoMapping.md) | MONDO disease ontology mapping |  no  |
+| [ICD10CMMapping](../classes/ICD10CMMapping.md) | ICD-10-CM diagnosis code mapping |  no  |
 | [NCITMapping](../classes/NCITMapping.md) | NCIT disease, subtype, or disease/finding ontology mapping for cancer entries |  no  |
+| [FDASurrogateEndpointCollection](../classes/FDASurrogateEndpointCollection.md) | FDA surrogate endpoint table import preserving row-level source provenance |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
 
 

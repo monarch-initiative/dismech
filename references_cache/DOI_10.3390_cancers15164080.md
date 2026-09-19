@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15164080"
+reference_id: DOI:10.3390/cancers15164080
 title: "Human Papillomavirus-Associated Oropharyngeal Cancer: Global Epidemiology and Public Policy Implications"
 authors:
 - Sifon Ndon
@@ -12,6 +12,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15164080
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Human Papillomavirus-Associated Oropharyngeal Cancer: Global Epidemiology and Public Policy Implications

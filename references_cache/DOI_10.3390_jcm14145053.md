@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14145053"
+reference_id: DOI:10.3390/jcm14145053
 title: "Anti-Inflammatory Therapies for Atopic Dermatitis: A New Era in Targeted Treatment"
 authors:
 - Karol Biliński
@@ -14,6 +14,7 @@ journal: Journal of Clinical Medicine
 year: '2025'
 doi: 10.3390/jcm14145053
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Anti-Inflammatory Therapies for Atopic Dermatitis: A New Era in Targeted Treatment

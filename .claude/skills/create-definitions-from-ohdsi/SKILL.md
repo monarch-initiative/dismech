@@ -1,6 +1,6 @@
 ---
 name: create-definitions-from-ohdsi
-description: Generate dismech definitions from OHDSI/ATLAS cohort definitions or other computable phenotype logic. Use when converting OMOP cohort JSON, drafting PheKB-style phenotype algorithms, or mapping FHIR/CQL/OMOP rules into dismech `definitions` blocks.
+description: Generate dismech definitions from OHDSI/ATLAS cohort definitions or other computable phenotype logic. Use when converting OMOP cohort JSON, drafting PheKB-/OHDSI-style phenotype algorithms, or mapping FHIR/CQL/OMOP rules into dismech `definitions` blocks.
 ---
 
 # Create Definitions From OHDSI

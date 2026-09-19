@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13010034"
+reference_id: DOI:10.3390/cells13010034
 title: Emerging Immunotherapy Approaches for Advanced Clear Cell Renal Cell Carcinoma
 authors:
 - Lingbin Meng
@@ -16,6 +16,7 @@ journal: Cells
 year: '2023'
 doi: 10.3390/cells13010034
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Emerging Immunotherapy Approaches for Advanced Clear Cell Renal Cell Carcinoma

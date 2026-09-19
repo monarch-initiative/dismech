@@ -54,7 +54,7 @@ an anatomical target, circuit effect, organ response, and phenotype endpoint.
   tools where the dataset exposes Pennsieve identifiers.
 - Python/R for physiologic time series, imaging, and metadata tables; Neurodata
   Without Borders tooling if datasets are NWB.
-- Ontology mapping to UBERON/CL/MAXO/NCIT plus an anatomical nerve-organ
+- Ontology mapping to UBERON/CL/NCIT plus an anatomical nerve-organ
   crosswalk for treatment mechanism targets.
 
 **Curation targets:**
@@ -110,7 +110,7 @@ an anatomical target, circuit effect, organ response, and phenotype endpoint.
   `Autoimmune_Autonomic_Ganglionopathy`, `Irritable_Bowel_Syndrome`,
   `Epilepsy`, `Dravet_syndrome`, `Heart_Failure`, and
   `Essential_Hypertension`.
-- Add MAXO/NCIT intervention terms for VNS, DBS, autonomic modulation, and
+- Add NCIT intervention terms for VNS, DBS, autonomic modulation, and
   implanted or noninvasive stimulation where ontology coverage exists.
 - Pair SPARC data with dismech mechanism graphs only when the anatomical target
   and disease-relevant organ physiology are explicit.

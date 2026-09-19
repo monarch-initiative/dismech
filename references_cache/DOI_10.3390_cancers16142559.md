@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16142559"
+reference_id: DOI:10.3390/cancers16142559
 title: Efficacy of Ipilimumab and Nivolumab in Patients with Melanoma and Brain Metastases—A Danish Real-World Cohort
 authors:
 - Karoline Dreyer Kattenhøj
@@ -17,6 +17,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16142559
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Efficacy of Ipilimumab and Nivolumab in Patients with Melanoma and Brain Metastases—A Danish Real-World Cohort

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.6004/jnccn.2022.7077"
+reference_id: DOI:10.6004/jnccn.2022.7077
 title: "Immunoglobulin Light Chain Amyloidosis: Diagnosis and Risk Assessment"
 authors:
 - Saurabh Zanwar
@@ -9,6 +9,7 @@ journal: Journal of the National Comprehensive Cancer Network
 year: '2023'
 doi: 10.6004/jnccn.2022.7077
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Immunoglobulin Light Chain Amyloidosis: Diagnosis and Risk Assessment

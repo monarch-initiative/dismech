@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE58499"
+reference_id: GEO:GSE58499
 title: Arsenic-Associated Differential DNA Methylation in Human Uroepithelial Cells
 content_type: summary
+full_text_attempted: true
 ---
 
 # Arsenic-Associated Differential DNA Methylation in Human Uroepithelial Cells

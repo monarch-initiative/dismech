@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24065687"
+reference_id: DOI:10.3390/ijms24065687
 title: Molecular Pathways of Carcinogenesis in Familial Adenomatous Polyposis
 authors:
 - Ilaria Ditonno
@@ -14,6 +14,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24065687
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Pathways of Carcinogenesis in Familial Adenomatous Polyposis

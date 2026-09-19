@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jmp5020016"
+reference_id: DOI:10.3390/jmp5020016
 title: Exploring the Molecular Pathology of Iatrogenic Amyloidosis
 authors:
 - Bernardo Bonilauri
@@ -7,6 +7,7 @@ journal: Journal of Molecular Pathology
 year: '2024'
 doi: 10.3390/jmp5020016
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring the Molecular Pathology of Iatrogenic Amyloidosis

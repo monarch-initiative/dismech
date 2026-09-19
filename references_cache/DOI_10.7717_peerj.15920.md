@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.7717/peerj.15920"
+reference_id: DOI:10.7717/peerj.15920
 title: A retrospective study of consistency between immunohistochemistry and polymerase chain reaction of microsatellite instability in endometrial cancer
 authors:
 - Cheng Wang
@@ -14,6 +14,7 @@ journal: PeerJ
 year: '2023'
 doi: 10.7717/peerj.15920
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A retrospective study of consistency between immunohistochemistry and polymerase chain reaction of microsatellite instability in endometrial cancer

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics11081343"
+reference_id: DOI:10.3390/diagnostics11081343
 title: Laboratory Diagnosis of Porphyria
 authors:
 - Elena Di Pierro
@@ -16,6 +16,7 @@ journal: Diagnostics
 year: '2021'
 doi: 10.3390/diagnostics11081343
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Laboratory Diagnosis of Porphyria

@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE10846"
+reference_id: GEO:GSE10846
 title: Prediction of survival in diffuse large B cell lymphoma treated with chemotherapy plus Rituximab
 content_type: summary
+full_text_attempted: true
 ---
 
 # Prediction of survival in diffuse large B cell lymphoma treated with chemotherapy plus Rituximab

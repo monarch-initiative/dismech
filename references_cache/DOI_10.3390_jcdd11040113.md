@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcdd11040113"
+reference_id: DOI:10.3390/jcdd11040113
 title: Ductus Arteriosus in Fetal and Perinatal Life
 authors:
 - Flaminia Pugnaloni
@@ -11,6 +11,7 @@ journal: Journal of Cardiovascular Development and Disease
 year: '2024'
 doi: 10.3390/jcdd11040113
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Ductus Arteriosus in Fetal and Perinatal Life

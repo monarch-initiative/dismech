@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25179551"
+reference_id: DOI:10.3390/ijms25179551
 title: "Identifying microRNAs Possibly Implicated in Myalgic Encephalomyelitis/Chronic Fatigue Syndrome and Fibromyalgia: A Review"
 authors:
 - Maria Tsamou
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25179551
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Identifying microRNAs Possibly Implicated in Myalgic Encephalomyelitis/Chronic Fatigue Syndrome and Fibromyalgia: A Review

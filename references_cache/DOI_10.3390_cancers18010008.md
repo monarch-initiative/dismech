@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers18010008"
+reference_id: DOI:10.3390/cancers18010008
 title: "Histogenesis of Atypical Teratoid Rhabdoid Tumors: Anatomical and Embryological Perspectives"
 authors:
 - Tadanori Tomita
@@ -7,6 +7,7 @@ journal: Cancers
 year: '2025'
 doi: 10.3390/cancers18010008
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Histogenesis of Atypical Teratoid Rhabdoid Tumors: Anatomical and Embryological Perspectives

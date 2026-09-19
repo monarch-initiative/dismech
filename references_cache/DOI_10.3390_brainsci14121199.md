@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/brainsci14121199"
+reference_id: DOI:10.3390/brainsci14121199
 title: "Mitochondrial Dysfunction as a Biomarker of Illness State in Bipolar Disorder: A Critical Review"
 authors:
 - Anna Giménez-Palomo
@@ -20,6 +20,7 @@ journal: Brain Sciences
 year: '2024'
 doi: 10.3390/brainsci14121199
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mitochondrial Dysfunction as a Biomarker of Illness State in Bipolar Disorder: A Critical Review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/futurepharmacol3010012"
+reference_id: DOI:10.3390/futurepharmacol3010012
 title: "Acute Promyelocytic Leukemia (APL): A Review of the Classic and Emerging Target Therapies towards Molecular Heterogeneity"
 authors:
 - Tâmara Dauare de Almeida
@@ -9,6 +9,7 @@ journal: Future Pharmacology
 year: '2023'
 doi: 10.3390/futurepharmacol3010012
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Acute Promyelocytic Leukemia (APL): A Review of the Classic and Emerging Target Therapies towards Molecular Heterogeneity

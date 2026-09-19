@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16183208"
+reference_id: DOI:10.3390/cancers16183208
 title: "MRD in Acute Leukemias: Lessons Learned from Acute Promyelocytic Leukemia"
 authors:
 - David Kegyes
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16183208
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # MRD in Acute Leukemias: Lessons Learned from Acute Promyelocytic Leukemia

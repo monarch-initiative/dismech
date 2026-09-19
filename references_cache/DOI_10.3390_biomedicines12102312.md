@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12102312"
+reference_id: DOI:10.3390/biomedicines12102312
 title: "Regulation of Airway Epithelial-Derived Alarmins in Asthma: Perspectives for Therapeutic Targets"
 authors:
 - Ravneet K. Hansi
@@ -10,6 +10,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12102312
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Regulation of Airway Epithelial-Derived Alarmins in Asthma: Perspectives for Therapeutic Targets

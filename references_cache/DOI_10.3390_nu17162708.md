@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/nu17162708"
+reference_id: DOI:10.3390/nu17162708
 title: Type 2 Diabetes and the Multifaceted Gut-X Axes
 authors:
 - Hezixian Guo
@@ -17,6 +17,7 @@ journal: Nutrients
 year: '2025'
 doi: 10.3390/nu17162708
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Type 2 Diabetes and the Multifaceted Gut-X Axes

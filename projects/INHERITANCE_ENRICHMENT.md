@@ -196,7 +196,7 @@ want to add a `de_novo_type` enum or similar.
 4. If GeneReviews lacks specifics, search OMIM and primary literature.
 5. Populate the `Inheritance` block with structured fields + evidence.
 6. Run `just validate kb/disorders/<file>.yaml` and `just
-   validate-references kb/disorders/<file>.yaml`.
+   validate-kb-references kb/disorders/<file>.yaml`.
 
 ### Batch approach
 

@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE31210"
+reference_id: GEO:GSE31210
 title: Gene expression data for pathological stage I-II lung adenocarcinomas
 content_type: summary
+full_text_attempted: true
 ---
 
 # Gene expression data for pathological stage I-II lung adenocarcinomas

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/healthcare12050573"
+reference_id: DOI:10.3390/healthcare12050573
 title: Descriptive Analysis of Carrier and Affected Hereditary Fructose Intolerance in Women during Pregnancy
 authors:
 - Estefanía Zuriaga
@@ -11,6 +11,7 @@ journal: Healthcare
 year: '2024'
 doi: 10.3390/healthcare12050573
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Descriptive Analysis of Carrier and Affected Hereditary Fructose Intolerance in Women during Pregnancy

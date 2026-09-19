@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5455/ovj.2024.v14.i8.1"
+reference_id: DOI:10.5455/ovj.2024.v14.i8.1
 title: "Campylobacteriosis: A rising threat in foodborne illnesses"
 authors:
 - Aswin Khairullah
@@ -21,6 +21,7 @@ journal: Open Veterinary Journal
 year: '2024'
 doi: 10.5455/ovj.2024.v14.i8.1
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Campylobacteriosis: A rising threat in foodborne illnesses

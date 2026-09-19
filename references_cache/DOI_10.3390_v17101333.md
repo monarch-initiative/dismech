@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/v17101333"
+reference_id: DOI:10.3390/v17101333
 title: "HTLV-1 and ATLL: Epidemiology, Oncogenesis, and Opportunities for Community-Informed Research in the United States"
 authors:
 - Adrian Altieri
@@ -15,6 +15,7 @@ journal: Viruses
 year: '2025'
 doi: 10.3390/v17101333
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # HTLV-1 and ATLL: Epidemiology, Oncogenesis, and Opportunities for Community-Informed Research in the United States

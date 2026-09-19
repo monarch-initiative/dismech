@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm12072532"
+reference_id: DOI:10.3390/jcm12072532
 title: Epilepsy in Dravet Syndrome—Current and Future Therapeutic Opportunities
 authors:
 - Chao Gao
@@ -13,6 +13,7 @@ journal: Journal of Clinical Medicine
 year: '2023'
 doi: 10.3390/jcm12072532
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Epilepsy in Dravet Syndrome—Current and Future Therapeutic Opportunities

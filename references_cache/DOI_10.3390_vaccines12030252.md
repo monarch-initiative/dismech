@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/vaccines12030252"
+reference_id: DOI:10.3390/vaccines12030252
 title: "Herpes Zoster and Cardiovascular Disease: Exploring Associations and Preventive Measures through Vaccination"
 authors:
 - Minako Yamaoka-Tojo
@@ -8,6 +8,7 @@ journal: Vaccines
 year: '2024'
 doi: 10.3390/vaccines12030252
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Herpes Zoster and Cardiovascular Disease: Exploring Associations and Preventive Measures through Vaccination

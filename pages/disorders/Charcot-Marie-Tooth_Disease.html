@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>Charcot-Marie-Tooth Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Charcot-Marie-Tooth Disease</h1>
             <div class="header-meta">
 
@@ -3199,6 +3958,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3224,6 +3987,14 @@
             </a>
 
 
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#genetic">
@@ -3235,10 +4006,11 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3337,7 +4109,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt1">
 
                     <div class="item-name">
                         Charcot-Marie-Tooth Disease Type 1 (Demyelinating)
@@ -3371,7 +4143,10 @@
                         <a href="https://bioregistry.io/DOI:10.1093/brain/awae064" target="_blank">DOI:10.1093/brain/awae064</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3397,7 +4172,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt2">
 
                     <div class="item-name">
                         Charcot-Marie-Tooth Disease Type 2 (Axonal)
@@ -3431,7 +4206,10 @@
                         <a href="https://bioregistry.io/DOI:10.1093/brain/awae064" target="_blank">DOI:10.1093/brain/awae064</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3453,7 +4231,10 @@
                         <a href="https://bioregistry.io/DOI:10.1093/brain/awae064" target="_blank">DOI:10.1093/brain/awae064</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3479,7 +4260,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmtx">
 
                     <div class="item-name">
                         X-Linked Charcot-Marie-Tooth Disease
@@ -3513,7 +4294,10 @@
                         <a href="https://bioregistry.io/DOI:10.1093/brain/awae064" target="_blank">DOI:10.1093/brain/awae064</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3539,7 +4323,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt4">
 
                     <div class="item-name">
                         Charcot-Marie-Tooth Disease Type 4 (Autosomal Recessive)
@@ -3567,7 +4351,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-hnpp">
 
                     <div class="item-name">
                         Hereditary Neuropathy with Liability to Pressure Palsies
@@ -3601,7 +4385,10 @@
                         <a href="https://bioregistry.io/DOI:10.1093/brain/awae064" target="_blank">DOI:10.1093/brain/awae064</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3652,10 +4439,19 @@
 
                 </div>
 
-                <div class="item-desc" style="margin-top: 8px;">Charcot-Marie-Tooth (CMT) disease is a clinically and genetically heterogeneous group of inherited peripheral neuropathies caused by variants in &gt;100 genes encoding myelin components (PMP22, MPZ, GJB1), axonal cytoskeleton and transport proteins (MFN2, NEFL, KIF1B), and other Schwann-cell-axon interface factors. CMT1A (most common, PMP22 duplication on 17p11.2) produces demyelinating neuropathy through PMP22 overexpression-driven Schwann cell dysfunction and secondary axonal loss. Axonal CMT2 forms (MFN2, MPZ, others) primarily impair axonal function. The uniform clinical phenotype — distal motor and sensory loss in a length-dependent pattern, with foot deformity, distal weakness, and absent reflexes — reflects convergent length-dependent axonal degeneration regardless of upstream gene defect. The PMP22 duplication CMT1A mouse and rat models recapitulate the human phenotype, and PMP22-lowering ASO and PXT3003 (low-dose drug combination) corroborate the PMP22-dosage axis as a canonical mechanism in the most common subtype.</div>
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">21 support</span>
+
+                </div>
 
 
-                <div class="mapping-notes">Retained as CANONICAL with seven major qualifications. The 2026 openscientist hypothesis-search report (kb/hypotheses/Charcot-Marie-Tooth_Disease/canonical_pmp22_mpz_axonal_demyelinating_neuropathy_model) finds SUPPORTED. Core architecture validated: PMP22 duplication is 43-60% of diagnosed CMT; &gt;130 genes show genetic heterogeneity; CMT1A and CMT2 subtypes converge on length-dependent axonal degeneration; transgenic models recapitulate the human phenotype. Seven substantive refinements: (1) CMT1A is fundamentally a DYSMYELINATING disorder with uniformly shortened internodes, NOT a segmental demyelinating neuropathy as classically taught; (2) PMP22 functions as a STRUCTURAL ORGANIZER of myelin architecture at nodes and Schmidt-Lanterman incisures, not merely a compact myelin component; (3) UPR / ER stress is a CONVERGENT pathomechanism across CMT1A and CMT1B (MPZ) subtypes; (4) SARM1 has been identified as the central EXECUTIONER of axonal degeneration in CMT2A, with a feedback loop to mitochondrial dysfunction (SARM1 inhibitors in development); (5) secondary neuroinflammation via macrophage-CSF1 signaling amplifies demyelination across CMT subtypes; (6) lipid metabolism dysregulation (sphingolipid, glycerophospholipid) and cholesterol trafficking defects are mechanistically linked to PMP22 dosage; (7) human proof-of-concept for PMP22-lowering therapies remains the critical translational gap — all human trials to date (ascorbic acid x5, complement inhibition) failed except PXT3003 (modest Phase III, single trial). The PMP22-dosage axis is validated in rodents but not yet in humans. ASO and AAV9-miRNA gene therapies are advancing toward clinical translation.</div>
+                <div class="item-desc" style="margin-top: 8px;">Charcot-Marie-Tooth (CMT) disease is a clinically and genetically heterogeneous group of inherited peripheral neuropathies caused by variants in &gt;100 genes encoding myelin components (PMP22, MPZ, GJB1) and axonal cytoskeleton/transport proteins (MFN2, NEFL), plus other Schwann-cell-axon interface factors. KIF1B is a historical CMT2A1 candidate gene, but it carries only Limited ClinGen gene-disease validity evidence, not the established causal status of MFN2 (see notes). CMT1A (most common, PMP22 duplication on 17p11.2) produces demyelinating neuropathy through PMP22 overexpression-driven Schwann cell dysfunction and secondary axonal loss. Axonal CMT2 forms (MFN2, MPZ, others) primarily impair axonal function. The uniform clinical phenotype — distal motor and sensory loss in a length-dependent pattern, with foot deformity, distal weakness, and absent reflexes — frequently converges on length-dependent axonal degeneration as a late-stage correlate of disability across CMT1A and CMT2 subtypes, though not a universal mechanism in every model (see notes). The PMP22 duplication CMT1A mouse and rat models recapitulate the human phenotype, and PMP22-lowering ASO and PXT3003 (low-dose drug combination) corroborate the PMP22-dosage axis as a canonical mechanism in the most common subtype.</div>
+
+
+                <div class="mapping-notes">Retained as CANONICAL. The 2026 openscientist hypothesis-search report (kb/hypotheses/Charcot-Marie-Tooth_Disease/canonical_pmp22_mpz_axonal_demyelinating_neuropathy_model) finds the broad canonical framework SUPPORTED, but several report-level claims required source-, model-, subtype-, and species-scoping before independent reconciliation into this entry (issue #7405; sidecar assessment in PR #7406). Core architecture remains validated: &gt;100 genes show genetic heterogeneity; CMT1A and CMT2 subtypes frequently converge on length-dependent axonal degeneration as a late-stage correlate of disability, though not as a universal sufficient mechanism — adult C3-PMP22 (CMT1A) model mice show no detectable myelinated-fibre loss despite functional impairment (PMID:21487305); transgenic models recapitulate the human phenotype. PMP22 duplication accounts for 505/1165 (43.3%) of genetically solved cases and 505/1515 (33.3%) of all clinically diagnosed participants in a single specialist-centre cohort (PMID:38481354, cited below via DOI:10.1093/brain/awae064); a separately cited ~60% figure (PMID:31852984) is a background statement about the share of pathogenic CMT variants attributable to the PMP22 duplication, not a comparable diagnosed-case estimate, and should not be blended with the cohort figure into a single &#34;43-60%&#34; range. Seven substantive, source-scoped refinements: (1) dysmyelination is a real developmental component, not a categorical replacement for demyelinating classification — dermal-fibre biopsies from 32 CMT1A patients show uniformly shortened internodal length and absent segmental demyelination, suggesting a developmental internode defect (PMID:19923170), and long-term PMP22-overexpressing mice show delayed, incomplete developmental myelination with stable adult myelin (PMID:21487305) — conventional demyelinating features and a developmental dysmyelination component coexist, they are not mutually exclusive; (2) PMP22 acting as a structural organizer of nodal/Schmidt-Lanterman-incisure architecture is shown specifically in CMT1A and HNPP model mice (PMID:41400104), not yet established as a human CMT-wide mechanism; (3) UPR/ER-stress modulation (Sephin1/IFB-088) improved neuropathy in C3-PMP22 (CMT1A) and MpzR98C (CMT1B) mice (PMID:35501630) — convergence is demonstrated across these two mouse models, not broadly across CMT subtypes or in humans; (4) SARM1 acting as an executioner of axonal degeneration, with a feedback loop to mitochondrial dysfunction, is shown in one Mfn2-H361Y CMT2A rat model (PMID:36287202) — a single-model finding, not yet a cross-subtype or human result (SARM1 inhibitors are in development); (5) macrophage/CSF1-driven secondary neuroinflammation amplifying demyelination is documented predominantly in CMT1B (P0+/- mice) and CMT1X (connexin-32-deficient mice) models (PMID:16775375 review; PMID:26865613), not established as a general driver across all CMT subtypes; systemic terminal complement (C6) inhibition in two PMP22-overexpressing CMT1A mouse models reduced neuroinflammation but did not improve motor function (PMID:36926597) — this was a mouse experiment, not a failed human trial, and must not be counted among failed human CMT1A trials; (6) cholesterol trafficking is disrupted by both loss- and gain-of-function PMP22 mutations, but the rescue evidence is directionally specific: myelination deficits in dorsal root ganglia explants were improved by cholesterol supplementation only in heterozygous PMP22-deficient (loss-of-function) mice (PMID:32511821) — this does not support a supplementation strategy for PMP22-duplication (gain-of-function) CMT1A, the reverse direction; (7) KIF1B is listed among the CMT axonal-transport genes, but the KIF1B-CMT2A1 relationship arose from a small pedigree base, and ClinGen&#39;s Charcot-Marie-Tooth Disease Gene Curation Expert Panel classified it as Limited in June 2026 (CGGV:assertion_ae6ffeae-9609-47bf-89a9-4863cf6ef05c-2026-06-12T160000.000Z, cited below) — it should not be presented as equivalent in evidentiary weight to the established MFN2-CMT2A relationship. Human proof-of-concept for PMP22-lowering therapies remains the critical translational gap: no cited study demonstrates clinical benefit in humans from direct PMP22 lowering; the five human ascorbic-acid trials to date were negative, and only PXT3003 showed a modest, single-trial Phase III benefit. Preclinical human-cell evidence is further along than the clinical evidence: PMP22 downregulation ameliorated myelin defects in patient-derived CMT1A iPSC-organoids (PMID:36511878), and AAV-mediated editing of the PMP22 duplication rescued disease features in patient-derived CMT1A iPS Schwann cells (PMID:38017287) — the PMP22-dosage axis therefore has direct human-cell (not yet human-trial) proof of concept, alongside the rodent validation. ASO and AAV9-miRNA gene therapies are advancing toward clinical translation. A 2026-09 reconciliation pass against the same openscientist report added source-scoped citations for three claims this entry previously asserted without one, plus two qualifications it did not carry at all. (a) The failed human arm is now cited: five ascorbic-acid trials were undertaken worldwide and none demonstrated significant effectiveness (PMID:26450076), the largest being a 2-year randomised trial in 277 CMT1A adults that found no CMTNS difference from placebo at 24 months (PMID:21393063). Saturable ascorbate absorption has been proposed as the reason they failed (PMID:23525455), but that paper argues the case pharmacokinetically rather than testing it against the alternatives (target biology, intraneural exposure, outcome sensitivity, model fidelity), so it is deliberately not curated here as an established cause. (b) Direct PMP22 lowering is now cited at the treatment level: post-onset antisense oligonucleotide treatment restored myelination and nerve conduction in two rodent CMT1A models (PMID:29202483), and an intrathecal AAV9 vector carrying the artificial miRNA miR871 lowered PMP22 and improved disease in a humanized mouse model, with dosing, toxicity and biodistribution work in mice and non-human primates (PMID:41948127). Both remain preclinical, so the human-validation gap above is unchanged. (c) Two further qualifications of the convergence framing: Schwann cells mount an endogenous c-Jun repair programme that prevents loss of distal myelinated sensory axons in the C3-PMP22 CMT1A model (PMID:25216747), so axonal degeneration is actively opposed rather than following inevitably from the myelin lesion; and children with CMT2A progress measurably faster on the CMTPedS than children with CMT1A over two years (PMID:28796392), so a shared terminal node does not imply a shared disease course. Lipidomic and transcriptomic profiling of CMT1A mouse sciatic nerve and of patient-derived iPSC Schwann cell precursors extends the cholesterol branch into the duplication (gain-of-function) direction and into human cells (PMID:38743588), which the PMP22-deficient explant rescue in refinement (6) does not cover. Plasma NfL and GFAP are curated below as severity-correlated biomarkers; no CMT biomarker has been shown to change in response to an effective disease-modifying therapy, which is recorded as a knowledge gap rather than as biomarker validation.</div>
 
 
 
@@ -3683,7 +4479,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (21 references)
         </summary>
         <div class="evidence-list">
 
@@ -3693,7 +4489,10 @@
                         <a href="https://bioregistry.io/DOI:10.1093/brain/awae064" target="_blank">DOI:10.1093/brain/awae064</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3710,6 +4509,60 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:31852984" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31852984" target="_blank">PMID:31852984</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the recurrent PMP22 duplication accounting for about 60% of pathogenic variations"</div>
+
+
+                <div class="evidence-explanation">Background statement about the share of pathogenic CMT variants attributable to PMP22 duplication (not a diagnosed-case cohort estimate). Graded PARTIAL because this figure is not directly comparable to the 43.3%/33.3% diagnosed-case denominators from PMID:38481354 and should not be blended with them into a single range (issue #7405).
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19923170" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19923170" target="_blank">PMID:19923170</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Internodal length was uniformly shortened in patients with Charcot-Marie-Tooth disease type 1A, compared with those in normal controls (P &lt; 0.0001). Segmental demyelination was absent in the Charcot-Marie-Tooth disease type 1A group, but identifiable in all patients with chronic inflammatory..."</div>
+
+
+                <div class="evidence-explanation">Dermal-fibre biopsies from 32 CMT1A patients support a developmental internode defect alongside, not instead of, conventional demyelinating classification.
+</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 18 more references</div>
 
         </div>
     </details>
@@ -3721,6 +4574,284 @@
 
 
         <!-- Discussions / Knowledge Gaps -->
+
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="human_proof_of_concept_pmp22_lowering">
+                <div class="item-name">Does lowering PMP22 modify disease in people with CMT1A, as it does in rodent models?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">human_proof_of_concept_pmp22_lowering</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-canonical-pmp22-mpz-axonal-demyelinating-neuropathy-model">mechanistic_hypotheses#canonical_pmp22_mpz_axonal_demyelinating_neuropathy_model</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#treatment-pmp22-lowering-antisense-oligonucleotide">treatments#PMP22-Lowering Antisense Oligonucleotide</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#treatment-aav9-mir871-pmp22-silencing-gene-therapy">treatments#AAV9-miR871 PMP22 Silencing Gene Therapy</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The PMP22 dosage axis is the load-bearing claim of the canonical model and is validated only in rodents and in patient-derived cells. Antisense oligonucleotide and AAV9-miRNA approaches both improve established disease in rodent CMT1A models, and PMP22 downregulation rescues myelin defects in patient-derived organoids and iPS Schwann cells, but no human trial of direct PMP22 lowering has reported results. Every agent actually given to people with CMT1A has acted indirectly: five ascorbic-acid trials were negative, and PXT3003 is a three-drug combination whose modest phase III benefit cannot be attributed to PMP22 lowering specifically. Until a first-in-human trial of direct lowering reads out, the axis is a preclinical inference rather than a demonstrated human mechanism.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">First-in-human dose-escalation trial of direct PMP22 lowering in CMT1A</div>
+
+            </div>
+
+            <div class="experiment-id">exp_cmt_first_in_human_pmp22_lowering</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Phase 1/2 dose escalation in adults with genetically confirmed CMT1A of mild to moderate severity, using either a PMP22 antisense oligonucleotide or an intrathecal AAV9-miRNA vector. Pair target engagement, measured as PMP22 mRNA in serial skin biopsies, with the two outcome measures that have shown movement over 12 months in this disease: quantitative calf muscle MRI fat fraction and plasma neurofilament light chain.</div>
+
+
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Dose-dependent reduction of skin PMP22 mRNA accompanied by stabilisation of calf muscle fat fraction and of plasma NfL against the untreated natural-history trajectory would establish PMP22 dosage as a modifiable human mechanism.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-canonical-pmp22-mpz-axonal-demyelinating-neuropathy-model">mechanistic_hypotheses#canonical_pmp22_mpz_axonal_demyelinating_neuropathy_model</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would refute</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-canonical-pmp22-mpz-axonal-demyelinating-neuropathy-model">mechanistic_hypotheses#canonical_pmp22_mpz_axonal_demyelinating_neuropathy_model</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Skin PMP22 mRNA falls dose-dependently, and calf muscle fat fraction and plasma NfL stabilise relative to the natural-history trajectory.</li>
+
+        </ul>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Skin PMP22 mRNA falls to the degree that rescues rodent models while calf muscle fat fraction and plasma NfL continue on their untreated trajectory, indicating that PMP22 dosage is not rate-limiting for established human disease.</li>
+
+        </ul>
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41948127" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41948127" target="_blank">PMID:41948127</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To support clinical translation, we confirmed on-target specificity of miR871 for PMP22 in vitro, identified a safe and effective dosing range in mice, demonstrated absence of significant toxicity in rodents and non-human primates (NHPs), and performed a detailed AAV biodistribution study in a..."</div>
+
+
+                <div class="evidence-explanation">The most advanced direct-lowering programme describes its own package as work done to support clinical translation, which is a statement that the human step has not yet been taken.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="cmt_biomarker_response_to_therapy">
+                <div class="item-name">Has any CMT biomarker been shown to change in response to an effective disease-modifying therapy?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">cmt_biomarker_response_to_therapy</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#biochemical-plasma-neurofilament-light-chain">biochemical#Plasma Neurofilament Light Chain</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#biochemical-plasma-glial-fibrillary-acidic-protein">biochemical#Plasma Glial Fibrillary Acidic Protein</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Quantitative calf muscle MRI fat fraction, plasma NfL, and plasma GFAP all separate CMT from controls and track severity, and fat fraction moves enough over 12 months to be proposed as a trial endpoint. None has been measured against a therapy that works, because until PXT3003 no CMT therapy did, and PXT3003 was not run with these readouts. Responsiveness to untreated progression is necessary but not sufficient for surrogacy: a marker can track decline faithfully and still fail to move when the upstream mechanism is corrected. Treating any of these as a validated surrogate endpoint would overstate what has been shown, and the biomarker substudy belongs inside the first direct-lowering trial rather than after it.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39957630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39957630" target="_blank">PMID:39957630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We demonstrated a consistent progression of calf muscle MRI fat over 4 years, significant longitudinal correlation between CMT Examination Score and calf muscle fat, and potential as a bridging biomarker by 1 year change in fat correlating with long-term clinical progression."</div>
+
+
+                <div class="evidence-explanation">The strongest responsiveness result available for any CMT biomarker, from 20 untreated CMT1A patients followed for a mean of four years. The authors claim potential as a bridging biomarker rather than demonstrated surrogacy, which is the boundary this gap records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Pathophysiology -->
@@ -3748,7 +4879,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -3761,19 +4892,26 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-cavus" data-dismech-node="Pes Cavus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pes Cavus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pes cavus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001761">HP:0001761</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-1">HP:0001761</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -3797,19 +4935,26 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-muscle-weakness" data-dismech-node="Distal Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Distal Muscle Weakness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Distal muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002460">HP:0002460</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-2">HP:0002460</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal muscle weakness (HP:0002460), qualified as course progressive. HP:0002460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -3847,23 +4992,32 @@
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Nervous System
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-tendon-reflexes" data-dismech-node="Decreased Tendon Reflexes" data-dismech-type="phenotype">
                     <div class="item-name">
                         Decreased Tendon Reflexes
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyporeflexia
+
+                        <span class="phenotype-term-label">Hyporeflexia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001265" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001265">HP:0001265</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0001265</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -3878,19 +5032,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-sensory-loss" data-dismech-node="Distal Sensory Loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Distal Sensory Loss
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Distal sensory impairment
+
+                        <span class="phenotype-term-label">Distal sensory impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002936" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002936">HP:0002936</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0002936</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -3944,7 +5107,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pmp22" data-dismech-node="PMP22" data-dismech-type="genetic">
                 <div class="item-name">
                     PMP22
 
@@ -3956,13 +5119,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PMP22
 
 
-    <a href="https://bioregistry.io/hgnc:9118" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9118">hgnc:9118</a>
+    <a href="https://bioregistry.io/hgnc:9118" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:9118</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PMP22 (hgnc:9118). hgnc:9118 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -3984,7 +5152,10 @@
                         <a href="https://bioregistry.io/DOI:10.1093/brain/awae064" target="_blank">DOI:10.1093/brain/awae064</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4005,9 +5176,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gjb1" data-dismech-node="GJB1" data-dismech-type="genetic">
                 <div class="item-name">
                     GJB1
 
@@ -4019,13 +5191,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GJB1
 
 
-    <a href="https://bioregistry.io/hgnc:4283" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4283">hgnc:4283</a>
+    <a href="https://bioregistry.io/hgnc:4283" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:4283</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GJB1 (hgnc:4283). hgnc:4283 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4036,9 +5213,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-mfn2" data-dismech-node="MFN2" data-dismech-type="genetic">
                 <div class="item-name">
                     MFN2
 
@@ -4050,13 +5228,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MFN2
 
 
-    <a href="https://bioregistry.io/hgnc:16877" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16877">hgnc:16877</a>
+    <a href="https://bioregistry.io/hgnc:16877" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:16877</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MFN2 (hgnc:16877). hgnc:16877 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4067,9 +5250,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-mpz" data-dismech-node="MPZ" data-dismech-type="genetic">
                 <div class="item-name">
                     MPZ
 
@@ -4081,13 +5265,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MPZ
 
 
-    <a href="https://bioregistry.io/hgnc:7225" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7225">hgnc:7225</a>
+    <a href="https://bioregistry.io/hgnc:7225" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:7225</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MPZ (hgnc:7225). hgnc:7225 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4098,9 +5287,16 @@
 
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -4109,22 +5305,28 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">7</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-physical-and-occupational-therapy" data-dismech-node="Physical and Occupational Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Physical and Occupational Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-9">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-9">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -4142,6 +5344,31 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -4157,19 +5384,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-orthotic-bracing" data-dismech-node="Orthotic Bracing" data-dismech-type="treatment">
                 <div class="item-name">
                     Orthotic Bracing
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-10">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -4192,6 +5425,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Ankle-foot orthoses to compensate for foot drop and improve gait.</div>
 
 
@@ -4202,13 +5449,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic Counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4237,6 +5489,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling for affected individuals and families.</div>
 
 
@@ -4247,13 +5513,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-pxt3003" data-dismech-node="PXT3003" data-dismech-type="treatment">
                 <div class="item-name">
                     PXT3003
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4282,6 +5553,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral fixed-dose combination of low-dose baclofen, naltrexone, and sorbitol designed to lower PMP22 expression and improve axonal function in CMT1A. Phase III trials (PLEO-CMT NCT02579759 completed, PREMIER NCT04762758).</div>
 
 
@@ -4291,7 +5576,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4301,7 +5586,10 @@
                         <a href="https://bioregistry.io/DOI:10.3390/genes14071391" target="_blank">DOI:10.3390/genes14071391</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4317,6 +5605,56 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:34656144" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34656144" target="_blank">PMID:34656144</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The high-dose group demonstrated a statistically significant improvement in the primary endpoint and a good safety profile."</div>
+
+
+                <div class="evidence-explanation">PLEO-CMT phase III result in 323 adults with mild-to-moderate CMT1A. The high-dose arm beat placebo on the Overall Neuropathy Limitations Scale (mean difference 0.37 points, p = 0.008). This is the only positive pharmacological trial in CMT1A to date and the effect size is small.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34656144" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34656144" target="_blank">PMID:34656144</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The high-dose group was discontinued early due to unexpected crystal formation in the high-dose formulation, which resulted in an unanticipated high discontinuation rate, overall and especially in the high-dose group."</div>
+
+
+                <div class="evidence-explanation">Records the conduct problem that qualifies the result above: the arm that produced the positive finding was stopped early for formulation crystallization, and the statistical analysis plan was adapted before database lock to handle the resulting missing data. The trial supports PXT3003 as promising, not as established disease-modifying therapy.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4324,19 +5662,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-aav9-mfn2-gene-therapy" data-dismech-node="AAV9-MFN2 Gene Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     AAV9-MFN2 Gene Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0001001" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001001">MAXO:0001001</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -4354,6 +5698,31 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -4378,7 +5747,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42301793" target="_blank">PMID:42301793</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4401,6 +5773,329 @@
 
             </div>
 
+            <div class="item-box treatment-box anchor-target" id="treatment-pmp22-lowering-antisense-oligonucleotide" data-dismech-node="PMP22-Lowering Antisense Oligonucleotide" data-dismech-type="treatment">
+                <div class="item-name">
+                    PMP22-Lowering Antisense Oligonucleotide
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Antisense oligonucleotide</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">RNase H knockdown</span>
+
+
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: Constrained ethyl (cEt)</span>
+
+    </div>
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PMP22
+
+
+    <a href="https://bioregistry.io/hgnc:9118" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:9118</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this treatment base-pairs with the transcript of this gene
+This treatment base-pairs with the transcript of PMP22 (hgnc:9118). hgnc:9118 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">PMP22 mRNA</span>
+
+
+    </div>
+
+
+
+
+
+                <div class="item-desc">Investigational antisense oligonucleotides that suppress PMP22 mRNA in affected peripheral nerve, addressing the causal gene-dosage lesion of CMT1A rather than a downstream consequence of it. The published rodent proof of concept used 16-mer chimeric gapmer phosphorothioate oligonucleotides carrying constrained-ethyl residues at positions 1 to 3 and 14 to 16, acting through RNase H-mediated degradation of the target transcript. Preclinical only: no human trial of direct PMP22 lowering has reported results, which is this entry&#39;s central translational gap.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29202483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29202483" target="_blank">PMID:29202483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Notably, initiation of ASO treatment after disease onset restored myelination, MNCV, and CMAP almost to levels seen in WT animals."</div>
+
+
+                <div class="evidence-explanation">Post-onset dosing reversed myelination and nerve-conduction deficits in two rodent CMT1A models. Because treatment started after disease was established, this is the strongest preclinical argument that the PMP22 dosage lesion drives an ongoing, reversible process rather than only a fixed developmental one. Rodent models only.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29202483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29202483" target="_blank">PMID:29202483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Furthermore, we demonstrated that reduction of PMP22 mRNA in skin biopsies from ASO-treated rats is a suitable biomarker for evaluating target engagement in response to ASO therapy."</div>
+
+
+                <div class="evidence-explanation">Establishes skin-biopsy PMP22 mRNA as the target-engagement readout proposed for a first-in-human PMP22-lowering trial, which is the measure the discriminating test in the knowledge gap below depends on.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-aav9-mir871-pmp22-silencing-gene-therapy" data-dismech-node="AAV9-miR871 PMP22 Silencing Gene Therapy" data-dismech-type="treatment">
+                <div class="item-name">
+                    AAV9-miR871 PMP22 Silencing Gene Therapy
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Lumbar intrathecal AAV9 delivering a U6-driven artificial microRNA (miR871) that silences PMP22 mRNA in Schwann cells, developed as a one-time treatment for CMT1A. Preclinical: efficacy in a humanized CMT1A mouse model, with dose ranging, toxicity, and vector biodistribution work in mice and non-human primates assembled to support a first-in-human trial.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41948127" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41948127" target="_blank">PMID:41948127</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A single injection produced long-term miR871 expression, triggered selective RNA interference against the PMP22 mRNA, and subsequently lowered protein levels and improved disease manifestations in a humanized CMT1A model."</div>
+
+
+                <div class="evidence-explanation">Single-dose intrathecal AAV9 achieved sustained, selective PMP22 knockdown and phenotypic improvement in a humanized CMT1A mouse, independently corroborating the ASO result that lowering PMP22 modifies established disease in rodents.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41948127" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41948127" target="_blank">PMID:41948127</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found vector biodistribution and miR871 expression in distal peripheral nerves, PMP22 target engagement in mice and NHPs, and silencing to levels expected to support normal myelination in humans."</div>
+
+
+                <div class="evidence-explanation">Reaching distal peripheral nerve is the delivery problem specific to a length-dependent neuropathy, and target engagement was shown in non-human primates as well as mice. The human silencing level is extrapolated, not measured, so this supports translational readiness and not human efficacy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -4408,6 +6103,215 @@
 
 
         <!-- Biochemical Markers -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-plasma-neurofilament-light-chain" data-dismech-node="Plasma Neurofilament Light Chain" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Plasma Neurofilament Light Chain
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated relative to controls)</span>
+
+                </div>
+
+                <div class="item-desc">Context: Genetically confirmed CMT of mixed subtype versus matched controls, measured in plasma by single-molecule array.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39882365" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39882365" target="_blank">PMID:39882365</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NfL and GFAP levels were correlated with the CMTNSv2 score (rs = 0.46, p = 0.002; rs = 0.31, p = 0.04)."</div>
+
+
+                <div class="evidence-explanation">In 44 genetically confirmed CMT patients and 44 matched controls, plasma NfL correlated with the CMT Neuropathy Score version 2. The correlation is moderate and cross-sectional, so it supports NfL as a severity indicator rather than as a progression or treatment-response measure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-plasma-glial-fibrillary-acidic-protein" data-dismech-node="Plasma Glial Fibrillary Acidic Protein" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Plasma Glial Fibrillary Acidic Protein
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated relative to controls)</span>
+
+                </div>
+
+                <div class="item-desc">Context: Genetically confirmed CMT of mixed subtype versus matched controls, measured in plasma by single-molecule array.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39882365" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39882365" target="_blank">PMID:39882365</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the group of patients with CMT, the concentrations of GDF15, FGF21, NfL, and GFAP were significantly higher than in the control group (p &lt; 0.05)."</div>
+
+
+                <div class="evidence-explanation">Establishes that plasma GFAP is raised in CMT relative to controls in this 44-case, 44-control study. The study does not localise the glial signal, so the elevation is curated as an observed association only.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-auckland-region-new-zealand-population-based-multi-source-ascertainment">
+                <div class="item-name">Auckland region, New Zealand (population-based multi-source ascertainment)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        15.7 per 100,000
+                        (11.6&ndash;21.0)
+                    </span>
+
+
+                    <span class="tag">1–9 per 10,000</span>
+
+                </div>
+
+                <div class="item-notes">Age-standardised point prevalence from a population-based study using multiple case ascertainment sources (primary care, hospitals, neuromuscular disease registry, community organisations, self-referral) in the Auckland Region of New Zealand, 2016. Highest prevalence was in the 50–64 age group (25.2/100,000). Estimates from single ascertainment sources may underestimate true prevalence. The commonly cited &#34;1 in 2,500&#34; figure (40/100,000) likely reflects earlier clinical-series estimates and may include broader ascertainment; the NZ population-based rate is lower.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31203252" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31203252" target="_blank">PMID:31203252</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age-standardised point prevalence of all CMT cases was 15.7 per 100 000"</div>
+
+
+                <div class="evidence-explanation">Population-based study using multiple ascertainment sources in the Auckland Region of New Zealand reports an age-standardised point prevalence of 15.7 per 100,000 (95% CI 11.6–21.0) for all CMT.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -4420,6 +6324,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -4438,7 +6345,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Charcot-Marie-Tooth Disease
 creation_date: &#34;2026-05-12T20:30:00Z&#34;
-updated_date: &#34;2026-05-13T02:00:00Z&#34;
 category: Mendelian
 disease_term:
   preferred_term: Charcot-Marie-Tooth disease
@@ -4549,46 +6455,137 @@ mechanistic_hypotheses:
   description: &gt;-
     Charcot-Marie-Tooth (CMT) disease is a clinically and genetically heterogeneous group of inherited
     peripheral neuropathies caused by variants in &gt;100 genes encoding myelin components (PMP22, MPZ,
-    GJB1), axonal cytoskeleton and transport proteins (MFN2, NEFL, KIF1B), and other Schwann-cell-axon
-    interface factors. CMT1A (most common, PMP22 duplication on 17p11.2) produces demyelinating
-    neuropathy through PMP22 overexpression-driven Schwann cell dysfunction and secondary axonal loss.
-    Axonal CMT2 forms (MFN2, MPZ, others) primarily impair axonal function. The uniform clinical
-    phenotype — distal motor and sensory loss in a length-dependent pattern, with foot deformity, distal
-    weakness, and absent reflexes — reflects convergent length-dependent axonal degeneration regardless
-    of upstream gene defect. The PMP22 duplication CMT1A mouse and rat models recapitulate the human
-    phenotype, and PMP22-lowering ASO and PXT3003 (low-dose drug combination) corroborate the
-    PMP22-dosage axis as a canonical mechanism in the most common subtype.
+    GJB1) and axonal cytoskeleton/transport proteins (MFN2, NEFL), plus other Schwann-cell-axon
+    interface factors. KIF1B is a historical CMT2A1 candidate gene, but it carries only Limited ClinGen
+    gene-disease validity evidence, not the established causal status of MFN2 (see notes). CMT1A (most
+    common, PMP22 duplication on 17p11.2) produces demyelinating neuropathy through PMP22
+    overexpression-driven Schwann cell dysfunction and secondary axonal loss. Axonal CMT2 forms (MFN2,
+    MPZ, others) primarily impair axonal function. The uniform clinical phenotype — distal motor and
+    sensory loss in a length-dependent pattern, with foot deformity, distal weakness, and absent
+    reflexes — frequently converges on length-dependent axonal degeneration as a late-stage correlate of
+    disability across CMT1A and CMT2 subtypes, though not a universal mechanism in every model (see
+    notes). The PMP22 duplication CMT1A mouse and rat models recapitulate the human phenotype, and
+    PMP22-lowering ASO and PXT3003 (low-dose drug combination) corroborate the PMP22-dosage axis as a
+    canonical mechanism in the most common subtype.
   notes: &gt;-
-    Retained as CANONICAL with seven major qualifications.
-    The 2026 openscientist hypothesis-search report
+    Retained as CANONICAL. The 2026 openscientist hypothesis-search
+    report
     (kb/hypotheses/Charcot-Marie-Tooth_Disease/canonical_pmp22_mpz_axonal_demyelinating_neuropathy_model)
-    finds SUPPORTED. Core architecture validated: PMP22
-    duplication is 43-60% of diagnosed CMT; &gt;130 genes show
-    genetic heterogeneity; CMT1A and CMT2 subtypes converge on
-    length-dependent axonal degeneration; transgenic models
-    recapitulate the human phenotype. Seven substantive
-    refinements: (1) CMT1A is fundamentally a DYSMYELINATING
-    disorder with uniformly shortened internodes, NOT a
-    segmental demyelinating neuropathy as classically taught;
-    (2) PMP22 functions as a STRUCTURAL ORGANIZER of myelin
-    architecture at nodes and Schmidt-Lanterman incisures, not
-    merely a compact myelin component; (3) UPR / ER stress is a
-    CONVERGENT pathomechanism across CMT1A and CMT1B (MPZ)
-    subtypes; (4) SARM1 has been identified as the central
-    EXECUTIONER of axonal degeneration in CMT2A, with a
-    feedback loop to mitochondrial dysfunction (SARM1 inhibitors
-    in development); (5) secondary neuroinflammation via
-    macrophage-CSF1 signaling amplifies demyelination across
-    CMT subtypes; (6) lipid metabolism dysregulation
-    (sphingolipid, glycerophospholipid) and cholesterol
-    trafficking defects are mechanistically linked to PMP22
-    dosage; (7) human proof-of-concept for PMP22-lowering
-    therapies remains the critical translational gap — all
-    human trials to date (ascorbic acid x5, complement
-    inhibition) failed except PXT3003 (modest Phase III, single
-    trial). The PMP22-dosage axis is validated in rodents but
-    not yet in humans. ASO and AAV9-miRNA gene therapies are
-    advancing toward clinical translation.
+    finds the broad canonical framework SUPPORTED, but several
+    report-level claims required source-, model-, subtype-, and
+    species-scoping before independent reconciliation into this
+    entry (issue #7405; sidecar assessment in PR #7406). Core
+    architecture remains validated: &gt;100 genes show genetic
+    heterogeneity; CMT1A and CMT2 subtypes frequently converge on
+    length-dependent axonal degeneration as a late-stage correlate of
+    disability, though not as a universal sufficient mechanism —
+    adult C3-PMP22 (CMT1A) model mice show no detectable
+    myelinated-fibre loss despite functional impairment (PMID:21487305);
+    transgenic models recapitulate the human phenotype. PMP22
+    duplication accounts for
+    505/1165 (43.3%) of genetically solved cases and 505/1515
+    (33.3%) of all clinically diagnosed participants in a single
+    specialist-centre cohort (PMID:38481354, cited below via
+    DOI:10.1093/brain/awae064); a separately cited ~60% figure
+    (PMID:31852984) is a background statement about the share of
+    pathogenic CMT variants attributable to the PMP22 duplication,
+    not a comparable diagnosed-case estimate, and should not be
+    blended with the cohort figure into a single &#34;43-60%&#34; range. Seven
+    substantive, source-scoped refinements: (1) dysmyelination is a
+    real developmental component, not a categorical replacement for
+    demyelinating classification — dermal-fibre biopsies from 32
+    CMT1A patients show uniformly shortened internodal length and
+    absent segmental demyelination, suggesting a developmental
+    internode defect (PMID:19923170), and long-term
+    PMP22-overexpressing mice show delayed, incomplete developmental
+    myelination with stable adult myelin (PMID:21487305) —
+    conventional demyelinating features and a developmental
+    dysmyelination component coexist, they are not mutually
+    exclusive; (2) PMP22 acting as a structural organizer of
+    nodal/Schmidt-Lanterman-incisure architecture is shown
+    specifically in CMT1A and HNPP model mice (PMID:41400104), not
+    yet established as a human CMT-wide mechanism; (3) UPR/ER-stress
+    modulation (Sephin1/IFB-088) improved neuropathy in C3-PMP22
+    (CMT1A) and MpzR98C (CMT1B) mice (PMID:35501630) — convergence
+    is demonstrated across these two mouse models, not broadly
+    across CMT subtypes or in humans; (4) SARM1 acting as an
+    executioner of axonal degeneration, with a feedback loop to
+    mitochondrial dysfunction, is shown in one Mfn2-H361Y CMT2A rat
+    model (PMID:36287202) — a single-model finding, not yet a
+    cross-subtype or human result (SARM1 inhibitors are in
+    development); (5) macrophage/CSF1-driven secondary
+    neuroinflammation amplifying demyelination is documented
+    predominantly in CMT1B (P0+/- mice) and CMT1X
+    (connexin-32-deficient mice) models (PMID:16775375 review;
+    PMID:26865613),
+    not established as a general driver across all CMT subtypes;
+    systemic terminal complement (C6) inhibition in two
+    PMP22-overexpressing CMT1A mouse models reduced neuroinflammation
+    but did not improve motor function (PMID:36926597) — this was a
+    mouse experiment, not a failed human trial, and must not be
+    counted among failed human CMT1A trials; (6) cholesterol
+    trafficking is disrupted by both loss- and gain-of-function PMP22
+    mutations, but the rescue evidence is directionally specific:
+    myelination deficits in dorsal root ganglia explants were
+    improved by cholesterol supplementation only in heterozygous
+    PMP22-deficient (loss-of-function) mice (PMID:32511821) — this
+    does not support a supplementation strategy for
+    PMP22-duplication (gain-of-function) CMT1A, the reverse
+    direction; (7) KIF1B is listed among the CMT axonal-transport
+    genes, but the KIF1B-CMT2A1 relationship arose from a small
+    pedigree base, and ClinGen&#39;s Charcot-Marie-Tooth Disease Gene
+    Curation Expert Panel classified it as Limited in June 2026
+    (CGGV:assertion_ae6ffeae-9609-47bf-89a9-4863cf6ef05c-2026-06-12T160000.000Z,
+    cited below) — it should not be presented as equivalent in
+    evidentiary weight to the established MFN2-CMT2A relationship.
+    Human proof-of-concept for PMP22-lowering therapies
+    remains the critical translational gap: no cited study
+    demonstrates clinical benefit in humans from direct PMP22
+    lowering; the five human ascorbic-acid trials to date were
+    negative, and only PXT3003 showed a modest, single-trial Phase
+    III benefit. Preclinical human-cell
+    evidence is further along than the clinical evidence: PMP22
+    downregulation ameliorated myelin defects in patient-derived
+    CMT1A iPSC-organoids (PMID:36511878), and AAV-mediated editing of
+    the PMP22 duplication rescued disease features in patient-derived
+    CMT1A iPS Schwann cells (PMID:38017287) — the PMP22-dosage axis
+    therefore has direct human-cell (not yet human-trial) proof of
+    concept, alongside the rodent validation. ASO and AAV9-miRNA gene
+    therapies are advancing toward clinical translation. A 2026-09
+    reconciliation pass against the same openscientist report added
+    source-scoped citations for three claims this entry previously asserted
+    without one, plus two qualifications it did not carry at all. (a) The
+    failed human arm is now cited: five ascorbic-acid trials were undertaken
+    worldwide and none demonstrated significant effectiveness (PMID:26450076),
+    the largest being a 2-year randomised trial in 277 CMT1A adults that found
+    no CMTNS difference from placebo at 24 months (PMID:21393063). Saturable
+    ascorbate absorption has been proposed as the reason they failed
+    (PMID:23525455), but that paper argues the case pharmacokinetically rather
+    than testing it against the alternatives (target biology, intraneural
+    exposure, outcome sensitivity, model fidelity), so it is deliberately not
+    curated here as an established cause. (b) Direct PMP22 lowering is now
+    cited at the treatment level: post-onset antisense oligonucleotide
+    treatment restored myelination and nerve conduction in two rodent CMT1A
+    models (PMID:29202483), and an intrathecal AAV9 vector carrying the
+    artificial miRNA miR871 lowered PMP22 and improved disease in a humanized
+    mouse model, with dosing, toxicity and biodistribution work in mice and
+    non-human primates (PMID:41948127). Both remain preclinical, so the
+    human-validation gap above is unchanged. (c) Two further qualifications of
+    the convergence framing: Schwann cells mount an endogenous c-Jun repair
+    programme that prevents loss of distal myelinated sensory axons in the
+    C3-PMP22 CMT1A model (PMID:25216747), so axonal degeneration is actively
+    opposed rather than following inevitably from the myelin lesion; and
+    children with CMT2A progress measurably faster on the CMTPedS than
+    children with CMT1A over two years (PMID:28796392), so a shared terminal
+    node does not imply a shared disease course. Lipidomic and transcriptomic
+    profiling of CMT1A mouse sciatic nerve and of patient-derived iPSC Schwann
+    cell precursors extends the cholesterol branch into the duplication
+    (gain-of-function) direction and into human cells (PMID:38743588), which
+    the PMP22-deficient explant rescue in refinement (6) does not cover.
+    Plasma NfL and GFAP are curated below as severity-correlated biomarkers;
+    no CMT biomarker has been shown to change in response to an effective
+    disease-modifying therapy, which is recorded as a knowledge gap rather
+    than as biomarker validation.
   evidence:
   - reference: DOI:10.1093/brain/awae064
     reference_title: &#34;Whole genome sequencing increases the diagnostic rate in Charcot-Marie-Tooth disease&#34;
@@ -4599,6 +6596,212 @@ mechanistic_hypotheses:
       Existing canonical mechanism citation in the dismech
       knowledge base, used as the seed for the hypothesis-search
       deep-research run.
+  - reference: PMID:31852984
+    reference_title: &#34;Identification of novel pathogenic copy number variations in Charcot-Marie-Tooth disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the recurrent PMP22 duplication accounting for about 60% of pathogenic variations&#34;
+    explanation: &gt;
+      Background statement about the share of pathogenic CMT
+      variants attributable to PMP22 duplication (not a
+      diagnosed-case cohort estimate). Graded PARTIAL because this
+      figure is not directly comparable to the 43.3%/33.3%
+      diagnosed-case denominators from PMID:38481354 and should not
+      be blended with them into a single range (issue #7405).
+  - reference: PMID:19923170
+    reference_title: &#34;Shortened internodal length of dermal myelinated nerve fibres in Charcot-Marie-Tooth disease type 1A.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Internodal length was uniformly shortened in patients with Charcot-Marie-Tooth disease type 1A, compared with those in normal controls (P &lt; 0.0001). Segmental demyelination was absent in the Charcot-Marie-Tooth disease type 1A group, but identifiable in all patients with chronic inflammatory demyelinating polyradiculoneuropathy.&#34;
+    explanation: &gt;
+      Dermal-fibre biopsies from 32 CMT1A patients support a
+      developmental internode defect alongside, not instead of,
+      conventional demyelinating classification.
+  - reference: PMID:21487305
+    reference_title: &#34;Myelin and axon pathology in a long-term study of PMP22-overexpressing mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Myelination was delayed, and normal myelination was not reached in either model but the degree of dysmyelination in C3-PMP mice was considerably less than that in C22 mice; myelination was stable in the adult mice.&#34;
+    explanation: &gt;
+      Long-term PMP22-overexpressing mouse models show delayed,
+      incomplete developmental myelination with stable adult myelin,
+      supporting a developmental dysmyelination component.
+  - reference: PMID:21487305
+    reference_title: &#34;Myelin and axon pathology in a long-term study of PMP22-overexpressing mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;In adult C3-PMP and wild-type mice, there was no detectable loss of myelinated fibers,whereas there was clear loss of myelinated fibers in C22 mice.&#34;
+    explanation: &gt;
+      In the same long-term study, adult C3-PMP22 mice (the model
+      the paper concludes is most representative of typical CMT1A)
+      show no detectable axonal (myelinated-fibre) loss despite
+      functional impairment, so length-dependent axonal degeneration
+      is not a universal feature of every CMT1A model. Graded PARTIAL
+      because it qualifies rather than supports the
+      universal-convergence framing.
+  - reference: PMID:41400104
+    reference_title: &#34;Aberrant Molecular Myelin Architecture in Charcot-Marie-Tooth Disease Type 1A and Hereditary Neuropathy With Liability to Pressure Palsies.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;high-resolution confocal imaging of teased peripheral nerve fibers from CMT1A and HNPP model mice, we identified widespread disorganization of adherens junctions, mislocalization of Connexin29 and aberrant distribution of nodal ion channels&#34;
+    explanation: &gt;
+      PMP22 as a structural organizer of
+      nodal/Schmidt-Lanterman-incisure myelin architecture is shown
+      specifically in CMT1A and HNPP model mice, not yet as a human
+      CMT-wide mechanism.
+  - reference: PMID:35501630
+    reference_title: &#34;Treatment with IFB-088 Improves Neuropathy in CMT1A and CMT1B Mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Both MpzR98C/ + and C3-PMP22 mice improved in motor function and neurophysiology.&#34;
+    explanation: &gt;
+      UPR/ER-stress modulation (Sephin1/IFB-088) improved neuropathy
+      specifically in C3-PMP22 (CMT1A) and MpzR98C (CMT1B) mice —
+      convergence shown across these two mouse models, not broadly
+      across CMT subtypes or in humans.
+  - reference: PMID:36287202
+    reference_title: &#34;A SARM1-mitochondrial feedback loop drives neuropathogenesis in a Charcot-Marie-Tooth disease type 2A rat model.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;We tested the role of SARM1 in a rat model carrying a dominant CMT2A mutation (Mfn2H361Y) that exhibits progressive dying-back axonal degeneration&#34;
+    explanation: &gt;
+      SARM1 as an executioner of axonal degeneration with a
+      mitochondrial feedback loop is a single-model (one Mfn2-H361Y
+      CMT2A rat) finding, not yet a cross-subtype or human result.
+  - reference: PMID:16775375
+    reference_title: &#34;Role of immune cells in animal models for inherited peripheral neuropathies.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;By cross-breeding P0+/- and gap-junction protein connexin 32-/- mice with immunodeficient recombination activating gene-1-deficient mutants, a substantial alleviation of the demyelinating phenotype was observed.&#34;
+    explanation: &gt;
+      Direct support for immune-mediated amplification of
+      demyelination specifically in P0+/- (CMT1B) and connexin-32-/-
+      (CMT1X) mouse models via genetic RAG1-deficiency crosses.
+  - reference: PMID:16775375
+    reference_title: &#34;Role of immune cells in animal models for inherited peripheral neuropathies.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Recently, this has also been observed in mice mildly overexpressing human peripheral myelin protein 22 kD mimicking the most common form of CMT, CMT type 1A.&#34;
+    explanation: &gt;
+      CMT1A immune-cell involvement is described in this review as a
+      secondary, more-recent observation, not backed by the same
+      RAG1-cross causal evidence as the CMT1B/CMT1X models. Graded
+      PARTIAL because it supports only an extension of the finding to
+      CMT1A, not the predominant causal evidence base.
+  - reference: PMID:26865613
+    reference_title: &#34;Cell-Surface and Secreted Isoforms of CSF-1 Exert Opposing Roles in Macrophage-Mediated Neural Damage in Cx32-Deficient Mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;connexin32-deficient (Cx32def) mice, a mouse model of CMT1X&#34;
+    explanation: &gt;
+      Macrophage/CSF-1-mediated neural damage is characterized
+      specifically in a CMT1X (connexin-32-deficient) mouse model.
+  - reference: PMID:36926597
+    reference_title: &#34;The systemic inhibition of the terminal complement system reduces neuroinflammation but does not improve motor function in mouse models of CMT1A with overexpressed PMP22.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;we inhibited systemic complement C6 in two transgenic mouse models for CMT1A, the C3-PMP22 and C3-PMP22 c-JunP0Cre models.&#34;
+    explanation: &gt;
+      Terminal complement (C6) inhibition reduced neuroinflammation
+      but did not improve motor function in two PMP22-overexpressing
+      CMT1A mouse models — this was a mouse experiment, not a failed
+      human trial (corrects a species error flagged in issue #7405).
+  - reference: PMID:32511821
+    reference_title: &#34;Subcellular diversion of cholesterol by gain- and loss-of-function mutations in PMP22.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;myelination deficits in dorsal root ganglia explants from heterozygous PMP22-deficient mice were improved by cholesterol supplementation.&#34;
+    explanation: &gt;
+      Cholesterol-supplementation rescue was shown specifically in
+      PMP22-deficient (loss-of-function) mouse explants, the
+      opposite direction from PMP22-duplication (gain-of-function)
+      CMT1A, so it does not support a CMT1A supplementation trial.
+  - reference: PMID:36511878
+    reference_title: &#34;Downregulation of PMP22 ameliorates myelin defects in iPSC-derived human organoid cultures of CMT1A.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Downregulation of PMP22 expression using short-hairpin RNAs or a combinatorial drug consisting of baclofen, naltrexone hydrochloride and D-sorbitol was able to ameliorate the myelin defects in CMT1A-organoids.&#34;
+    explanation: &gt;
+      Patient-derived CMT1A iPSC-organoid rescue after PMP22
+      downregulation is preclinical human-cell proof of concept for
+      the PMP22-dosage axis, distinct from a human clinical trial.
+  - reference: PMID:38017287
+    reference_title: &#34;AAV-mediated editing of PMP22 rescues Charcot-Marie-Tooth disease type 1A features in patient-derived iPS Schwann cells.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;decreased PMP22 gene duplication by 20-40%. Infection of CMT1A-iPSC-derived Schwann cell precursors with AAV2-hSaCas9-gRNAedit normalized PMP22 mRNA and PMP22 protein expression levels, and also ameliorated increased apoptosis and impaired myelination in CMT1A-iPSC-derived Schwann cells.&#34;
+    explanation: &gt;
+      AAV-mediated editing of the PMP22 duplication rescued disease
+      features in patient-derived CMT1A iPS Schwann cells —
+      preclinical human-cell proof of concept, not yet a human trial.
+  - reference: CGGV:assertion_ae6ffeae-9609-47bf-89a9-4863cf6ef05c-2026-06-12T160000.000Z
+    reference_title: &#34;KIF1B / Charcot-Marie-Tooth disease type 2A1 (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;KIF1B | HGNC:16636 | Charcot-Marie-Tooth disease type 2A1 | MONDO:0007308 | AD | Limited | SOP12 | Charcot-Marie-Tooth Disease Gene Curation Expert Panel | 2026-06-12T16:00:00.000Z&#34;
+    explanation: &gt;
+      ClinGen&#39;s Charcot-Marie-Tooth Disease Gene Curation Expert
+      Panel classifies the KIF1B-CMT2A1 gene-disease relationship as
+      Limited (June 2026), so KIF1B should not be presented as
+      equivalent in evidentiary weight to the established MFN2-CMT2A
+      relationship. Graded PARTIAL because the assertion supports a
+      downgrade of the KIF1B claim rather than the canonical model.
+  - reference: PMID:26450076
+    reference_title: &#34;[Ascorbic Acid and Charcot-Marie-Tooth Disease].&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Based on these results, five clinical trials were undertaken at different centers worldwide. However, none of them demonstrated significant effectiveness.&#34;
+    explanation: &gt;-
+      Substantiates the count and the outcome of the human ascorbic-acid
+      programme asserted in the notes above. Classified HUMAN_CLINICAL because
+      the evidence this review reports is the result of five human clinical
+      trials, not a preclinical or consensus statement.
+  - reference: PMID:21393063
+    reference_title: &#34;Ascorbic acid in Charcot-Marie-Tooth disease type 1A (CMT-TRIAAL and CMT-TRAUK): a double-blind randomised trial.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Ascorbic acid supplementation had no significant effect on neuropathy compared with placebo after 2 years, suggesting that no evidence is available to support treatment with ascorbic acid in adults with CMT1A.&#34;
+    explanation: &gt;-
+      The largest and longest of those trials, and the direct source for the
+      statement that human pharmacological attempts on the PMP22-dosage axis
+      have so far been negative. It qualifies the translational arm of the
+      canonical model, not its genetics: a failed ascorbate trial does not show
+      that PMP22 dosage is the wrong target, only that this agent did not move
+      the endpoint.
+  - reference: PMID:25216747
+    reference_title: &#34;c-Jun activation in Schwann cells protects against loss of sensory axons in inherited neuropathy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;The results indicate that c-Jun elevation in the Schwann cells of C3 nerves serves to prevent loss of myelinated sensory axons, particularly in distal nerves, improve behavioural symptoms, and preserve F-wave persistence.&#34;
+    explanation: &gt;-
+      Conditional inactivation of Schwann-cell c-Jun in the C3-PMP22 CMT1A
+      mouse worsened distal sensory axon loss, so the same cell that carries
+      the genetic lesion also mounts a protective repair programme against the
+      shared terminal node. Length-dependent axonal degeneration is therefore
+      a modulated outcome in this model rather than an inevitable consequence
+      of the myelin defect.
+  - reference: PMID:28796392
+    reference_title: &#34;Natural history of Charcot-Marie-Tooth disease during childhood.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Participants with CMT2A progressed faster than CMT1A (mean difference, -4.4; 95% CI, -8.1 to -0.8; p = 0.02).&#34;
+    explanation: &gt;-
+      Two-year longitudinal CMTPedS data from 206 children show that genetic
+      subtype predicts rate of decline, so convergence of CMT1A and CMT2A on a
+      shared terminal node does not imply a shared disease course. Qualifies
+      the final-common-pathway framing with human, not model, data.
+  - reference: PMID:38743588
+    reference_title: &#34;PMP22 duplication dysregulates lipid homeostasis and plasma membrane organization in developing human Schwann cells.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Furthermore, we identified reduced lipid raft dynamics, disturbed plasma membrane fluidity and impaired cholesterol incorporation and storage, all of which could result from altered lipid storage homeostasis in the patient-derived CMT1A iPSC-SCPs.&#34;
+    explanation: &gt;-
+      Extends the PMP22 cholesterol branch of refinement (6) into the
+      duplication (gain-of-function) direction and into patient-derived human
+      Schwann cell precursors. This is the direction the PMP22-deficient
+      explant supplementation rescue does not address, so it supports the
+      lipid-handling mechanism without supporting a supplementation strategy
+      for CMT1A.
 phenotypes:
 - category: Neurologic
   name: Distal Muscle Weakness
@@ -4630,6 +6833,57 @@ phenotypes:
     term:
       id: HP:0002936
       label: Distal sensory impairment
+biochemical:
+- name: Plasma Neurofilament Light Chain
+  biomarker_term:
+    preferred_term: plasma neurofilament light chain
+    term:
+      id: NCIT:C88043
+      label: Neurofilament Light Polypeptide
+  presence: Elevated relative to controls
+  context: &gt;-
+    Genetically confirmed CMT of mixed subtype versus matched controls,
+    measured in plasma by single-molecule array.
+  notes: &gt;-
+    NfL reports on the shared terminal node of CMT, axonal loss, rather than on
+    any one causative gene, which is why it is curated on this umbrella entry
+    instead of a subtype entry. It correlates with cross-sectional severity but
+    has never been shown to move in response to an effective disease-modifying
+    therapy, so it is not a validated surrogate endpoint; see the
+    biomarker-responsiveness knowledge gap below.
+  evidence:
+  - reference: PMID:39882365
+    reference_title: &#34;Evaluating plasma biomarkers NfL, GFAP, GDF15, and FGF21 as indicators of disease severity in Charcot-Marie Tooth patients.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;NfL and GFAP levels were correlated with the CMTNSv2 score (rs = 0.46, p = 0.002; rs = 0.31, p = 0.04).&#34;
+    explanation: &gt;-
+      In 44 genetically confirmed CMT patients and 44 matched controls, plasma
+      NfL correlated with the CMT Neuropathy Score version 2. The correlation
+      is moderate and cross-sectional, so it supports NfL as a severity
+      indicator rather than as a progression or treatment-response measure.
+- name: Plasma Glial Fibrillary Acidic Protein
+  presence: Elevated relative to controls
+  context: &gt;-
+    Genetically confirmed CMT of mixed subtype versus matched controls,
+    measured in plasma by single-molecule array.
+  notes: &gt;-
+    GFAP is an astroglial protein, so its elevation in a peripheral neuropathy
+    is not straightforward to attribute; the source study reports the
+    association without demonstrating a glial lesion in nerve. No NCI Thesaurus
+    biomarker term for GFAP was present in this repository&#39;s term cache at
+    curation time, so this entry deliberately carries no bound term rather than
+    a guessed CURIE.
+  evidence:
+  - reference: PMID:39882365
+    reference_title: &#34;Evaluating plasma biomarkers NfL, GFAP, GDF15, and FGF21 as indicators of disease severity in Charcot-Marie Tooth patients.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In the group of patients with CMT, the concentrations of GDF15, FGF21, NfL, and GFAP were significantly higher than in the control group (p &lt; 0.05).&#34;
+    explanation: &gt;-
+      Establishes that plasma GFAP is raised in CMT relative to controls in
+      this 44-case, 44-control study. The study does not localise the glial
+      signal, so the elevation is curated as an observed association only.
 genetic:
 - name: PMP22
   gene_term:
@@ -4659,8 +6913,9 @@ genetic:
   association: Causal
   notes: &gt;-
     GJB1 encodes connexin-32, expressed in Schwann cells at the paranodal
-    gap junctions. X-linked recessive (CMTX1). The second most common
-    genetic cause of CMT.
+    gap junctions. X-linked dominant / semidominant (CMTX1): males are more
+    severely affected, but heterozygous carrier females are commonly
+    symptomatic. The second most common genetic cause of CMT.
 - name: MFN2
   gene_term:
     preferred_term: MFN2
@@ -4687,18 +6942,19 @@ genetic:
 treatments:
 - name: Physical and Occupational Therapy
   description: Mainstay of supportive care to maintain mobility and function.
+  therapeutic_modality: BEHAVIORAL
   treatment_term:
     preferred_term: physical therapy
     term:
-      id: MAXO:0000011
-      label: physical therapy
+      id: NCIT:C15302
+      label: Physical Therapy
 - name: Orthotic Bracing
   description: Ankle-foot orthoses to compensate for foot drop and improve gait.
   treatment_term:
     preferred_term: supportive care
     term:
-      id: MAXO:0000950
-      label: supportive care
+      id: NCIT:C15747
+      label: Supportive Care
 - name: Genetic Counseling
   description: Counseling for affected individuals and families.
   treatment_term:
@@ -4719,11 +6975,32 @@ treatments:
       label: Pharmacotherapy
   evidence:
   - reference: DOI:10.3390/genes14071391
-    reference_title: &#34;Therapeutic Strategies in Charcot-Marie-Tooth Disease&#34;
+    reference_title: &#34;The Current State of Charcot–Marie–Tooth Disease Treatment&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Compounds such as PXT3003, which are being clinically and preclinically investigated, and a broad array of therapeutic agents and their corresponding mechanisms are discussed.&#34;
     explanation: Establishes PXT3003 as an active clinical/preclinical therapeutic candidate for CMT.
+  - reference: PMID:34656144
+    reference_title: &#34;A double-blind, placebo-controlled, randomized trial of PXT3003 for the treatment of Charcot-Marie-Tooth type 1A.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The high-dose group demonstrated a statistically significant improvement in the primary endpoint and a good safety profile.&#34;
+    explanation: &gt;-
+      PLEO-CMT phase III result in 323 adults with mild-to-moderate CMT1A. The
+      high-dose arm beat placebo on the Overall Neuropathy Limitations Scale
+      (mean difference 0.37 points, p = 0.008). This is the only positive
+      pharmacological trial in CMT1A to date and the effect size is small.
+  - reference: PMID:34656144
+    reference_title: &#34;A double-blind, placebo-controlled, randomized trial of PXT3003 for the treatment of Charcot-Marie-Tooth type 1A.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The high-dose group was discontinued early due to unexpected crystal formation in the high-dose formulation, which resulted in an unanticipated high discontinuation rate, overall and especially in the high-dose group.&#34;
+    explanation: &gt;-
+      Records the conduct problem that qualifies the result above: the arm that
+      produced the positive finding was stopped early for formulation
+      crystallization, and the statistical analysis plan was adapted before
+      database lock to handle the resulting missing data. The trial supports
+      PXT3003 as promising, not as established disease-modifying therapy.
 - name: AAV9-MFN2 Gene Therapy
   description: &gt;-
     Intrathecal delivery of an AAV9 vector expressing MFN2 to restore ER-mitochondria contacts
@@ -4733,8 +7010,8 @@ treatments:
   treatment_term:
     preferred_term: gene therapy
     term:
-      id: MAXO:0001001
-      label: gene therapy
+      id: NCIT:C15238
+      label: Gene Therapy
   evidence:
   - reference: PMID:42301793
     reference_title: &#34;Restoring the interplay between the endoplasmic reticulum and mitochondria by gene therapy improves Charcot-Marie-Tooth type 2A disease&#34;
@@ -4742,6 +7019,88 @@ treatments:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Intrathecal delivery of an AAV9 vector expressing MFN2WT effectively targets motor and sensory neurons, restoring ER-mitochondria contacts and mitochondrial morphology, thereby preserving both neuromuscular junction integrity and motor function&#34;
     explanation: Demonstrates that AAV9-MFN2 gene therapy restores ER-mitochondria contact homeostasis and prevents axonal degeneration in transgenic CMT2A models and patient-derived motor neurons.
+- name: PMP22-Lowering Antisense Oligonucleotide
+  description: &gt;-
+    Investigational antisense oligonucleotides that suppress PMP22 mRNA in
+    affected peripheral nerve, addressing the causal gene-dosage lesion of
+    CMT1A rather than a downstream consequence of it. The published rodent
+    proof of concept used 16-mer chimeric gapmer phosphorothioate
+    oligonucleotides carrying constrained-ethyl residues at positions 1 to 3
+    and 14 to 16, acting through RNase H-mediated degradation of the target
+    transcript. Preclinical only: no human trial of direct PMP22 lowering has
+    reported results, which is this entry&#39;s central translational gap.
+  therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
+  aso_details:
+    aso_mechanism: RNASE_H_KNOCKDOWN
+    target_gene:
+      preferred_term: PMP22
+      term:
+        id: hgnc:9118
+        label: PMP22
+    target_transcript: PMP22 mRNA
+    aso_chemistry: CONSTRAINED_ETHYL
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+  evidence:
+  - reference: PMID:29202483
+    reference_title: &#34;PMP22 antisense oligonucleotides reverse Charcot-Marie-Tooth disease type 1A features in rodent models.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Notably, initiation of ASO treatment after disease onset restored myelination, MNCV, and CMAP almost to levels seen in WT animals.&#34;
+    explanation: &gt;-
+      Post-onset dosing reversed myelination and nerve-conduction deficits in
+      two rodent CMT1A models. Because treatment started after disease was
+      established, this is the strongest preclinical argument that the PMP22
+      dosage lesion drives an ongoing, reversible process rather than only a
+      fixed developmental one. Rodent models only.
+  - reference: PMID:29202483
+    reference_title: &#34;PMP22 antisense oligonucleotides reverse Charcot-Marie-Tooth disease type 1A features in rodent models.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Furthermore, we demonstrated that reduction of PMP22 mRNA in skin biopsies from ASO-treated rats is a suitable biomarker for evaluating target engagement in response to ASO therapy.&#34;
+    explanation: &gt;-
+      Establishes skin-biopsy PMP22 mRNA as the target-engagement readout
+      proposed for a first-in-human PMP22-lowering trial, which is the measure
+      the discriminating test in the knowledge gap below depends on.
+- name: AAV9-miR871 PMP22 Silencing Gene Therapy
+  description: &gt;-
+    Lumbar intrathecal AAV9 delivering a U6-driven artificial microRNA
+    (miR871) that silences PMP22 mRNA in Schwann cells, developed as a
+    one-time treatment for CMT1A. Preclinical: efficacy in a humanized CMT1A
+    mouse model, with dose ranging, toxicity, and vector biodistribution work
+    in mice and non-human primates assembled to support a first-in-human
+    trial.
+  therapeutic_modality: GENE_THERAPY
+  treatment_term:
+    preferred_term: gene therapy
+    term:
+      id: NCIT:C15238
+      label: Gene Therapy
+  evidence:
+  - reference: PMID:41948127
+    reference_title: &#34;Safety, efficacy, and distal nerve Schwann cell biodistribution in mice and NHPs to support translation of AAV9 RNAi therapy for CMT1A.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;A single injection produced long-term miR871 expression, triggered selective RNA interference against the PMP22 mRNA, and subsequently lowered protein levels and improved disease manifestations in a humanized CMT1A model.&#34;
+    explanation: &gt;-
+      Single-dose intrathecal AAV9 achieved sustained, selective PMP22
+      knockdown and phenotypic improvement in a humanized CMT1A mouse,
+      independently corroborating the ASO result that lowering PMP22 modifies
+      established disease in rodents.
+  - reference: PMID:41948127
+    reference_title: &#34;Safety, efficacy, and distal nerve Schwann cell biodistribution in mice and NHPs to support translation of AAV9 RNAi therapy for CMT1A.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;We found vector biodistribution and miR871 expression in distal peripheral nerves, PMP22 target engagement in mice and NHPs, and silencing to levels expected to support normal myelination in humans.&#34;
+    explanation: &gt;-
+      Reaching distal peripheral nerve is the delivery problem specific to a
+      length-dependent neuropathy, and target engagement was shown in
+      non-human primates as well as mice. The human silencing level is
+      extrapolated, not measured, so this supports translational readiness and
+      not human efficacy.
 prevalence:
 - population: Auckland region, New Zealand (population-based multi-source ascertainment)
   measure_type: POINT_PREVALENCE
@@ -4774,6 +7133,100 @@ references:
   - GeneReviews
   findings: []
 datasets:
+discussions:
+- discussion_id: human_proof_of_concept_pmp22_lowering
+  prompt: &gt;-
+    Does lowering PMP22 modify disease in people with CMT1A, as it does in
+    rodent models?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - mechanistic_hypotheses#canonical_pmp22_mpz_axonal_demyelinating_neuropathy_model
+  - treatments#PMP22-Lowering Antisense Oligonucleotide
+  - treatments#AAV9-miR871 PMP22 Silencing Gene Therapy
+  rationale: &gt;-
+    The PMP22 dosage axis is the load-bearing claim of the canonical model and
+    is validated only in rodents and in patient-derived cells. Antisense
+    oligonucleotide and AAV9-miRNA approaches both improve established disease
+    in rodent CMT1A models, and PMP22 downregulation rescues myelin defects in
+    patient-derived organoids and iPS Schwann cells, but no human trial of
+    direct PMP22 lowering has reported results. Every agent actually given to
+    people with CMT1A has acted indirectly: five ascorbic-acid trials were
+    negative, and PXT3003 is a three-drug combination whose modest phase III
+    benefit cannot be attributed to PMP22 lowering specifically. Until a
+    first-in-human trial of direct lowering reads out, the axis is a
+    preclinical inference rather than a demonstrated human mechanism.
+  proposed_experiments:
+  - experiment_id: exp_cmt_first_in_human_pmp22_lowering
+    name: First-in-human dose-escalation trial of direct PMP22 lowering in CMT1A
+    description: &gt;-
+      Phase 1/2 dose escalation in adults with genetically confirmed CMT1A of
+      mild to moderate severity, using either a PMP22 antisense oligonucleotide
+      or an intrathecal AAV9-miRNA vector. Pair target engagement, measured as
+      PMP22 mRNA in serial skin biopsies, with the two outcome measures that
+      have shown movement over 12 months in this disease: quantitative calf
+      muscle MRI fat fraction and plasma neurofilament light chain.
+    decision_criterion: &gt;-
+      Dose-dependent reduction of skin PMP22 mRNA accompanied by stabilisation
+      of calf muscle fat fraction and of plasma NfL against the untreated
+      natural-history trajectory would establish PMP22 dosage as a modifiable
+      human mechanism.
+    would_support:
+    - mechanistic_hypotheses#canonical_pmp22_mpz_axonal_demyelinating_neuropathy_model
+    would_refute:
+    - mechanistic_hypotheses#canonical_pmp22_mpz_axonal_demyelinating_neuropathy_model
+    supporting_outcome:
+    - &gt;-
+      Skin PMP22 mRNA falls dose-dependently, and calf muscle fat fraction and
+      plasma NfL stabilise relative to the natural-history trajectory.
+    refuting_outcome:
+    - &gt;-
+      Skin PMP22 mRNA falls to the degree that rescues rodent models while calf
+      muscle fat fraction and plasma NfL continue on their untreated
+      trajectory, indicating that PMP22 dosage is not rate-limiting for
+      established human disease.
+  evidence:
+  - reference: PMID:41948127
+    reference_title: &#34;Safety, efficacy, and distal nerve Schwann cell biodistribution in mice and NHPs to support translation of AAV9 RNAi therapy for CMT1A.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;To support clinical translation, we confirmed on-target specificity of miR871 for PMP22 in vitro, identified a safe and effective dosing range in mice, demonstrated absence of significant toxicity in rodents and non-human primates (NHPs), and performed a detailed AAV biodistribution study in a large animal model.&#34;
+    explanation: &gt;-
+      The most advanced direct-lowering programme describes its own package as
+      work done to support clinical translation, which is a statement that the
+      human step has not yet been taken.
+- discussion_id: cmt_biomarker_response_to_therapy
+  prompt: &gt;-
+    Has any CMT biomarker been shown to change in response to an effective
+    disease-modifying therapy?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - biochemical#Plasma Neurofilament Light Chain
+  - biochemical#Plasma Glial Fibrillary Acidic Protein
+  rationale: &gt;-
+    Quantitative calf muscle MRI fat fraction, plasma NfL, and plasma GFAP all
+    separate CMT from controls and track severity, and fat fraction moves
+    enough over 12 months to be proposed as a trial endpoint. None has been
+    measured against a therapy that works, because until PXT3003 no CMT therapy
+    did, and PXT3003 was not run with these readouts. Responsiveness to
+    untreated progression is necessary but not sufficient for surrogacy: a
+    marker can track decline faithfully and still fail to move when the
+    upstream mechanism is corrected. Treating any of these as a validated
+    surrogate endpoint would overstate what has been shown, and the biomarker
+    substudy belongs inside the first direct-lowering trial rather than after
+    it.
+  evidence:
+  - reference: PMID:39957630
+    reference_title: &#34;Twelve-month change in quantitative MRI calf muscle fat fraction in CMT1A predicts clinical change over 4 years.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We demonstrated a consistent progression of calf muscle MRI fat over 4 years, significant longitudinal correlation between CMT Examination Score and calf muscle fat, and potential as a bridging biomarker by 1 year change in fat correlating with long-term clinical progression.&#34;
+    explanation: &gt;-
+      The strongest responsiveness result available for any CMT biomarker, from
+      20 untreated CMT1A patients followed for a mean of four years. The
+      authors claim potential as a bridging biomarker rather than demonstrated
+      surrogacy, which is the boundary this gap records.
 </pre>
             </div>
         </div>
@@ -4817,6 +7270,19 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Reconcile canonical PMP22/MPZ hypothesis notes with independent OpenScientist assessment (#7405)</strong> · 2026-08-03T21:13:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Charcot-Marie-Tooth_Disease/2026-08-03T211359Z-claude-code-d75703.yaml">View source</a></p>
+                        <p class="research-review-text">Rewrote the canonical_pmp22_mpz_axonal_demyelinating_neuropathy_model hypothesis&#39;s notes field to replace six copied, overreaching report-level claims with source-, model-, subtype-, and species-scoped statements per issue #7405&#39;s independent reconciliation of the 2026 openscientist deep-research report (sidecar assessment merged in PR #7406). Corrected: (1) blended &#39;43-60%&#39; PMP22-duplication frequency range now split into the correct diagnosed-case denominators (505/1165=43.3%, 505/1515=33.3%, PMID:38481354) versus the non-comparable background ~60% figure (PMID:31852984); (2) absolute &#39;DYSMYELINATING NOT demyelinating&#39; claim softened to a coexisting developmental component (PMID:19923170, PMID:21487305); (3)-(4) structural-organizer/UPR/SARM1 claims scoped to their actual source models (CMT1A+HNPP mice PMID:41400104; C3-PMP22/MpzR98C mice PMID:35501630; one Mfn2-H361Y rat PMID:36287202) instead of generalized across CMT; (5) macrophage-CSF1 neuroinflammation scoped to CMT1B/CMT1X models (PMID:16775375, PMID:26865613) and the terminal-complement-inhibition item (PMID:36926597) corrected from a listed &#39;failed human trial&#39; to what it actually is, a mouse experiment; (6) cholesterol-supplementation rescue corrected to its actual direction (PMP22-deficient/loss-of-function mice, PMID:32511821), which does not support a CMT1A (gain-of-function/duplication) supplementation trial; and the human proof-of-concept gap reframed to note real preclinical human-cell (iPSC-organoid/iPS-Schwann-cell) rescue data (PMID:36511878, PMID:38017287) rather than stating the entire human dosage axis is unvalidated. Two of the issue&#39;s eight items (KIF1B attribution; the &#39;128-paper/36-finding&#39; provider-provenance claim) were confirmed to concern only the provider report/assessment sidecar, not any current assertion in this disease YAML, so no change was needed for those two. Added 12 new evidence items (one per newly-cited PMID) with exact-quote snippets verified against freshly fetched references_cache/*.md abstracts, each with an evidence_source classification (HUMAN_CLINICAL/MODEL_ORGANISM/IN_VITRO) and an explanation tying it to the specific scoped claim. status: CANONICAL is unchanged -- this is a scoping correction, not a verdict change. Validated with just validate (schema + term + reference, 14/14 new-PMID snippets verified) and a targeted pytest -k &#39;Charcot or hypothesis or evidence&#39; run (3822 passed).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -5720,6 +8186,11 @@ For each section, provide:
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Charcot-Marie-Tooth_Disease.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -5760,7 +8231,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Charcot-Marie-Tooth Disease", "mondoId": "MONDO:0015626", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Charcot-Marie-Tooth_Disease", "yamlRevision": "8b489aa247bc"};
+        const OS_CONFIG = {"diseaseName": "Charcot-Marie-Tooth Disease", "mondoId": "MONDO:0015626", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Charcot-Marie-Tooth_Disease", "yamlRevision": "5b6949af2bc5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6179,5 +8650,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

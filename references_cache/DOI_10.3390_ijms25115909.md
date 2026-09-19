@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25115909"
+reference_id: DOI:10.3390/ijms25115909
 title: Recent Insights into the Molecular Mechanisms of the Toll-like Receptor Response to Influenza Virus Infection
 authors:
 - Mohammad Enamul Hoque Kayesh
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25115909
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recent Insights into the Molecular Mechanisms of the Toll-like Receptor Response to Influenza Virus Infection

@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>Klinefelter Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Klinefelter Syndrome</h1>
             <div class="header-meta">
 
@@ -3201,6 +3960,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3253,6 +4016,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3263,6 +4027,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3335,10 +4107,19 @@
 
                 </div>
 
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">1 support</span>
+
+                </div>
+
+
                 <div class="item-desc" style="margin-top: 8px;">Klinefelter syndrome (47,XXY) results from supernumerary X chromosome(s) acquired through meiotic non-disjunction, producing progressive seminiferous tubule hyalinization and germ-cell loss during puberty. The resulting primary hypogonadism produces small firm testes, azoospermia, low testosterone, elevated FSH/LH, and incomplete pubertal virilization. X-linked gene dosage effects from incomplete X-inactivation (escape genes including KDM6A, USP9X, DDX3X) contribute to the cognitive, language, social, and metabolic phenotype that extends beyond androgen deficiency. Testosterone replacement reverses the hypogonadal syndrome but does not correct cognitive/behavioral features or infertility. Mouse XXY models and X-escape-gene knockouts have validated both the androgen-deficiency and X-gene-dosage axes of the canonical model.</div>
 
 
-                <div class="mapping-notes">Retained as CANONICAL with multi-component framing. The 2026 falcon hypothesis-search report (kb/hypotheses/Klinefelter_Syndrome/canonical_xxy_gene_dosage_androgen_deficiency_model; openscientist timed out at 3600s) finds PARTIALLY SUPPORTED. Core endocrine/testicular axis — progressive seminiferous- tubule degeneration with pubertal transition to hypergonadotropic hypogonadism — is well-supported by pediatric imaging/hormone trajectories and pubertal endocrine studies. Gene-dosage axis is supported at the molecular level by quantitative transcriptomic evidence: inactive X (Xi) copy number drives widespread X-linked expression changes, with escape/dosage-sensitive genes (DDX3X, USP9X, KDM6A) as candidate drivers beyond androgen deficiency. Three qualifications: (1) early-life structural testis changes (bilateral microlithiasis, reduced echogenicity in infants) occur BEFORE endocrine failure, complicating a &#39;puberty-only&#39; trigger model; (2) tissue-specific downstream (trans) gene- network effects limit extrapolation from accessible tissues to brain/testis outcomes — Xi also modulates expression from the active X in trans, expanding the dosage mechanism space; (3) emerging testis-niche mechanisms — microvascular immaturity / inflammation and Leydig metabolic / INSL3–AR imbalance — provide plausible competing proximal causes for low circulating testosterone and fertility heterogeneity. Model is best curated as MULTI-COMPONENT with explicit knowledge gaps and competing proximal mechanisms.</div>
+                <div class="mapping-notes">Retained as CANONICAL with multi-component framing. The 2026 falcon hypothesis-search report (kb/hypotheses/Klinefelter_Syndrome/canonical_xxy_gene_dosage_androgen_deficiency_model; openscientist timed out at 3600s) finds PARTIALLY SUPPORTED. Core endocrine/testicular axis — progressive seminiferous-tubule degeneration with pubertal transition to hypergonadotropic hypogonadism — is well-supported by pediatric imaging/hormone trajectories and pubertal endocrine studies. Gene-dosage axis is supported at the molecular level by quantitative transcriptomic evidence: inactive X (Xi) copy number drives widespread X-linked expression changes, with escape/dosage-sensitive genes (DDX3X, USP9X, KDM6A) as candidate drivers beyond androgen deficiency. Three qualifications: (1) early-life structural testis changes (bilateral microlithiasis, reduced echogenicity in infants) occur BEFORE endocrine failure, complicating a &#39;puberty-only&#39; trigger model; (2) tissue-specific downstream (trans) gene-network effects limit extrapolation from accessible tissues to brain/testis outcomes — Xi also modulates expression from the active X in trans, expanding the dosage mechanism space; (3) emerging testis-niche mechanisms — microvascular immaturity / inflammation and Leydig metabolic / INSL3–AR imbalance — provide plausible competing proximal causes for low circulating testosterone and fertility heterogeneity. Model is best curated as MULTI-COMPONENT with explicit knowledge gaps and competing proximal mechanisms.</div>
 
 
 
@@ -3376,7 +4157,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17062147" target="_blank">PMID:17062147</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3435,6 +4219,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -3472,7 +4257,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17062147" target="_blank">PMID:17062147</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3492,7 +4280,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32484281" target="_blank">PMID:32484281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3512,7 +4303,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25899809" target="_blank">PMID:25899809</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3537,6 +4331,7 @@
                 <div class="item-name">X-chromosome Inactivation Escape / Gene Dosage Imbalance</div>
 
                 <div class="item-desc">In 47,XXY, the inactive X chromosome (Xi) does not fully silence expression of a subset of X-linked escape genes (notably DDX3X, USP9X, KDM6A, and other dosage-sensitive loci). The resulting bi-allelic expression of these genes elevates effective gene dosage above the typical male single-X level, contributing to neurodevelopmental, cognitive, and metabolic phenotypes independent of androgen deficiency. The Xi also exerts trans regulatory effects on active-X and autosomal gene expression, broadening the molecular impact of sex-chromosome aneuploidy beyond classic escape.</div>
+
 
 
 
@@ -3606,7 +4401,10 @@
                         <a href="https://bioregistry.io/DOI:10.1186/s13073-023-01169-4" target="_blank">DOI:10.1186/s13073-023-01169-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3628,7 +4426,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32484281" target="_blank">PMID:32484281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3660,17 +4461,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Sertoli Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000216" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000216">CL:0000216</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000216" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sertoli Cell (CL:0000216). CL:0000216 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3691,11 +4499,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000178" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000178">CL:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000178" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Leydig Cell (CL:0000178). CL:0000178 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3716,11 +4529,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3741,10 +4559,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3771,17 +4592,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Spermatogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007283">GO:0007283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Spermatogenesis (GO:0007283). GO:0007283 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3802,11 +4630,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3827,11 +4660,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3852,10 +4690,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3878,17 +4719,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Testis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000473">UBERON:0000473</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0000473</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Testis (UBERON:0000473). UBERON:0000473 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Seminiferous Tubule
@@ -3896,13 +4744,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001343" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001343">UBERON:0001343</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001343" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0001343</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Seminiferous Tubule, annotated with seminiferous tubule of testis (UBERON:0001343). UBERON:0001343 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -3952,16 +4804,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Spermatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000017" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000017">CL:0000017</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000017" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Spermatocyte (CL:0000017). CL:0000017 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3988,17 +4845,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Apoptotic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Apoptotic Process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4019,10 +4883,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007283">GO:0007283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Spermatogenesis (GO:0007283). GO:0007283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4045,19 +4912,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Seminiferous Tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001343" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001343">UBERON:0001343</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001343" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001343</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Seminiferous Tubule, annotated with seminiferous tubule of testis (UBERON:0001343). UBERON:0001343 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4091,16 +4964,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Leydig Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000178" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000178">CL:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000178" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Leydig Cell (CL:0000178). CL:0000178 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4127,17 +5005,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Testosterone Biosynthetic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061370" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061370">GO:0061370</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061370" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0061370</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Testosterone Biosynthetic Process (GO:0061370). GO:0061370 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4158,10 +5043,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046879" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046879">GO:0046879</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046879" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0046879</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Hormone Secretion (GO:0046879). GO:0046879 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4184,19 +5072,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Testis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000473">UBERON:0000473</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0000473</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Testis (UBERON:0000473). UBERON:0000473 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4309,11 +5203,11 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4326,21 +5220,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gynecomastia" data-dismech-node="Gynecomastia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gynecomastia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gynecomastia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000771" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000771">HP:0000771</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000771</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4363,7 +5264,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29382506" target="_blank">PMID:29382506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4396,21 +5300,30 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-cardiovascular-risk" data-dismech-node="Increased Cardiovascular Risk" data-dismech-type="phenotype">
                     <div class="item-name">
                         Increased Cardiovascular Risk
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the cardiovascular system
+
+                        <span class="phenotype-term-label">Abnormality of the cardiovascular system</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001626" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001626">HP:0001626</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001626" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001626</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the Cardiovascular System (HP:0001626). HP:0001626 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4433,7 +5346,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29382506" target="_blank">PMID:29382506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4466,21 +5382,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypogonadism" data-dismech-node="Hypogonadism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypogonadism
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypogonadism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000135">HP:0000135</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000135</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4501,7 +5424,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29382506" target="_blank">PMID:29382506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4521,7 +5447,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26823086" target="_blank">PMID:26823086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4541,7 +5470,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33107323" target="_blank">PMID:33107323</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4574,84 +5506,54 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-micropenis" data-dismech-node="Micropenis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Micropenis
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Micropenis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000054">HP:0000054</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000054</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
-                    <div class="item-desc">Noted at birth in some cases</div>
+                    <div class="item-desc">Not a feature of classic non-mosaic 47,XXY, where external genitalia are typically normal at birth. Reported chiefly in higher-grade X-aneuploidy variants of the Klinefelter spectrum (e.g., 48,XXXY, 49,XXXXY, 49,XXXYY).</div>
 
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20843200" data-dismech-supports="REFUTE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20843200" target="_blank">PMID:20843200</a>
-                    </span>
-
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"The most specific clinical features which can be observed at adult age are small testes, gynecomastia, female distribution of fat and body hair, slightly increased body length due to an increased leg length and azoospermia."</div>
-
-
-                <div class="evidence-explanation">The provided literature does not mention micropenis as a characteristic feature of Klinefelter syndrome.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32835378" data-dismech-supports="NO_EVIDENCE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32835378" target="_blank">PMID:32835378</a>
-                    </span>
-
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"BBS patients frequently presented with genitourinary malformations, such as cryptorchidism (5/11), short scrotum (5/8), and micropenis (5/8), but unexpectedly, with normal testis size (7/8)."</div>
-
-
-                <div class="evidence-explanation">This reference discusses micropenis in the context of Bardet-Biedl syndrome, not Klinefelter syndrome.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38684424" data-dismech-supports="REFUTE">
+            <div class="evidence-item" data-dismech-evidence="PMID:38684424" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38684424" target="_blank">PMID:38684424</a>
                     </span>
 
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4659,7 +5561,30 @@
                 <div class="evidence-snippet">"Subsequent examinations were conducted due to various symptoms, including delayed motor development, intellectual disability, facial dysmorphisms, forearm deformities, hip dysplasia, cryptorchidism, micropenis, primary hypogonadism, and essential tremor"</div>
 
 
-                <div class="evidence-explanation">While this case mentions micropenis, it is associated with the 49,XXXYY karyotype, not the typical 47,XXY Klinefelter syndrome.</div>
+                <div class="evidence-explanation">Documents micropenis in a higher-grade X-aneuploidy (49,XXXYY) variant of the Klinefelter spectrum, consistent with micropenis being a variant-associated rather than classic 47,XXY feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20843200" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20843200" target="_blank">PMID:20843200</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The most specific clinical features which can be observed at adult age are small testes, gynecomastia, female distribution of fat and body hair, slightly increased body length due to an increased leg length and azoospermia."</div>
+
+
+                <div class="evidence-explanation">The characteristic clinical description of classic 47,XXY does not include micropenis, consistent with it not being a feature of non-mosaic Klinefelter syndrome.</div>
 
 
 
@@ -4675,21 +5600,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-azoospermia" data-dismech-node="Azoospermia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Azoospermia
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Azoospermia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000027">HP:0000027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4712,7 +5644,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29382506" target="_blank">PMID:29382506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4736,21 +5671,30 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-small-testes" data-dismech-node="Small Testes" data-dismech-type="phenotype">
                     <div class="item-name">
                         Small Testes
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased testicular size
+
+                        <span class="phenotype-term-label">Decreased testicular size</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008734" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008734">HP:0008734</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008734" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0008734</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Small Testes, annotated with Decreased testicular size (HP:0008734). HP:0008734 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4773,7 +5717,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25899809" target="_blank">PMID:25899809</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4806,21 +5753,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-insulin-resistance" data-dismech-node="Insulin Resistance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Insulin Resistance
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Insulin resistance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000855">HP:0000855</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000855</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Insulin Resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4843,7 +5797,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29382506" target="_blank">PMID:29382506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4876,60 +5833,37 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-muscle-tone" data-dismech-node="Reduced Muscle Tone" data-dismech-type="phenotype">
                     <div class="item-name">
                         Reduced Muscle Tone
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
 
 
                     <span class="phenotype-id">
-                        Hypotonia
+
+                        <span class="phenotype-term-label">Hypotonia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced Muscle Tone, annotated with Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
-                    <div class="item-desc">Manifests in infancy and childhood</div>
+                    <div class="item-desc">A recognized infancy/childhood feature (mild hypotonia and motor delay), though not prominent in adult clinical descriptions. Evidence gap: a quotable primary source for hypotonia in 47,XXY has not yet been cited here. No `frequency:` band is asserted. The band this record previously carried (OCCASIONAL) was left behind when its evidence item was removed, and per the frequency-evidence SOP a band is a separate quantitative claim that needs its own source rather than an inherited default. It would also probably have been the wrong band: infantile hypotonia is described as common in 47,XXY, so OCCASIONAL understates it. Restore a band only together with a quantitative source.</div>
 
 
 
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20843200" data-dismech-supports="NO_EVIDENCE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20843200" target="_blank">PMID:20843200</a>
-                    </span>
-
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"The most specific clinical features which can be observed at adult age are small testes, gynecomastia, female distribution of fat and body hair, slightly increased body length due to an increased leg length and azoospermia."</div>
-
-
-                <div class="evidence-explanation">The provided literature does not mention reduced muscle tone as a feature of Klinefelter Syndrome, whether in infancy, childhood, or adulthood.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
 
 
 
@@ -4937,21 +5871,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteopenia" data-dismech-node="Osteopenia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Osteopenia
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000938">HP:0000938</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000938</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4974,7 +5915,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30507702" target="_blank">PMID:30507702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5004,24 +5948,31 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed Speech and Language Development" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delayed Speech and Language Development
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed speech and language development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed Speech and Language Development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5036,13 +5987,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35948402" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35948402" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35948402" target="_blank">PMID:35948402</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5062,7 +6016,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21217607" target="_blank">PMID:21217607</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5086,21 +6043,124 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-learning-disabilities" data-dismech-node="Learning Disabilities" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Learning Disabilities
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Specific learning disability</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001328</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Learning Disabilities, annotated with Specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20014369" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20014369" target="_blank">PMID:20014369</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Most studies support that males with KS have an increased risk of language disorders and reading disabilities."</div>
+
+
+                <div class="evidence-explanation">The abstract indicates an increased risk of language disorders and reading disabilities, which fits under learning disabilities.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21217607" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21217607" target="_blank">PMID:21217607</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The behavioral phenotype of 47,XXY (Klinefelter syndrome) includes increased risks for developmental delays, language-based learning disabilities, executive dysfunction/ADHD, and socialemotional difficulties."</div>
+
+
+                <div class="evidence-explanation">The abstract directly mentions the increased risk of language-based learning disabilities in individuals with Klinefelter syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-attention-deficit" data-dismech-node="Attention Deficit" data-dismech-type="phenotype">
                     <div class="item-name">
                         Attention Deficit
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Attention deficit hyperactivity disorder
+
+                        <span class="phenotype-term-label">Attention deficit hyperactivity disorder</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007018">HP:0007018</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0007018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Attention Deficit Hyperactivity Disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5123,7 +6183,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20573461" target="_blank">PMID:20573461</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5143,7 +6206,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34431088" target="_blank">PMID:34431088</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5176,21 +6242,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tall-stature" data-dismech-node="Tall Stature" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tall Stature
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tall stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000098">HP:0000098</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000098</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tall Stature (HP:0000098). HP:0000098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5211,7 +6284,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21540567" target="_blank">PMID:21540567</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5241,89 +6317,10 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Learning Disabilities
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-                    <span class="phenotype-id">
-                        Specific learning disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001328">HP:0001328</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20014369" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20014369" target="_blank">PMID:20014369</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"Most studies support that males with KS have an increased risk of language disorders and reading disabilities."</div>
-
-
-                <div class="evidence-explanation">The abstract indicates an increased risk of language disorders and reading disabilities, which fits under learning disabilities.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21217607" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21217607" target="_blank">PMID:21217607</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"The behavioral phenotype of 47,XXY (Klinefelter syndrome) includes increased risks for developmental delays, language-based learning disabilities, executive dysfunction/ADHD, and socialemotional difficulties."</div>
-
-
-                <div class="evidence-explanation">The abstract directly mentions the increased risk of language-based learning disabilities in individuals with Klinefelter syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-psychosocial-difficulties" data-dismech-node="Psychosocial Difficulties" data-dismech-type="phenotype">
                     <div class="item-name">
                         Psychosocial Difficulties
 
@@ -5350,7 +6347,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20843200" target="_blank">PMID:20843200</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5370,12 +6370,15 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21217607" target="_blank">PMID:21217607</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
 
-                <div class="evidence-snippet">"Tartaglia.nicole@tchden.org The behavioral phenotype of 47,XXY (Klinefelter syndrome) includes increased risks for developmental delays, language-based learning disabilities, executive dysfunction/ADHD, and socialemotional difficulties"</div>
+                <div class="evidence-snippet">"The behavioral phenotype of 47,XXY (Klinefelter syndrome) includes increased risks for developmental delays, language-based learning disabilities, executive dysfunction/ADHD, and socialemotional difficulties"</div>
 
 
                 <div class="evidence-explanation">The reference highlights social-emotional difficulties, which supports the statement about occasional psychosocial difficulties.</div>
@@ -5390,7 +6393,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27743676" target="_blank">PMID:27743676</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5453,7 +6459,7 @@
                 <span class="card-count">9</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ddx3x" data-dismech-node="DDX3X" data-dismech-type="genetic">
                 <div class="item-name">
                     DDX3X
 
@@ -5465,13 +6471,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DDX3X
 
 
-    <a href="https://bioregistry.io/hgnc:2745" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2745">hgnc:2745</a>
+    <a href="https://bioregistry.io/hgnc:2745" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:2745</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DDX3X (hgnc:2745). hgnc:2745 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5482,9 +6493,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-usp9x" data-dismech-node="USP9X" data-dismech-type="genetic">
                 <div class="item-name">
                     USP9X
 
@@ -5496,13 +6508,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: USP9X
 
 
-    <a href="https://bioregistry.io/hgnc:12632" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12632">hgnc:12632</a>
+    <a href="https://bioregistry.io/hgnc:12632" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:12632</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is USP9X (hgnc:12632). hgnc:12632 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5513,9 +6530,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-kdm6a" data-dismech-node="KDM6A" data-dismech-type="genetic">
                 <div class="item-name">
                     KDM6A
 
@@ -5527,13 +6545,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KDM6A
 
 
-    <a href="https://bioregistry.io/hgnc:12637" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12637">hgnc:12637</a>
+    <a href="https://bioregistry.io/hgnc:12637" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:12637</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KDM6A (hgnc:12637). hgnc:12637 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5544,9 +6567,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-47-xxy-karyotype" data-dismech-node="47,XXY Karyotype" data-dismech-type="genetic">
                 <div class="item-name">
                     47,XXY Karyotype
 
@@ -5567,7 +6591,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34375016" target="_blank">PMID:34375016</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5587,7 +6614,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9160389" target="_blank">PMID:9160389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5607,7 +6637,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31630146" target="_blank">PMID:31630146</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5628,9 +6661,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-shox" data-dismech-node="SHOX" data-dismech-type="genetic">
                 <div class="item-name">
                     SHOX
 
@@ -5638,13 +6672,36 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SHOX
+
+
+    <a href="https://bioregistry.io/hgnc:10853" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:10853</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
 
 
 
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tlr7" data-dismech-node="TLR7" data-dismech-type="genetic">
                 <div class="item-name">
                     TLR7
 
@@ -5652,13 +6709,36 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TLR7
+
+
+    <a href="https://bioregistry.io/hgnc:15631" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:15631</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TLR7 (hgnc:15631). hgnc:15631 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
 
 
 
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ar" data-dismech-node="AR" data-dismech-type="genetic">
                 <div class="item-name">
                     AR
 
@@ -5666,17 +6746,25 @@
 
                 </div>
 
+                <div class="item-meta">
 
 
 
 
-            </div>
 
-            <div class="item-box genetic-box">
-                <div class="item-name">
-                    INSL3
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: AR
 
-                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Leydig cell function marker)</span>
+
+    <a href="https://bioregistry.io/hgnc:644" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:644</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AR (hgnc:644). hgnc:644 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -5684,9 +6772,47 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-insl3" data-dismech-node="INSL3" data-dismech-type="genetic">
+                <div class="item-name">
+                    INSL3
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Leydig cell function marker)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: INSL3
+
+
+    <a href="https://bioregistry.io/hgnc:6086" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:6086</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is INSL3 (hgnc:6086). hgnc:6086 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-mosaicism-46-xy-47-xxy" data-dismech-node="Mosaicism (46,XY/47,XXY)" data-dismech-type="genetic">
                 <div class="item-name">
                     Mosaicism (46,XY/47,XXY)
 
@@ -5697,7 +6823,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -5707,7 +6833,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1176138" target="_blank">PMID:1176138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5727,7 +6856,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3490207" target="_blank">PMID:3490207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5741,34 +6873,21 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:5720649" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/5720649" target="_blank">PMID:5720649</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"Chromosomal mosaicism in two emotionally disturbed adolescents with Klinefelter&#39;s syndrome (46,XY-47,XXY and 46,XY-47,XYY-48,XXYY)."</div>
-
-
-                <div class="evidence-explanation">The study mentions cases of mosaicism in Klinefelter&#39;s syndrome, providing support to the statement.</div>
-
-
-
-            </div>
-
 
         </div>
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5780,19 +6899,25 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-testosterone-replacement-therapy" data-dismech-node="Testosterone Replacement Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Testosterone Replacement Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hormone modifying therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">hormone modifying therapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Therapy</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000283" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000283">MAXO:0000283</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15445" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15445">NCIT:C15445</a>
 
 
 
@@ -5810,6 +6935,20 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5834,7 +6973,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35421871" target="_blank">PMID:35421871</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5854,7 +6996,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26732150" target="_blank">PMID:26732150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5874,7 +7019,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24142635" target="_blank">PMID:24142635</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5897,19 +7045,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-educational-support" data-dismech-node="Educational Support" data-dismech-type="treatment">
                 <div class="item-name">
                     Educational Support
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">speech therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">speech therapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000930" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000930">MAXO:0000930</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C159273">NCIT:C159273</a>
 
 
 
@@ -5927,6 +7081,31 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -5951,7 +7130,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25899809" target="_blank">PMID:25899809</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5971,7 +7153,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35948402" target="_blank">PMID:35948402</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5992,19 +7177,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-fertility-treatment" data-dismech-node="Fertility Treatment" data-dismech-type="treatment">
                 <div class="item-name">
                     Fertility Treatment
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6022,6 +7213,31 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6046,7 +7262,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35667865" target="_blank">PMID:35667865</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6066,7 +7285,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19490778" target="_blank">PMID:19490778</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6086,7 +7308,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21835671" target="_blank">PMID:21835671</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6109,19 +7334,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-psychological-support" data-dismech-node="Psychological Support" data-dismech-type="treatment">
                 <div class="item-name">
                     Psychological Support
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">behavioral counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000077" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000077">MAXO:0000077</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C181743" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C181743">NCIT:C181743</a>
 
 
 
@@ -6139,6 +7370,31 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6154,19 +7410,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-multidisciplinary-care" data-dismech-node="Multidisciplinary Care" data-dismech-type="treatment">
                 <div class="item-name">
                     Multidisciplinary Care
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6184,6 +7446,20 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6214,7 +7490,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-testosterone" data-dismech-node="Testosterone" data-dismech-type="biochemical">
                 <div class="item-name">
                     Testosterone
 
@@ -6240,7 +7516,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18504390" target="_blank">PMID:18504390</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6260,7 +7539,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29466784" target="_blank">PMID:29466784</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6280,7 +7562,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28960039" target="_blank">PMID:28960039</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6303,7 +7588,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-fsh-follicle-stimulating-hormone" data-dismech-node="FSH (Follicle-Stimulating Hormone)" data-dismech-type="biochemical">
                 <div class="item-name">
                     FSH (Follicle-Stimulating Hormone)
 
@@ -6329,7 +7614,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18504390" target="_blank">PMID:18504390</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6349,7 +7637,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/4583182" target="_blank">PMID:4583182</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6369,7 +7660,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30914274" target="_blank">PMID:30914274</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6393,16 +7687,520 @@
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-karyotype-analysis">
+                <div class="item-name">
+                    Karyotype Analysis
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(47,XXY)</span>
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Gold standard for confirming diagnosis</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9160389" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9160389" target="_blank">PMID:9160389</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"This study suggests that most males born with these chromosome patterns will go through life without being karyotyped, ... that the commonest indication for a Klinefelter male to be karyotyped will be hypogonadism and/or infertility."</div>
+
+
+                <div class="evidence-explanation">This indicates that karyotype analysis is used to diagnose Klinefelter Syndrome, supporting the statement that karyotype analysis is the gold standard for confirming diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37054629" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37054629" target="_blank">PMID:37054629</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The karyotypes were identified using high resolution GTL banding at the Genetics Department."</div>
+
+
+                <div class="evidence-explanation">The mention of karyotype identification through high-resolution GTL banding supports the statement that karyotype analysis is used for diagnosing Klinefelter Syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18668569" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18668569" target="_blank">PMID:18668569</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Sex chromosome genotyping was performed in 981 SLE patients...an overall rate of 47,XXY of 235 per 10,000 male SLE patients was found."</div>
+
+
+                <div class="evidence-explanation">The use of sex chromosome genotyping, a form of karyotype analysis, to identify 47,XXY patterns supports the statement that karyotype analysis is used for confirming the presence of Klinefelter Syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-hormone-testing">
+                <div class="item-name">
+                    Hormone Testing
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Abnormal)</span>
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Low testosterone and high FSH levels indicative</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22915094" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22915094" target="_blank">PMID:22915094</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The most important data for diagnosis are testicular volume, hormone levels and presence of azoospermia in spermiogram, especially in puberty and adult life."</div>
+
+
+                <div class="evidence-explanation">The study highlights hormone levels, including low testosterone and high FSH, as crucial for diagnosing Klinefelter Syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30507702" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30507702" target="_blank">PMID:30507702</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Hypogonadism and testicular degeneration are almost universal. Truncal adiposity, metabolic syndrome, and low bone mass occur frequently."</div>
+
+
+                <div class="evidence-explanation">Mentions universal hypogonadism, which implies low testosterone, as a diagnostic feature of Klinefelter Syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17766718" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17766718" target="_blank">PMID:17766718</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"We found increased FSH/inhibin B ratio as a possible sign of Sertoli cell dysfunction. However, serum levels of T were high normal suggesting an altered pituitary-gonadal set point."</div>
+
+
+                <div class="evidence-explanation">This study finds high normal testosterone in infants, which could partially support the statement but does not represent adult KS diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-males">
+                <div class="item-name">Males</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        223.0 per 100,000
+                        (167.0&ndash;254.0)
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Birth prevalence ~1 in 450-600 males (167-223 per 100,000). Anchored to the Victoria birth-prevalence estimate of 223 per 100,000 (95% CI 195-254); the 1-in-600 male-pregnancy figure gives the lower bound. About half of cases remain undiagnosed.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21449864" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21449864" target="_blank">PMID:21449864</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The birth prevalence of KS in Victoria is estimated to be 223 per 100,000 males (95% CI, 195-254), with about 50% of cases remaining undiagnosed."</div>
+
+
+                <div class="evidence-explanation">Provides the anchored birth-prevalence estimate (223 per 100,000 males), consistent with the ABOVE_1_IN_1000 class.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36225116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36225116" target="_blank">PMID:36225116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Klinefelter syndrome (KS) or 47,XXY is the most common sex chromosome aneuploidy (SCA), occurring at a prevalence of 1 in 600 male pregnancies."</div>
+
+
+                <div class="evidence-explanation">Supports KS as the most common sex-chromosome aneuploidy at ~1 in 600 male pregnancies (167 per 100,000), the lower bound of the cited range.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse220268">
+                <div class="item-name">
+                    Identification of a transcriptomic signature of X chromosome overdosage in  Saudi Klinefelter syndrome iPSCs.
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE220268" target="_blank">geo:GSE220268</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Klinefelter syndrome (KS) is the most prevalent aneuploidy in males and is characterized by an extra copy of the X chromosome,while the non-mosaic form of KS with 47,XXY karyotype is the most frequent (80-90%), less common non-disjunction events during the early mitotic division of the zygote result in mosaic forms of KS (47,XXY/46,XY). Here, using a paradigmatic cohort of KS-inducible pluripotent stem cells (iPSCs) carrying 47,XXY karyotypes we present the first iPSC-based disease-modeling study performed on KS patients from Saudi Arabia. We profiled the transcriptome of these Saudi KS-iPSCs, virtually characterized by subduedcgenetic backgrounds.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=45</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/36971776" target="_blank" style="color: var(--secondary);">PMID:36971776</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Klinefelter Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse152001">
+                <div class="item-name">
+                    Pseudoautosomal region 1 overdosage affects the global transcriptome in iPSCs from patients with Klinefelter syndrome and high-grade X chromosome aneuploidies
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE152001" target="_blank">geo:GSE152001</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Klinefelter syndrome (KS) is the most prevalent aneuploidy in males and is characterized by one or more supernumerary X chromosomes. Here, using a paradigmatic cohort of KS-inducible pluripotent stem cells (iPSCs) carrying 49-XXXXY, 48-XXXY, and 47-XXY karyotypes, we identified genes within the pseudoautosomal region 1 (PAR1) region as the most susceptible to dosage-dependent transcriptional dysregulation and therefore potentially responsible for the progressively worsening phenotype in higher grade X aneuploidies.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=72</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/35186953" target="_blank" style="color: var(--secondary);">PMID:35186953</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Klinefelter Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse294485">
+                <div class="item-name">
+                    Klinefelter Syndrome: a neurodevelopmental disease of the synapse
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE294485" target="_blank">geo:GSE294485</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Klinefelter syndrome (KS; 47, XXY) is the most common sex chromosome disorder, affecting approximately 1 in every 500 to 650 newborn males. Children with KS display a spectrum of phenotypic manifestations, including abnormal neurocognitive phenotypes. However, due to the limited research focusing on the central nervous system (CNS), our understanding of the neurobiology of KS at the cellular and molecular levels remains largely unclear. In this study, we utilized brain organoids derived from pluripotent stem cells to explore the mechanisms underlying early brain developmental defects in KS patients.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40578768" target="_blank" style="color: var(--secondary);">PMID:40578768</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Klinefelter Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002797">
+                <div class="item-name">
+                    DNA hypermethylation and differential gene expression associated with Klinefelter syndrome
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002797" target="_blank">ega:EGAS00001002797</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The molecular basis for the phenotypic traits and morbidity in Klinefelter syndrome (KS) are not clarified. As DNA methylation affect gene expression and thereby play a role in disease susceptibility, we performed genome-wide DNA methylation profiling of leucocytes from peripheral blood samples from 67 KS patients, 67 male controls and 33 female controls, in addition to genome-wide RNA-sequencing profiling in a subset of 9 KS patients, 9 control males and 13 female controls. Characterization of the methylome as well as the transcriptome of both coding and non-coding genes identified a unique epigenetic and genetic landscape of both autosomal chromosomes as well as the X chromosome in KS.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Klinefelter Syndrome&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6421,7 +8219,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Klinefelter Syndrome
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Klinefelter syndrome results from a supernumerary X chromosome, most commonly a 47,XXY karyotype.
   Incomplete silencing of X-linked escape genes creates a gene-dosage imbalance, while testicular microenvironment dysfunction drives accelerated germ cell apoptosis from puberty onward.
@@ -6433,19 +8230,25 @@ prevalence:
 - population: Males
   measure_type: BIRTH_PREVALENCE
   prevalence_class: ABOVE_1_IN_1000
-  rate_per_100000: 200.0
-  percentage: 0.2
+  rate_per_100000: 223.0
+  rate_low: 167.0
+  rate_high: 254.0
+  notes: &gt;-
+    Birth prevalence ~1 in 450-600 males (167-223 per 100,000). Anchored to the
+    Victoria birth-prevalence estimate of 223 per 100,000 (95% CI 195-254); the
+    1-in-600 male-pregnancy figure gives the lower bound. About half of cases
+    remain undiagnosed.
   evidence:
   - reference: PMID:21449864
     reference_title: &#34;The prevalence and diagnosis rates of Klinefelter syndrome: an Australian comparison.&#34;
-    supports: REFUTE
+    supports: SUPPORT
     snippet: The birth prevalence of KS in Victoria is estimated to be 223 per 100,000 males (95% CI, 195-254), with about 50% of cases remaining undiagnosed.
-    explanation: The prevalence of Klinefelter Syndrome (KS) is stated to be 223 per 100,000 males, which translates to 0.223%, refuting the given value of 0.2%.
+    explanation: Provides the anchored birth-prevalence estimate (223 per 100,000 males), consistent with the ABOVE_1_IN_1000 class.
   - reference: PMID:36225116
     reference_title: &#34;Klinefelter Syndrome: What should we tell prospective parents?&#34;
-    supports: REFUTE
+    supports: SUPPORT
     snippet: Klinefelter syndrome (KS) or 47,XXY is the most common sex chromosome aneuploidy (SCA), occurring at a prevalence of 1 in 600 male pregnancies.
-    explanation: The prevalence of KS is described as 1 in 600 male pregnancies, which translates to approximately 0.167%, very close to 0.2% but not precise enough to be considered supportive.
+    explanation: Supports KS as the most common sex-chromosome aneuploidy at ~1 in 600 male pregnancies (167 per 100,000), the lower bound of the cited range.
 mechanistic_hypotheses:
 - hypothesis_group_id: canonical_xxy_gene_dosage_androgen_deficiency_model
   hypothesis_label: Canonical XXY Gene Dosage / Androgen Deficiency Model
@@ -6465,8 +8268,8 @@ mechanistic_hypotheses:
     framing. The 2026 falcon hypothesis-search report
     (kb/hypotheses/Klinefelter_Syndrome/canonical_xxy_gene_dosage_androgen_deficiency_model;
     openscientist timed out at 3600s) finds PARTIALLY SUPPORTED.
-    Core endocrine/testicular axis — progressive seminiferous-
-    tubule degeneration with pubertal transition to
+    Core endocrine/testicular axis — progressive seminiferous-tubule
+    degeneration with pubertal transition to
     hypergonadotropic hypogonadism — is well-supported by
     pediatric imaging/hormone trajectories and pubertal endocrine
     studies. Gene-dosage axis is supported at the molecular level
@@ -6477,8 +8280,8 @@ mechanistic_hypotheses:
     qualifications: (1) early-life structural testis changes
     (bilateral microlithiasis, reduced echogenicity in infants)
     occur BEFORE endocrine failure, complicating a &#39;puberty-only&#39;
-    trigger model; (2) tissue-specific downstream (trans) gene-
-    network effects limit extrapolation from accessible tissues to
+    trigger model; (2) tissue-specific downstream (trans) gene-network
+    effects limit extrapolation from accessible tissues to
     brain/testis outcomes — Xi also modulates expression from the
     active X in trans, expanding the dosage mechanism space;
     (3) emerging testis-niche mechanisms — microvascular
@@ -6815,7 +8618,7 @@ phenotypes:
   evidence:
   - reference: PMID:35948402
     reference_title: &#34;Klinefelter syndrome: going beyond the diagnosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Although Klinefelter syndrome (KS) is common, it is rarely recognised in childhood, sometimes being identified with speech or developmental delay or incidental antenatal diagnosis... Around two-thirds require speech and language therapy or developmental support.
     explanation: The literature indicates that around two-thirds of individuals with KS require speech and language therapy or developmental support, suggesting that delayed speech and language development is relatively common but not universally present.
   - reference: PMID:21217607
@@ -6862,15 +8665,18 @@ phenotypes:
       id: HP:0000098
       label: Tall stature
 - category: Musculoskeletal
-  frequency: OCCASIONAL
   name: Reduced Muscle Tone
-  notes: Manifests in infancy and childhood
-  evidence:
-  - reference: PMID:20843200
-    reference_title: &#34;Klinefelter syndrome: clinical and molecular aspects.&#34;
-    supports: NO_EVIDENCE
-    snippet: The most specific clinical features which can be observed at adult age are small testes, gynecomastia, female distribution of fat and body hair, slightly increased body length due to an increased leg length and azoospermia.
-    explanation: The provided literature does not mention reduced muscle tone as a feature of Klinefelter Syndrome, whether in infancy, childhood, or adulthood.
+  notes: &gt;-
+    A recognized infancy/childhood feature (mild hypotonia and motor delay),
+    though not prominent in adult clinical descriptions. Evidence gap: a
+    quotable primary source for hypotonia in 47,XXY has not yet been cited here.
+    No `frequency:` band is asserted. The band this record previously carried
+    (OCCASIONAL) was left behind when its evidence item was removed, and per the
+    frequency-evidence SOP a band is a separate quantitative claim that needs its
+    own source rather than an inherited default. It would also probably have been
+    the wrong band: infantile hypotonia is described as common in 47,XXY, so
+    OCCASIONAL understates it. Restore a band only together with a quantitative
+    source.
   phenotype_term:
     preferred_term: Reduced Muscle Tone
     term:
@@ -6879,23 +8685,21 @@ phenotypes:
 - category: Reproductive
   frequency: OCCASIONAL
   name: Micropenis
-  notes: Noted at birth in some cases
+  notes: &gt;-
+    Not a feature of classic non-mosaic 47,XXY, where external genitalia are
+    typically normal at birth. Reported chiefly in higher-grade X-aneuploidy
+    variants of the Klinefelter spectrum (e.g., 48,XXXY, 49,XXXXY, 49,XXXYY).
   evidence:
+  - reference: PMID:38684424
+    reference_title: &#34;A case of 49,XXXYY followed-up from infancy to adulthood with review of literature.&#34;
+    supports: SUPPORT
+    snippet: Subsequent examinations were conducted due to various symptoms, including delayed motor development, intellectual disability, facial dysmorphisms, forearm deformities, hip dysplasia, cryptorchidism, micropenis, primary hypogonadism, and essential tremor
+    explanation: Documents micropenis in a higher-grade X-aneuploidy (49,XXXYY) variant of the Klinefelter spectrum, consistent with micropenis being a variant-associated rather than classic 47,XXY feature.
   - reference: PMID:20843200
     reference_title: &#34;Klinefelter syndrome: clinical and molecular aspects.&#34;
     supports: REFUTE
     snippet: The most specific clinical features which can be observed at adult age are small testes, gynecomastia, female distribution of fat and body hair, slightly increased body length due to an increased leg length and azoospermia.
-    explanation: The provided literature does not mention micropenis as a characteristic feature of Klinefelter syndrome.
-  - reference: PMID:32835378
-    reference_title: &#34;Reproduction Function in Male Patients With Bardet Biedl Syndrome.&#34;
-    supports: NO_EVIDENCE
-    snippet: BBS patients frequently presented with genitourinary malformations, such as cryptorchidism (5/11), short scrotum (5/8), and micropenis (5/8), but unexpectedly, with normal testis size (7/8).
-    explanation: This reference discusses micropenis in the context of Bardet-Biedl syndrome, not Klinefelter syndrome.
-  - reference: PMID:38684424
-    reference_title: &#34;A case of 49,XXXYY followed-up from infancy to adulthood with review of literature.&#34;
-    supports: REFUTE
-    snippet: Subsequent examinations were conducted due to various symptoms, including delayed motor development, intellectual disability, facial dysmorphisms, forearm deformities, hip dysplasia, cryptorchidism, micropenis, primary hypogonadism, and essential tremor
-    explanation: While this case mentions micropenis, it is associated with the 49,XXXYY karyotype, not the typical 47,XXY Klinefelter syndrome.
+    explanation: The characteristic clinical description of classic 47,XXY does not include micropenis, consistent with it not being a feature of non-mosaic Klinefelter syndrome.
   phenotype_term:
     preferred_term: Micropenis
     term:
@@ -6914,7 +8718,7 @@ phenotypes:
   - reference: PMID:21217607
     reference_title: &#34;The spectrum of the behavioral phenotype in boys and adolescents 47,XXY (Klinefelter syndrome).&#34;
     supports: SUPPORT
-    snippet: Tartaglia.nicole@tchden.org The behavioral phenotype of 47,XXY (Klinefelter syndrome) includes increased risks for developmental delays, language-based learning disabilities, executive dysfunction/ADHD, and socialemotional difficulties
+    snippet: The behavioral phenotype of 47,XXY (Klinefelter syndrome) includes increased risks for developmental delays, language-based learning disabilities, executive dysfunction/ADHD, and socialemotional difficulties
     explanation: The reference highlights social-emotional difficulties, which supports the statement about occasional psychosocial difficulties.
   - reference: PMID:27743676
     reference_title: &#34;[Social cognition disorders in Klinefelter syndrome: A specific phenotype? (KS)].&#34;
@@ -7130,15 +8934,35 @@ genetic:
     snippet: Klinefelter syndrome is the most frequently found aneuploidy among male patients. Its clinical presentation is very heterogeneous, and thus poses a challenge for a timely diagnosis.
     explanation: The study confirms that Klinefelter syndrome is an aneuploidy condition predominantly associated with the 47,XXY karyotype.
 - name: SHOX
+  gene_term:
+    preferred_term: SHOX
+    term:
+      id: hgnc:10853
+      label: SHOX
   association: Pseudoautosomal region gene
   notes: PAR1 gene with copy-number effects linked to tall stature phenotype due to gene dosage changes.
 - name: TLR7
+  gene_term:
+    preferred_term: TLR7
+    term:
+      id: hgnc:15631
+      label: TLR7
   association: X-dosage escape gene
   notes: Escape from X-inactivation produces increased innate immune signaling, contributing to heightened immune responses.
 - name: AR
+  gene_term:
+    preferred_term: AR
+    term:
+      id: hgnc:644
+      label: AR
   association: Androgen signaling pathway
   notes: Androgen receptor dysfunction contributes to hypogonadism phenotype.
 - name: INSL3
+  gene_term:
+    preferred_term: INSL3
+    term:
+      id: hgnc:6086
+      label: INSL3
   association: Leydig cell function marker
   notes: INSL3 dynamics reflect Leydig cell health with age-dependent alterations in KS.
 - name: Mosaicism (46,XY/47,XXY)
@@ -7154,11 +8978,6 @@ genetic:
     supports: SUPPORT
     snippet: 46,XY/47,XXY mosaicism is not uncommon. However, mosaicism of multiple sex chromosome aneuploidy is rarely observed.
     explanation: This case report shows that 46,XY/47,XXY mosaicism is not uncommon in Klinefelter&#39;s syndrome, supporting the statement.
-  - reference: PMID:5720649
-    reference_title: &#34;Chromosomal mosaicism in two emotionally disturbed adolescents with Klinefelter&#39;s syndrome (46,XY-47,XXY and 46,XY-47,XYY-48,XXYY).&#34;
-    supports: SUPPORT
-    snippet: Chromosomal mosaicism in two emotionally disturbed adolescents with Klinefelter&#39;s syndrome (46,XY-47,XXY and 46,XY-47,XYY-48,XXYY).
-    explanation: The study mentions cases of mosaicism in Klinefelter&#39;s syndrome, providing support to the statement.
 diagnosis:
 - name: Karyotype Analysis
   presence: 47,XXY
@@ -7193,14 +9012,9 @@ diagnosis:
     supports: SUPPORT
     snippet: Hypogonadism and testicular degeneration are almost universal. Truncal adiposity, metabolic syndrome, and low bone mass occur frequently.
     explanation: Mentions universal hypogonadism, which implies low testosterone, as a diagnostic feature of Klinefelter Syndrome.
-  - reference: PMID:5083415
-    reference_title: &#34;Pathologic testicular findings in Klinefelter&#39;s syndrome. 47,XXY vs 46,XY-47,XXY.&#34;
-    supports: SUPPORT
-    snippet: Pathologic testicular findings in Klinefelter&#39;s syndrome 47,XXY vs 46,XY-47,XXY.
-    explanation: While this snippet doesn&#39;t provide specifics, the title suggests in-depth pathological features, likely supporting hormone-related findings.
   - reference: PMID:17766718
     reference_title: &#34;High normal testosterone levels in infants with non-mosaic Klinefelter&#39;s syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: We found increased FSH/inhibin B ratio as a possible sign of Sertoli cell dysfunction. However, serum levels of T were high normal suggesting an altered pituitary-gonadal set point.
     explanation: This study finds high normal testosterone in infants, which could partially support the statement but does not represent adult KS diagnosis.
 treatments:
@@ -7224,7 +9038,7 @@ treatments:
     explanation: The study indicates the efficacy of testosterone replacement therapy in treating symptoms related to testosterone deficiency in Klinefelter syndrome, which implies improvements in overall physical health including muscle mass.
   - reference: PMID:38677872
     reference_title: &#34;Hormone Therapy During Infancy or Early Childhood for Patients with Hypogonadotropic Hypogonadism, Klinefelter or Turner Syndrome: Has the Time Come?&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Patients unable to produce sex steroids using gonadotropins to mimic minipuberty in hypogonadotropic hypogonadism, or sex steroids in patients with Klinefelter or Turner syndrome, is promising.
     explanation: This abstract discusses the potential of sex steroid treatments, including testosterone, but emphasizes the need for further research particularly in infants and early childhood.
   - reference: PMID:37962976
@@ -7235,8 +9049,8 @@ treatments:
   treatment_term:
     preferred_term: hormone modifying therapy
     term:
-      id: MAXO:0000283
-      label: hormone modifying therapy
+      id: NCIT:C15445
+      label: Hormone Therapy
 - name: Educational Support
   description: Special education services and speech therapy to improve language and academic skills.
   evidence:
@@ -7250,11 +9064,12 @@ treatments:
     supports: SUPPORT
     snippet: Around two-thirds require speech and language therapy or developmental support and early institution of therapy is important.
     explanation: This article supports the statement by mentioning the necessity of speech and language therapy or developmental support.
+  therapeutic_modality: BEHAVIORAL
   treatment_term:
     preferred_term: speech therapy
     term:
-      id: MAXO:0000930
-      label: speech therapy
+      id: NCIT:C159273
+      label: Speech Language Therapy
 - name: Fertility Treatment
   description: Assisted reproductive technologies such as testicular sperm extraction (TESE) and intracytoplasmic sperm injection (ICSI) may help those who wish to have children.
   evidence:
@@ -7283,25 +9098,27 @@ treatments:
     supports: SUPPORT
     snippet: Mounting evidence from recent studies has shown that various technological advances and approaches could facilitate the success of ART treatment for KS patients.
     explanation: This review summarizes methods that enhance the success of assisted reproductive technology (ART) for patients with Klinefelter syndrome.
+  therapeutic_modality: SURGERY
   treatment_term:
     preferred_term: surgical procedure
     term:
-      id: MAXO:0000004
-      label: surgical procedure
+      id: NCIT:C15329
+      label: Surgical Procedure
 - name: Psychological Support
   description: Counseling and psychological support to address social, emotional, and behavioral challenges.
+  therapeutic_modality: BEHAVIORAL
   treatment_term:
     preferred_term: behavioral counseling
     term:
-      id: MAXO:0000077
-      label: behavioral counseling
+      id: NCIT:C181743
+      label: Behavioral Counseling
 - name: Multidisciplinary Care
   description: Comprehensive monitoring for metabolic, cardiovascular, and bone health complications.
   treatment_term:
     preferred_term: supportive care
     term:
-      id: MAXO:0000950
-      label: supportive care
+      id: NCIT:C15747
+      label: Supportive Care
 disease_term:
   preferred_term: Klinefelter syndrome
   term:
@@ -7332,6 +9149,52 @@ references:
 - reference: DOI:10.3390/pediatric16020036
   title: &#39;Understanding the Neuropsychological Implications of Klinefelter Syndrome in Pediatric Populations: Current Perspectives&#39;
   findings: []
+datasets:
+- accession: geo:GSE220268
+  title: Identification of a transcriptomic signature of X chromosome overdosage in  Saudi Klinefelter syndrome iPSCs.
+  description: Klinefelter syndrome (KS) is the most prevalent aneuploidy in males and is characterized by an extra copy of the X chromosome,while the non-mosaic form of KS with 47,XXY karyotype is the most frequent (80-90%), less common non-disjunction events during the early mitotic division of the zygote result in mosaic forms of KS (47,XXY/46,XY). Here, using a paradigmatic cohort of KS-inducible pluripotent stem cells (iPSCs) carrying 47,XXY karyotypes we present the first iPSC-based disease-modeling study performed on KS patients from Saudi Arabia. We profiled the transcriptome of these Saudi KS-iPSCs, virtually characterized by subduedcgenetic backgrounds.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 45
+  publication: PMID:36971776
+  notes: Identified by GEO DataSets index search for Klinefelter Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE152001
+  title: Pseudoautosomal region 1 overdosage affects the global transcriptome in iPSCs from patients with Klinefelter syndrome and high-grade X chromosome aneuploidies
+  description: Klinefelter syndrome (KS) is the most prevalent aneuploidy in males and is characterized by one or more supernumerary X chromosomes. Here, using a paradigmatic cohort of KS-inducible pluripotent stem cells (iPSCs) carrying 49-XXXXY, 48-XXXY, and 47-XXY karyotypes, we identified genes within the pseudoautosomal region 1 (PAR1) region as the most susceptible to dosage-dependent transcriptional dysregulation and therefore potentially responsible for the progressively worsening phenotype in higher grade X aneuploidies.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 72
+  publication: PMID:35186953
+  notes: Identified by GEO DataSets index search for Klinefelter Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE294485
+  title: &#39;Klinefelter Syndrome: a neurodevelopmental disease of the synapse&#39;
+  description: Klinefelter syndrome (KS; 47, XXY) is the most common sex chromosome disorder, affecting approximately 1 in every 500 to 650 newborn males. Children with KS display a spectrum of phenotypic manifestations, including abnormal neurocognitive phenotypes. However, due to the limited research focusing on the central nervous system (CNS), our understanding of the neurobiology of KS at the cellular and molecular levels remains largely unclear. In this study, we utilized brain organoids derived from pluripotent stem cells to explore the mechanisms underlying early brain developmental defects in KS patients.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:40578768
+  notes: Identified by GEO DataSets index search for Klinefelter Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001002797
+  title: DNA hypermethylation and differential gene expression associated with Klinefelter syndrome
+  description: The molecular basis for the phenotypic traits and morbidity in Klinefelter syndrome (KS) are not clarified. As DNA methylation affect gene expression and thereby play a role in disease susceptibility, we performed genome-wide DNA methylation profiling of leucocytes from peripheral blood samples from 67 KS patients, 67 male controls and 33 female controls, in addition to genome-wide RNA-sequencing profiling in a subset of 9 KS patients, 9 control males and 13 female controls. Characterization of the methylome as well as the transcriptome of both coding and non-coding genes identified a unique epigenetic and genetic landscape of both autosomal chromosomes as well as the X chromosome in KS.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Klinefelter Syndrome&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -7494,6 +9357,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8013,6 +9878,11 @@ references:
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Klinefelter_Syndrome.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -8053,7 +9923,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Klinefelter Syndrome", "mondoId": "MONDO:0006823", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Klinefelter_Syndrome", "yamlRevision": "0284e4101256"};
+        const OS_CONFIG = {"diseaseName": "Klinefelter Syndrome", "mondoId": "MONDO:0006823", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Klinefelter_Syndrome", "yamlRevision": "819c1a9adac0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8472,5 +10342,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

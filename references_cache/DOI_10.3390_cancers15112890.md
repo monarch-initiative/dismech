@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15112890"
+reference_id: DOI:10.3390/cancers15112890
 title: Long-Term Outcomes after Surgery for Pheochromocytoma and Sympathetic Paraganglioma
 authors:
 - Francesca Torresan
@@ -14,6 +14,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15112890
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Long-Term Outcomes after Surgery for Pheochromocytoma and Sympathetic Paraganglioma

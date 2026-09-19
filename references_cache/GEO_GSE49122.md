@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE49122"
+reference_id: GEO:GSE49122
 title: Otitis Media Impact on Inner Ear
 content_type: summary
+full_text_attempted: true
 ---
 
 # Otitis Media Impact on Inner Ear

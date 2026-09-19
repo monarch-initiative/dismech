@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25042243"
+reference_id: DOI:10.3390/ijms25042243
 title: Emerging Gene Therapeutics for Epidermolysis Bullosa under Development
 authors:
 - Johannes Bischof
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25042243
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Emerging Gene Therapeutics for Epidermolysis Bullosa under Development

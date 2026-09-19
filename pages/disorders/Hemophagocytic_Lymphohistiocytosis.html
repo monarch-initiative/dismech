@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>Hemophagocytic Lymphohistiocytosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hemophagocytic Lymphohistiocytosis</h1>
             <div class="header-meta">
 
@@ -3204,9 +3963,21 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
+
+            <a class="stat-link" href="#inheritance">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">👪</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Inheritance</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#pathophysiology">
@@ -3222,7 +3993,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3248,6 +4019,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3266,6 +4038,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3293,36 +4073,124 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
-
-
-
-
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">IUIS Category</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">immune dysregulation</span>
+
                 </div>
+
             </div>
 
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3332,6 +4200,157 @@
 
 
         <!-- Inheritance -->
+
+        <div class="card" id="inheritance">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
+                <h2 class="card-title">Inheritance</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
+                <div class="item-name">
+                    Autosomal recessive inheritance
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
+                            HP:0000007
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The familial HLH forms proper (FHL2-FHL5: PRF1, UNC13D, STX11, STXBP2) and the syndromic HLH-predisposing disorders Griscelli syndrome type 2 (RAB27A) and Chediak-Higashi syndrome (LYST) are inherited in an autosomal recessive manner, requiring biallelic pathogenic variants.</div>
+
+
+
+
+    <div class="item-meta">
+
+        <span class="tag tag-classification">
+            Autosomal recessive inheritance
+        </span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10583959" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10583959" target="_blank">PMID:10583959</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Familial hemophagocytic lymphohistiocytosis (FHL) is a rare, rapidly fatal, autosomal recessive immune disorder characterized by uncontrolled activation of T cells and macrophages and overproduction of inflammatory cytokines."</div>
+
+
+                <div class="evidence-explanation">Establishes autosomal recessive inheritance for familial HLH.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-recessive-inheritance">
+                <div class="item-name">
+                    X-linked recessive inheritance
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0001419" target="_blank">
+                            HP:0001419
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The X-linked lymphoproliferative syndromes that predispose to HLH - XLP1 (SH2D1A/SAP) and XLP2 (XIAP/BIRC4) - are inherited in an X-linked recessive manner and manifest in hemizygous males.</div>
+
+
+
+
+    <div class="item-meta">
+
+        <span class="tag tag-classification">
+            X-linked recessive inheritance
+        </span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301580" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301580" target="_blank">PMID:20301580</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"XLP has two recognizable subtypes, XLP1 (due to pathogenic variants in SH2D1A) and XLP2 (due to pathogenic variants in XIAP)."</div>
+
+
+                <div class="evidence-explanation">Defines the two X-linked lymphoproliferative subtypes whose gene defects lie on the X chromosome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Subtypes -->
@@ -3385,7 +4404,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fhl2">
 
                     <div class="item-name">
                         Familial HLH type 2 (PRF1 / perforin)
@@ -3420,7 +4439,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10583959" target="_blank">PMID:10583959</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3446,7 +4468,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fhl3">
 
                     <div class="item-name">
                         Familial HLH type 3 (UNC13D / Munc13-4)
@@ -3481,7 +4503,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14622600" target="_blank">PMID:14622600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3507,7 +4532,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fhl4">
 
                     <div class="item-name">
                         Familial HLH type 4 (STX11 / syntaxin-11)
@@ -3542,7 +4567,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15703195" target="_blank">PMID:15703195</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3568,7 +4596,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fhl5">
 
                     <div class="item-name">
                         Familial HLH type 5 (STXBP2 / Munc18-2)
@@ -3603,7 +4631,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19884660" target="_blank">PMID:19884660</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3629,7 +4660,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-griscelli-type-2">
 
                     <div class="item-name">
                         Griscelli syndrome type 2 (RAB27A)
@@ -3664,7 +4695,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10835631" target="_blank">PMID:10835631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3690,7 +4724,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-chediak-higashi">
 
                     <div class="item-name">
                         Chediak-Higashi syndrome (LYST)
@@ -3725,7 +4759,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8896560" target="_blank">PMID:8896560</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3751,7 +4788,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-xlp1">
 
                     <div class="item-name">
                         X-linked lymphoproliferative disease type 1 (SH2D1A / SAP)
@@ -3786,7 +4823,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301580" target="_blank">PMID:20301580</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3812,7 +4852,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-xlp2">
 
                     <div class="item-name">
                         X-linked lymphoproliferative disease type 2 (XIAP / BIRC4)
@@ -3847,7 +4887,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17080092" target="_blank">PMID:17080092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3902,17 +4945,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cytotoxic T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000910">CL:0000910</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000910</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cytotoxic T cell (CL:0000910). CL:0000910 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3933,10 +4983,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000623">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3963,16 +5016,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         natural killer cell mediated cytotoxicity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042267" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042267">GO:0042267</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042267" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0042267</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased natural killer cell mediated cytotoxicity (GO:0042267). GO:0042267 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3992,16 +5050,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         T cell mediated cytotoxicity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001913">GO:0001913</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001913</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased T cell mediated cytotoxicity (GO:0001913). GO:0001913 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4022,6 +5085,7 @@
 
 
                 </div>
+
 
 
 
@@ -4043,7 +5107,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10583959" target="_blank">PMID:10583959</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4065,7 +5132,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19884660" target="_blank">PMID:19884660</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4098,17 +5168,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cytotoxic T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000910">CL:0000910</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000910</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cytotoxic T cell (CL:0000910). CL:0000910 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4129,10 +5206,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000623">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4159,16 +5239,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulated exocytosis of cytolytic granules
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045055" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045055">GO:0045055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045055" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0045055</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased regulated exocytosis of cytolytic granules, annotated with regulated exocytosis (GO:0045055). GO:0045055 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4198,6 +5283,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4210,7 +5296,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14622600" target="_blank">PMID:14622600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4232,7 +5321,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15703195" target="_blank">PMID:15703195</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4265,17 +5357,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4296,10 +5395,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000910">CL:0000910</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000910</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cytotoxic T cell (CL:0000910). CL:0000910 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4326,16 +5428,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         macrophage activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042116">GO:0042116</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0042116</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased macrophage activation (GO:0042116). GO:0042116 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4344,6 +5451,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4361,10 +5470,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032609">GO:0032609</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0032609</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased type II (interferon-gamma) production, annotated with type II interferon production (GO:0032609). GO:0032609 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4384,16 +5496,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cytokine production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001816">GO:0001816</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001816</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cytokine production (GO:0001816). GO:0001816 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4414,6 +5531,7 @@
 
 
                 </div>
+
 
 
 
@@ -4435,7 +5553,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10583959" target="_blank">PMID:10583959</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4457,7 +5578,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4518,21 +5642,21 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">9</span>
+                <span class="card-count">11</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4542,22 +5666,31 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cytopenias" data-dismech-node="Cytopenias" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cytopenias
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pancytopenia
+
+                        <span class="phenotype-term-label">Pancytopenia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001876">HP:0001876</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001876</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4578,7 +5711,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4604,28 +5740,26 @@
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hemophagocytosis" data-dismech-node="Hemophagocytosis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Hepatosplenomegaly
+                        Hemophagocytosis
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Hepatosplenomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001433">HP:0001433</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0012156</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4640,23 +5774,26 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20301617" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:10835631" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10835631" target="_blank">PMID:10835631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Familial HLH usually presents as an acute illness with prolonged and high fever, cytopenias, and hepatosplenomegaly."</div>
+                <div class="evidence-snippet">"Most patients also develop an uncontrolled T-lymphocyte and macrophage activation syndrome (known as haemophagocytic syndrome, HS), leading to death in the absence of bone-marrow transplantation."</div>
 
 
-                <div class="evidence-explanation">GeneReviews lists hepatosplenomegaly as a usual presenting feature.</div>
+                <div class="evidence-explanation">Describes the macrophage activation / haemophagocytic syndrome characteristic of HLH.</div>
 
 
 
@@ -4672,87 +5809,26 @@
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypofibrinogenemia" data-dismech-node="Hypofibrinogenemia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Fever
+                        Hypofibrinogenemia
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
-
-
-                    </span>
-
-                    </div>
 
 
 
 
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301617" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+    <a href="http://purl.obolibrary.org/obo/HP_0011900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011900</a>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Familial HLH usually presents as an acute illness with prolonged and high fever, cytopenias, and hepatosplenomegaly."</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists prolonged high fever as a usual presenting feature of familial HLH.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Hyperferritinemia
-
-
-                    <span class="phenotype-id">
-                        Increased circulating ferritin concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003281" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003281">HP:0003281</a>
-
-
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypofibrinogenemia (HP:0011900). HP:0011900 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4773,7 +5849,496 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16937360" target="_blank">PMID:16937360</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"diagnosis was based on five criteria (fever, splenomegaly, bicytopenia, hypertriglyceridemia and/or hypofibrinogenemia, and hemophagocytosis)"</div>
+
+
+                <div class="evidence-explanation">The HLH diagnostic criteria include hypofibrinogenemia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatosplenomegaly" data-dismech-node="Hepatosplenomegaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hepatosplenomegaly
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001433</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Familial HLH usually presents as an acute illness with prolonged and high fever, cytopenias, and hepatosplenomegaly."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists hepatosplenomegaly as a usual presenting feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2058392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2058392" target="_blank">PMID:2058392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prominent early clinical signs were fever (91%), splenomegaly (84%),
+hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
+
+
+                <div class="evidence-explanation">The Swedish FHL cohort documents splenomegaly in 84% and hepatomegaly in 90% of children, supporting the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lymphadenopathy" data-dismech-node="Lymphadenopathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lymphadenopathy
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2058392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2058392" target="_blank">PMID:2058392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prominent early clinical signs were fever (91%), splenomegaly (84%),
+hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
+
+
+                <div class="evidence-explanation">The Swedish FHL cohort documents lymph node enlargement in 42% of children, supporting the FREQUENT band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Rash and lymphadenopathy are less common."</div>
+
+
+                <div class="evidence-explanation">GeneReviews confirms lymphadenopathy as a recognized but less common presenting feature of familial HLH.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-rash" data-dismech-node="Skin Rash" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Skin Rash
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000988</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2058392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2058392" target="_blank">PMID:2058392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prominent early clinical signs were fever (91%), splenomegaly (84%),
+hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
+
+
+                <div class="evidence-explanation">The Swedish FHL cohort documents rash in 43% of children, supporting the FREQUENT band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Rash and lymphadenopathy are less common."</div>
+
+
+                <div class="evidence-explanation">GeneReviews confirms rash as a recognized but less common presenting feature of familial HLH.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">4</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fever
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Familial HLH usually presents as an acute illness with prolonged and high fever, cytopenias, and hepatosplenomegaly."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists prolonged high fever as a usual presenting feature of familial HLH.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2058392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2058392" target="_blank">PMID:2058392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prominent early clinical signs were fever (91%), splenomegaly (84%),
+hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
+
+
+                <div class="evidence-explanation">The Swedish FHL cohort documents fever in 91% of children, supporting the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperferritinemia" data-dismech-node="Hyperferritinemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperferritinemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating ferritin concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003281</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperferritinemia, annotated with Increased circulating ferritin concentration (HP:0003281). HP:0003281 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16937360" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16937360" target="_blank">PMID:16937360</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4799,19 +6364,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertriglyceridemia" data-dismech-node="Hypertriglyceridemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertriglyceridemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertriglyceridemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002155">HP:0002155</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002155</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4832,7 +6404,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16937360" target="_blank">PMID:16937360</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4858,19 +6433,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-liver-dysfunction" data-dismech-node="Liver Dysfunction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Liver Dysfunction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating hepatic transaminase concentration
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002910">HP:0002910</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated hepatic transaminases, annotated with Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4891,7 +6475,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4919,26 +6506,37 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neurologic-involvement" data-dismech-node="Neurologic Involvement" data-dismech-type="phenotype">
                     <div class="item-name">
                         Neurologic Involvement
 
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
 
                     <span class="phenotype-id">
-                        Encephalopathy
+
+                        <span class="phenotype-term-label">Encephalopathy</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001298">HP:0001298</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001298</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4949,7 +6547,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4959,7 +6557,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4975,128 +6576,27 @@
 
             </div>
 
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Hemophagocytosis
-
-
-                    <span class="phenotype-id">
-                        Hemophagocytosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012156">HP:0012156</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10835631" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:2058392" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10835631" target="_blank">PMID:10835631</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2058392" target="_blank">PMID:2058392</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Most patients also develop an uncontrolled T-lymphocyte and macrophage activation syndrome (known as haemophagocytic syndrome, HS), leading to death in the absence of bone-marrow transplantation."</div>
+                <div class="evidence-snippet">"Neurological
+symptoms, which developed in 47%, could totally dominate the clinical picture"</div>
 
 
-                <div class="evidence-explanation">Describes the macrophage activation / haemophagocytic syndrome characteristic of HLH.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Hypofibrinogenemia
-
-
-                    <span class="phenotype-id">
-                        Hypofibrinogenemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011900" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011900">HP:0011900</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16937360" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16937360" target="_blank">PMID:16937360</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"diagnosis was based on five criteria (fever, splenomegaly, bicytopenia, hypertriglyceridemia and/or hypofibrinogenemia, and hemophagocytosis)"</div>
-
-
-                <div class="evidence-explanation">The HLH diagnostic criteria include hypofibrinogenemia.</div>
+                <div class="evidence-explanation">The Swedish FHL cohort documents neurological symptoms in 47% of children, supporting the FREQUENT band.</div>
 
 
 
@@ -5151,7 +6651,7 @@
                 <span class="card-count">8</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-prf1" data-dismech-node="PRF1" data-dismech-type="genetic">
                 <div class="item-name">
                     PRF1
 
@@ -5163,13 +6663,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRF1
 
 
-    <a href="https://bioregistry.io/hgnc:9360" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9360">hgnc:9360</a>
+    <a href="https://bioregistry.io/hgnc:9360" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:9360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRF1 (hgnc:9360). hgnc:9360 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5191,7 +6696,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10583959" target="_blank">PMID:10583959</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5212,9 +6720,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-unc13d" data-dismech-node="UNC13D" data-dismech-type="genetic">
                 <div class="item-name">
                     UNC13D
 
@@ -5226,13 +6735,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: UNC13D
 
 
-    <a href="https://bioregistry.io/hgnc:23147" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:23147">hgnc:23147</a>
+    <a href="https://bioregistry.io/hgnc:23147" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:23147</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is UNC13D (hgnc:23147). hgnc:23147 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5254,7 +6768,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14622600" target="_blank">PMID:14622600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5275,9 +6792,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-stx11" data-dismech-node="STX11" data-dismech-type="genetic">
                 <div class="item-name">
                     STX11
 
@@ -5289,13 +6807,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STX11
 
 
-    <a href="https://bioregistry.io/hgnc:11429" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11429">hgnc:11429</a>
+    <a href="https://bioregistry.io/hgnc:11429" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:11429</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STX11 (hgnc:11429). hgnc:11429 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5317,7 +6840,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15703195" target="_blank">PMID:15703195</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5338,9 +6864,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-stxbp2" data-dismech-node="STXBP2" data-dismech-type="genetic">
                 <div class="item-name">
                     STXBP2
 
@@ -5352,13 +6879,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STXBP2
 
 
-    <a href="https://bioregistry.io/hgnc:11445" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11445">hgnc:11445</a>
+    <a href="https://bioregistry.io/hgnc:11445" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:11445</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STXBP2 (hgnc:11445). hgnc:11445 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5380,7 +6912,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19884660" target="_blank">PMID:19884660</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5401,9 +6936,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-rab27a" data-dismech-node="RAB27A" data-dismech-type="genetic">
                 <div class="item-name">
                     RAB27A
 
@@ -5415,13 +6951,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RAB27A
 
 
-    <a href="https://bioregistry.io/hgnc:9766" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9766">hgnc:9766</a>
+    <a href="https://bioregistry.io/hgnc:9766" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:9766</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RAB27A (hgnc:9766). hgnc:9766 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5443,7 +6984,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10835631" target="_blank">PMID:10835631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5464,9 +7008,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-lyst" data-dismech-node="LYST" data-dismech-type="genetic">
                 <div class="item-name">
                     LYST
 
@@ -5478,13 +7023,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LYST
 
 
-    <a href="https://bioregistry.io/hgnc:1968" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1968">hgnc:1968</a>
+    <a href="https://bioregistry.io/hgnc:1968" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:1968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LYST (hgnc:1968). hgnc:1968 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5506,7 +7056,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8896560" target="_blank">PMID:8896560</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5527,9 +7080,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-sh2d1a" data-dismech-node="SH2D1A" data-dismech-type="genetic">
                 <div class="item-name">
                     SH2D1A
 
@@ -5541,13 +7095,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SH2D1A
 
 
-    <a href="https://bioregistry.io/hgnc:10820" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10820">hgnc:10820</a>
+    <a href="https://bioregistry.io/hgnc:10820" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:10820</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SH2D1A (hgnc:10820). hgnc:10820 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5569,7 +7128,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301580" target="_blank">PMID:20301580</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5590,9 +7152,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-xiap" data-dismech-node="XIAP" data-dismech-type="genetic">
                 <div class="item-name">
                     XIAP
 
@@ -5604,13 +7167,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: XIAP
 
 
-    <a href="https://bioregistry.io/hgnc:592" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:592">hgnc:592</a>
+    <a href="https://bioregistry.io/hgnc:592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:592</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is XIAP (hgnc:592). hgnc:592 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5632,7 +7200,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17080092" target="_blank">PMID:17080092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5653,9 +7224,16 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5667,19 +7245,25 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-hlh-94-hlh-2004-chemoimmunotherapy-etoposide-dexamethasone" data-dismech-node="HLH-94 / HLH-2004 Chemoimmunotherapy (Etoposide + Dexamethasone)" data-dismech-type="treatment">
                 <div class="item-name">
                     HLH-94 / HLH-2004 Chemoimmunotherapy (Etoposide + Dexamethasone)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000647">MAXO:0000647</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -5703,17 +7287,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         etoposide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4911">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         dexamethasone
@@ -5721,11 +7312,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_41879" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:41879">CHEBI:41879</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_41879" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:41879</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dexamethasone (CHEBI:41879). CHEBI:41879 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cyclosporin A
@@ -5733,13 +7329,30 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4031">CHEBI:4031</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:4031</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5753,7 +7366,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -5763,7 +7376,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21900192" target="_blank">PMID:21900192</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5779,6 +7395,31 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:21900192" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21900192" target="_blank">PMID:21900192</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At 6.2 years median follow-up, estimated 5-year probability of survival was 54% ± 6%."</div>
+
+
+                <div class="evidence-explanation">Quantifies long-term survival under the HLH-94 protocol in 249 prospectively treated patients.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5786,13 +7427,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-emapalumab-anti-interferon-gamma-antibody" data-dismech-node="Emapalumab (Anti-Interferon-gamma Antibody)" data-dismech-type="treatment">
                 <div class="item-name">
                     Emapalumab (Anti-Interferon-gamma Antibody)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5822,19 +7468,49 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         emapalumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C127123" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C127123">NCIT:C127123</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C127123" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C127123</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses emapalumab (NCIT:C127123). NCIT:C127123 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -5848,7 +7524,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -5858,7 +7534,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32374962" target="_blank">PMID:32374962</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5874,6 +7553,58 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:32374962" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32374962" target="_blank">PMID:32374962</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A total of 63% of the previously treated patients and 65% of the patients who received an emapalumab infusion had a response"</div>
+
+
+                <div class="evidence-explanation">Reports the trial&#39;s primary-endpoint response rates, exceeding the prespecified 40% null hypothesis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32374962" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32374962" target="_blank">PMID:32374962</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the previously treated group, 70% of the patients were able to proceed to transplantation, as were 65% of the patients who received emapalumab."</div>
+
+
+                <div class="evidence-explanation">Documents that emapalumab bridged the majority of patients to allogeneic transplantation.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -5881,19 +7612,25 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-allogeneic-hematopoietic-stem-cell-transplantation" data-dismech-node="Allogeneic Hematopoietic Stem Cell Transplantation" data-dismech-type="treatment">
                 <div class="item-name">
                     Allogeneic Hematopoietic Stem Cell Transplantation
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hematopoietic stem cell transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000747" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000747">MAXO:0000747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15431">NCIT:C15431</a>
 
 
 
@@ -5916,6 +7653,31 @@
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Allogeneic HSCT is the only curative therapy for familial HLH and is indicated after remission induction in familial, persistent, or recurrent disease; patients with familial disease do not survive without it.
 </div>
 
@@ -5926,7 +7688,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5936,7 +7698,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21900192" target="_blank">PMID:21900192</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5952,13 +7717,41 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:21900192" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21900192" target="_blank">PMID:21900192</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In 124 patients who underwent HSCT, 5-year survival was 66 ± 8%"</div>
+
+
+                <div class="evidence-explanation">Quantifies post-transplant survival in the HLH-94 cohort.</div>
+
+
+
+            </div>
+
             <div class="evidence-item" data-dismech-evidence="PMID:20301617" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5990,16 +7783,674 @@
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-hlh-2004-diagnostic-criteria">
+                <div class="item-name">
+                    HLH-2004 Diagnostic Criteria
+
+                </div>
+
+                <div class="item-desc">The HLH-2004 guidelines diagnose HLH when five of eight criteria are met - the five HLH-94 criteria (fever, splenomegaly, bicytopenia, hypertriglyceridemia and/or hypofibrinogenemia, and hemophagocytosis) plus three criteria added in HLH-2004 (low/absent NK-cell activity, hyperferritinemia, and high soluble interleukin-2-receptor levels) - unless family history or molecular diagnosis is already consistent with HLH.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16937360" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16937360" target="_blank">PMID:16937360</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"diagnosis was based on five criteria (fever, splenomegaly, bicytopenia, hypertriglyceridemia and/or hypofibrinogenemia, and hemophagocytosis)"</div>
+
+
+                <div class="evidence-explanation">Lists the five original HLH-94 diagnostic criteria retained in HLH-2004.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16937360" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16937360" target="_blank">PMID:16937360</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"three additional criteria are introduced; low/absent NK-cell-activity, hyperferritinemia, and high-soluble interleukin-2-receptor levels."</div>
+
+
+                <div class="evidence-explanation">Lists the three criteria added in HLH-2004 to make the eight-criteria set.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16937360" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16937360" target="_blank">PMID:16937360</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Altogether five of these eight criteria must be fulfilled, unless family history or molecular diagnosis is consistent with HLH."</div>
+
+
+                <div class="evidence-explanation">States the five-of-eight decision rule and the family-history/molecular bypass.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular Genetic Testing
+
+                </div>
+
+                <div class="item-desc">The diagnosis of familial HLH is established by identification of biallelic pathogenic variants in PRF1, UNC13D, STX11, or STXBP2 (or, rarely, a heterozygous gain-of-function STXBP2 variant); molecular diagnosis substitutes for the clinical criteria set.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of fHLH is established in a proband with suggestive findings by identification of either biallelic pathogenic variants in one of four genes (PRF1, STX11, STXBP2, or UNC13D) or (rarely) a gain-of-function heterozygous variant in STXBP2."</div>
+
+
+                <div class="evidence-explanation">GeneReviews defines the molecular confirmation route for familial HLH.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Manifestations of familial HLH are usually evident within the first months or years of life and may develop in utero, but symptomatic presentation can occur throughout childhood and into adulthood.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although manifestations of fHLH are usually evident within the first months or years of life and may develop in utero, symptomatic presentation can occur throughout childhood and into adulthood."</div>
+
+
+                <div class="evidence-explanation">GeneReviews documents the usual infantile onset and the full age range of symptomatic presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-untreated-active-disease">
+                <div class="item-name">Untreated active disease</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Without treatment, active familial HLH is rapidly fatal, with a median survival of less than two months in untreated infants; progressive disease, organ dysfunction, invasive infection, and bleeding account for most deaths.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Median survival in untreated infants with fHLH who develop active disease is less than two months after onset of manifestations; progressive manifestations of fHLH, organ dysfunction, invasive infection, and bleeding account for the majority of deaths."</div>
+
+
+                <div class="evidence-explanation">Quantifies the rapidly fatal untreated course and its causes of death.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-treated-course-chemoimmunotherapy-and-hsct">
+                <div class="item-name">Treated course (chemoimmunotherapy and HSCT)</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">With HLH-94 chemoimmunotherapy followed by HSCT where indicated, estimated 5-year survival is about 54%. Early pre-HSCT mortality remains the dominant failure mode - 29% of patients died before HSCT, nearly all with active disease - and survivors are at risk of neurologic late effects.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21900192" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21900192" target="_blank">PMID:21900192</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At 6.2 years median follow-up, estimated 5-year probability of survival was 54% ± 6%."</div>
+
+
+                <div class="evidence-explanation">Long-term HLH-94 outcome data quantify overall survival on the treated course.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21900192" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21900192" target="_blank">PMID:21900192</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seventy-two patients (29%) died before HSCT, 64 within 1 year, 97% of whom had active disease."</div>
+
+
+                <div class="evidence-explanation">Documents pre-HSCT early mortality, almost always with active disease, as the dominant failure mode under treatment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-sweden-children-1971-1986">
+                <div class="item-name">Sweden (children, 1971-1986)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        2.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">A retrospective Swedish national study found familial HLH in 1 per 50,000 live births (2.0 per 100,000), corresponding to an annual incidence of 1.2 per 1,000,000 children. The authors emphasize that FHL is underdiagnosed - only 11 of 32 children were diagnosed during life - so this is a minimum estimate. This record covers hereditary/familial HLH only, not secondary (acquired) HLH.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2058392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2058392" target="_blank">PMID:2058392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One child per 50,000 live borns developed FHL during this period."</div>
+
+
+                <div class="evidence-explanation">Provides the population-based birth prevalence of familial HLH.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2058392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2058392" target="_blank">PMID:2058392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The incidence was 1.2/1,000,000 children per year."</div>
+
+
+                <div class="evidence-explanation">Provides the corresponding annual childhood incidence of familial HLH.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2058392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2058392" target="_blank">PMID:2058392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FHL is an underdiagnosed disease and in only 11/32 children was diagnosis made during their lifetime."</div>
+
+
+                <div class="evidence-explanation">Documents the ascertainment shortfall that makes this figure a minimum estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+
+                <div class="item-name">High</div>
+
+
+                <div class="item-desc">Untreated active familial HLH is rapidly fatal (median survival under two months in infants), and even with HLH-94 chemoimmunotherapy and allogeneic HSCT - itself an intensive, high-risk intervention - estimated 5-year survival is only about 54%, with substantial early mortality, HSCT-related mortality, and neurologic late effects among survivors.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Median survival in untreated infants with fHLH who develop active disease is less than two months after onset of manifestations; progressive manifestations of fHLH, organ dysfunction, invasive infection, and bleeding account for the majority of deaths."</div>
+
+
+                <div class="evidence-explanation">The rapidly fatal untreated natural history anchors the HIGH burden assessment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21900192" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21900192" target="_blank">PMID:21900192</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Collaborative efforts are needed to further reduce early mortality, HSCT-related mortality, and neurologic late effects."</div>
+
+
+                <div class="evidence-explanation">Even on protocol therapy, early mortality, transplant-related mortality, and neurologic late effects persist.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+        </div>
+
+
         <!-- Differential Diagnoses -->
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-dbgap-phs000537">
+                <div class="item-name">
+                    Next Generation Mendelian Genetics: Familial Hemophagocytic Lymphohistiocytosis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000537" target="_blank">dbgap:phs000537</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The NHGRI Next Generation Mendelian Genetics project uses exome resequencing to identify variants in unsolved Mendelian diseases. Familial hemophagocytic lymphohistiocytosis (fHLH) is a serious immune disorder that results from defective cytotoxic lymphocyte function. Autosomal recessive mutations in PFP1, UNC13D, STX11, STBP2, or RAB27, and hemizygous mutations in SH2D1A or BIRC4, account for known causes of the disease, but 30-70% of patients in North America lack a known genetic etiology. This project was designed to identify additional genetic abnormalities from HLH patients.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Hemophagocytic Lymphohistiocytosis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6064,21 +8515,44 @@ classifications:
       explanation: GeneReviews characterizes familial HLH as an immune-mediated hyperinflammatory disorder, supporting placement in Harrison&#39;s immune/rheumatologic Part.
   - classification_value: GENETICS_ENVIRONMENT_DISEASE
     evidence:
+    - reference: PMID:10583959
+      reference_title: Perforin gene defects in familial hemophagocytic lymphohistiocytosis.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Familial hemophagocytic lymphohistiocytosis (FHL) is a rare, rapidly fatal, autosomal recessive immune disorder&#34;
+      explanation: Familial HLH is an inherited monogenic (autosomal recessive) disorder, supporting placement in Harrison&#39;s genetics Part.
     - reference: PMID:35748970
       reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;There are now a total of 485 inborn errors of immunity.&#34;
-      explanation: The IUIS classifies hereditary HLH among the monogenic inborn errors of immunity, supporting placement in Harrison&#39;s genetics Part.
+      explanation: &gt;-
+        Cited as the classification framework that enumerates hereditary HLH
+        among the monogenic inborn errors of immunity. The quoted sentence
+        establishes the framework but does not itself name HLH, so this item is
+        PARTIAL; the gene-level evidence above carries the genetics claim.
   iuis_category:
     classification_value: immune dysregulation
     evidence:
+    - reference: PMID:20301617
+      reference_title: Familial Hemophagocytic Lymphohistiocytosis.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;an immune deficiency characterized by the overactivation and excessive proliferation of T lymphocytes and macrophages&#34;
+      explanation: &gt;-
+        Uncontrolled T-lymphocyte and macrophage overactivation - failure to
+        contract the immune response rather than failure to mount it - is the
+        defining feature of the IUIS &#34;diseases of immune dysregulation&#34;
+        category (Table 4), where familial HLH sits.
     - reference: PMID:35748970
       reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;We report the updated classification of inborn errors of immunity&#34;
-      explanation: The IUIS phenotypic classification places familial HLH in Table 4, Diseases of Immune Dysregulation.
+      explanation: &gt;-
+        Cited as the source of the IUIS category vocabulary. The quoted
+        sentence does not itself name HLH or its table assignment, so this item
+        is PARTIAL rather than SUPPORT.
 
 references:
 - reference: PMID:20301617
@@ -6094,6 +8568,138 @@ references:
   tags:
   - GeneReviews
 
+inheritance:
+- name: Autosomal recessive inheritance
+  description: &gt;-
+    The familial HLH forms proper (FHL2-FHL5: PRF1, UNC13D, STX11, STXBP2) and
+    the syndromic HLH-predisposing disorders Griscelli syndrome type 2 (RAB27A)
+    and Chediak-Higashi syndrome (LYST) are inherited in an autosomal recessive
+    manner, requiring biallelic pathogenic variants.
+  inheritance_term:
+    preferred_term: Autosomal recessive inheritance
+    term:
+      id: HP:0000007
+      label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:10583959
+    reference_title: Perforin gene defects in familial hemophagocytic lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Familial hemophagocytic lymphohistiocytosis (FHL) is a rare, rapidly fatal, autosomal recessive immune disorder characterized by uncontrolled activation of T cells and macrophages and overproduction of inflammatory cytokines.&#34;
+    explanation: Establishes autosomal recessive inheritance for familial HLH.
+- name: X-linked recessive inheritance
+  description: &gt;-
+    The X-linked lymphoproliferative syndromes that predispose to HLH - XLP1
+    (SH2D1A/SAP) and XLP2 (XIAP/BIRC4) - are inherited in an X-linked recessive
+    manner and manifest in hemizygous males.
+  inheritance_term:
+    preferred_term: X-linked recessive inheritance
+    term:
+      id: HP:0001419
+      label: X-linked recessive inheritance
+  evidence:
+  - reference: PMID:20301580
+    reference_title: X-Linked Lymphoproliferative Disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;XLP has two recognizable subtypes, XLP1 (due to pathogenic variants in SH2D1A) and XLP2 (due to pathogenic variants in XIAP).&#34;
+    explanation: Defines the two X-linked lymphoproliferative subtypes whose gene defects lie on the X chromosome.
+prevalence:
+- population: Sweden (children, 1971-1986)
+  measure_type: BIRTH_PREVALENCE
+  prevalence_class: BAND_1_9_PER_100000
+  rate_per_100000: 2.0
+  notes: &gt;-
+    A retrospective Swedish national study found familial HLH in 1 per 50,000
+    live births (2.0 per 100,000), corresponding to an annual incidence of
+    1.2 per 1,000,000 children. The authors emphasize that FHL is
+    underdiagnosed - only 11 of 32 children were diagnosed during life - so
+    this is a minimum estimate. This record covers hereditary/familial HLH
+    only, not secondary (acquired) HLH.
+  evidence:
+  - reference: PMID:2058392
+    reference_title: Incidence in Sweden and clinical features of familial hemophagocytic lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: One child per 50,000 live borns developed FHL during this period.
+    explanation: Provides the population-based birth prevalence of familial HLH.
+  - reference: PMID:2058392
+    reference_title: Incidence in Sweden and clinical features of familial hemophagocytic lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: The incidence was 1.2/1,000,000 children per year.
+    explanation: Provides the corresponding annual childhood incidence of familial HLH.
+  - reference: PMID:2058392
+    reference_title: Incidence in Sweden and clinical features of familial hemophagocytic lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: FHL is an underdiagnosed disease and in only 11/32 children was diagnosis made during their lifetime.
+    explanation: Documents the ascertainment shortfall that makes this figure a minimum estimate.
+progression:
+- phase: Onset
+  notes: &gt;-
+    Manifestations of familial HLH are usually evident within the first months
+    or years of life and may develop in utero, but symptomatic presentation can
+    occur throughout childhood and into adulthood.
+  evidence:
+  - reference: PMID:20301617
+    reference_title: Familial Hemophagocytic Lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Although manifestations of fHLH are usually evident within the first months or years of life and may develop in utero, symptomatic presentation can occur throughout childhood and into adulthood.&#34;
+    explanation: GeneReviews documents the usual infantile onset and the full age range of symptomatic presentation.
+- phase: Untreated active disease
+  notes: &gt;-
+    Without treatment, active familial HLH is rapidly fatal, with a median
+    survival of less than two months in untreated infants; progressive disease,
+    organ dysfunction, invasive infection, and bleeding account for most deaths.
+  evidence:
+  - reference: PMID:20301617
+    reference_title: Familial Hemophagocytic Lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Median survival in untreated infants with fHLH who develop active disease is less than two months after onset of manifestations; progressive manifestations of fHLH, organ dysfunction, invasive infection, and bleeding account for the majority of deaths.&#34;
+    explanation: Quantifies the rapidly fatal untreated course and its causes of death.
+- phase: Treated course (chemoimmunotherapy and HSCT)
+  notes: &gt;-
+    With HLH-94 chemoimmunotherapy followed by HSCT where indicated, estimated
+    5-year survival is about 54%. Early pre-HSCT mortality remains the dominant
+    failure mode - 29% of patients died before HSCT, nearly all with active
+    disease - and survivors are at risk of neurologic late effects.
+  evidence:
+  - reference: PMID:21900192
+    reference_title: &#39;Chemoimmunotherapy for hemophagocytic lymphohistiocytosis: long-term results of the HLH-94 treatment protocol.&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;At 6.2 years median follow-up, estimated 5-year probability of survival was 54% ± 6%.&#34;
+    explanation: Long-term HLH-94 outcome data quantify overall survival on the treated course.
+  - reference: PMID:21900192
+    reference_title: &#39;Chemoimmunotherapy for hemophagocytic lymphohistiocytosis: long-term results of the HLH-94 treatment protocol.&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Seventy-two patients (29%) died before HSCT, 64 within 1 year, 97% of whom had active disease.&#34;
+    explanation: Documents pre-HSCT early mortality, almost always with active disease, as the dominant failure mode under treatment.
+clinical_burden:
+  burden_level: HIGH
+  rationale: &gt;-
+    Untreated active familial HLH is rapidly fatal (median survival under two
+    months in infants), and even with HLH-94 chemoimmunotherapy and allogeneic
+    HSCT - itself an intensive, high-risk intervention - estimated 5-year
+    survival is only about 54%, with substantial early mortality, HSCT-related
+    mortality, and neurologic late effects among survivors.
+  evidence:
+  - reference: PMID:20301617
+    reference_title: Familial Hemophagocytic Lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Median survival in untreated infants with fHLH who develop active disease is less than two months after onset of manifestations; progressive manifestations of fHLH, organ dysfunction, invasive infection, and bleeding account for the majority of deaths.&#34;
+    explanation: The rapidly fatal untreated natural history anchors the HIGH burden assessment.
+  - reference: PMID:21900192
+    reference_title: &#39;Chemoimmunotherapy for hemophagocytic lymphohistiocytosis: long-term results of the HLH-94 treatment protocol.&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Collaborative efforts are needed to further reduce early mortality, HSCT-related mortality, and neurologic late effects.&#34;
+    explanation: Even on protocol therapy, early mortality, transplant-related mortality, and neurologic late effects persist.
 has_subtypes:
 - name: FHL2
   display_name: Familial HLH type 2 (PRF1 / perforin)
@@ -6208,6 +8814,7 @@ has_subtypes:
 
 pathophysiology:
 - name: Impaired Lymphocyte Cytotoxicity
+  conforms_to: &#34;cytokine_storm_hyperinflammation#Uncontrolled Immune Activation Trigger&#34;
   description: &gt;
     The unifying lesion in familial HLH is defective perforin/granzyme-mediated
     killing by cytotoxic T lymphocytes and NK cells. Loss of perforin (PRF1) or
@@ -6333,6 +8940,7 @@ pathophysiology:
 phenotypes:
 - name: Fever
   category: Clinical
+  frequency: VERY_FREQUENT
   description: Prolonged high fever is a cardinal presenting feature of active HLH.
   phenotype_term:
     preferred_term: Fever
@@ -6346,8 +8954,15 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Familial HLH usually presents as an acute illness with prolonged and high fever, cytopenias, and hepatosplenomegaly.&#34;
     explanation: GeneReviews lists prolonged high fever as a usual presenting feature of familial HLH.
+  - reference: PMID:2058392
+    reference_title: Incidence in Sweden and clinical features of familial hemophagocytic lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Prominent early clinical signs were fever (91%), splenomegaly (84%), \nhepatomegaly (90%), rash (43%), and lymph node enlargement (42%).&#34;
+    explanation: The Swedish FHL cohort documents fever in 91% of children, supporting the VERY_FREQUENT band.
 - name: Hepatosplenomegaly
   category: Clinical
+  frequency: VERY_FREQUENT
   description: Enlargement of the liver and spleen due to infiltration by activated lymphocytes and histiocytes.
   phenotype_term:
     preferred_term: Hepatosplenomegaly
@@ -6361,6 +8976,12 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Familial HLH usually presents as an acute illness with prolonged and high fever, cytopenias, and hepatosplenomegaly.&#34;
     explanation: GeneReviews lists hepatosplenomegaly as a usual presenting feature.
+  - reference: PMID:2058392
+    reference_title: Incidence in Sweden and clinical features of familial hemophagocytic lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Prominent early clinical signs were fever (91%), splenomegaly (84%), \nhepatomegaly (90%), rash (43%), and lymph node enlargement (42%).&#34;
+    explanation: The Swedish FHL cohort documents splenomegaly in 84% and hepatomegaly in 90% of children, supporting the VERY_FREQUENT band.
 - name: Cytopenias
   category: Laboratory
   description: &gt;
@@ -6445,6 +9066,7 @@ phenotypes:
     explanation: The HLH diagnostic criteria include hypofibrinogenemia.
 - name: Neurologic Involvement
   category: Clinical
+  frequency: FREQUENT
   description: &gt;
     CNS involvement (encephalopathy, seizures, irritability) and elevated CSF
     cells/protein occur frequently and contribute to morbidity and late effects.
@@ -6460,6 +9082,61 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Individuals with fHLH may also exhibit liver dysfunction and neurologic abnormalities.&#34;
     explanation: GeneReviews documents neurologic abnormalities in familial HLH.
+  - reference: PMID:2058392
+    reference_title: Incidence in Sweden and clinical features of familial hemophagocytic lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Neurological \nsymptoms, which developed in 47%, could totally dominate the clinical picture&#34;
+    explanation: The Swedish FHL cohort documents neurological symptoms in 47% of children, supporting the FREQUENT band.
+- name: Skin Rash
+  category: Clinical
+  frequency: FREQUENT
+  description: &gt;-
+    A transient rash accompanies the acute presentation in a substantial
+    minority of children; it is less common than fever or organomegaly.
+  phenotype_term:
+    preferred_term: Skin rash
+    term:
+      id: HP:0000988
+      label: Skin rash
+  evidence:
+  - reference: PMID:2058392
+    reference_title: Incidence in Sweden and clinical features of familial hemophagocytic lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Prominent early clinical signs were fever (91%), splenomegaly (84%), \nhepatomegaly (90%), rash (43%), and lymph node enlargement (42%).&#34;
+    explanation: The Swedish FHL cohort documents rash in 43% of children, supporting the FREQUENT band.
+  - reference: PMID:20301617
+    reference_title: Familial Hemophagocytic Lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Rash and lymphadenopathy are less common.&#34;
+    explanation: GeneReviews confirms rash as a recognized but less common presenting feature of familial HLH.
+- name: Lymphadenopathy
+  category: Clinical
+  frequency: FREQUENT
+  description: &gt;-
+    Enlarged lymph nodes occur in a substantial minority at presentation,
+    reflecting lymphohistiocytic proliferation; less common than fever or
+    hepatosplenomegaly.
+  phenotype_term:
+    preferred_term: Lymphadenopathy
+    term:
+      id: HP:0002716
+      label: Lymphadenopathy
+  evidence:
+  - reference: PMID:2058392
+    reference_title: Incidence in Sweden and clinical features of familial hemophagocytic lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Prominent early clinical signs were fever (91%), splenomegaly (84%), \nhepatomegaly (90%), rash (43%), and lymph node enlargement (42%).&#34;
+    explanation: The Swedish FHL cohort documents lymph node enlargement in 42% of children, supporting the FREQUENT band.
+  - reference: PMID:20301617
+    reference_title: Familial Hemophagocytic Lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Rash and lymphadenopathy are less common.&#34;
+    explanation: GeneReviews confirms lymphadenopathy as a recognized but less common presenting feature of familial HLH.
 - name: Liver Dysfunction
   category: Laboratory
   description: Hepatitis with elevated transaminases; can progress to liver failure.
@@ -6633,6 +9310,53 @@ genetic:
     snippet: &#34;by identifying an XLP immunodeficiency that is caused by mutations in XIAP, we show that XIAP is a potent regulator of lymphocyte homeostasis in vivo&#34;
     explanation: Establishes XIAP/BIRC4 as the XLP2 gene regulating lymphocyte homeostasis.
 
+diagnosis:
+- name: HLH-2004 Diagnostic Criteria
+  description: &gt;-
+    The HLH-2004 guidelines diagnose HLH when five of eight criteria are met -
+    the five HLH-94 criteria (fever, splenomegaly, bicytopenia,
+    hypertriglyceridemia and/or hypofibrinogenemia, and hemophagocytosis) plus
+    three criteria added in HLH-2004 (low/absent NK-cell activity,
+    hyperferritinemia, and high soluble interleukin-2-receptor levels) - unless
+    family history or molecular diagnosis is already consistent with HLH.
+  evidence:
+  - reference: PMID:16937360
+    reference_title: &#34;HLH-2004: Diagnostic and therapeutic guidelines for hemophagocytic lymphohistiocytosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;diagnosis was based on five criteria (fever, splenomegaly, bicytopenia, hypertriglyceridemia and/or hypofibrinogenemia, and hemophagocytosis)&#34;
+    explanation: Lists the five original HLH-94 diagnostic criteria retained in HLH-2004.
+  - reference: PMID:16937360
+    reference_title: &#34;HLH-2004: Diagnostic and therapeutic guidelines for hemophagocytic lymphohistiocytosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;three additional criteria are introduced; low/absent NK-cell-activity, hyperferritinemia, and high-soluble interleukin-2-receptor levels.&#34;
+    explanation: Lists the three criteria added in HLH-2004 to make the eight-criteria set.
+  - reference: PMID:16937360
+    reference_title: &#34;HLH-2004: Diagnostic and therapeutic guidelines for hemophagocytic lymphohistiocytosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Altogether five of these eight criteria must be fulfilled, unless family history or molecular diagnosis is consistent with HLH.&#34;
+    explanation: States the five-of-eight decision rule and the family-history/molecular bypass.
+- name: Molecular Genetic Testing
+  description: &gt;-
+    The diagnosis of familial HLH is established by identification of biallelic
+    pathogenic variants in PRF1, UNC13D, STX11, or STXBP2 (or, rarely, a
+    heterozygous gain-of-function STXBP2 variant); molecular diagnosis
+    substitutes for the clinical criteria set.
+  diagnosis_term:
+    preferred_term: molecular genetic testing
+    term:
+      id: NCIT:C19770
+      label: Molecular Analysis
+  evidence:
+  - reference: PMID:20301617
+    reference_title: Familial Hemophagocytic Lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The diagnosis of fHLH is established in a proband with suggestive findings by identification of either biallelic pathogenic variants in one of four genes (PRF1, STX11, STXBP2, or UNC13D) or (rarely) a gain-of-function heterozygous variant in STXBP2.&#34;
+    explanation: GeneReviews defines the molecular confirmation route for familial HLH.
+
 treatments:
 - name: HLH-94 / HLH-2004 Chemoimmunotherapy (Etoposide + Dexamethasone)
   description: &gt;
@@ -6643,8 +9367,8 @@ treatments:
   treatment_term:
     preferred_term: chemotherapy
     term:
-      id: MAXO:0000647
-      label: chemotherapy
+      id: NCIT:C15632
+      label: Chemotherapy
     therapeutic_agent:
     - preferred_term: etoposide
       term:
@@ -6665,6 +9389,12 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;To conclude, HLH-94 chemoimmunotherapy has considerably improved outcome in HLH.&#34;
     explanation: The HLH-94 etoposide-based chemoimmunotherapy protocol improved survival in the largest prospective HLH study.
+  - reference: PMID:21900192
+    reference_title: &#39;Chemoimmunotherapy for hemophagocytic lymphohistiocytosis: long-term results of the HLH-94 treatment protocol.&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;At 6.2 years median follow-up, estimated 5-year probability of survival was 54% ± 6%.&#34;
+    explanation: Quantifies long-term survival under the HLH-94 protocol in 249 prospectively treated patients.
 - name: Emapalumab (Anti-Interferon-gamma Antibody)
   description: &gt;
     Human anti-interferon-gamma monoclonal antibody, FDA-approved with
@@ -6688,16 +9418,35 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We investigated the efficacy and safety of emapalumab (a human anti-interferon-γ antibody), administered with dexamethasone&#34;
     explanation: Phase 2-3 trial of emapalumab plus dexamethasone in primary HLH, supporting anti-IFN-gamma therapy.
+  - reference: PMID:32374962
+    reference_title: Emapalumab in Children with Primary Hemophagocytic Lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A total of 63% of the previously treated patients and 65% of the patients who received an emapalumab infusion had a response&#34;
+    explanation: Reports the trial&#39;s primary-endpoint response rates, exceeding the prespecified 40% null hypothesis.
+  - reference: PMID:32374962
+    reference_title: Emapalumab in Children with Primary Hemophagocytic Lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In the previously treated group, 70% of the patients were able to proceed to transplantation, as were 65% of the patients who received emapalumab.&#34;
+    explanation: Documents that emapalumab bridged the majority of patients to allogeneic transplantation.
+  - reference: PMID:20301617
+    reference_title: Familial Hemophagocytic Lymphohistiocytosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A regimen that includes anti-interferon-gamma antibody (emapalumab) is FDA approved for the treatment of children and adults with relapsed or refractory HLH or intolerance of conventional therapies.&#34;
+    explanation: Directly supports the FDA-approval claim for emapalumab in relapsed/refractory or intolerant HLH.
 - name: Allogeneic Hematopoietic Stem Cell Transplantation
   description: &gt;
     Allogeneic HSCT is the only curative therapy for familial HLH and is
     indicated after remission induction in familial, persistent, or recurrent
     disease; patients with familial disease do not survive without it.
+  therapeutic_modality: CELL_THERAPY
   treatment_term:
     preferred_term: hematopoietic stem cell transplantation
     term:
-      id: MAXO:0000747
-      label: hematopoietic stem cell transplantation
+      id: NCIT:C15431
+      label: Hematopoietic Cell Transplantation
   evidence:
   - reference: PMID:21900192
     reference_title: &#39;Chemoimmunotherapy for hemophagocytic lymphohistiocytosis: long-term results of the HLH-94 treatment protocol.&#39;
@@ -6705,6 +9454,12 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients with familial disease had a 5-year survival of 50% ± 13%; none survived without HSCT.&#34;
     explanation: Demonstrates that allogeneic HSCT is required for survival in familial HLH.
+  - reference: PMID:21900192
+    reference_title: &#39;Chemoimmunotherapy for hemophagocytic lymphohistiocytosis: long-term results of the HLH-94 treatment protocol.&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In 124 patients who underwent HSCT, 5-year survival was 66 ± 8%&#34;
+    explanation: Quantifies post-transplant survival in the HLH-94 cohort.
   - reference: PMID:20301617
     reference_title: Familial Hemophagocytic Lymphohistiocytosis.
     supports: SUPPORT
@@ -6723,6 +9478,11 @@ notes: &gt;
   infection, malignancy, or rheumatologic disease / macrophage activation
   syndrome) shares the same final common pathway but is modeled separately from
   this hereditary entry.
+datasets:
+- accession: dbgap:phs000537
+  title: &#39;Next Generation Mendelian Genetics: Familial Hemophagocytic Lymphohistiocytosis&#39;
+  description:  The NHGRI Next Generation Mendelian Genetics project uses exome resequencing to identify variants in unsolved Mendelian diseases. Familial hemophagocytic lymphohistiocytosis (fHLH) is a serious immune disorder that results from defective cytotoxic lymphocyte function. Autosomal recessive mutations in PFP1, UNC13D, STX11, STBP2, or RAB27, and hemizygous mutations in SH2D1A or BIRC4, account for known causes of the disease, but 30-70% of patients in North America lack a known genetic etiology. This project was designed to identify additional genetic abnormalities from HLH patients.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Hemophagocytic Lymphohistiocytosis&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -6800,6 +9560,8 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7614,6 +10376,11 @@ notes: &gt;
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Hemophagocytic_Lymphohistiocytosis.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -7654,7 +10421,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hemophagocytic Lymphohistiocytosis", "mondoId": "MONDO:0015541", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hemophagocytic_Lymphohistiocytosis", "yamlRevision": "ac782b3e7a1b"};
+        const OS_CONFIG = {"diseaseName": "Hemophagocytic Lymphohistiocytosis", "mondoId": "MONDO:0015541", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hemophagocytic_Lymphohistiocytosis", "yamlRevision": "d5a1e8ddd0cc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8073,5 +10840,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

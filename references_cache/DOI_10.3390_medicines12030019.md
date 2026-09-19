@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medicines12030019"
+reference_id: DOI:10.3390/medicines12030019
 title: "Obesity: Clinical Impact, Pathophysiology, Complications, and Modern Innovations in Therapeutic Strategies"
 authors:
 - Mohammad Iftekhar Ullah
@@ -8,6 +8,7 @@ journal: Medicines
 year: '2025'
 doi: 10.3390/medicines12030019
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Obesity: Clinical Impact, Pathophysiology, Complications, and Modern Innovations in Therapeutic Strategies

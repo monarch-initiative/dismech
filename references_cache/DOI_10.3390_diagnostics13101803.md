@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics13101803"
+reference_id: DOI:10.3390/diagnostics13101803
 title: Treatment of the Neutropenia Associated with GSD1b and G6PC3 Deficiency with SGLT2 Inhibitors
 authors:
 - Maria Veiga-da-Cunha
@@ -10,6 +10,7 @@ journal: Diagnostics
 year: '2023'
 doi: 10.3390/diagnostics13101803
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Treatment of the Neutropenia Associated with GSD1b and G6PC3 Deficiency with SGLT2 Inhibitors

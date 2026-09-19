@@ -24,6 +24,109 @@ fail independently:
 | **Compliance scoring** | **`linkml-data-qc`** | **How *complete* is the entry — are recommended fields populated?** |
 | Graph integrity | `dismech.graph --validate` | Do causal edges point at real nodes (no orphan targets)? |
 
+### Reading reference-validation output ("Total checks: 0" is not a no-op)
+
+`linkml-reference-validator` prints `Total checks: 0` on **every** clean run,
+including entries with hundreds of verified snippets. The counter is mislabeled
+upstream: it holds the number of *issues found*, not the number of checks
+*performed* (the plugin only emits a result when something fails), so on a
+passing file it is 0 by definition. This has already been misdiagnosed as a
+silently broken validator — see issue #7252.
+
+As a downstream mitigation, `scripts/run_reference_validator.sh` appends an
+affirmative count after every `validate data` run:
+
+```console
+$ just validate-kb-references kb/disorders/Vici_Syndrome.yaml
+Validation Summary:
+  Files validated: 1
+  Total checks: 0
+  All validations passed!
+  Snippets checked: 46/46 verified against cached references
+```
+
+That line comes from `dismech.reference_snippet_audit`, which independently
+walks the same `reference`/`snippet` pairs (discovered from the schema's
+`implements: [linkml:excerpt]` / `[linkml:authoritative_reference]`
+annotations) and re-checks each against the body already in
+`references_cache/`, reusing the validator's own normalization so "verified"
+means the same thing in both places. It is **read-only, offline, and advisory**:
+it never fetches, and it never changes the exit code — `linkml-reference-validator`
+remains the sole authority on pass/fail. Set `DISMECH_SKIP_SNIPPET_AUDIT=1` to
+suppress it, or run it on its own:
+
+```bash
+just count-verified-snippets kb/disorders/Asthma.yaml
+just count-verified-snippets --strict kb/disorders/Asthma.yaml   # exit 1 on any unverified snippet
+```
+
+Pairs whose reference prefix is listed in `skip_prefixes`
+(`conf/reference_validator_config.yaml`) or whose reference is not cached
+locally are reported separately rather than counted as verified, so the ratio
+never overstates what was checked.
+
+### Not-verified is several different diagnoses
+
+A snippet that is not found in its cached reference is not automatically a
+misquote — issue #7450 un-skipped the `DOI` prefix across the whole KB, found 86
+mismatches, and traced most of them to defects in *our cache* rather than in the
+curation. The audit therefore separates the cases:
+
+| State | What it means |
+|---|---|
+| verified | found in the cached text |
+| verified after cache-defect normalization | found only once PDF ligatures (`ﬁ` → `fi`) are folded and markup-stripped word joins (`theANAPC7locus`) are tolerated — the quote is right, the cache is mangled |
+| quoted beyond an abstract-only cache | not found, but only an abstract was ever cached, so the full text may well contain it — **unverified, not disproved** |
+| not found in cached text | the whole paper is cached and the words are genuinely absent — worth a human |
+
+The relaxed pass only ever runs on a pair that already failed the strict check,
+and it still requires the snippet's characters to appear contiguously and in
+order, so it merges word boundaries rather than admitting arbitrary text.
+
+The abstract-only state is a distinct *diagnosis*, not an exemption: roughly
+23,000 cached references are abstract-only, so waving them through would hide far
+more than the skip that prompted the investigation. `--strict` still fails on
+them unless you pass `--allow-abstract-only`. (Upstream agrees on the substance:
+`SupportingTextValidator` appends its "only abstract available" note to a result
+whose severity stays `ERROR`.)
+
+To measure what a `skip_prefixes` entry is hiding without changing what the
+gating validator does:
+
+```bash
+just count-verified-snippets --unskip-prefix DOI kb/disorders/*.yaml
+```
+
+### Minimum evidence-snippet length
+
+`just check-snippet-length` (part of `just qc`) rejects **new** evidence snippets
+shorter than five words. A bare term carries no propositional content — it cannot
+support or refute the claim it is attached to — and in practice these are lifted
+from clinical-features tables whose cells never survive text extraction, so they
+are unverifiable by construction:
+
+```yaml
+phenotypes:
+- name: Strabismus
+  evidence:
+  - reference: DOI:10.1016/j.molcel.2021.11.031
+    snippet: 'Strabismus'          # supports nothing
+```
+
+The check needs no network and no cache; it is independent of the reference
+validator. Pipe-delimited rows quoted from a structured-source cache
+(`HP:0001987 | Hyperammonemia | Very frequent (99-80%)`) are exempt — short in
+words, but fully propositional. A baseline
+(`tests/snippet_length_baseline.txt`) grandfathers the pre-existing backlog, so
+the check gates new occurrences only; `just list-short-snippets` shows the whole
+backlog and `just update-snippet-length-baseline` regenerates it.
+
+The baseline records an **occurrence count** per `(file, snippet)`, not just the
+key, so a snippet also fails when it appears *more often* than the count on
+record. That matters because the anti-pattern is reuse: `'Hearing loss'` cited
+for a phenotype and two unrelated treatments in the same file. Keys alone would
+wave the next paste straight through.
+
 Validation layers are **binary** (pass/fail). Compliance scoring is **graded**:
 it produces a percentage per field, per file, and across the whole KB, and is
 used to rank curation priorities. This page focuses on that graded layer and its
@@ -182,9 +285,13 @@ is how computed metrics ride alongside schema-driven ones in a single report
 - **total** — number of phenotype nodes in the causal graph
   (`build_causal_graph()`), so it matches exactly what the pathograph renders.
 - **populated** — phenotype nodes reached by at least one *causal* edge. Only
-  `causes` and `leads_to` predicates count (`CAUSAL_PREDICATES`). A `treats`
-  edge (treatment → phenotype) or a `models` edge does **not** mechanistically
-  explain a phenotype, so those are excluded.
+  the `CAUSAL_PREDICATES` count: `causes`, `leads_to`, and the two
+  environmental predicates that make a genuine causal claim, `triggers` and
+  `exacerbates`. A `treats` edge (treatment → phenotype), a `readout` edge
+  (`phenotypes[].reports_on`), a `models` edge, and the non-committal
+  environmental predicates (`predisposes_to`, `protects_against`, `modulates`,
+  `influences`) do **not** mechanistically explain a phenotype, so those are
+  excluded.
 
 A phenotype is fixed by adding its `name` as a `downstream` target on the
 upstream pathophysiology node:
@@ -209,14 +316,74 @@ just compliance-connectivity --list-unconnected
 just compliance-connectivity --fail-under 30
 ```
 
+### Triage view: `just list-disconnected-phenotypes`
+
+The recipe above is the compliance view, and a gate: both metric halves, the
+aggregate percentages, and the `min_compliance` floor it enforces over the
+corpus. Issue #11935 asked for the **per-entry triage** of the phenotype half,
+filed next to `just list-causal-targets` and `just list-cancer-origin` rather
+than under compliance. The two are complementary rather than redundant — a
+corpus ratchet no single entry can trip, and a worklist for wiring one disease. It is a thin wrapper
+around the same `causal_inlink_coverage` function, so the two can never
+disagree on a number:
+
+```bash
+just list-disconnected-phenotypes                        # census + ranked worklist
+just list-disconnected-phenotypes --format tsv           # one row per phenotype
+just list-disconnected-phenotypes --zero-only            # only 0-connected entries
+just list-disconnected-phenotypes kb/disorders/Asthma.yaml
+```
+
+It adds a ranked zero-connectivity worklist (entries where *no* phenotype is
+connected, ordered by how many are stranded — every phenotype stranded is one
+sitting's work, a single gap is a different signal), `--format tsv`/`json`, and
+an **attachment class** per stranded phenotype:
+
+| Class | Meaning |
+|---|---|
+| `ISOLATED` | no edge in the graph touches the node at all |
+| `TREATED` | a `treats`/`targets` edge from a treatment reaches it |
+| `READOUT` | a `reports_on`/biomarker `readout` edge involves it |
+| `NONCAUSAL_INBOUND` | a non-committal environmental or other non-causal edge reaches it |
+| `SEQUELA_SOURCE` | it explains something downstream, but nothing explains it |
+
+None of those counts as connected — that is the strict reading, and it follows
+from the predicate rather than from a special case. They are reported so that
+"nothing in the graph knows this node exists" reads differently from "something
+points at it, but not a mechanism"; both are unexplained, and they are not the
+same curation job.
+
+It is report-only (exit 0), with `--strict` and `--fail-under` opt-in. That is
+about *this view*, not about the metric: the aggregate is gated by
+`compliance-connectivity`, while a per-entry gate would need a baseline file the
+size of the problem. Connecting a phenotype is real curation: the edge asserts
+which mechanism produces which clinical feature, which is often exactly what the
+literature does not settle. Some phenotypes legitimately have no upstream node in the entry — a
+laboratory readout, a feature whose mechanism is genuinely unknown. An edge
+added to clear a report is worse than no edge.
+
+This check is the **complement** of `just check-causal-targets`, which finds
+edges whose target resolves to nothing. An entry can pass that check perfectly
+and still leave every phenotype unexplained; the motivating instance,
+`SLC35A1-Congenital_Disorder_of_Glycosylation`, has 7 cleanly resolving edges,
+none of which reaches a phenotype.
+
 `conf/qc_config.yaml` configures it like any other path:
 
 ```yaml
 paths:
   "phenotypes[].causal_inlink":
     weight: 1.5
-    min_compliance: null   # contributes to weighted score; does not gate CI yet
+    min_compliance: 50.0   # gates: `just compliance-connectivity` fails below it
 ```
+
+**That floor is live and applies to the KB-wide aggregate, not per file**, so no
+single entry can trip it and a red build means sustained drift across the
+corpus. `test_committed_causal_inlink_floor_is_set_and_never_lowered` blocks
+lowering it, and `null` there silently disables the gate. The sibling
+`genetic[].mechanism_outlink` is deliberately still advisory. CLAUDE.md's
+*A resolving target is not a connected phenotype* carries the current figure and
+how to read a failure; this page deliberately does not restate it.
 
 ## Adding a new computed metric
 

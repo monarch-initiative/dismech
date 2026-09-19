@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4103/ijnmr.ijnmr_243_19"
+reference_id: DOI:10.4103/ijnmr.ijnmr_243_19
 title: "Family intensive care unit syndrome: An integrative review"
 authors:
 - SeyedTayeb Moradian
@@ -10,6 +10,7 @@ journal: Iranian Journal of Nursing and Midwifery Research
 year: '2020'
 doi: 10.4103/ijnmr.ijnmr_243_19
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Family intensive care unit syndrome: An integrative review

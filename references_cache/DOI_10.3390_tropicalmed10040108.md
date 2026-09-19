@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/tropicalmed10040108"
+reference_id: DOI:10.3390/tropicalmed10040108
 title: "Current Antimicrobial Susceptibility Trends and Clinical Outcomes of Typhoidal Salmonella in a Large Health Authority in British Columbia, Canada"
 authors:
 - Calvin Ka-Fung Lo
@@ -11,6 +11,7 @@ journal: Tropical Medicine and Infectious Disease
 year: '2025'
 doi: 10.3390/tropicalmed10040108
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Current Antimicrobial Susceptibility Trends and Clinical Outcomes of Typhoidal Salmonella in a Large Health Authority in British Columbia, Canada

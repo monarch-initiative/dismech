@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.6004/jnccn.2024.0029"
+reference_id: DOI:10.6004/jnccn.2024.0029
 title: "Colon Cancer, Version 3.2024, NCCN Clinical Practice Guidelines in Oncology"
 authors:
 - Al B. Benson
@@ -49,6 +49,7 @@ journal: Journal of the National Comprehensive Cancer Network
 year: '2024'
 doi: 10.6004/jnccn.2024.0029
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Colon Cancer, Version 3.2024, NCCN Clinical Practice Guidelines in Oncology

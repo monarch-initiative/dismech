@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.6004/jnccn.2024.7020"
+reference_id: DOI:10.6004/jnccn.2024.7020
 title: Clinical Risks for Chronic Lymphocytic Leukemia
 authors:
 - Jennifer R. Brown
@@ -7,6 +7,7 @@ journal: Journal of the National Comprehensive Cancer Network
 year: '2024'
 doi: 10.6004/jnccn.2024.7020
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical Risks for Chronic Lymphocytic Leukemia

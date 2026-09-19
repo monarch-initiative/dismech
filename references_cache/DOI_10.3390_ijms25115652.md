@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25115652"
+reference_id: DOI:10.3390/ijms25115652
 title: Deciphering the Complex Immunopathogenesis of Alopecia Areata
 authors:
 - Ingrid Šutić Udović
@@ -12,6 +12,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25115652
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Deciphering the Complex Immunopathogenesis of Alopecia Areata

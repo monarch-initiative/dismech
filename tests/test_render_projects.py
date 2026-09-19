@@ -141,3 +141,95 @@ def test_render_all_projects_builds_index(tmp_path: Path) -> None:
     # Index summaries must resolve groupings (regression: previously the index
     # used an empty grouping index and always reported 0 groupings).
     assert "1 grouping" in index_html
+
+
+def test_project_docs_links_are_rewritten_to_published_urls(tmp_path: Path) -> None:
+    """``../docs/`` links must point at the MkDocs-published URL once rendered.
+
+    From ``pages/projects/`` the source-markdown form ``../docs/X`` resolves to
+    the nonexistent ``pages/docs/X``, so it has to be rewritten. See issue
+    #7340.
+    """
+    docs = tmp_path / "docs"
+    _write(docs / "explanation" / "design-decisions.md", "# Decisions\n")
+    _write(docs / "research" / "table.tsv", "a\tb\n")
+    _write(docs / "primers" / "index.md", "# Primers\n")
+    _write(docs / "index.md", "# Docs home\n")
+    _write(docs / "issues" / "internal-note.md", "# Not published\n")
+
+    body = """---
+title: Link Test
+---
+
+# Link Test
+
+- [decisions](../docs/explanation/design-decisions.md#12-gaps)
+- [table](../docs/research/table.tsv)
+- [primers](../docs/primers/index.md)
+- [docs home](../docs/index.md)
+- [excluded](../docs/issues/internal-note.md#a-heading)
+- [missing](../docs/nope/absent.md)
+
+```markdown
+- [fenced sample](../docs/explanation/design-decisions.md)
+```
+"""
+    md_path = tmp_path / "projects" / "LINKS.md"
+    _write(md_path, body)
+
+    out = render_project(
+        md_path,
+        output_path=tmp_path / "pages" / "projects" / "LINKS.html",
+    )
+    html = out.read_text()
+
+    # .md -> directory URL, anchor preserved
+    assert 'href="../../elements/explanation/design-decisions/#12-gaps"' in html
+    # non-markdown -> copied verbatim by MkDocs, extension kept
+    assert 'href="../../elements/research/table.tsv"' in html
+    # dir/index.md -> the directory itself
+    assert 'href="../../elements/primers/"' in html
+    # the root index.md -> the site root, not elements/index/
+    assert 'href="../../elements/"' in html
+    # excluded from the MkDocs build -> GitHub, since there is no published URL
+    assert (
+        'href="https://github.com/monarch-initiative/dismech/blob/main/'
+        'docs/issues/internal-note.md#a-heading"' in html
+    )
+    # nonexistent target -> left untouched, so it stays visibly broken
+    assert 'href="../docs/nope/absent.md"' in html
+    # fenced code is documentation about the path, not a link to rewrite.
+    # Anchored on the fence's own link text so this cannot pass on the strength
+    # of some other surviving ../docs/ occurrence.
+    assert "[fenced sample](../docs/explanation/design-decisions.md)" in html
+    # and the old broken form is gone for the real links
+    assert 'href="../docs/explanation/design-decisions.md#12-gaps"' not in html
+
+
+def test_docs_exclusion_list_matches_mkdocs_config() -> None:
+    """``_DOCS_EXCLUDED_FROM_SITE`` must track ``exclude_docs`` in mkdocs.yml.
+
+    The two are kept in step by a comment; nothing else enforces it, and the
+    drift would be silent — a newly excluded path would be rewritten to an
+    ``elements/`` URL that MkDocs never publishes.
+    """
+    from dismech.render import _DOCS_EXCLUDED_FROM_SITE
+
+    repo_root = Path(__file__).resolve().parents[1]
+    mkdocs = repo_root / "mkdocs.yml"
+    block: list[str] = []
+    in_block = False
+    for line in mkdocs.read_text().splitlines():
+        if line.startswith("exclude_docs:"):
+            in_block = True
+            continue
+        if in_block:
+            if not line.startswith((" ", "\t")) or not line.strip():
+                break
+            block.append(line.strip())
+
+    assert block, "could not parse exclude_docs from mkdocs.yml"
+    # mkdocs lists them root-anchored ("/issues/"); the renderer stores them
+    # relative to docs/ ("issues/").
+    expected = {entry.lstrip("/") for entry in block}
+    assert set(_DOCS_EXCLUDED_FROM_SITE) == expected

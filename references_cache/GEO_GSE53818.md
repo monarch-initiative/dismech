@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE53818"
+reference_id: GEO:GSE53818
 title: A Model System for Studying the Transcriptomic and Physiological Changes Associated with Mammalian Host-Adaptation by Leptospira interrogans Serovar Copenhageni
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Model System for Studying the Transcriptomic and Physiological Changes Associated with Mammalian Host-Adaptation by Leptospira interrogans Serovar Copenhageni

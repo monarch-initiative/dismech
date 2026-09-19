@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/children11060638"
+reference_id: DOI:10.3390/children11060638
 title: "Congenital Lung Malformations: A Pictorial Review of Imaging Findings and a Practical Guide for Diagnosis"
 authors:
 - Giovanna Cancemi
@@ -21,6 +21,7 @@ journal: Children
 year: '2024'
 doi: 10.3390/children11060638
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Congenital Lung Malformations: A Pictorial Review of Imaging Findings and a Practical Guide for Diagnosis

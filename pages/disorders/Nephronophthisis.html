@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +292,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -418,6 +551,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -526,7 +725,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -646,10 +844,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -964,10 +1189,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1088,7 +1390,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1108,6 +1414,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -1196,6 +1552,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1269,6 +1640,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -1862,6 +2248,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -1991,6 +2425,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2236,8 +2681,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2267,6 +2720,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2305,6 +2787,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2317,6 +2800,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2328,6 +2812,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2339,6 +2824,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2378,22 +2864,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2411,6 +2929,61 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2422,6 +2995,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2485,6 +3061,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2636,13 +3254,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2650,6 +3272,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -2794,6 +3432,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -2905,8 +3567,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -2920,6 +3600,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -2983,7 +3669,80 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3060,7 +3819,7 @@
             <span>Nephronophthisis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Nephronophthisis</h1>
             <div class="header-meta">
 
@@ -3203,6 +3962,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3263,6 +4026,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3281,6 +4045,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3308,38 +4080,124 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">KIDNEY_URINARY_TRACT</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+                    <span class="tag tag-classification">KIDNEY URINARY TRACT</span>
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
-            </div>
 
+            </div>
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Mechanistic Nosology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-mechanistic">ciliopathy</span>
 
                 </div>
+
             </div>
 
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3357,7 +4215,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal Recessive
 
@@ -3382,7 +4240,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29717526" target="_blank">PMID:29717526</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3402,7 +4263,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31810733" target="_blank">PMID:31810733</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3423,7 +4287,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-tubulointerstitial-fibrosis">
                 <div class="item-name">
                     Tubulointerstitial Fibrosis
 
@@ -3450,7 +4314,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35533128" target="_blank">PMID:35533128</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3464,13 +4331,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27169608" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27169608" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27169608" target="_blank">PMID:27169608</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3537,7 +4407,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-infantile-nephronophthisis">
 
                     <div class="item-name">
                         Infantile Nephronophthisis
@@ -3571,7 +4441,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3595,7 +4468,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-juvenile-nephronophthisis">
 
                     <div class="item-name">
                         Juvenile Nephronophthisis
@@ -3629,7 +4502,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3649,7 +4525,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35570616" target="_blank">PMID:35570616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3673,7 +4552,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-adolescent-nephronophthisis">
 
                     <div class="item-name">
                         Adolescent Nephronophthisis
@@ -3707,7 +4586,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3727,7 +4609,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3751,7 +4636,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-late-onset-nephronophthisis">
 
                     <div class="item-name">
                         Late-Onset Nephronophthisis
@@ -3785,7 +4670,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42400345" target="_blank">PMID:42400345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -3809,7 +4697,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-nphp1-related">
 
                     <div class="item-name">
                         Nephronophthisis 1 (NPHP1)
@@ -3845,7 +4733,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15138899" target="_blank">PMID:15138899</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3871,7 +4762,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cep164-related">
 
                     <div class="item-name">
                         Nephronophthisis 15 (CEP164)
@@ -3907,7 +4798,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22863007" target="_blank">PMID:22863007</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3961,16 +4855,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Renal Tubular Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000494" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000494">CL:1000494</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000494" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:1000494</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Renal Tubular Epithelial Cell, annotated with nephron tubule epithelial cell (CL:1000494). CL:1000494 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3997,15 +4896,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         NPHP1
 
 
-    <a href="https://bioregistry.io/hgnc:7905" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7905">hgnc:7905</a>
+    <a href="https://bioregistry.io/hgnc:7905" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7905</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NPHP1 (hgnc:7905). hgnc:7905 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4035,17 +4941,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Primary Cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Primary Cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         Ciliary Transition Zone
@@ -4053,11 +4966,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035869" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035869">GO:0035869</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035869" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0035869</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Ciliary Transition Zone (GO:0035869). GO:0035869 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         Ciliary Basal Body
@@ -4065,13 +4983,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036064">GO:0036064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0036064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Ciliary Basal Body (GO:0036064). GO:0036064 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4104,7 +5026,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19118152" target="_blank">PMID:19118152</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4124,7 +5049,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42400345" target="_blank">PMID:42400345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4144,7 +5072,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34183231" target="_blank">PMID:34183231</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4171,6 +5102,7 @@
                 <div class="item-name">Impaired Cell Signaling</div>
 
                 <div class="item-desc">Defective primary cilia lead to disrupted signaling pathways including Wnt, Hedgehog, EGFR, and Hippo/YAP pathways, affecting cell differentiation, proliferation, and polarity.</div>
+
 
 
 
@@ -4214,13 +5146,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19186246" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19186246" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19186246" target="_blank">PMID:19186246</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4240,7 +5175,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22206729" target="_blank">PMID:22206729</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4254,13 +5192,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24162855" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24162855" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24162855" target="_blank">PMID:24162855</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4302,19 +5243,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Renal Tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0009773" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0009773">UBERON:0009773</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0009773" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0009773</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Renal Tubule (UBERON:0009773). UBERON:0009773 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4358,13 +5305,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21071979" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21071979" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21071979" target="_blank">PMID:21071979</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4378,13 +5328,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16186680" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:16186680" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16186680" target="_blank">PMID:16186680</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4398,13 +5351,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:9790573" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:9790573" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9790573" target="_blank">PMID:9790573</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4436,16 +5392,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Renal Interstitial Fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000692" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000692">CL:1000692</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000692" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:1000692</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Renal Interstitial Fibroblast, annotated with kidney interstitial fibroblast (CL:1000692). CL:1000692 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4475,19 +5436,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Kidney Interstitium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005215" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005215">UBERON:0005215</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005215" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0005215</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Kidney Interstitium (UBERON:0005215). UBERON:0005215 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4506,7 +5473,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35533128" target="_blank">PMID:35533128</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4520,13 +5490,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31399984" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31399984" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31399984" target="_blank">PMID:31399984</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4566,19 +5539,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Renal Tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0009773" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0009773">UBERON:0009773</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0009773" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0009773</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Renal Tubule (UBERON:0009773). UBERON:0009773 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4604,13 +5583,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16966065" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:16966065" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4630,7 +5612,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25575298" target="_blank">PMID:25575298</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -4673,6 +5658,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4685,7 +5671,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4699,13 +5688,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:10352410" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:10352410" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10352410" target="_blank">PMID:10352410</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4745,17 +5737,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Retina
@@ -4763,11 +5762,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Brain
@@ -4775,13 +5779,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4800,7 +5808,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42400345" target="_blank">PMID:42400345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4814,13 +5825,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35533128" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35533128" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35533128" target="_blank">PMID:35533128</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4834,13 +5848,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32432520" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32432520" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32432520" target="_blank">PMID:32432520</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4885,6 +5902,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -4897,7 +5915,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34828368" target="_blank">PMID:34828368</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4917,7 +5938,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35570616" target="_blank">PMID:35570616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4937,7 +5961,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35922195" target="_blank">PMID:35922195</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4983,6 +6010,7 @@
 
 
 
+
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-damage-and-senescence" data-dismech-node="DNA Damage and Senescence" data-dismech-type="pathophysiology">
@@ -5001,15 +6029,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         NPHP1
 
 
-    <a href="https://bioregistry.io/hgnc:7905" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7905">hgnc:7905</a>
+    <a href="https://bioregistry.io/hgnc:7905" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:7905</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NPHP1 (hgnc:7905). hgnc:7905 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5040,17 +6075,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005634">GO:0005634</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0005634</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Nucleus (GO:0005634). GO:0005634 is an anatomical location from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Renal Tubule
@@ -5058,13 +6100,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0009773" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0009773">UBERON:0009773</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0009773" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0009773</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Renal Tubule (UBERON:0009773). UBERON:0009773 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5106,17 +6152,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Ciliary Base
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097546">GO:0097546</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0097546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Ciliary Base (GO:0097546). GO:0097546 is an anatomical location from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Centrosome
@@ -5124,13 +6177,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005813" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005813">GO:0005813</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005813" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0005813</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Centrosome (GO:0005813). GO:0005813 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5171,7 +6228,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-corticomedullary-cyst-formation">
                 <div class="item-name">
                     Corticomedullary Cyst Formation
 
@@ -5195,7 +6252,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42400345" target="_blank">PMID:42400345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5215,7 +6275,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5236,7 +6299,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-tubular-atrophy-and-dilatation">
                 <div class="item-name">
                     Tubular Atrophy and Dilatation
 
@@ -5260,7 +6323,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42400345" target="_blank">PMID:42400345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5280,7 +6346,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5323,7 +6392,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Actin Remodeling and Hippo Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ciliary dysfunction leads to aberrant RhoA signaling from the centrosome, activating ROCK and engaging Hippo signaling. This contributes to cystogenesis, fibrosis, and inflammation. GEF-H1 knockdown can rescue phenotypes in NPHP1 models.\", \"meta\": {\"locations\": [\"Ciliary Base\", \"Centrosome\"]}}, {\"id\": \"Abnormal Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated cell division and growth\"}, {\"id\": \"Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in NPHP genes disrupt the structure and function of primary cilia, which are essential for cell signaling and homeostasis. NPHP gene products predominantly localize to the ciliary transition zone and basal body, where they regulate ciliary structure and signaling.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Renal Tubular Epithelial Cell\"], \"genes\": [\"NPHP1\"], \"gene_terms\": [{\"label\": \"NPHP1\", \"id\": \"hgnc:7905\"}]}}, {\"id\": \"DNA Damage and Senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NPHP1 deficiency impairs DNA damage repair, leading to increased cellular senescence and contributing to interstitial fibrosis. Nephrocystin-1 translocates to the nucleus after DNA damage stress.\", \"meta\": {\"genes\": [\"NPHP1\"], \"gene_terms\": [{\"label\": \"NPHP1\", \"id\": \"hgnc:7905\"}], \"locations\": [\"Nucleus\", \"Renal Tubule\"]}}, {\"id\": \"Electrolyte Imbalance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003111\"}}, {\"id\": \"End-Stage Renal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003774\"}}, {\"id\": \"Impaired Cell Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective primary cilia lead to disrupted signaling pathways including Wnt, Hedgehog, EGFR, and Hippo/YAP pathways, affecting cell differentiation, proliferation, and polarity.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Interstitial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic tubular dysfunction and inflammation lead to the accumulation of extracellular matrix and progressive interstitial fibrosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Renal Interstitial Fibroblast\"], \"locations\": [\"Kidney Interstitium\"]}}, {\"id\": \"NPHP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"NPHP1-related\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Polydipsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001959\"}}, {\"id\": \"Polyuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000103\"}}, {\"id\": \"Progressive Renal Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Renal Cyst Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal cell proliferation and differentiation result in the formation of cysts in the kidney tubules, contributing to the loss of renal function.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"Renal Tubule\"]}}, {\"id\": \"Renal Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of tubular dysfunction, interstitial fibrosis, and cyst formation leads to a gradual decline in renal function and eventual end-stage renal disease (ESRD).\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Renal Tubular Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ciliary dysfunction in renal tubular epithelial cells impairs fluid and electrolyte balance, leading to polyuria and polydipsia.\", \"meta\": {\"evidence_count\": 4, \"locations\": [\"Renal Tubule\"]}}], \"edges\": [{\"source\": \"Ciliary Dysfunction\", \"target\": \"Impaired Cell Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Cell Signaling\", \"target\": \"Abnormal Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Cell Signaling\", \"target\": \"DNA Damage and Senescence\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Tubular Dysfunction\", \"target\": \"Polyuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Tubular Dysfunction\", \"target\": \"Polydipsia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Tubular Dysfunction\", \"target\": \"Electrolyte Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Tubular Dysfunction\", \"target\": \"Interstitial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Cyst Formation\", \"target\": \"Renal Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DNA Damage and Senescence\", \"target\": \"Interstitial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant Actin Remodeling and Hippo Activation\", \"target\": \"Renal Cyst Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant Actin Remodeling and Hippo Activation\", \"target\": \"Interstitial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Renal Failure\", \"target\": \"End-Stage Renal Disease\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"NPHP1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NPHP1\", \"target\": \"DNA Damage and Senescence\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Actin Remodeling and Hippo Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ciliary dysfunction leads to aberrant RhoA signaling from the centrosome, activating ROCK and engaging Hippo signaling. This contributes to cystogenesis, fibrosis, and inflammation. GEF-H1 knockdown can rescue phenotypes in NPHP1 models.\", \"meta\": {\"locations\": [\"Ciliary Base\", \"Centrosome\"]}}, {\"id\": \"Abnormal Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated cell division and growth\"}, {\"id\": \"Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in NPHP genes disrupt the structure and function of primary cilia, which are essential for cell signaling and homeostasis. NPHP gene products predominantly localize to the ciliary transition zone and basal body, where they regulate ciliary structure and signaling.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Renal Tubular Epithelial Cell\"], \"genes\": [\"NPHP1\"], \"gene_terms\": [{\"label\": \"NPHP1\", \"id\": \"hgnc:7905\"}]}}, {\"id\": \"DNA Damage and Senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NPHP1 deficiency impairs DNA damage repair, leading to increased cellular senescence and contributing to interstitial fibrosis. Nephrocystin-1 translocates to the nucleus after DNA damage stress.\", \"meta\": {\"genes\": [\"NPHP1\"], \"gene_terms\": [{\"label\": \"NPHP1\", \"id\": \"hgnc:7905\"}], \"locations\": [\"Nucleus\", \"Renal Tubule\"]}}, {\"id\": \"Electrolyte Imbalance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003111\"}}, {\"id\": \"End-Stage Renal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003774\"}}, {\"id\": \"Impaired Cell Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective primary cilia lead to disrupted signaling pathways including Wnt, Hedgehog, EGFR, and Hippo/YAP pathways, affecting cell differentiation, proliferation, and polarity.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Interstitial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic tubular dysfunction and inflammation lead to the accumulation of extracellular matrix and progressive interstitial fibrosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Renal Interstitial Fibroblast\"], \"locations\": [\"Kidney Interstitium\"]}}, {\"id\": \"NPHP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NPHP1\"], \"gene_terms\": [{\"label\": \"NPHP1\", \"id\": \"hgnc:7905\"}], \"subtypes\": [\"NPHP1-related\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Polydipsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001959\"}}, {\"id\": \"Polyuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000103\"}}, {\"id\": \"Progressive Renal Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Renal Cyst Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal cell proliferation and differentiation result in the formation of cysts in the kidney tubules, contributing to the loss of renal function.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"Renal Tubule\"]}}, {\"id\": \"Renal Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of tubular dysfunction, interstitial fibrosis, and cyst formation leads to a gradual decline in renal function and eventual end-stage renal disease (ESRD).\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Renal Tubular Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ciliary dysfunction in renal tubular epithelial cells impairs fluid and electrolyte balance, leading to polyuria and polydipsia.\", \"meta\": {\"evidence_count\": 4, \"locations\": [\"Renal Tubule\"]}}], \"edges\": [{\"source\": \"Ciliary Dysfunction\", \"target\": \"Impaired Cell Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Cell Signaling\", \"target\": \"Abnormal Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Cell Signaling\", \"target\": \"DNA Damage and Senescence\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Tubular Dysfunction\", \"target\": \"Polyuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Tubular Dysfunction\", \"target\": \"Polydipsia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Tubular Dysfunction\", \"target\": \"Electrolyte Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Tubular Dysfunction\", \"target\": \"Interstitial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Cyst Formation\", \"target\": \"Renal Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DNA Damage and Senescence\", \"target\": \"Interstitial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant Actin Remodeling and Hippo Activation\", \"target\": \"Renal Cyst Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant Actin Remodeling and Hippo Activation\", \"target\": \"Interstitial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Renal Failure\", \"target\": \"End-Stage Renal Disease\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"NPHP1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NPHP1\", \"target\": \"DNA Damage and Senescence\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5371,21 +6440,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertension" data-dismech-node="Hypertension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertension
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000822</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5406,7 +6482,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17647025" target="_blank">PMID:17647025</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -5426,7 +6505,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20969579" target="_blank">PMID:20969579</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -5446,7 +6528,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12589180" target="_blank">PMID:12589180</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -5481,21 +6566,30 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fibrosis" data-dismech-node="Fibrosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fibrosis
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatic fibrosis
+
+                        <span class="phenotype-term-label">Hepatic fibrosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001395">HP:0001395</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001395</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5516,7 +6610,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35533128" target="_blank">PMID:35533128</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5549,21 +6646,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-secondary-hyperparathyroidism" data-dismech-node="Secondary Hyperparathyroidism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Secondary Hyperparathyroidism
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Secondary hyperparathyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000867" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000867">HP:0000867</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000867" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000867</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Secondary Hyperparathyroidism (HP:0000867). HP:0000867 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5586,7 +6690,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                 </div>
@@ -5619,21 +6726,30 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinitis-pigmentosa" data-dismech-node="Retinitis Pigmentosa" data-dismech-type="phenotype">
                     <div class="item-name">
                         Retinitis Pigmentosa
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Rod-cone dystrophy
+
+                        <span class="phenotype-term-label">Rod-cone dystrophy</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000510">HP:0000510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinitis Pigmentosa, annotated with Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5654,7 +6770,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5674,7 +6793,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25161209" target="_blank">PMID:25161209</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5694,7 +6816,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37644229" target="_blank">PMID:37644229</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5727,21 +6852,30 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-renal-failure" data-dismech-node="Progressive Renal Failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Progressive Renal Failure
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic kidney disease
+
+                        <span class="phenotype-term-label">Chronic kidney disease</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012622</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive Renal Failure, annotated with Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5769,7 +6903,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5789,7 +6926,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33323469" target="_blank">PMID:33323469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5809,7 +6949,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20969579" target="_blank">PMID:20969579</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5833,21 +6976,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polyuria" data-dismech-node="Polyuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Polyuria
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polyuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000103" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000103">HP:0000103</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000103</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5862,21 +7012,30 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-end-stage-renal-disease" data-dismech-node="End-Stage Renal Disease" data-dismech-type="phenotype">
                     <div class="item-name">
                         End-Stage Renal Disease
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Stage 5 chronic kidney disease
+
+                        <span class="phenotype-term-label">Stage 5 chronic kidney disease</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003774">HP:0003774</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003774</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is End-Stage Renal Disease, annotated with Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5900,21 +7059,30 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-electrolyte-imbalance" data-dismech-node="Electrolyte Imbalance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Electrolyte Imbalance
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal blood ion concentration
+
+                        <span class="phenotype-term-label">Abnormal blood ion concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003111" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003111">HP:0003111</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003111" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003111</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Electrolyte Imbalance, annotated with Abnormal blood ion concentration (HP:0003111). HP:0003111 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5938,21 +7106,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polydipsia" data-dismech-node="Polydipsia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Polydipsia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polydipsia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001959" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001959">HP:0001959</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001959" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001959</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polydipsia (HP:0001959). HP:0001959 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5976,21 +7151,30 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-retardation" data-dismech-node="Growth Retardation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Growth Retardation
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Growth delay
+
+                        <span class="phenotype-term-label">Growth delay</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001510">HP:0001510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth Retardation, annotated with Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6007,13 +7191,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16966065" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:16966065" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16966065" target="_blank">PMID:16966065</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6033,7 +7220,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30552565" target="_blank">PMID:30552565</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6066,7 +7256,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-deformities" data-dismech-node="Bone Deformities" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bone Deformities
 
@@ -6093,7 +7283,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35533128" target="_blank">PMID:35533128</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -6113,7 +7306,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27219042" target="_blank">PMID:27219042</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -6176,11 +7372,33 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nphp1" data-dismech-node="NPHP1" data-dismech-type="genetic">
                 <div class="item-name">
                     NPHP1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NPHP1
+
+
+    <a href="https://bioregistry.io/hgnc:7905" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:7905</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPHP1 (hgnc:7905). hgnc:7905 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6199,7 +7417,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15138899" target="_blank">PMID:15138899</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6219,7 +7440,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990420" target="_blank">PMID:36990420</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6238,9 +7462,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cep164" data-dismech-node="CEP164" data-dismech-type="genetic">
                 <div class="item-name">
                     CEP164
 
@@ -6252,13 +7477,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CEP164
 
 
-    <a href="https://bioregistry.io/hgnc:29182" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29182">hgnc:29182</a>
+    <a href="https://bioregistry.io/hgnc:29182" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:29182</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CEP164 (hgnc:29182). hgnc:29182 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6280,7 +7510,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22863007" target="_blank">PMID:22863007</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6301,13 +7534,36 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nphp3" data-dismech-node="NPHP3" data-dismech-type="genetic">
                 <div class="item-name">
                     NPHP3
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NPHP3
+
+
+    <a href="https://bioregistry.io/hgnc:7907" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:7907</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPHP3 (hgnc:7907). hgnc:7907 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6326,7 +7582,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34212438" target="_blank">PMID:34212438</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6344,7 +7603,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26184788" target="_blank">PMID:26184788</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6362,7 +7624,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990420" target="_blank">PMID:36990420</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6381,13 +7646,36 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nphp4" data-dismech-node="NPHP4" data-dismech-type="genetic">
                 <div class="item-name">
                     NPHP4
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NPHP4
+
+
+    <a href="https://bioregistry.io/hgnc:19104" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:19104</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPHP4 (hgnc:19104). hgnc:19104 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6406,7 +7694,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14750102" target="_blank">PMID:14750102</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6426,7 +7717,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34591160" target="_blank">PMID:34591160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6446,7 +7740,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990420" target="_blank">PMID:36990420</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6465,13 +7762,36 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-invs" data-dismech-node="INVS" data-dismech-type="genetic">
                 <div class="item-name">
                     INVS
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: INVS
+
+
+    <a href="https://bioregistry.io/hgnc:17870" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:17870</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is INVS (hgnc:17870). hgnc:17870 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6490,7 +7810,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14750102" target="_blank">PMID:14750102</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6510,7 +7833,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990420" target="_blank">PMID:36990420</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6529,13 +7855,36 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nek8" data-dismech-node="NEK8" data-dismech-type="genetic">
                 <div class="item-name">
                     NEK8
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NEK8
+
+
+    <a href="https://bioregistry.io/hgnc:13387" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:13387</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NEK8 (hgnc:13387). hgnc:13387 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6554,7 +7903,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990420" target="_blank">PMID:36990420</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6573,9 +7925,16 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6587,19 +7946,25 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-renal-replacement-therapy" data-dismech-node="Renal Replacement Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Renal Replacement Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">renal dialysis</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">renal dialysis<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is renal dialysis, annotated with Dialysis (NCIT:C15221). NCIT:C15221 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dialysis</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000601" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000601">MAXO:0000601</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15221" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15221">NCIT:C15221</a>
 
 
 
@@ -6617,6 +7982,20 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6641,7 +8020,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32906116" target="_blank">PMID:32906116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6661,7 +8043,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15715116" target="_blank">PMID:15715116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6682,13 +8067,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antihypertensive-therapy" data-dismech-node="Antihypertensive Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Antihypertensive Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6717,6 +8107,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of blood pressure with medications.</div>
 
 
@@ -6730,13 +8134,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36224286" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36224286" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36224286" target="_blank">PMID:36224286</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6756,7 +8163,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30354828" target="_blank">PMID:30354828</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -6777,20 +8187,24 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-gene-therapy" data-dismech-node="Gene Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Gene Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Gene Therapy</span>
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: gene therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Gene Therapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0001001" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001001">MAXO:0001001</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -6808,6 +8222,20 @@
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6832,7 +8260,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42400345" target="_blank">PMID:42400345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6853,13 +8284,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-care" data-dismech-node="Supportive Care" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive Care
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6888,6 +8324,20 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Symptomatic treatment and monitoring to manage associated complications.</div>
 
 
@@ -6907,7 +8357,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35533128" target="_blank">PMID:35533128</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6940,8 +8393,12 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-not-applicable" data-dismech-node="Not Applicable" data-dismech-type="environmental">
                 <div class="item-name">Not Applicable</div>
+
+
+
+
 
 
                 <div class="item-desc">Nephronophthisis is primarily driven by genetic mutations.</div>
@@ -6961,7 +8418,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15917209" target="_blank">PMID:15917209</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                 </div>
@@ -6981,7 +8441,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20844548" target="_blank">PMID:20844548</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                 </div>
@@ -7001,7 +8464,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29869359" target="_blank">PMID:29869359</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                 </div>
@@ -7020,6 +8486,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -7034,7 +8501,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-creatinine" data-dismech-node="Serum Creatinine" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum Creatinine
 
@@ -7052,13 +8519,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37930417" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37930417" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37930417" target="_blank">PMID:37930417</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7079,7 +8549,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-elevated-blood-urea-nitrogen-bun" data-dismech-node="Elevated Blood Urea Nitrogen (BUN)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Elevated Blood Urea Nitrogen (BUN)
 
@@ -7097,13 +8567,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:7272960" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:7272960" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7272960" target="_blank">PMID:7272960</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7117,13 +8590,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26769764" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26769764" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26769764" target="_blank">PMID:26769764</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7137,13 +8613,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21722602" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21722602" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21722602" target="_blank">PMID:21722602</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7167,16 +8646,262 @@
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global">
+                <div class="item-name">Global</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">0.1-1.0</span>
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29717526" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29717526" target="_blank">PMID:29717526</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Nephronophthisis is an autosomal recessive cystic kidney disease and one of the most common genetic disorders causing end-stage renal disease in children. Nephronophthisis is a genetically heterogenous disorder with more than 25 identified genes. In 10%-20% of cases, there are additional..."</div>
+
+
+                <div class="evidence-explanation">The provided literature discusses the genetic heterogeneity and associated features of nephronophthisis but does not provide information about its global prevalence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25514144" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25514144" target="_blank">PMID:25514144</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"According to the official health statistics, Taiwan has the highest prevalence of end stage renal disease (ESRD) in the world. Each year, around 60,000 ESRD patients in Taiwan consume 6% of the national insurance budget for dialysis treatment. The prevalence of chronic kidney disease (CKD) has..."</div>
+
+
+                <div class="evidence-explanation">The article discusses the prevalence of end-stage renal disease in Taiwan but does not provide specific prevalence rates for nephronophthisis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse291847">
+                <div class="item-name">
+                    Targeting GLP-1 signaling ameliorates cystogenesis in a zebrafish model of nephronophthisis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE291847" target="_blank">geo:GSE291847</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Nephronophthisis (NPH) is the leading genetic cause of end-stage renal disease in children and young adults, with no effective disease-modifying therapies currently available. Here, we identify glucagon-like peptide-1 (GLP-1) signaling as a novel therapeutic target for NPH through a systematic drug repurposing screen in zebrafish. By simultaneously depleting nphp1 and nphp4, we developed a robust zebrafish model that recapitulates key features of human NPH, including glomerular cyst formation. Our screen revealed that dipeptidyl peptidase-4 (DPP4) inhibitors (Omarigliptin and Linagliptin) and GLP-1 receptor agonists (Semaglutide) significantly reduce cystogenesis in a dose-dependent manner.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">zebrafish</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40806500" target="_blank" style="color: var(--secondary);">PMID:40806500</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Nephronophthisis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse301183">
+                <div class="item-name">
+                    Using human urinary-derived renal epithelial cells for deep phenotyping of NPHP1 deletion and determining personalised response to novel therapeutics
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE301183" target="_blank">geo:GSE301183</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Nephronophthisis (NPHP) is an autosomal recessive tubulointerstitial nephropathy classified as a renal ciliopathy disorder and recognised as the leading genetic cause of kidney failure in children and young adults. NPHP1 is the most common genetic cause and encodes nephrocystin-1, a protein that plays crucial roles in the primary cilium and cellular junctions. Here we utilise personalised medicine approaches and deep phenotyping, which enable us to explore mechanistic pathways and identify potential therapeutic strategies.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=10</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40776899" target="_blank" style="color: var(--secondary);">PMID:40776899</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Nephronophthisis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse73962">
+                <div class="item-name">
+                    Comparative genomic analyses of the human NPHP1 locus reveal complex genomic architecture and its regional evolution in primates
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE73962" target="_blank">geo:GSE73962</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Many loci in the human genome harbor complex genomic structures that can result in susceptibility to genomic rearrangements leading to various genomic disorders. Nephronophthisis 1 (NPHP1, MIM# 256100) is an autosomal recessive disorder that can be caused by defects of NPHP1; the gene maps within the human 2q13 region where low copy repeats (LCRs) are abundant. Loss of function of NPHP1 is responsible for approximately 85% of the NPHP1 cases - about 80% of such individuals carry a large recurrent homozygous NPHP1 deletion that occurs via non-allelic homologous recombination (NAHR) between two flanking directly oriented ~45 kb LCRs.</div>
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-dataset">n=32</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/26641089" target="_blank" style="color: var(--secondary);">PMID:26641089</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Nephronophthisis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7195,7 +8920,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Nephronophthisis
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-04-03T20:00:00Z&#39;
 description: &gt;-
   Nephronophthisis is a ciliopathy caused by mutations in more than 20 causative genes, with NPHP1 being the most common.
   Gene products predominantly localize to the ciliary transition zone and basal body, where they regulate ciliary structure and signaling.
@@ -7378,7 +9102,7 @@ pathophysiology:
   evidence:
   - reference: PMID:19186246
     reference_title: &#34;Modeling ciliopathies: Primary cilia in development and disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Their importance for key developmental pathways such as Sonic Hedgehog (Shh) and Wnt is beginning to emerge. The function of nodal cilia, for example, is vital for breaking early embryonic symmetry, Shh signaling is important for tissue morphogenesis and successful Wnt signaling for organ growth and differentiation. When ciliary function is perturbed...brains form improperly.
     explanation: This reference supports the idea that disrupted cilia function affects the Wnt and Hedgehog pathways, but it does not specify nephronophthisis directly.
   - reference: PMID:22206729
@@ -7388,12 +9112,12 @@ pathophysiology:
     explanation: This reference directly links nephronophthisis to defective cilia and mentions involvement in pathways like Wnt signaling.
   - reference: PMID:24162855
     reference_title: &#34;Wnt and planar cell polarity signaling in cystic renal disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The primary cilium, a microtubule-based organelle that can serve as a signaling antenna, has been demonstrated to have a significant role in ensuring correct kidney development and function...one of the signaling pathways that requires the cilium for normal development is Wnt signaling.
     explanation: This reference supports the involvement of the primary cilium in Wnt signaling but does not explicitly connect it to nephronophthisis.
   - reference: PMID:20544799
     reference_title: &#34;The relationship between sonic Hedgehog signaling, cilia, and neural tube defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: mutation of proteins required for function of cilia often leads to impaired Shh signaling and to disruption of neural tube closure.
     explanation: This reference supports the idea that ciliary dysfunction affects Hedgehog signaling but focuses on neural tube defects rather than nephronophthisis.
   - reference: PMID:35655331
@@ -7416,22 +9140,22 @@ pathophysiology:
   evidence:
   - reference: PMID:21071979
     reference_title: &#34;Mechanisms of nephronophthisis and related ciliopathies.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Nephronophthisis is a recessive disorder of the kidney that is the leading cause of end-stage renal failure in children. Through positional cloning, many of the causative mutations have been mapped to genes involved in centrosome and cilia function.
     explanation: The literature supports that nephronophthisis is related to ciliary dysfunction, but it does not explicitly mention polyuria and polydipsia as part of its pathophysiology.
   - reference: PMID:16186680
     reference_title: &#34;Approach to renal tubular disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Renal tubular disorders may affect multiple (e.g., Fanconi syndrome) or specific (e.g., nephrogenic diabetes insipidus, renal glucosuria) tubular functions. Most conditions are primary and monogenic but occasionally are secondary to other disorders.
     explanation: The reference discusses renal tubular disorders, which can result in polyuria and electrolyte imbalance, but it does not explicitly link these to ciliary dysfunction in nephronophthisis.
   - reference: PMID:9790573
     reference_title: &#34;Epithelial transport in polycystic kidney disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Cysts originate within the glomeruli and all tubular structures, and their growth is the result of proliferation of incompletely differentiated epithelial cells and the accumulation of fluid within the cysts.
     explanation: While the reference discusses fluid accumulation and cyst formation in polycystic kidney disease, it does not directly link these to nephronophthisis or explicitly mention polyuria.
   - reference: PMID:18312782
     reference_title: &#34;Ciliary syndromes and treatment.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Overlapping clinical entities including situs inversus, certain infertility disorders, as well as chronic respiratory infections have their roots in abnormal ciliary function.
     explanation: This reference supports the involvement of ciliary dysfunction in various disorders but does not provide specific details on nephronophthisis and its pathophysiology related to polyuria and polydipsia.
 - name: Interstitial Fibrosis
@@ -7454,7 +9178,7 @@ pathophysiology:
     explanation: The diagnosis of nephronophthisis includes tubulointerstitial changes, which aligns with chronic tubular dysfunction and inflammation leading to interstitial fibrosis.
   - reference: PMID:31399984
     reference_title: &#34;Renal Interstitial Lymphangiogenesis in Renal Fibrosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Renal interstitial lymphangiogenesis is found in patients with chronic kidney disease (CKD) and a series of animal models of renal fibrosis.
     explanation: While the study focuses on lymphangiogenesis, it mentions renal interstitial fibrosis related to chronic kidney disease, of which nephronophthisis is a type.
 - name: Renal Cyst Formation
@@ -7470,7 +9194,7 @@ pathophysiology:
   evidence:
   - reference: PMID:16966065
     reference_title: &#34;[Nephronophtisis].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Nephronophthisis is a chronic tubulo-interstitial nephritis which progress to terminal renal failure.
     explanation: The statement claims that abnormal cell proliferation and differentiation result in cyst formation in nephronophthisis, but the literature describes nephronophthisis as a chronic tubulo-interstitial nephritis without indicating cyst formation due to abnormal cell proliferation and differentiation as a characteristic pathophysiological mechanism. Instead, it mentions cortical microcysts in infantile forms but emphasizes interstitial fibrosis and tubular basement membrane changes.
   - reference: PMID:25575298
@@ -7488,7 +9212,7 @@ pathophysiology:
     explanation: The provided excerpt mentions chronic tubulo-interstitial nephritis (tubular dysfunction and interstitial fibrosis) and progression to terminal renal failure, supporting the statement that these factors contribute to ESRD.
   - reference: PMID:10352410
     reference_title: &#34;Interstitial pathomechanisms underlying progressive tubulointerstitial damage.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Progressive renal disease poses an increasing problem for the medical community. Though the causes of end-stage renal failure are multiple, the histologic pictures of chronic renal disease are remarkably similar being characterized by interstitial infiltration, fibrosis, tubular atrophy and dilatation.
     explanation: This literature indicates the role of interstitial infiltration, fibrosis, and tubular atrophy leading to ESRD, which partially overlaps with the factors mentioned in the statement. However, cyst formation specific to nephronophthisis was not explicitly mentioned.
 - name: Extrarenal Manifestations
@@ -7519,12 +9243,12 @@ pathophysiology:
     explanation: This comprehensive review defines the NPH-RC classification based on extrarenal involvement, distinguishing syndromic forms from nonsyndromic nephronophthisis.
   - reference: PMID:35533128
     reference_title: &#34;[Nephronophthisis: a pediatric case report].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Nephronophthisis is an autosomal recessive cystic kidney disease caused by mutations in genes that encode proteins involved in the primary cilia function, resulting in kidney disease and extrarenal manifestations such as retinal degeneration and liver fibrosis.
     explanation: The literature supports the involvement of the liver and retina in nephronophthisis but does not mention the brain specifically in this context.
   - reference: PMID:32432520
     reference_title: &#34;Senior-Løken syndrome and intracranial hypertension.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Senior-Løken syndrome (SLS) is a rare autosomal recessive disease characterised by nephronophthisis and retinal degeneration, and belongs to a group of genetically heterogeneous disorders known as the ciliopathies.
     explanation: The literature supports the involvement of the retina in Senior-Loken syndrome but does not mention the liver or brain specifically in this context.
   - reference: PMID:33306870
@@ -7628,7 +9352,7 @@ inheritance:
     explanation: The literature indicates that nephronophthisis involves chronic tubulointerstitial changes compatible with fibrosis.
   - reference: PMID:27169608
     reference_title: &#34;Clinical Scenarios in Chronic Kidney Disease: Chronic Tubulointerstitial Diseases.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Chronic tubulointerstitial nephritis (CTN) is characterized by interstitial scarring, fibrosis and tubule atrophy, resulting in progressive chronic kidney disease.
     explanation: While the article discusses tubulointerstitial nephritis in general, it supports the idea that fibrosis occurs in this region, although it does not specifically discuss nephronophthisis.
 histopathology:
@@ -7638,10 +9362,12 @@ histopathology:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:42400345
+    reference_title: &#34;Nephronophthisis: Current clinical spectrum and molecular pathogenesis.&#34;
     supports: SUPPORT
     snippet: Histopathologically, NPH is characterized by corticomedullary cysts, tubular atrophy, interstitial fibrosis, and cystic dilatation of distal tubules. The kidneys may appear normal in early stages but gradually shrink with disease progression.
     explanation: This comprehensive review provides detailed histopathological characterization of NPH, establishing corticomedullary cysts as the primary morphological feature with progressive kidney shrinkage.
   - reference: PMID:16966065
+    reference_title: &#34;[Nephronophtisis].&#34;
     supports: SUPPORT
     snippet: Infantile nephronophtisis is a recessive autosomic tubulo-interstitial nephritis with cortical microcysts which progress to end stage renal failure before age 5.
     explanation: Historical literature confirms cortical microcysts as a pathological hallmark of nephronophthisis.
@@ -7651,10 +9377,12 @@ histopathology:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:42400345
+    reference_title: &#34;Nephronophthisis: Current clinical spectrum and molecular pathogenesis.&#34;
     supports: SUPPORT
     snippet: Histopathologically, NPH is characterized by corticomedullary cysts, tubular atrophy, interstitial fibrosis, and cystic dilatation of distal tubules.
     explanation: Tubular atrophy and distal tubule dilatation are key pathological findings that contribute to progressive renal insufficiency in nephronophthisis.
   - reference: PMID:16966065
+    reference_title: &#34;[Nephronophtisis].&#34;
     supports: SUPPORT
     snippet: Histologic lesions concern tubular basement membranes which are thickened and multilayered or thinned. There is an associated interstitial fibrosis.
     explanation: Tubular basement membrane abnormalities and interstitial fibrosis accompany tubular atrophy in nephronophthisis pathology.
@@ -7770,7 +9498,7 @@ phenotypes:
   evidence:
   - reference: PMID:16966065
     reference_title: &#34;[Nephronophtisis].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#39;Some children present with extrarenal symptoms: tapetoretinal degeneration (Senior-Loken syndrome), mental retardation, cerebellar ataxia, bone anomalies or liver involvement.&#39;
     explanation: The reference mentions extrarenal symptoms associated with nephronophthisis but does not specifically mention growth retardation. However, growth retardation could be inferred as a potential consequence of chronic kidney disease.
   - reference: PMID:30552565
@@ -7851,7 +9579,7 @@ biochemical:
   evidence:
   - reference: PMID:37930417
     reference_title: &#34;Nephronophthisis: a pathological and genetic perspective.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Nephronophthisis (NPHP) is an autosomal recessive cystic kidney disease and is one of the most frequent genetic causes for kidney failure (KF) in children and adolescents.
     explanation: Kidney failure implies elevated serum creatinine. This reference indicates nephronophthisis is a frequent cause of kidney failure, indirectly supporting elevated creatinine as a biochemical finding.
 - name: Elevated Blood Urea Nitrogen (BUN)
@@ -7859,21 +9587,26 @@ biochemical:
   evidence:
   - reference: PMID:7272960
     reference_title: &#34;Nephrotoxicity of nitrosoureas.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Irreversible and progressive renal parenchymal damage and functional impairment occurred in the majority of patients receiving at least six courses (200 mg/m2 of BCNU and/or methyl CCNU at eight-week intervals) of nitrosoureas for therapy of malignant brain tumors. Seventeen of 18 patients who received at least six courses and all nine patients who received more than ten courses developed impaired renal function as judged by elevation of blood urea nitrogen and/or serum creatinine or decrease in filtration rate as determined by inulin clearance.
     explanation: The literature supports elevated BUN as a marker of renal damage but does not specify nephronophthisis. Thus, it&#39;s partially supporting elevated BUN in cases of renal impairment.
   - reference: PMID:26769764
     reference_title: &#34;eGFR and Outcomes in Patients with Acute Decompensated Heart Failure with or without Elevated BUN.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#39;CONCLUSIONS: We showed that elevation of BUN at discharge significantly modified the relation between eGFR at discharge and the risk of all-cause mortality after discharge, suggesting that the association between eGFR and outcomes may be largely dependent on concomitant elevation of BUN.&#39;
     explanation: While the study highlights the relevance of elevated BUN in patients with heart failure, it does not specifically address nephronophthisis. Therefore, it partially supports the biochemical value.
   - reference: PMID:21722602
     reference_title: &#34;Saliva urea dipstick test: application in chronic kidney disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#39;CONCLUSION: Semiquantitative dipstick measurements of SUN can reliably identify CKD patients with elevated BUN levels.&#39;
     explanation: This supports BUN as an indicator in chronic kidney disease (CKD) but not specifically nephronophthisis. Hence, it gives partial support.
 genetic:
 - name: NPHP1
+  gene_term:
+    preferred_term: NPHP1
+    term:
+      id: hgnc:7905
+      label: NPHP1
   association: Pathogenic Variants
   subtype: NPHP1-related
   evidence:
@@ -7904,6 +9637,11 @@ genetic:
     snippet: We thereby identified recessive mutations of CEP164 as a new cause of NPHP-RC.
     explanation: Recessive CEP164 mutations define NPHP15 (MONDO:0013917), the CEP164-related nephronophthisis leaf class, and link the disorder to DNA-damage-response signaling.
 - name: NPHP3
+  gene_term:
+    preferred_term: NPHP3
+    term:
+      id: hgnc:7907
+      label: NPHP3
   association: Pathogenic Variants
   evidence:
   - reference: PMID:34212438
@@ -7925,6 +9663,11 @@ genetic:
     snippet: &#34;NPHP3 | HGNC:7907 | nephronophthisis | MONDO:0019005 | AR | Definitive&#34;
     explanation: ClinGen classifies the NPHP3-nephronophthisis gene-disease relationship as definitive with autosomal recessive inheritance.
 - name: NPHP4
+  gene_term:
+    preferred_term: NPHP4
+    term:
+      id: hgnc:19104
+      label: NPHP4
   association: Pathogenic Variants
   evidence:
   - reference: PMID:14750102
@@ -7943,6 +9686,11 @@ genetic:
     snippet: Senior-Loken syndrome (SLSN) is an autosomal recessive disorder characterized by retinopathy and nephronophthisis... Patients with pathogenic variants in CEP290 or IQCB1 presented early with retinopathy, whereas other patients with INVS, NPHP3, or NPHP4 variants first developed nephropathy.
     explanation: The literature mentions that patients with NPHP4 variants develop nephropathy in the context of Nephronophthisis.
 - name: INVS
+  gene_term:
+    preferred_term: INVS
+    term:
+      id: hgnc:17870
+      label: INVS
   association: Pathogenic Variants
   notes: Also known as NPHP2, inversin protein antagonizes canonical WNT signaling
   evidence:
@@ -7957,6 +9705,11 @@ genetic:
     snippet: Patients with pathogenic variants in CEP290 or IQCB1 presented early with retinopathy, whereas other patients with INVS, NPHP3, or NPHP4 variants first developed nephropathy.
     explanation: The literature confirms INVS variants are associated with nephropathy in nephronophthisis.
 - name: NEK8
+  gene_term:
+    preferred_term: NEK8
+    term:
+      id: hgnc:13387
+      label: NEK8
   association: Pathogenic Variants
   notes: Also known as NPHP9, a NIMA-family ciliary kinase in the INV complex
   evidence:
@@ -8001,14 +9754,14 @@ treatments:
   treatment_term:
     preferred_term: renal dialysis
     term:
-      id: MAXO:0000601
-      label: renal dialysis
+      id: NCIT:C15221
+      label: Dialysis
 - name: Antihypertensive Therapy
   description: Management of blood pressure with medications.
   evidence:
   - reference: PMID:36224286
     reference_title: &#34;Nephrons, podocytes and chronic kidney disease: Strategic antihypertensive therapy for renoprotection.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Chronic kidney disease (CKD) is one of the strongest risk factors for hypertension, and hypertension can exacerbate the progression of CKD... therefore, one of the best strategies to slow the progression of CKD is to maintain the &#39;numbers&#39; of these essential components necessary to preserve renal function. To this end, both the achievement of an optimal blood pressure and a maximum reduction in urinary protein excretion are essential.
     explanation: This source suggests that managing blood pressure is essential in the context of CKD, which is related to nephron function. However, it does not explicitly mention Nephronophthisis, a specific type of nephropathy.
   - reference: PMID:30354828
@@ -8026,8 +9779,8 @@ treatments:
   treatment_term:
     preferred_term: Gene Therapy
     term:
-      id: MAXO:0001001
-      label: gene therapy
+      id: NCIT:C15238
+      label: Gene Therapy
   evidence:
   - reference: PMID:42400345
     reference_title: &#34;Nephronophthisis: Current clinical spectrum and molecular pathogenesis.&#34;
@@ -8081,6 +9834,37 @@ references:
 - reference: DOI:10.3390/genes14081582
   title: A Role for Genetic Modifiers in Tubulointerstitial Kidney Diseases
   findings: []
+datasets:
+- accession: geo:GSE291847
+  title: Targeting GLP-1 signaling ameliorates cystogenesis in a zebrafish model of nephronophthisis
+  description: Nephronophthisis (NPH) is the leading genetic cause of end-stage renal disease in children and young adults, with no effective disease-modifying therapies currently available. Here, we identify glucagon-like peptide-1 (GLP-1) signaling as a novel therapeutic target for NPH through a systematic drug repurposing screen in zebrafish. By simultaneously depleting nphp1 and nphp4, we developed a robust zebrafish model that recapitulates key features of human NPH, including glomerular cyst formation. Our screen revealed that dipeptidyl peptidase-4 (DPP4) inhibitors (Omarigliptin and Linagliptin) and GLP-1 receptor agonists (Semaglutide) significantly reduce cystogenesis in a dose-dependent manner.
+  organism:
+    preferred_term: zebrafish
+    term:
+      id: NCBITaxon:7955
+      label: Danio rerio
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:40806500
+  notes: Identified by GEO DataSets index search for Nephronophthisis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE301183
+  title: Using human urinary-derived renal epithelial cells for deep phenotyping of NPHP1 deletion and determining personalised response to novel therapeutics
+  description: Nephronophthisis (NPHP) is an autosomal recessive tubulointerstitial nephropathy classified as a renal ciliopathy disorder and recognised as the leading genetic cause of kidney failure in children and young adults. NPHP1 is the most common genetic cause and encodes nephrocystin-1, a protein that plays crucial roles in the primary cilium and cellular junctions. Here we utilise personalised medicine approaches and deep phenotyping, which enable us to explore mechanistic pathways and identify potential therapeutic strategies.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 10
+  publication: PMID:40776899
+  notes: Identified by GEO DataSets index search for Nephronophthisis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE73962
+  title: Comparative genomic analyses of the human NPHP1 locus reveal complex genomic architecture and its regional evolution in primates
+  description: Many loci in the human genome harbor complex genomic structures that can result in susceptibility to genomic rearrangements leading to various genomic disorders. Nephronophthisis 1 (NPHP1, MIM# 256100) is an autosomal recessive disorder that can be caused by defects of NPHP1; the gene maps within the human 2q13 region where low copy repeats (LCRs) are abundant. Loss of function of NPHP1 is responsible for approximately 85% of the NPHP1 cases - about 80% of such individuals carry a large recurrent homozygous NPHP1 deletion that occurs via non-allelic homologous recombination (NAHR) between two flanking directly oriented ~45 kb LCRs.
+  sample_count: 32
+  publication: PMID:26641089
+  notes: Identified by GEO DataSets index search for Nephronophthisis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -8226,6 +10010,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8430,6 +10216,11 @@ Nephronophthisis (NPHP) is a prototypical renal ciliopathy driven by defects in 
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Nephronophthisis.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -8470,7 +10261,7 @@ Nephronophthisis (NPHP) is a prototypical renal ciliopathy driven by defects in 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Nephronophthisis", "mondoId": "MONDO:0019005", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Nephronophthisis", "yamlRevision": "c26ee73081bd"};
+        const OS_CONFIG = {"diseaseName": "Nephronophthisis", "mondoId": "MONDO:0019005", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Nephronophthisis", "yamlRevision": "858a18d89102"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8889,5 +10680,73 @@ Nephronophthisis (NPHP) is a prototypical renal ciliopathy driven by defects in 
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

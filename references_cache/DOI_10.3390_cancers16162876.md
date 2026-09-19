@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16162876"
+reference_id: DOI:10.3390/cancers16162876
 title: "Precision Targeting Strategies in Pancreatic Cancer: The Role of Tumor Microenvironment"
 authors:
 - Nikolaos Vitorakis
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16162876
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Precision Targeting Strategies in Pancreatic Cancer: The Role of Tumor Microenvironment

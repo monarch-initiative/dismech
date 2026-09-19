@@ -153,7 +153,7 @@ URI: [dismech:class/Treatment](https://w3id.org/monarch-initiative/dismech/class
 | [name](../slots/name.md) | 1 <br/> [String](../types/String.md) |  | direct |
 | [description](../slots/description.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [action_category](../slots/action_category.md) | 0..1 <br/> [MedicalActionCategoryEnum](../enums/MedicalActionCategoryEnum.md) | Optional high-level category for a clinical action in the treatments section | direct |
-| [treatment_term](../slots/treatment_term.md) | 0..1 <br/> [TreatmentDescriptor](../classes/TreatmentDescriptor.md) | The MAXO term for this treatment/medical action | direct |
+| [treatment_term](../slots/treatment_term.md) | 0..1 <br/> [TreatmentDescriptor](../classes/TreatmentDescriptor.md) | The NCIT term for this treatment/medical action | direct |
 | [regimen_term](../slots/regimen_term.md) | 0..1 <br/> [RegimenDescriptor](../classes/RegimenDescriptor.md) | The NCIT term for this treatment regimen | direct |
 | [therapeutic_modality](../slots/therapeutic_modality.md) | 0..1 <br/> [TherapeuticModalityEnum](../enums/TherapeuticModalityEnum.md) | Broad therapeutic platform/modality of a treatment (e | direct |
 | [aso_details](../slots/aso_details.md) | 0..1 <br/> [AntisenseOligonucleotideDetail](../classes/AntisenseOligonucleotideDetail.md) | Structured detail specific to antisense oligonucleotide treatments | direct |
@@ -283,6 +283,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -328,6 +329,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - SurrogateEndpointCollection
     - ProteinStructure
     - ExternalAssertion
@@ -335,6 +337,7 @@ attributes:
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -378,7 +381,7 @@ attributes:
     range: MedicalActionCategoryEnum
   treatment_term:
     name: treatment_term
-    description: The MAXO term for this treatment/medical action
+    description: The NCIT term for this treatment/medical action
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
     alias: treatment_term
@@ -403,7 +406,7 @@ attributes:
     name: therapeutic_modality
     description: Broad therapeutic platform/modality of a treatment (e.g., small molecule,
       monoclonal antibody, antisense oligonucleotide, gene therapy). Complements treatment_term
-      (the MAXO action) and therapeutic_agent (the specific drug) by classifying the
+      (the NCIT action) and therapeutic_agent (the specific drug) by classifying the
       kind of therapeutic, enabling cross-disease queries by platform. Prefer this
       enum-backed slot over the free-text role slot for modality.
     from_schema: https://w3id.org/monarch-initiative/dismech
@@ -507,17 +510,21 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRange
     - SurrogateEndpoint
     - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -533,6 +540,7 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
@@ -577,12 +585,15 @@ attributes:
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -620,6 +631,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Stage
     - AgentLifeCycle
     - AgentLifeCycleStage

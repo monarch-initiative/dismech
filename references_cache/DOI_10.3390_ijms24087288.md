@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24087288"
+reference_id: DOI:10.3390/ijms24087288
 title: "Immune-Mediated Neuropathies: Pathophysiology and Management"
 authors:
 - Abhishek Shastri
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24087288
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Immune-Mediated Neuropathies: Pathophysiology and Management
