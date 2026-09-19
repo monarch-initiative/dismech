@@ -30189,6 +30189,129 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Autosomal Dominant Cutis Laxa 1",
+    "disease_id": "MONDO:0007411",
+    "category": "Mendelian",
+    "parents": [
+      "Connective Tissue Disease",
+      "Cutis Laxa",
+      "Elastinopathy"
+    ],
+    "creation_date": "2026-09-04T23:23:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant cutis laxa 1 (ADCL1, ELN-related cutis laxa) is a rare heritable elastinopathy in which a heterozygous variant near the 3' end of the elastin gene produces tropoelastin with the wrong carboxy terminus. The mechanism is a dominant-negative one, and that is the fact that organises this entry: the mutant transcript escapes nonsense-mediated decay, the mutant tropoelastin is synthesised and secreted, and once in the extracellular space it co-assembles with wild-type tropoelastin, lowers the coacervation temperature of the mixture, aggregates into globules, binds fibrillin microfibrils poorly, and so leaves the tissue with fewer, fragmented and poorly cross-linked elastic fibres. The same gene, when one copy is simply lost, causes supravalvular aortic stenosis with more elastic lamellae rather than fewer, so the two allelic diseases sit at opposite ends of the elastin assembly problem.\nClinically the skin is loose, redundant and inelastic from birth or infancy, hangs in folds, and gives a prematurely aged face with a long philtrum, large ears, ptosis and blepharochalasis. The disorder was long regarded as cosmetic, and it is not: roughly half of patients develop aortic root dilatation, which can progress through childhood to aneurysm or rupture, and a third develop pulmonary emphysema, which can be early and severe. Inguinal hernias, joint hyperlaxity in infancy, a hoarse voice, bladder diverticula and occasional bicuspid aortic valve complete the picture. Intelligence and neuromotor development are normal, which is one of the features that separates this disorder from the recessive cutis laxa syndromes.\nA secondary layer of the mechanism explains why the internal organs are hit at all. Partly retained mutant tropoelastin triggers endoplasmic reticulum stress and apoptosis in an allele-dependent way, and the compliant, poorly organised matrix releases more TGF-beta, seen as increased phospho-SMAD2 in patient fibroblasts and in the transgenic mouse lung. That TGF-beta arm is what links the aortic disease to the heritable aortopathies and is the only proposed target for a mechanism-directed drug, though no such treatment has been tested in this disease.",
+    "pathophysiology": [
+      "Heterozygous 3-prime ELN Frameshift Variant",
+      "Stable Mutant ELN Transcript Escaping Nonsense-Mediated Decay",
+      "Synthesis and Secretion of C-Terminally Altered Tropoelastin",
+      "Dominant-Negative Disruption of Elastic Fiber Assembly",
+      "Endoplasmic Reticulum Stress and Apoptosis from Retained Mutant Tropoelastin",
+      "Fragmented, Sparse Elastic Fibers in Dermis, Lung and Arterial Media",
+      "Increased TGF-beta Signaling from a Compliant Matrix",
+      "Loss of Elastic Recoil in Skin and Supporting Connective Tissue",
+      "Emphysematous Airspace Enlargement",
+      "Aortic Medial Degeneration and Root Dilatation"
+    ],
+    "cell_types": [
+      "dermal fibroblast",
+      "vascular smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002620",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "nonsense-mediated decay of the mutant ELN transcript",
+      "secretion of mutant tropoelastin",
+      "elastic fiber assembly",
+      "extracellular matrix organization",
+      "response to endoplasmic reticulum stress",
+      "apoptotic process",
+      "transforming growth factor beta receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Cutis laxa",
+      "Prematurely aged appearance",
+      "Coarse facial features",
+      "Inguinal hernia",
+      "Aortic root dilatation",
+      "Aortic rupture",
+      "Bicuspid aortic valve",
+      "Emphysema",
+      "Airway obstruction",
+      "Ptosis",
+      "Joint hypermobility",
+      "Hoarse voice",
+      "Bladder diverticulum",
+      "Pulmonary artery stenosis"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Respiratory",
+      "Ophthalmological",
+      "Musculoskeletal",
+      "Otolaryngological",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0000973",
+      "HP:0007495",
+      "HP:0000280",
+      "HP:0000023",
+      "HP:0002616",
+      "HP:0031649",
+      "HP:0001647",
+      "HP:0002097",
+      "HP:0006536",
+      "HP:0000508",
+      "HP:0001382",
+      "HP:0001609",
+      "HP:0000015",
+      "HP:0004415"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "Heterozygous ELN 3-prime frameshift variants"
+    ],
+    "treatments": [
+      "Multidisciplinary supportive care",
+      "Cardiovascular and pulmonary surveillance",
+      "Avoidance of agents that damage residual elastic tissue",
+      "Reconstructive surgery for redundant skin",
+      "Beta-blocker or angiotensin receptor blocker for aortic protection",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Dominant_Cutis_Laxa_1.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Cutis_Laxa_1.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Autosomal Dominant Dopa-Responsive Dystonia",
     "disease_id": "MONDO:0971063",
     "category": "Genetic",
@@ -33915,6 +34038,143 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Autosomal Recessive Hypophosphatemic Rickets 1",
+    "disease_id": "MONDO:0009430",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Bone Disorders",
+      "Hereditary Hypophosphatemic Rickets",
+      "FGF23-Mediated Hypophosphatemia"
+    ],
+    "creation_date": "2026-09-04T23:23:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive hypophosphatemic rickets 1 (ARHR1) is the DMP1-related member of the hereditary FGF23-excess phosphate-wasting disorders. Biallelic loss-of-function variants in DMP1, which encodes dentin matrix protein 1, a SIBLING-family acidic phosphoprotein secreted into the matrix by osteocytes, mature osteoblasts and odontoblasts, remove a protein that bone needs for two separate things: to mature osteocytes and mineralize the matrix around them, and to restrain FGF23 transcription in those same cells. The second failure gives the disease its endocrine signature. Osteocytic FGF23 rises, circulating intact FGF23 is elevated or inappropriately normal, the proximal tubule stops reclaiming phosphate, renal calcitriol synthesis is held down rather than rising as it should, and the result is lifelong hypophosphatemia with normal calcium and parathyroid hormone. Downstream of that point the physiology is the one shared with X-linked hypophosphatemia: hydroxyapatite is not laid down at the mineralization front, the hypertrophic zone of the growth plate fails to involute, and the child develops rickets while the adult carries osteomalacia.\nWhat distinguishes ARHR1 from its X-linked sibling is the local, DMP1-intrinsic half of the disease. In the Dmp1-null mouse, deleting Fgf23 from osteocytes normalizes serum phosphate but only partly corrects the bone, and DMP1-deficient osteoprogenitors mineralize poorly in culture even when phosphate and FGF23 are held constant; in patients, heterozygous carriers with normal phosphate can still show a mild mineralization defect and dysmorphic osteocytes on biopsy. The adult picture in reported families is also more severe and more paradoxical than in XLH: alongside osteomalacia, pseudofractures, bone pain, short stature and lower-limb varus deformity, several kindreds have developed cranial hyperostosis, paraspinal ligament calcification, extensive enthesopathy with spinal immobilization, and a high axial bone density that led to an initial diagnosis of a sclerosing bone dysplasia. Dental disease (enlarged pulp chambers, abscesses, early tooth loss) and hearing impairment are reported in a subset.\nThe entry is organised as a single causal chain from the DMP1 lesion through the osteocyte to the kidney and back to the skeleton, with the downstream mineralization nodes conforming to the defective skeletal mineralization module. Treatment is conventional oral phosphate with active vitamin D; burosumab is approved for XLH and tumour-induced osteomalacia, not for ARHR1, and its use here rests on case reports.",
+    "pathophysiology": [
+      "Biallelic DMP1 Loss of Function",
+      "Defective Osteocyte Maturation and Pericellular Mineralization",
+      "Increased Osteocytic FGF23 Production",
+      "Elevated Circulating Intact FGF23",
+      "Reduced Proximal Tubular Phosphate Reabsorption",
+      "Suppressed Renal Calcitriol Synthesis",
+      "Chronic Hypophosphatemia",
+      "Skeletal Mineralization Failure",
+      "Growth Plate Hypertrophic Zone Expansion",
+      "Rickets and Osteomalacia",
+      "Dentin Hypomineralization"
+    ],
+    "cell_types": [
+      "osteocyte",
+      "osteoblast",
+      "odontoblast",
+      "proximal tubule epithelial cell",
+      "hypertrophic chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000137",
+      "CL:0000062",
+      "CL:0000060",
+      "CL:0002306",
+      "CL:0000743"
+    ],
+    "biological_processes": [
+      "osteoblast to osteocyte differentiation",
+      "pericellular bone matrix mineralization",
+      "FGF receptor signalling in osteocytes",
+      "phosphate ion homeostasis",
+      "tubular phosphate reabsorption",
+      "renal 1,25-dihydroxyvitamin D synthesis",
+      "bone mineralization",
+      "growth plate cartilage development",
+      "dentin mineralization"
+    ],
+    "phenotypes": [
+      "Rickets",
+      "Osteomalacia",
+      "Hypophosphatemia",
+      "Elevated Circulating FGF23",
+      "Short Stature",
+      "Lower-Limb Varus Deformity",
+      "Bone Pain",
+      "Pathologic Fractures and Pseudofractures",
+      "Enthesopathy and Paraspinal Ligament Calcification",
+      "Joint Contractures and Spinal Immobilization",
+      "Cranial Hyperostosis",
+      "Osteosclerosis with Increased Axial Bone Density",
+      "Dental Abscesses and Early Tooth Loss",
+      "Hearing Impairment",
+      "Elevated Alkaline Phosphatase"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Laboratory",
+      "Growth",
+      "Musculoskeletal",
+      "Dental",
+      "Sensory"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Ear",
+      "Endocrine",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002748",
+      "HP:0002749",
+      "HP:0002148",
+      "HP:6000407",
+      "HP:0004322",
+      "HP:0002979",
+      "HP:0002653",
+      "HP:0002756",
+      "HP:0034392",
+      "HP:0004437",
+      "HP:0011001",
+      "HP:0030757",
+      "HP:0000365",
+      "HP:0003155"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "Biallelic DMP1 Pathogenic Variants"
+    ],
+    "treatments": [
+      "Oral Phosphate with Active Vitamin D",
+      "Burosumab",
+      "Corrective Orthopedic Surgery",
+      "Dental Surveillance and Care",
+      "Genetic Counseling and Family Testing"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Phosphate",
+      "Renal Phosphate Wasting (TmP/GFR)",
+      "Intact FGF23",
+      "1,25-Dihydroxyvitamin D",
+      "Alkaline Phosphatase",
+      "Parathyroid Hormone and Calcium"
+    ],
+    "source_file": "Autosomal_Recessive_Hypophosphatemic_Rickets_1.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Hypophosphatemic_Rickets_1.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Autosomal Recessive Limb-Girdle Muscular Dystrophy",
@@ -43364,6 +43624,107 @@ window.searchData = [
     "num_genes": 4,
     "num_treatments": 8,
     "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Biliary, Renal, Neurologic, and Skeletal Syndrome",
+    "disease_id": "MONDO:0859191",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathy"
+    ],
+    "creation_date": "2026-09-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Biliary, renal, neurologic and skeletal syndrome is an autosomal recessive ciliopathy caused by biallelic variants in TTC26 - the gene HGNC now names IFT56 - which encodes an atypical component of the intraflagellar transport B complex. It was defined in 2019 from seven individuals in seven families whose shared and unexpected presentation was severe neonatal cholestasis: lethal in one, requiring liver transplantation in two.\nThe name enumerates affected organs rather than naming a mechanism, which is usually the shape of a grouping. Here it is not, and the reason is worth stating. All four systems fail from one lesion in one conserved transport machine. The primary cilium is a shared signalling organelle rather than an organ-specific structure, so a defect in the machinery that builds and loads it presents wherever ciliary signalling is developmentally load bearing - the intrahepatic biliary tree, the kidney, the brain, the limb skeleton, and, as a later series added, the pituitary. The quartet in the name is the classic ciliopathy quartet, and it is a single pathograph rather than four.\nThe contribution this entry makes beyond \"another ciliopathy\" is the biliary emphasis. Fibrocystic liver disease was already established ciliopathy territory; severe neonatal cholestasis was not, and the index study's own conclusion is that ciliopathy belongs in the differential for neonatal cholestasis even when none of the more familiar ciliopathy features is present.\n",
+    "pathophysiology": [
+      "TTC26 Loss of Function",
+      "Abnormal Ciliary Structure and IFT-B Cargo Loading",
+      "Motile Cilia Beat Dysfunction",
+      "Dysregulated Sonic Hedgehog Signalling",
+      "Failed Intrahepatic Biliary Development",
+      "Multisystem Ciliopathy Organ Involvement"
+    ],
+    "cell_types": [
+      "cholangiocyte"
+    ],
+    "cell_type_ids": [
+      "CL:1000488"
+    ],
+    "biological_processes": [
+      "intraciliary transport",
+      "cilium assembly",
+      "cilium movement",
+      "cerebrospinal fluid circulation",
+      "smoothened signaling pathway",
+      "intrahepatic bile duct development"
+    ],
+    "phenotypes": [
+      "Cholestasis",
+      "Polydactyly",
+      "Renal cyst",
+      "Interrupted pituitary stalk",
+      "Hydrocephalus",
+      "Aqueductal stenosis",
+      "Congenital heart defect",
+      "Diabetes insipidus",
+      "Optic atrophy",
+      "Global developmental delay"
+    ],
+    "phenotype_categories": [
+      "Hepatic",
+      "Skeletal",
+      "Renal",
+      "Endocrine",
+      "Neurological",
+      "Cardiovascular",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001406",
+      "HP:0010442",
+      "HP:0000107",
+      "HP:0034978",
+      "HP:0000238",
+      "HP:0002410",
+      "HP:0001627",
+      "HP:0000873",
+      "HP:0000648",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TTC26"
+    ],
+    "treatments": [
+      "Ursodiol for Cholestasis",
+      "Desmopressin for Diabetes Insipidus",
+      "Ventriculoperitoneal Shunt",
+      "Serial Knee Casting for Congenital Knee Dislocation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Biliary_Renal_Neurologic_And_Skeletal_Syndrome.yaml",
+    "page_url": "../pages/disorders/Biliary,_Renal,_Neurologic,_and_Skeletal_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
   },
   {
@@ -77885,6 +78246,106 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Combined Oxidative Phosphorylation Deficiency 28",
+    "disease_id": "MONDO:0014775",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial disease",
+      "Combined oxidative phosphorylation deficiency"
+    ],
+    "creation_date": "2026-09-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Combined oxidative phosphorylation deficiency 28 is an autosomal recessive mitochondrial disease caused by biallelic variants in SLC25A26, which encodes the mitochondrial S-adenosylmethionine carrier (SAMC). SAM is made in the cytoplasm and cannot cross the inner mitochondrial membrane unaided; SAMC is believed to be its only route in. When the carrier fails, the matrix runs short of the methyl donor that essentially every mitochondrial methylation reaction depends on.\nSAMC is an antiporter, not a uniporter, and that detail turns out to carry the genotype-phenotype relationship. It imports SAM in exchange for exporting SAH, the by-product that every methylation reaction generates and that mitochondria cannot regenerate in situ - SAM synthesis and SAH recycling both happen in the cytoplasm. A carrier defect can therefore fail in two directions, and the two produce different diseases. Reduced SAM import gives the severe neonatal phenotype; impaired SAH export gives a much milder, later-onset mitochondrial myopathy, which mouse and fruit fly models were used to establish. That branch is currently the principal prognostic determinant in this disease, and it is the reason the entry models the two limbs separately rather than as one depleted pool.\nThat makes this a *substrate-supply* defect, and it is the reason the entry sits apart from its many COXPD siblings. Most combined OXPHOS deficiencies are caused by a missing structural subunit or a missing assembly factor, where the chain itself cannot be built. Here the chain is intact and the machinery for building it is intact; what fails is a chemical modification step several removes upstream. One carrier defect therefore propagates into at least four distinct downstream failures that the index study demonstrated separately: mitochondrial RNA stability, protein modification, mitochondrial translation, and the biosynthesis of coenzyme Q10 and lipoic acid. The \"combined\" in the disease name is not a statement about which complexes are low - it is a consequence of the lesion sitting above all of them.\nClinically the range is wide for a disease known from so few families: neonatal death from respiratory insufficiency and hydrops at one end; childhood episodes of cardiopulmonary failure with pulmonary hypertension and severe lactic acidosis in the middle; and at the other end adults with exercise intolerance and mitochondrial myopathy, one of whom presented with recurrent severe abdominal pain and metabolic decompensation. The adult cases nonetheless show marked respiratory-chain deficiency and mitochondrial histopathology in skeletal muscle comparable to the early-onset cases, so the mildness is in the clinical course rather than in the biochemistry.\n",
+    "pathophysiology": [
+      "SLC25A26 Loss of Function",
+      "Reduced Intra-Mitochondrial S-Adenosylmethionine",
+      "Impaired Matrix SAH Export",
+      "Failed Mitochondrial RNA and Protein Methylation",
+      "Impaired CoQ10 and Lipoic Acid Biosynthesis",
+      "Combined Respiratory Chain Complex Deficiency",
+      "Acute Metabolic Decompensation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "tRNA methylation",
+      "mitochondrial translation",
+      "ubiquinone biosynthetic process",
+      "lipoate biosynthetic process",
+      "mitochondrial respiratory chain complex assembly"
+    ],
+    "phenotypes": [
+      "Lactic acidosis",
+      "Pulmonary arterial hypertension",
+      "Muscle weakness",
+      "Respiratory failure",
+      "Decreased activity of mitochondrial complex IV",
+      "Hydrops fetalis",
+      "Hypotonia",
+      "Bradycardia",
+      "Global developmental delay",
+      "Exercise intolerance",
+      "Recurrent abdominal pain with metabolic decompensation"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Respiratory",
+      "Laboratory",
+      "Prenatal",
+      "Neurological",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Constitutional",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003128",
+      "HP:0002092",
+      "HP:0001324",
+      "HP:0002878",
+      "HP:0008347",
+      "HP:0001789",
+      "HP:0001252",
+      "HP:0001662",
+      "HP:0001263",
+      "HP:0003546"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "SLC25A26"
+    ],
+    "treatments": [
+      "Riociguat for Refractory Pulmonary Hypertension",
+      "Conventional Combination PAH Therapy",
+      "Dichloroacetate for Acute Lactic Acidosis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Oxidative_Phosphorylation_Deficiency_28.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Deficiency_28.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Combined Oxidative Phosphorylation Deficiency 34",
     "disease_id": "MONDO:0054741",
     "category": "Mendelian",
@@ -97399,11 +97860,7 @@ window.searchData = [
       "Angiographic Embolization",
       "Surgical Ligation or Wedge Resection"
     ],
-    "environmental": [
-      "Hypertension",
-      "Chronic Kidney Disease",
-      "Diabetes Mellitus"
-    ],
+    "environmental": [],
     "biochemical": [
       "Hemoglobin"
     ],
@@ -105794,6 +106251,8 @@ window.searchData = [
     "treatments": [
       "Supportive Care",
       "Experimental Therapies",
+      "REGN-EB3 (Inmazeb; atoltivimab/maftivimab/odesivimab)",
+      "mAb114 (Ebanga; ansuvimab)",
       "Vaccination"
     ],
     "environmental": [
@@ -105808,8 +106267,8 @@ window.searchData = [
     "num_phenotypes": 18,
     "num_pathophysiology": 5,
     "num_genes": 6,
-    "num_treatments": 3,
-    "causal_graph_edges": "8",
+    "num_treatments": 5,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "1"
   },
   {
@@ -111184,6 +111643,130 @@ window.searchData = [
     "num_treatments": 10,
     "causal_graph_edges": "64",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Exfoliation Syndrome",
+    "disease_id": "MONDO:0100046",
+    "category": "Complex",
+    "parents": [
+      "Ophthalmological Disease",
+      "Extracellular Matrix Disorder"
+    ],
+    "creation_date": "2026-09-04T23:23:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Exfoliation syndrome (pseudoexfoliation syndrome, PEX/XFS) is an age-related, systemic disorder of the elastic extracellular matrix in which abnormal fibrillar material is overproduced, abnormally cross-linked and stably deposited in tissues that make elastic fibres. The disease is visible almost only in the eye: the pre-equatorial lens epithelium, the nonpigmented ciliary epithelium and the iris pigment epithelium secrete microfibrillar aggregates containing fibrillin-1, latent TGF-beta binding proteins, clusterin and the cross-linking enzyme LOXL1, which settle on the anterior lens capsule in a classic three-zone pattern, on the pupillary border, on the zonules and in the trabecular meshwork. The mechanism runs from a common LOXL1 susceptibility genotype and an aged, TGF-beta1-rich, oxidatively stressed anterior-segment milieu, through dysregulated LOXL1 expression and failed extracellular chaperoning, to fibrillogenesis; from there the material does mechanical damage wherever it lands.\nThree consequences organise the clinical picture. Exfoliation material infiltrates and ruptures the zonules, so the lens becomes unstable (phacodonesis, subluxation) and cataract surgery carries many times the usual risk of zonular dehiscence and capsular rupture. The iris pigment epithelium degenerates at the pupillary margin, giving peripupillary transillumination, poor mydriasis and a shower of pigment into the anterior chamber. Most consequentially, exfoliation material and liberated pigment obstruct the trabecular meshwork, outflow resistance rises, intraocular pressure climbs to levels that are typically higher and more labile than in primary open-angle glaucoma, and the eye develops exfoliation glaucoma, the commonest identifiable cause of secondary open-angle glaucoma worldwide and a form with a faster, less medically responsive course.\nThe distinction that organises this entry is the same one used for pigment dispersion: exfoliation syndrome is a risk state, and exfoliation glaucoma is what it becomes in a large minority of eyes. The genetics are polygenic rather than Mendelian. LOXL1 common variants are present in nearly every patient and in most unaffected people, the risk allele reverses direction between ancestries, and the syndrome is strongly age-dependent, so LOXL1 is curated as a susceptibility locus and not as a causal gene. Systemic deposits are real, but the cardiovascular, hearing and pelvic-floor associations reported alongside them remain associations, and the entry records them as such.",
+    "pathophysiology": [
+      "LOXL1 Susceptibility Genotype",
+      "TGF-beta1 Excess and Oxidative Stress in the Anterior Segment",
+      "Dysregulated LOXL1 Expression and Elastic Microfibril Cross-Linking",
+      "Extracellular Chaperone Deficiency and Impaired Proteostasis",
+      "Exfoliation Material Fibrillogenesis and Deposition",
+      "Zonular Degradation and Lens Instability",
+      "Iris Pigment Epithelial Degeneration and Pigment Dispersion",
+      "Trabecular Meshwork Obstruction by Exfoliation Material and Pigment",
+      "Elevated Intraocular Pressure",
+      "Lamina Cribrosa Elastosis",
+      "Retinal Ganglion Cell Apoptosis",
+      "Exfoliation Glaucoma Optic Neuropathy",
+      "Systemic Elastosis"
+    ],
+    "cell_types": [
+      "nonpigmented ciliary epithelial cell",
+      "Tenon's capsule fibroblast",
+      "pre-equatorial lens epithelial cell",
+      "iris pigment epithelial cell",
+      "trabecular meshwork cell",
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002304",
+      "CL:0000057",
+      "CL:0002224",
+      "CL:0002565",
+      "CL:0002367",
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "TGF-beta1 signaling in the anterior segment",
+      "oxidative stress in the aqueous humour and anterior segment",
+      "elastic microfibril assembly and cross-linking",
+      "autophagic clearance",
+      "abnormal extracellular matrix deposition",
+      "trabecular extracellular matrix obstruction",
+      "retinal ganglion cell apoptosis"
+    ],
+    "phenotypes": [
+      "Pseudoexfoliation",
+      "Iris transillumination defect",
+      "Poor pupillary dilation",
+      "Pigment deposition in the trabecular meshwork",
+      "Ocular hypertension",
+      "Open angle glaucoma",
+      "Angle closure glaucoma",
+      "Visual field defect",
+      "Visual impairment",
+      "Phakodonesis",
+      "Lens subluxation",
+      "Cataract",
+      "Abnormality of the cardiovascular system",
+      "Sensorineural hearing impairment",
+      "Pelvic organ prolapse"
+    ],
+    "phenotype_categories": [
+      "Ophthalmic",
+      "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0012627",
+      "HP:0012805",
+      "HP:0012631",
+      "HP:0007906",
+      "HP:0012108",
+      "HP:0012109",
+      "HP:0007854",
+      "HP:0000505",
+      "HP:0012629",
+      "HP:0001132",
+      "HP:0000518",
+      "HP:0001626",
+      "HP:0000407",
+      "HP:0031607"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "LOXL1",
+      "CACNA1A",
+      "Additional genome-wide susceptibility loci",
+      "CYP39A1"
+    ],
+    "treatments": [
+      "Topical Intraocular Pressure Lowering Pharmacotherapy",
+      "Selective Laser Trabeculoplasty",
+      "Cataract Surgery with Zonular and Pupil Support",
+      "Filtration Surgery"
+    ],
+    "environmental": [
+      "Lifetime solar exposure and reflected light"
+    ],
+    "biochemical": [],
+    "source_file": "Exfoliation_Syndrome.yaml",
+    "page_url": "../pages/disorders/Exfoliation_Syndrome.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 13,
+    "num_genes": 4,
+    "num_treatments": 4,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Exstrophy-Epispadias Complex",
@@ -147888,6 +148471,152 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Hyperphosphatemic Familial Tumoral Calcinosis",
+    "disease_id": "MONDO:0100251",
+    "category": "Mendelian",
+    "parents": [
+      "Disorders of Phosphate Metabolism",
+      "Metabolic Bone Disorders",
+      "Ectopic Calcification Disorders"
+    ],
+    "creation_date": "2026-09-04T23:23:40Z",
+    "updated_date": null,
+    "subtypes": [
+      "HFTC1",
+      "HFTC2",
+      "HFTC3"
+    ],
+    "description": "Hyperphosphatemic familial tumoral calcinosis (HFTC) is an autosomal recessive disorder of deficient fibroblast growth factor 23 (FGF23) action. Biallelic loss-of-function variants in GALNT3 or FGF23 leave the intact hormone unprotected against furin-family cleavage, so patients carry low or inappropriately normal intact FGF23 with a large excess of inactive C-terminal fragments; biallelic KL variants instead reduce alpha-Klotho, so intact FGF23 is high and the kidney is resistant to it. Either route removes FGF23-Klotho signalling from the renal proximal tubule.\nThe endocrine consequence is the mirror image of X-linked hypophosphatemia. Sodium-phosphate cotransport is not downregulated, tubular phosphate reabsorption stays inappropriately high, and 1-alpha-hydroxylase is not suppressed, so hyperphosphatemia coexists with elevated or inappropriately normal 1,25-dihydroxyvitamin D while calcium, PTH and renal function stay normal. The resulting rise in the calcium-phosphate product drives ectopic calcium-phosphate deposition.\nClinically this appears as lobular periarticular calcific masses at the hips, elbows and shoulders, a distinctive dental phenotype (enamel hypoplasia, short bulbous roots, obliterated pulp chambers, pulp stones), painful diaphyseal cortical hyperostosis, vascular calcification, testicular microlithiasis and angioid streaks. Some patients develop overwhelming systemic inflammation around the deposits. Hyperostosis-hyperphosphatemia syndrome (HHS) is the same disease, not a separate one: the same GALNT3 founder allele produces either presentation.\nThe entry is organised around the causal chain from each of the three genetic lesions to the shared FGF23-signalling failure, then to the renal phosphate and vitamin D phenotype, the elevated calcium-phosphate product, and the tissue-level consequences of ectopic mineral deposition.",
+    "pathophysiology": [
+      "Biallelic GALNT3 Loss of Function",
+      "Biallelic FGF23 Missense Variants Blocking Intact Hormone Secretion",
+      "Failure of FGF23 O-Glycosylation and Furin Cleavage of Intact FGF23",
+      "Deficiency of Circulating Intact FGF23 with C-Terminal Fragment Excess",
+      "Biallelic KL Loss of Function and Renal FGF23 Resistance",
+      "Loss of FGF23-Klotho-FGFR1c Signaling in the Renal Proximal Tubule",
+      "Increased Proximal Tubular Sodium-Phosphate Cotransport",
+      "Unsuppressed Renal Calcitriol Production",
+      "Hyperphosphatemia with Elevated Calcium-Phosphate Product",
+      "Ectopic Calcium-Phosphate Deposition in Periarticular Soft Tissue",
+      "Foreign-Body and Systemic Inflammation Around Calcific Deposits",
+      "Diaphyseal Cortical Hyperostosis",
+      "Ectopic Calcification of Vessels, Teeth and Other Organs"
+    ],
+    "cell_types": [
+      "osteocyte",
+      "osteoblast",
+      "epithelial cell of proximal tubule",
+      "fibroblast",
+      "macrophage",
+      "odontoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000137",
+      "CL:0000062",
+      "CL:0002306",
+      "CL:0000057",
+      "CL:0000235",
+      "CL:0000060"
+    ],
+    "biological_processes": [
+      "protein O-linked glycosylation",
+      "phosphate ion homeostasis",
+      "fibroblast growth factor receptor signaling pathway",
+      "phosphate ion transmembrane transport",
+      "vitamin D biosynthetic process",
+      "biomineral tissue development",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Periarticular Calcific Masses",
+      "Restricted Joint Movement",
+      "Painful Diaphyseal Hyperostosis",
+      "Bone Pain",
+      "Dental Root and Pulp Disease",
+      "Short Dental Roots",
+      "Enamel Hypoplasia",
+      "Vascular Calcification",
+      "Testicular Microlithiasis",
+      "Angioid Streaks",
+      "Systemic Inflammation",
+      "Heterotopic Ossification",
+      "Hyperphosphatemia",
+      "Increased Renal Tubular Phosphate Reabsorption"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Skeletal",
+      "Craniofacial",
+      "Cardiovascular",
+      "Genitourinary",
+      "Ophthalmologic",
+      "Constitutional",
+      "Metabolic",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0025477",
+      "HP:0001376",
+      "HP:0100774",
+      "HP:0002653",
+      "HP:0006350",
+      "HP:0006336",
+      "HP:0006297",
+      "HP:0004934",
+      "HP:0012215",
+      "HP:0001102",
+      "HP:0011227",
+      "HP:0011986",
+      "HP:0002905",
+      "HP:0005571"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "Biallelic GALNT3 Pathogenic Variants",
+      "Biallelic FGF23 Pathogenic Variants",
+      "Biallelic KL Pathogenic Variants"
+    ],
+    "treatments": [
+      "Dietary Phosphate Restriction",
+      "Non-Calcium Phosphate Binders",
+      "Phosphaturic Therapy with Acetazolamide or Probenecid",
+      "Interleukin-1 Blockade for Systemic Inflammation",
+      "Surgical Excision of Calcific Masses"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Phosphate",
+      "Tubular Reabsorption of Phosphate and TmP/GFR",
+      "Intact FGF23",
+      "C-Terminal FGF23",
+      "1,25-Dihydroxyvitamin D",
+      "Serum Calcium and Parathyroid Hormone"
+    ],
+    "source_file": "Hyperphosphatemic_Familial_Tumoral_Calcinosis.yaml",
+    "page_url": "../pages/disorders/Hyperphosphatemic_Familial_Tumoral_Calcinosis.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 13,
+    "num_genes": 3,
+    "num_treatments": 5,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Hyperprolinemia Type 1",
     "disease_id": "MONDO:0009400",
     "category": "Metabolic Disorder",
@@ -160003,6 +160732,103 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "29",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Immunodeficiency 97 With Autoinflammation",
+    "disease_id": "MONDO:0030717",
+    "category": "Mendelian",
+    "parents": [
+      "Primary immunodeficiency",
+      "Inborn error of immunity"
+    ],
+    "creation_date": "2026-09-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Immunodeficiency 97 with autoinflammation is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in PIK3CG, which encodes p110gamma, the catalytic subunit of class IB phosphoinositide 3-kinase (PI3Kgamma). PI3Kgamma is expressed almost exclusively in leukocytes and is activated downstream of G-protein-coupled receptors, which places it at the junction between chemokine sensing and cell-intrinsic restraint of myeloid activation.\nThe disease has the paradoxical shape its name records: it is simultaneously an immunodeficiency and an autoinflammatory disorder. On the deficiency side there are childhood-onset antibody defects with reduced memory B cells, reduced memory CD8 T cells and markedly reduced regulatory T cells. On the inflammatory side, PI3Kgamma-deficient macrophages and monocytes over-produce IL-12 and IL-23 on Toll-like receptor stimulation in a GSK3alpha/beta-dependent manner, and CXCR3-positive tissue-homing CD4 T cells are expanded, giving T-lymphocytic pneumonitis and colitis. Losing the kinase therefore removes a brake on innate inflammation while also removing a signal that adaptive immunity needs - which is why experimental systems had previously produced conflicting verdicts on whether PI3Kgamma is pro- or anti-inflammatory.\nTwo features of the evidence base should be read before the mechanism below. First, the human disease rests on very few reported patients, and everything in this entry graded HUMAN_CLINICAL derives from one of them: the index patient with complete absence of p110gamma (PMID:31554793). A second, unrelated patient with compound heterozygous PIK3CG variants has been reported independently (PMID:33054089), and that patient presented differently - a hyperferritinemic, HLH-like inflammatory syndrome controlled on anakinra, with an NK-cell defect, rather than the antibody deficiency and lymphocytic tissue infiltration this entry is built around. The two reports also characterise the residual kinase differently, which is recorded in the evidence-base discussion. Second, the mouse knockout recapitulates the disease only after exposure to natural microbiota through co-housing with pet-store mice - under specific-pathogen-free conditions it does not. The mechanism is therefore conditional on microbial exposure in the model, and that conditionality has not been demonstrated in humans. Both points are recorded as explicit discussions rather than smoothed over.\n",
+    "pathophysiology": [
+      "PIK3CG Loss of Function",
+      "Unrestrained TLR-Driven Myeloid IL-12 and IL-23 Production",
+      "Impaired Adaptive Lymphocyte Compartments",
+      "CXCR3-Positive T Cell Tissue Infiltration"
+    ],
+    "cell_types": [
+      "macrophage",
+      "monocyte",
+      "regulatory T cell",
+      "memory B cell",
+      "memory CD8-positive T cell",
+      "CXCR3-positive tissue-homing CD4 T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000576",
+      "CL:0000815",
+      "CL:0000787",
+      "CL:0000909",
+      "CL:0000624"
+    ],
+    "biological_processes": [
+      "interleukin-12 production",
+      "interleukin-23 production",
+      "toll-like receptor signaling pathway",
+      "regulatory T cell differentiation"
+    ],
+    "phenotypes": [
+      "Decreased circulating immunoglobulin concentration",
+      "Decreased specific antibody response to vaccination",
+      "Thrombocytopenia",
+      "Lymphadenopathy",
+      "Splenomegaly",
+      "Recurrent respiratory infections",
+      "Autoimmune hemolytic anemia",
+      "Lymphocytic interstitial pneumonitis",
+      "Colitis"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Hematological",
+      "Respiratory",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0004313",
+      "HP:0032140",
+      "HP:0001873",
+      "HP:0002716",
+      "HP:0001744",
+      "HP:0002205",
+      "HP:0001890",
+      "HP:0006527",
+      "HP:0002583"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PIK3CG"
+    ],
+    "treatments": [
+      "Immunoglobulin Replacement Therapy",
+      "Mycophenolate Mofetil",
+      "B Cell Depletion with Rituximab"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_97_With_Autoinflammation.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_97_With_Autoinflammation.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Immunodeficiency 98 With Autoinflammation",
@@ -194095,6 +194921,94 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Mendelian Susceptibility To Mycobacterial Diseases Due To Complete IL12RB1 Deficiency",
+    "disease_id": "MONDO:0013955",
+    "category": "Mendelian",
+    "parents": [
+      "Primary immunodeficiency",
+      "Mendelian susceptibility to mycobacterial disease"
+    ],
+    "creation_date": "2026-09-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mendelian susceptibility to mycobacterial disease (MSMD) due to complete interleukin-12 receptor beta-1 (IL-12Rbeta1) deficiency is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in IL12RB1. It is the most common genetic etiology of MSMD. Patients present in childhood with disease caused by weakly virulent mycobacteria - above all the Bacille Calmette-Guerin (BCG) vaccine strain and environmental non-tuberculous mycobacteria - and with non-typhoidal, extraintestinal salmonellosis, while routine immunological testing is unremarkable.\nEvery genetic etiology of MSMD converges on interferon gamma (IFN-gamma): each impairs either the production of the cytokine or the cellular response to it. IL-12Rbeta1 sits in the production arm, and its molecular logic is the shared-chain one. The beta-1 chain encoded by IL12RB1 is not specific to the IL-12 receptor: it pairs with IL-12Rbeta2 to form the high-affinity IL-12 receptor on T and NK cells, and with IL-23R to form the IL-23 receptor. A complete beta-1 defect therefore abolishes cellular responsiveness to both cytokines at once. Loss of IL-12 signalling removes the dominant signal driving T and NK lymphocytes to secrete IFN-gamma, so IFN-gamma-dependent macrophage activation fails and intramacrophagic mycobacteria and Salmonella replicate unchecked. Loss of IL-23 signalling additionally depletes IL-17-producing T cells, which is the accepted explanation for the mucocutaneous candidiasis seen in roughly a quarter of patients.\nThis is the receptor-side counterpart of IL-12p40 (IL12B) deficiency, and the two are clinically near-indistinguishable: the same shared-chain logic operates one step apart on the same axis, cytokine in one case and receptor in the other. The lesion lies upstream of IFN-gamma in both, so recombinant IFN-gamma remains a mechanistically rational adjunct to prolonged antimycobacterial chemotherapy - the therapeutic dividing line that separates the production-arm etiologies of MSMD from the IFN-gamma receptor defects, where the same drug cannot work.\n",
+    "pathophysiology": [
+      "IL12RB1 Loss of Function",
+      "Abolished Cellular Responsiveness to IL-12 and IL-23",
+      "Impaired IL-12-Dependent IFN-gamma Production",
+      "Failed IFN-gamma-Dependent Macrophage Activation",
+      "Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella",
+      "Impaired IL-23-Dependent IL-17 Immunity"
+    ],
+    "cell_types": [
+      "T-helper 1 cell",
+      "natural killer cell",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000545",
+      "CL:0000623",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "interleukin-12-mediated signaling pathway",
+      "interleukin-23-mediated signaling pathway",
+      "type II interferon production",
+      "macrophage activation",
+      "interleukin-17 production"
+    ],
+    "phenotypes": [
+      "Disseminated BCG disease",
+      "Non-tuberculous mycobacterial infection",
+      "Non-typhoidal salmonellosis",
+      "Tuberculosis",
+      "Chronic mucocutaneous candidiasis",
+      "Decreased circulating interferon-gamma"
+    ],
+    "phenotype_categories": [
+      "Infectious",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0020087",
+      "HP:5210115",
+      "HP:5210093",
+      "HP:5210111",
+      "HP:0002728",
+      "HP:0033253"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "IL12RB1"
+    ],
+    "treatments": [
+      "Antimycobacterial Therapy",
+      "Recombinant Interferon Gamma",
+      "Avoidance of BCG Vaccination",
+      "Hematopoietic Cell Transplantation"
+    ],
+    "environmental": [
+      "BCG vaccination"
+    ],
+    "biochemical": [],
+    "source_file": "Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_IL12RB1_Deficiency.yaml",
+    "page_url": "../pages/disorders/Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_IL12RB1_Deficiency.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Mendelian Susceptibility To Mycobacterial Diseases Due To Partial IRF8 Deficiency",
     "disease_id": "MONDO:0013957",
     "category": "Mendelian",
@@ -198109,13 +199023,21 @@ window.searchData = [
       "Cortical Spreading Depression",
       "Trigeminovascular Activation",
       "Central Sensitization",
-      "CGRP Pathway"
+      "CGRP Pathway",
+      "Trigemino-Vestibular Pathway",
+      "Vestibulo-Thalamo-Cortical Dysfunction",
+      "Vestibulo-Cerebellar Integration Failure and Compensation",
+      "Vestibular CGRP Signaling"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
       "Neural Signaling",
-      "Pain Signaling"
+      "Pain Signaling",
+      "Nociceptive Signaling",
+      "Glutamatergic Synaptic Transmission",
+      "Multisensory Integration",
+      "Vestibular CGRP receptor signaling"
     ],
     "phenotypes": [
       "Headache",
@@ -198185,11 +199107,11 @@ window.searchData = [
     "source_file": "Migraine.yaml",
     "page_url": "../pages/disorders/Migraine.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 8,
     "num_genes": 5,
     "num_treatments": 10,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Migraine with aura",
@@ -270106,6 +271028,148 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Scorpion Envenomation",
+    "disease_id": "MONDO:0018755",
+    "category": "Injury",
+    "parents": [
+      "Envenomation"
+    ],
+    "creation_date": "2026-09-18T12:05:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Neurotoxic",
+      "Cytotoxic"
+    ],
+    "description": "Systemic poisoning following the sting of a scorpion, overwhelmingly of the family Buthidae. The venom's small peptide neurotoxins act on voltage-gated sodium channels of excitable membranes, and what follows is driven less by direct tissue injury than by the host's own response: a neurotransmitter storm releasing catecholamines and acetylcholine together, ending in cardiac dysfunction and pulmonary oedema. Stings are counted in the millions annually and the deaths are concentrated in children. One genus is different in kind - Hemiscorpius lepturus has a cytotoxic rather than a neurotoxic venom and causes dermonecrosis, haemolysis and thrombotic microangiopathy instead, so the entry models the two as separate subtypes rather than as one disease with a wide spectrum.",
+    "pathophysiology": [
+      "Scorpion Venom Neurotoxin Binding to Voltage-Gated Sodium Channels",
+      "Failure of Sodium Channel Fast Inactivation and Repetitive Firing",
+      "Autonomic Neurotransmitter Storm",
+      "Catecholamine-Mediated Myocardial Injury",
+      "Venom-Triggered Cardiac IL-1R Signaling and PGE2 Production",
+      "Excessive Vagal Acetylcholine Release at the Heart",
+      "Cardiac Dysfunction and Pulmonary Edema",
+      "Cytolytic Venom Membrane Damage",
+      "Intravascular Hemolysis with Acquired ADAMTS13 Deficiency",
+      "Thrombotic Microangiopathy and Acute Kidney Injury"
+    ],
+    "cell_types": [
+      "sympathetic postganglionic neuron",
+      "adrenal medulla chromaffin cell",
+      "cardiac muscle cell",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0011103",
+      "CL:0000336",
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "membrane depolarization during action potential",
+      "catecholamine secretion",
+      "acetylcholine secretion",
+      "prostaglandin E2 biosynthesis in the envenomed heart"
+    ],
+    "phenotypes": [
+      "Local paresthesia at bite site",
+      "Tachycardia",
+      "Bradycardia",
+      "Hypertension",
+      "Hypotension",
+      "Pulmonary edema",
+      "Myocarditis",
+      "Hyperhidrosis",
+      "Excessive salivation",
+      "Vomiting",
+      "Priapism",
+      "Hyperglycemia",
+      "Fasciculations",
+      "Tremor",
+      "Acute pancreatitis",
+      "Skin ulcer",
+      "Acute kidney injury",
+      "Hemolytic-uremic syndrome",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Cardiovascular",
+      "Respiratory",
+      "Constitutional",
+      "Gastrointestinal",
+      "Genitourinary",
+      "Metabolic",
+      "Dermatologic",
+      "Renal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0020014",
+      "HP:0001649",
+      "HP:0001662",
+      "HP:0000822",
+      "HP:0002615",
+      "HP:0100598",
+      "HP:0012819",
+      "HP:0000975",
+      "HP:0003781",
+      "HP:0002013",
+      "HP:0200023",
+      "HP:0003074",
+      "HP:0002380",
+      "HP:0001337",
+      "HP:0001735",
+      "HP:0200042",
+      "HP:0001919",
+      "HP:0005575",
+      "HP:0001873"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Species-specific antivenom",
+      "Prazosin",
+      "Dobutamine",
+      "Mechanical ventilation and intensive supportive care",
+      "Early dexamethasone",
+      "Atropine",
+      "Plasma exchange and renal replacement therapy",
+      "Anti-heminecrolysin nanobody"
+    ],
+    "environmental": [
+      "Scorpion sting delivering neurotoxic venom",
+      "Scorpion sting delivering cytotoxic venom"
+    ],
+    "biochemical": [
+      "N-terminal pro-B-type natriuretic peptide (NT-proBNP)",
+      "Creatine kinase MB (CK-MB)",
+      "Cardiac troponin",
+      "Soluble ST2 (sST2)",
+      "Heart-type fatty acid binding protein (FABP3)"
+    ],
+    "source_file": "Scorpion_Envenomation.yaml",
+    "page_url": "../pages/disorders/Scorpion_Envenomation.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 8,
+    "causal_graph_edges": "47",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Scott Syndrome",
     "disease_id": "MONDO:0009885",
     "category": "Mendelian",
@@ -313418,19 +314482,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3012,
-  "total_subtypes": 3766,
-  "total_disorders_and_subtypes": 6778,
-  "total_unique_evidence_sources": 42801,
-  "total_unique_publications": 40404,
+  "total_disorder_pages": 3021,
+  "total_subtypes": 3771,
+  "total_disorders_and_subtypes": 6792,
+  "total_unique_evidence_sources": 42961,
+  "total_unique_publications": 40562,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3007,
-  "total_unique_pathological_events": 18268,
+  "total_pathographs": 3016,
+  "total_unique_pathological_events": 18342,
   "total_modules": 177,
-  "total_research_reports": 3129,
+  "total_research_reports": 3138,
   "total_classifications": 19,
-  "total_comorbidities": 43,
+  "total_comorbidities": 46,
   "total_groupings": 102
 };
 window.dispatchEvent(new Event('searchDataReady'));
