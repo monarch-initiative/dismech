@@ -24,6 +24,7 @@ the object carrying ``evidence`` ``Statement`` (subject / predicate / object)
 ``evidence[].evidence_source``   ``EvidenceLine.evidence_type``
 ``evidence[].supports``          ``EvidenceLine.direction_of_evidence_provided``
 ``evidence[].directness``        ``EvidenceLine.dismech_directness`` (no SEPIO slot)
+``evidence[].quote_role``        ``EvidenceLine.dismech_quote_role`` (no SEPIO slot)
 ``evidence[].snippet``           ``DataItem.value`` (``data_type: TextSpan``)
 ``evidence[].reference``         ``Document.id`` (via ``DataItem.reported_in``)
 ``evidence[].reference_title``   ``Document.title``
@@ -152,6 +153,11 @@ class EvidenceLine(SepioEntity):
     # How directly the quote bears on the claim. dismech-native: SEPIO has no
     # directness slot, and this is not a strength grade.
     dismech_directness: str | None = None
+    # Where in the cited document's own argument the quote sits. dismech-native
+    # for the same reason. The schema maps the values out to CiTO, so an
+    # export that wants `cito:obtainsBackgroundFrom` can resolve it from the
+    # enum rather than from a second hand-maintained map here.
+    dismech_quote_role: str | None = None
 
 
 class Statement(SepioEntity):
@@ -239,6 +245,7 @@ def evidence_item_to_line(evidence_item: dict[str, Any], statement_id: str, inde
         description=evidence_item.get("explanation"),
         dismech_supports=supports or None,
         dismech_directness=evidence_item.get("directness") or None,
+        dismech_quote_role=evidence_item.get("quote_role") or None,
     )
 
 
