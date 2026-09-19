@@ -2,13 +2,14 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-08-19T08:27:59.319574'
-end_time: '2026-08-19T08:36:59.688429'
-duration_seconds: 540.37
+start_time: '2026-09-06T14:09:09.816411'
+end_time: '2026-09-06T14:20:32.104217'
+duration_seconds: 682.29
 template_file: templates/disease_pathophysiology_research.md
+template_sha: "1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666"
 template_variables:
   disease_name: LDLR-Related Familial Hypercholesterolemia
-  mondo_id: ''
+  mondo_id: MONDO:0007750
   category: Mendelian
 provider_config:
   timeout: null
@@ -17,16 +18,38 @@ provider_config:
     allowed_domains: []
     temperature: 0.1
     max_embedded_images: 8
-citation_count: 28
+citation_count: 51
 reference_validation:
-  total_references: 7
-  verified: 7
+  total_references: 16
+  verified: 16
   not_found: 0
   unverifiable: 0
   confabulation_rate: 0.0
-  relevance_assessed: 7
-  on_topic: 3
+  quotes_checked: 2
+  quotes_valid: 2
+  quotes_not_checkable: 1
+  relevance_assessed: 16
+  on_topic: 9
   validator_version: 0.2.1
+term_validation:
+  total_terms: 33
+  verified: 32
+  not_found: 0
+  obsolete: 0
+  unverifiable: 1
+  confabulation_rate: 0.0
+  labels_checked: 1
+  labels_matching: 0
+  labels_mismatched: 1
+  mislabelled_terms:
+  - term_id: MONDO:0007750
+    reported_labels:
+    - if available
+    - association score 0.877
+    ontology_label: hypercholesterolemia, familial, 1
+  needs_review: true
+  adapter: 'ols:'
+  validator_version: 0.4.5
 artifact_count: 1
 artifact_sources:
   edison_answer_artifacts: 1
@@ -45,7 +68,7 @@ artifacts:
 
 ## Target Disease
 - **Disease Name:** LDLR-Related Familial Hypercholesterolemia
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0007750 (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
@@ -130,6 +153,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -506,7 +539,7 @@ Always prioritize recent, authoritative sources and provide specific citations f
 
 ## Target Disease
 - **Disease Name:** LDLR-Related Familial Hypercholesterolemia
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0007750 (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
@@ -591,6 +624,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -949,241 +992,226 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# LDLR-Related Familial Hypercholesterolemia: Disease Characteristics Report
+# LDLR-Related Familial Hypercholesterolemia
 
-**Scope.** This report focuses narrowly on familial hypercholesterolemia caused by pathogenic germline variants in **LDLR**, rather than the broader clinical FH phenotype caused by *APOB*, *PCSK9*, *LDLRAP1*, polygenic hypercholesterolemia, or secondary dyslipidemia. Evidence is predominantly aggregated disease-level literature, expert guidance, and trial registries; it is not an analysis of individual EHR records.
+## Scope and evidence conventions
 
-The following table provides an ontology-ready synopsis.
+This report concerns **familial hypercholesterolemia type 1 caused by germline pathogenic variants in LDLR**, not the broader phenotypic category that also includes APOB-, PCSK9-, APOE-, and LDLRAP1-related disease or polygenic hypercholesterolemia. Many epidemiologic and therapeutic studies enroll clinical FH or HoFH without reporting gene-specific results; these are explicitly labeled **broad-FH evidence** and should not be entered as LDLR-specific penetrance or treatment estimates.
 
-| Domain | Core finding | Quantitative datum | Suggested ontology |
-|---|---|---:|---|
-| Disease identity | LDLR-related familial hypercholesterolemia is a highly penetrant co-dominant Mendelian disorder with lifelong elevation of LDL-C from birth and markedly increased premature ASCVD risk | HeFH usually LDL-C >190 mg/dL; HoFH often >400 mg/dL | MONDO:0007750; HP:0003124 |
-| Genetics | Most molecularly confirmed FH is caused by pathogenic LDLR variants that reduce receptor-mediated LDL clearance; null and defective alleles produce severity spectrum | LDLR accounts for ~80–90% of genetically diagnosed FH; >2,300 unique LDLR variants reported | HGNC:6547; SO:0001583/0001587/0001574 |
-| Biochemical phenotype | Core laboratory phenotype is elevated plasma LDL-C with elevated apoB; HoFH may also show elevated VLDL/IDL and reduced HDL in severe models | Pediatric PCSK9 meta-analysis: LDL-C −37.92%, apoB −33.67%, Lp(a) −16.94% | HP:0003124; HP:0012185; CHEBI:16129 |
-| Physical signs | Classical stigmata include tendon xanthomas, corneal arcus, and periocular/cutaneous xanthomas in more severe disease | Tendon xanthomas seen in <15% and corneal arcus in ~30% of HeFH in a cited cohort context | HP:0000991; HP:0001085 |
-| Cardiovascular complications | Untreated disease accelerates atherosclerosis, coronary disease, and in severe cases aortic valve/ascending aortic disease | Genetic FH with LDL-C >190 mg/dL conveys ~3.7-fold higher CHD risk than equally elevated LDL-C without an FH mutation | HP:0001677; HP:0001717; UBERON:0000948 |
-| Diagnosis/screening | Diagnosis combines LDL-C level, family history, premature ASCVD, physical signs, and ideally confirmatory genetic testing; cascade screening is central | Opportunistic trigger LDL-C ≥190 mg/dL; screen at-risk children by age 5 years, or by 2 years if strong family history; suspected HoFH at newborn stage to 2 years | NCIT:C157171; HP:0031372 |
-| Standard treatment | First-line care is intensive statin therapy plus ezetimibe, escalating to combination therapy to reach LDL-C targets | Statins lower LDL-C ~50–60% alone and ~65–70% with ezetimibe; bempedoic acid ~22.3% LDL-C reduction in clinical HeFH phenotype | NCIT:C29447; NCIT:C61731; NCIT:C88519 |
-| LDLR-independent treatment | For severe disease, especially HoFH or null/null LDLR, receptor-independent therapies such as evinacumab and lomitapide are key; apheresis may still be required | Evinacumab lowers LDL-C by ~50% overall and ~43% even in null/null LDLR; ANGPTL3 mAb review cites ~50% LDL and ~47% TG reduction | NCIT:C158502; NCIT:C83818; NCIT:C15201 |
-| Epidemiology | FH is common but substantially underdiagnosed worldwide | Prevalence ~1 in 311 globally; ~35 million people affected; only ~10% diagnosed worldwide | MONDO:0005439 |
-| Models | Experimental systems recapitulate LDLR-FH across species for mechanism and therapy testing, from mouse to non-human primate | LDLR knockout mice show ~2-fold total cholesterol increase; six LDLR-KO cynomolgus monkeys generated with HoFH-like phenotype | NCBITaxon:10090; NCBITaxon:9541; CL:0000182 |
+The evidence base consists principally of aggregated disease resources, human cohorts and trials, recent authoritative reviews, and model-organism studies—not individual-patient EHR data. The principal recent sources are Di Taranto and Fortunato (published 6 February 2023; DOI [10.3390/ijms24043224](https://doi.org/10.3390/ijms24043224)), Abifadel and Boileau (2023; DOI [10.1111/joim.13577](https://doi.org/10.1111/joim.13577)), Fularski et al. (January 2024; DOI [10.3390/ijms25031637](https://doi.org/10.3390/ijms25031637)), and the 2024 pediatric PCSK9-inhibitor meta-analysis (published 8 October 2024; DOI [10.3390/medicina60101646](https://doi.org/10.3390/medicina60101646)). (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, taranto2023geneticheterogeneityof pages 1-2, abifadel2023geneticandmolecular pages 1-2, xiao2024efficacyandsafety pages 1-2)
+
+| Domain | Key knowledge-base fact/statistic | Evidence type and scope | Source/date | DOI or URL |
+|---|---|---|---|---|
+| Identity | LDLR-related familial hypercholesterolemia 1 is MONDO:0007750; LDLR is the strongest associated target in the retrieved Open Targets record (score 0.877). | Aggregated disease-target evidence; LDLR-specific. | Open Targets, accessed 2026-09-06 (OpenTargets Search: familial hypercholesterolemia-LDLR) | https://platform.opentargets.org/ |
+| Prevalence | Broad HeFH prevalence estimates cluster near 1:250-1:313. These figures include non-LDLR forms of FH. | Meta-analysis and review; broad FH, so application to LDLR-related disease is approximate. | Di Taranto and Fortunato, Feb 2023; Humphries and Futema, Apr 2025 (humphries2025geneticdeterminantsof pages 1-2, taranto2023geneticheterogeneityof pages 1-2) | https://doi.org/10.3390/ijms24043224; https://doi.org/10.1111/ahg.12594 |
+| Causal contribution | Pathogenic LDLR variants account for approximately 90-95% of monogenic FH in cited reviews; estimates vary with ascertainment and testing strategy. | Aggregated genetic evidence; LDLR-specific attribution within broad monogenic FH. | Fularski et al., Jan 2024; Kalwick and Roth, Feb 2025 (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, kalwick2025acomprehensivereview pages 1-3) | https://doi.org/10.3390/ijms25031637; https://doi.org/10.3390/nu17040659 |
+| Inheritance | One germline pathogenic LDLR allele generally causes heterozygous FH; two pathogenic alleles cause homozygous or compound-heterozygous LDLR-FH. Each child of a heterozygote has an approximately 50% chance of inheriting the variant. | Human genetic evidence; LDLR-specific, although HoFH can also arise from other genes. | Abifadel and Boileau, Oct 2023; Fularski et al., Jan 2024 (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5, abifadel2023geneticandmolecular pages 1-2) | https://doi.org/10.1111/joim.13577; https://doi.org/10.3390/ijms25031637 |
+| Variant classes | LDLR defects can impair receptor synthesis or transport, LDL binding, clathrin-mediated internalization, or receptor recycling. Null alleles abolish function and generally produce more severe disease than receptor-defective alleles. Copy-number changes may constitute about 10% of causal variants; deep-intronic variants may require WGS. | Molecular and genetic review; LDLR-specific, but the 10% estimate is cohort-dependent. | Fularski et al., Jan 2024 (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5) | https://doi.org/10.3390/ijms25031637 |
+| Mechanism | Reduced hepatocyte-surface LDLR activity impairs receptor-mediated LDL uptake, elevates LDL-C from birth, and increases cumulative arterial LDL exposure. PCSK9-mediated lysosomal degradation further reduces LDLR recycling. | Established molecular mechanism; LDLR-specific, with PCSK9 acting as a pathway regulator. | Fularski et al., Jan 2024; Abifadel and Boileau, Oct 2023 (fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5, abifadel2023geneticandmolecular pages 1-2) | https://doi.org/10.3390/ijms25031637; https://doi.org/10.1111/joim.13577 |
+| Phenotypes | Core findings include lifelong elevated LDL-C, tendon or cutaneous xanthomas, xanthelasma, corneal arcus, progressive premature atherosclerosis, coronary heart disease, and increased cardiovascular morbidity and mortality. | Clinical review; broad FH but strongly applicable to LDLR-FH. | Abifadel and Boileau, Oct 2023; Fularski et al., Jan 2024 (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, abifadel2023geneticandmolecular pages 1-2) | https://doi.org/10.1111/joim.13577; https://doi.org/10.3390/ijms25031637 |
+| Severe natural history | In severe untreated HoFH, coronary disease and aortic stenosis may occur by age 20, death may occur by age 30, and myocardial infarction can occur before age 10. | Clinical review; broad HoFH and not restricted to biallelic LDLR disease. | Fularski et al., Jan 2024 (fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5) | https://doi.org/10.3390/ijms25031637 |
+| Diagnosis | Diagnosis integrates repeated fasting LDL-C measurements, premature ASCVD or family history, tendon xanthomas or corneal arcus, and exclusion of secondary causes. Dutch Lipid Clinic Network categories are definite above 8, probable 6-8, and possible 3-5 points. | Clinical diagnostic framework; broad FH. | Fularski et al., Jan 2024 (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4) | https://doi.org/10.3390/ijms25031637 |
+| Molecular testing | Testing should include LDLR and other canonical FH genes plus deletion-duplication analysis; WGS can identify deep-intronic or structural variants. A negative test does not exclude clinical FH. | Clinical genetics review; LDLR testing within a broad FH differential. | Fularski et al., Jan 2024; Humphries and Futema, Apr 2025 (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, humphries2025geneticdeterminantsof pages 1-2) | https://doi.org/10.3390/ijms25031637; https://doi.org/10.1111/ahg.12594 |
+| Cascade screening | Once a familial pathogenic variant is known, first-degree relatives should receive targeted variant testing and lipid measurement; their prior risk is approximately 50% under dominant inheritance. | Guideline and review evidence; LDLR-specific when the familial variant is in LDLR. | Fularski et al., Jan 2024; Abifadel and Boileau, Oct 2023 (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, abifadel2023geneticandmolecular pages 1-2) | https://doi.org/10.3390/ijms25031637; https://doi.org/10.1111/joim.13577 |
+| Screening implementation | Childhood programs reported approximately 91% acceptance among Slovenian five-year-olds using opt-out screening and approximately 60% participation in a West Virginia school program. | Real-world implementation summarized in a review; broad FH. | Gidding, Oct 2023 (gidding2023childhoodscreeningfor pages 4-6) | https://doi.org/10.1016/j.jacc.2023.07.028 |
+| Pediatric statins | A 20-year cohort of 214 children reported mean LDL-C reduction from 237.3 to 160.7 mg/dL, or 32%; 20% attained LDL-C below 100 mg/dL. By age 39, cardiovascular events were 1% versus 26% and cardiovascular death was 0% versus 7% compared with affected parents. | Human longitudinal cohort; broad genetically confirmed FH and probably predominantly LDLR, but not exclusively LDLR-specific. | Luirink et al., Oct 2019 | https://doi.org/10.1056/NEJMoa1816454 |
+| Pediatric PCSK9 antibodies | A 2024 meta-analysis of nine studies, including three RCTs with 320 children, found LDL-C reduction of 37.92% (95% CI 32.78-43.06), apoB reduction of 33.67%, and Lp(a) reduction of 16.94%. Responses were consistent in HeFH but highly variable in HoFH. | Systematic review and meta-analysis; broad pediatric FH; treatment is mechanistically LDLR-dependent. | Xiao et al., Oct 8, 2024 (xiao2024efficacyandsafety pages 5-8, xiao2024efficacyandsafety pages 1-2, xiao2024efficacyandsafety pages 4-5) | https://doi.org/10.3390/medicina60101646 |
+| Apheresis | One LDL-apheresis procedure conventionally lowers LDL-C by more than 60%. Weekly treatment can regress xanthomas, slow atherosclerosis, and improve survival; initiation before age 6-7 years is recommended for severe HoFH where available. | Clinical review and real-world practice; broad HoFH, not LDLR-specific. | Tokgozoglu and Kayikcioglu, Sep 2021 (tokgozoglu2021familialhypercholesterolemiaglobal pages 9-10) | https://doi.org/10.1007/s11886-021-01565-5 |
+| Lifestyle interaction | Among carriers of pathogenic variants in LDLR, APOB, or PCSK9, estimated CAD risk by age 75 ranged from 35% with a favorable lifestyle to 66% with an unfavorable lifestyle. | Human case-control and cohort evidence; broad FH-gene carriers, not LDLR-specific. | Fahed et al., Mar 2022 | https://doi.org/10.1001/jamanetworkopen.2022.2687 |
+| Sex disparity | Across 25 real-world studies with 129,441 participants, women were less likely to receive lipid-lowering therapy (OR 0.74, 95% CI 0.66-0.85) or attain LDL-C below 2.5 mmol/L (OR 0.85, 95% CI 0.74-0.97); fixed-dose trial response did not differ by sex. | Systematic review and meta-analysis; broad FH, not LDLR-specific. | Iatan et al., Jul 2024 (iatan2024sexdifferencesin pages 8-8) | https://doi.org/10.1093/eurheartj/ehae417 |
+| Mouse model | Ldlr-null mice model impaired LDL clearance and diet-accelerated atherosclerosis, but murine lipoprotein metabolism differs from that of humans and a cholesterol-rich diet is often needed for severe disease. | Genetic model-organism evidence; LDLR-specific model, summarized from retrieved model literature. | Contemporary model reviews | https://www.informatics.jax.org/ |
+| Rabbit model | Naturally occurring LDLR-deficient Watanabe heritable hyperlipidemic rabbits and the WHHLMI strain develop LDL-rich hypercholesterolemia, coronary atherosclerosis, vulnerable plaques, and myocardial infarction; lipoprotein physiology is more human-like than in mice. | Natural and genetic animal model; LDLR-specific model. | Established comparative-model literature | https://doi.org/10.1590/1414-431X20209557 |
+| Nonhuman-primate model | Six genome-edited LDLR-knockout cynomolgus monkeys had severe hyperlipidemia resembling biallelic LDLR-FH, elevated VLDL and LDL, decreased HDL, periocular xanthoma by one year, and strong resistance to lipid-lowering medication. | Primary genome-edited model-organism study; LDLR-specific. | Sato et al., Sep 2023 | https://doi.org/10.1038/s41598-023-42763-1 |
 
 
-*Table: This table condenses the main disease-knowledge-base domains for LDLR-related familial hypercholesterolemia into ontology-ready findings and quantitative anchors. It is useful as a compact reference for curation and downstream structured annotation. (arnold2023familialhypercholesterolemiapitfalls pages 1-2, chora2022theclinicalgenome pages 5-6, watts2023internationalatherosclerosissociety pages 1-2, chora2022theclinicalgenome pages 8-10, ishibashi1993hypercholesterolemiainlow pages 1-2, arnold2023familialhypercholesterolemiapitfalls pages 4-6, arnold2023familialhypercholesterolemiapitfalls pages 2-3, sato2023generationofa pages 1-2, xiao2024efficacyandsafety pages 1-2)*
+*Table: Compact evidence map for LDLR-related familial hypercholesterolemia, distinguishing LDLR-specific findings from evidence generalized from broader FH or HoFH populations. It summarizes identity, genetics, clinical features, diagnosis, interventions, disparities, and experimental models.*
 
 ## 1. Disease information
 
-**Definition.** LDLR-related familial hypercholesterolemia (LDLR-FH) is a lifelong Mendelian disorder of hepatic LDL-particle clearance. One pathogenic allele usually causes heterozygous FH (HeFH); two pathogenic alleles—homozygous or compound heterozygous—cause the substantially more severe homozygous phenotype (HoFH). LDL-C is elevated from birth, producing cumulative arterial cholesterol exposure and premature atherosclerotic cardiovascular disease (ASCVD). The IAS describes FH as a highly penetrant, co-dominant disorder affecting the hepatic LDL-clearance pathway. (arnold2023familialhypercholesterolemiapitfalls pages 1-2, watts2023internationalatherosclerosissociety pages 1-2)
+**Definition.** LDLR-related FH is a congenital, lifelong disorder of LDL clearance caused by reduced quantity or function of the hepatocyte low-density-lipoprotein receptor. One pathogenic allele generally produces heterozygous FH (HeFH); biallelic pathogenic variants produce severe homozygous or compound-heterozygous LDLR-FH. Persistent LDL-cholesterol elevation causes cumulative arterial cholesterol exposure, premature atherosclerotic cardiovascular disease (ASCVD), and, in severe biallelic disease, childhood xanthomas and early coronary or aortic-root disease. LDLR variants account for approximately **90–95% of molecularly defined monogenic FH**, although estimates vary by ascertainment. (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, kalwick2025acomprehensivereview pages 1-3)
 
-**Identifiers and synonyms.** Recommended knowledge-base identifiers are **MONDO:0007750** (“hypercholesterolemia, familial, 1”; LDLR-associated entity), broader **MONDO:0005439** (“familial hypercholesterolemia”), **OMIM #143890** (“Hypercholesterolemia, familial, 1”), **ORPHA:391665** (familial hypercholesterolemia), **MeSH D006938**, US **ICD-10-CM E78.01**, and ICD-11 familial hypercholesterolaemia under the disorders-of-lipoprotein-metabolism hierarchy. Because coding-system releases differ, the ICD-11 code should be version-validated before production use. Open Targets independently identifies LDLR as the highest-scoring target for familial hypercholesterolemia and links it to MONDO:0005439 and MONDO:0007750. (OpenTargets Search: familial hypercholesterolemia-LDLR)
+**Identifiers and synonyms.** Recommended identifiers are **MONDO:0007750**, “hypercholesterolemia, familial, 1”; **OMIM #143890**, familial hypercholesterolemia 1; causal gene **LDLR, OMIM *606945**; and MeSH **Familial Hypercholesterolemia**. Broader FH maps to MONDO:0005439, while homozygous FH has MONDO:0018328; neither should replace MONDO:0007750 in an LDLR-specific record. Open Targets identifies LDLR as the strongest associated target for MONDO:0007750 (association score 0.877). Common names include *LDLR-related familial hypercholesterolemia*, *familial hypercholesterolemia type 1*, *autosomal dominant hypercholesterolemia type 1*, *LDL-receptor deficiency*, *HeFH due to LDLR*, and *biallelic/homozygous LDLR-FH*. (OpenTargets Search: familial hypercholesterolemia-LDLR)
 
-Common names include **LDLR-related FH**, **familial hypercholesterolemia type 1**, **autosomal dominant hypercholesterolemia type 1**, **LDL receptor deficiency**, **HeFH**, and **LDLR-associated HoFH**. “Autosomal dominant” is clinically familiar, although “autosomal co-dominant” better captures the allele-dose phenotype.
+ICD coding is less gene-specific: **ICD-10-CM E78.01** denotes familial hypercholesterolemia, while ICD-11 generally classifies it among genetic disorders of lipoprotein metabolism. ICD codes should therefore be paired with the molecular diagnosis rather than treated as LDLR-specific identifiers.
 
 ## 2. Etiology, risk, protection, and gene–environment interaction
 
-### Causal factor
+The initiating cause is a **germline loss-of-function LDLR variant**. De novo variants occur but are uncommon; most cases segregate in families. Null alleles, which produce no functional receptor, generally cause higher LDL-C and greater ASCVD burden than receptor-defective alleles retaining residual function. Copy-number variants may represent roughly 10% of molecular diagnoses in some series, and deep-intronic defects may be missed unless RNA studies or genome sequencing are used. (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5)
 
-The primary cause is a **germline pathogenic or likely pathogenic LDLR variant** that reduces receptor abundance or function. LDLR accounts for approximately 80–90% of genetically diagnosed FH, although the percentage depends on referral and testing criteria. The downstream defect is reduced hepatocyte uptake of apoB-containing LDL, prolonged plasma LDL residence, and lifelong hypercholesterolemia. (arnold2023familialhypercholesterolemiapitfalls pages 1-2, xiao2024efficacyandsafety pages 1-2)
+**Genetic severity factors** include biallelic LDLR variants, null/null genotypes, high polygenic LDL-C burden, elevated Lp(a), and variants affecting interacting pathways. PCSK9 is a mechanistic modifier: increased PCSK9 activity promotes lysosomal LDLR degradation, whereas PCSK9 loss-of-function preserves receptor abundance and lowers LDL-C and coronary risk. Modifier and polygenic effects explain part—but not all—of variable expressivity. (fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5, taranto2023geneticheterogeneityof pages 1-2)
 
-### Risk factors and modifiers
+**Environmental/lifestyle factors** do not cause LDLR-FH but alter realized ASCVD risk. Smoking, hypertension, diabetes, obesity, physical inactivity, and diets rich in saturated/trans fat add to lifelong LDL burden. In 10,175 case-control and 39,920 cohort participants carrying pathogenic variants in LDLR, APOB, or PCSK9, projected CAD risk by age 75 ranged from **35% with a favorable lifestyle to 66% with an unfavorable lifestyle**. This is compelling gene–environment evidence, but it was not reported separately for LDLR. Its abstract conclusion states that “a favorable lifestyle is associated with a lower risk of coronary artery disease in carriers and noncarriers.” DOI: [10.1001/jamanetworkopen.2022.2687](https://doi.org/10.1001/jamanetworkopen.2022.2687). 
 
-* **Genetic severity:** two affected alleles, null alleles, and lower residual receptor activity produce higher LDL-C and earlier disease. A classic FH variant plus LDL-C >190 mg/dL confers about **3.7-fold greater CHD risk** than the same LDL-C without an identified FH variant, and up to approximately 20–22-fold risk relative to normolipidemic/non-carrier comparators in cited cohorts. (arnold2023familialhypercholesterolemiapitfalls pages 2-3, xiao2024efficacyandsafety pages 1-2)
-* **Additional inherited risk:** elevated **LPA/Lp(a)**, polygenic LDL-C burden, and variants influencing apoB lipoprotein production or clearance modify expression. Lp(a) >50 mg/dL combined with FH denotes particularly high myocardial-infarction risk; conversely, Lp(a)-cholesterol can inflate measured LDL-C and mimic clinical FH. In one Copenhagen analysis, high Lp(a) contributed to approximately 25% of clinical FH classifications; Lp(a)-adjustment moved 16.6% of patients to a lower Dutch Lipid Clinic Network category. (arnold2023familialhypercholesterolemiapitfalls pages 4-6)
-* **Environmental/clinical amplifiers:** smoking, hypertension, diabetes, obesity, physical inactivity, diets rich in saturated/trans fats, chronic kidney disease, and delayed or inadequate LDL-lowering increase absolute ASCVD risk. Age represents cumulative exposure rather than disease acquisition.
-* **Sex:** inheritance is not sex-linked and the birth ratio should be approximately equal. Premenopausal estrogen may delay clinical events in women, but LDL elevation is present in both sexes from birth.
-
-### Protective factors
-
-Protective factors do not remove the causal allele. They reduce LDL burden or downstream risk: early sustained LDL-C lowering, absence of smoking, healthy blood pressure and glycemia, physical activity, healthy weight, and substitution of unsaturated for saturated fat. Genetic PCSK9 or ANGPTL3 loss-of-function can lower apoB lipoproteins; PCSK9 loss-of-function is protective against coronary disease mechanistically, although it is not a routine modifier test in LDLR-FH. (srivastava2023areviewof pages 8-9)
-
-**Gene–environment interaction:** diet has a modest effect relative to the LDLR defect, but high-fat/high-cholesterol exposure magnifies hyperlipidemia and atherosclerosis. LDLR-knockout mice illustrate this interaction: dietary cholesterol causes a marked IDL/LDL rise, whereas the normal-diet mouse phenotype is milder than human HoFH because murine lipoprotein physiology differs. (ishibashi1993hypercholesterolemiainlow pages 1-2, sato2023generationofa pages 1-2)
+Protective factors include early diagnosis, lifelong adherence to LDL-lowering treatment, avoidance of tobacco, regular physical activity, healthy weight, and a dietary pattern low in saturated fat and rich in fiber and unsaturated fat. These reduce downstream risk but do not normalize receptor function. PCSK9 loss-of-function and other LDL-lowering alleles are plausible genetic protectors. No infectious, occupational, radiation, or toxin exposure is an established primary cause.
 
 ## 3. Phenotypes
 
-| Phenotype | Type, onset, course, frequency/severity | Suggested HPO |
+| Phenotype | Type, onset, course, frequency | Suggested HPO term |
 |---|---|---|
-| Elevated LDL-C | Laboratory abnormality; congenital and persistent. Commonly >190 mg/dL in HeFH and >400 mg/dL in HoFH, but overlap is substantial | **HP:0003124 Hypercholesterolemia** |
-| Elevated apoB/atherogenic particles | Laboratory abnormality; lifelong, severity tracks LDL particle burden | HP:0012185 Abnormal circulating apolipoprotein concentration |
-| Tendon xanthomas | Physical sign, typically Achilles/extensor tendons; age-dependent, more prominent in severe/untreated disease. Reported in <15% of a contemporary HeFH cohort | **HP:0000991 Xanthomatosis**; HP:0200045 Tendon xanthoma |
-| Corneal arcus | Physical sign; premature arcus is more specific than age-related arcus. Approximately 30% in the cited HeFH cohort | **HP:0001084/HP:0001085 Corneal arcus** |
-| Cutaneous/periocular xanthomas | Physical sign; childhood onset strongly suggests HoFH. LDLR-KO primates developed periocular xanthoma by one year | HP:0000991; HP:0200044 Xanthelasma |
-| Premature coronary atherosclerosis/MI | Clinical complication; insidious and progressive, often clinically silent before an event; adult onset typical in untreated HeFH but childhood/adolescent disease can occur in HoFH | **HP:0001677 Coronary artery atherosclerosis**, HP:0001658 Myocardial infarction |
-| Aortic-root/valvular disease | Sign/complication, especially HoFH; progressive supravalvular/aortic-root atherosclerosis and calcific aortic stenosis | HP:0001647 Aortic valve stenosis; HP:0002621 Aortic atherosclerosis |
-| Peripheral/cerebrovascular disease | Secondary vascular complications; less defining than coronary disease | HP:0002635 Cerebral ischemia; HP:0004950 Peripheral arterial disease |
+| Elevated LDL-C | Laboratory abnormality; present from birth, persistent and usually severe; universal defining feature | **HP:0003124 Hypercholesterolemia** |
+| Premature atherosclerosis/CAD | Usually subclinical in childhood in HeFH, clinically progressive in adulthood; childhood or adolescence in severe biallelic disease | **HP:0002621 Atherosclerosis**, **HP:0001677 Coronary artery atherosclerosis** |
+| Tendon xanthomas | Physical sign; age-dependent, uncommon in adequately treated children, more frequent with severe or longstanding disease | **HP:0005039 Xanthomatosis**, tendon-xanthoma child term if supported locally |
+| Cutaneous/planar or tuberous xanthomas | Particularly characteristic of severe biallelic disease; may appear in early childhood | **HP:0000991 Xanthoma** |
+| Corneal arcus | Usually age-dependent; arcus before age 45 is diagnostically informative | **HP:0001084 Corneal arcus** |
+| Xanthelasma | Variable and nonspecific; more likely with prolonged hypercholesterolemia | **HP:0001114 Xanthelasma** |
+| Myocardial infarction/angina | Downstream clinical complication; adult-premature in HeFH, potentially childhood in null/null LDLR-FH | **HP:0001658 Myocardial infarction**, **HP:0001681 Angina pectoris** |
+| Aortic-root/valvular disease | Especially severe HoFH; progressive supravalvular/aortic-root atherosclerosis and calcific aortic stenosis | **HP:0001646 Aortic stenosis** |
+| Carotid/peripheral/cerebrovascular disease | Variable downstream manifestations of systemic atherosclerosis | **HP:0002635 Cerebral ischemia**, **HP:0004417 Peripheral arterial stenosis** |
 
-Physical stigmata are insensitive screening features: their absence does not exclude FH. Contemporary treatment may further reduce their frequency. (arnold2023familialhypercholesterolemiapitfalls pages 2-3)
+Reviews consistently describe elevated LDL-C, tendon/skin xanthomas, xanthelasma, corneal arcus, and premature progressive ASCVD. In untreated severe HoFH, coronary disease and aortic stenosis may occur by age 20, death may occur by age 30, and myocardial infarction has occurred before age 10; these figures describe broad HoFH and should not be assigned to every biallelic LDLR genotype. (fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5, abifadel2023geneticandmolecular pages 1-2)
 
-**Quality of life.** Most children and many adults are asymptomatic, but diagnosis imposes lifelong medication, dietary vigilance, family testing, and anxiety about premature events. HoFH adds frequent apheresis, venous-access burden, xanthomas, repeated imaging, and early cardiovascular procedures. Robust phenotype-specific EQ-5D/SF-36 estimates were not available in the retrieved primary evidence; this field should therefore be recorded as **evidence limited**, not “no impact.”
+Quality-of-life effects derive less from isolated hypercholesterolemia than from anxiety about inherited risk, polypharmacy, injectable treatment, apheresis schedules, dietary burden, ASCVD disability, and financial/access barriers. Robust LDLR-genotype-specific EQ-5D or SF-36 estimates were not identified; broad HoFH evidence should therefore not be entered as LDLR-specific QoL data.
 
 ## 4. Genetic and molecular information
 
-**Gene.** *LDLR*—HGNC:6547; NCBI Gene:3949; Ensembl ENSG00000130164; chromosome **19p13.2**—encodes the low-density lipoprotein receptor. The disease alleles are germline. Somatic LDLR variation is not the cause of inherited FH.
+**Gene.** LDLR is located at **19p13.2** and encodes the LDL receptor, a cell-surface transmembrane glycoprotein highly expressed by hepatocytes. Recommended identifiers are **HGNC:6547**, **NCBI Gene 3949**, and **Ensembl ENSG00000130164**.
 
-**Variant spectrum.** More than 2,300 unique FH-associated LDLR variants were already known when ClinGen issued its LDLR-specific ACMG/AMP rules. Variants include missense (the largest group), nonsense, frameshift, canonical and noncanonical splice variants, in-frame indels, promoter changes, and exon/whole-gene deletions or duplications. Frameshifts account for about 20% of associated variants. Stop variants before amino acid 830 remove the NPXY-containing cytoplasmic tail needed for internalization and meet strong loss-of-function logic. (chora2022theclinicalgenome pages 5-6, chora2022theclinicalgenome pages 1-3)
+**Variant spectrum.** Disease-causing variants include missense, nonsense, frameshift, canonical and noncanonical splice variants, promoter defects, in-frame indels, exon-level deletions/duplications, and larger structural rearrangements. Classic functional classes are: (1) absent synthesis; (2) defective ER-to-Golgi transport; (3) impaired APOB-containing LDL binding; (4) impaired clustering/internalization in clathrin-coated pits; and (5) abnormal endosomal dissociation or receptor recycling. Most are loss-of-function; dominant-negative behavior is not the usual mechanism. All are constitutional/germline rather than somatic. (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5)
 
-**Functional classes.** The traditional receptor classes are: I, absent synthesis; II, defective ER-to-Golgi transport; III, defective LDL binding; IV, defective clustering/internalization; V, defective endosomal dissociation/recycling; and sometimes VI, defective basolateral targeting. These converge on loss of LDL uptake. Null alleles generally have <2% activity; clinical trials often operationalize **null as <15% activity**, emphasizing that thresholds vary by context. (NCT04233918 chunk 1)
+**Classification.** Variants should be interpreted under ACMG/AMP criteria supplemented by ClinGen FH specifications, segregation, population frequency, LDLR activity assays, cell-surface abundance, LDL binding/uptake, and RNA studies. Pathogenic/likely pathogenic variants establish molecular LDLR-FH; a VUS does not. Clinically encountered pathogenic alleles are usually absent or extremely rare in gnomAD. A single universal allele-frequency cutoff is inappropriate because founder alleles can be locally enriched.
 
-**Classification.** Use five-tier ACMG/AMP categories—pathogenic, likely pathogenic, VUS, likely benign, benign—with ClinGen FH Variant Curation Expert Panel specifications. These modify population-frequency thresholds using gnomAD PopMax, define PVS1-eligible loss-of-function alleles, calibrate functional assays and computational evidence, and specify case/segregation evidence. Examples include PM1 for rare missense substitutions in exon 4 or one of 60 conserved cysteines; PP4 for a rare variant in a patient meeting DLCN ≥6, Simon Broome, or MEDPED criteria; and PP1_Strong for at least six informative cosegregating meioses. A 54-variant pilot produced 6 benign, 2 likely benign, 18 VUS, 15 likely pathogenic, and 13 pathogenic classifications with complete panel agreement. (chora2022theclinicalgenome pages 8-10, chora2022theclinicalgenome pages 11-13)
+**Recent functional genomics.** A major post-2024 advance tested approximately **17,000 nearly all-possible LDLR coding variants** for cell-surface abundance and LDL uptake. Functional scores correlated with prospective human hyperlipidemia and improved inference when combined with polygenic scores. This 2026 Science study is beyond the requested 2023–2024 priority window but represents the current frontier; DOI [10.1126/science.ady7186](https://doi.org/10.1126/science.ady7186). Its abstract states that the maps “provide evidence for interpreting clinical variants.” (tabet2026thefunctionallandscape pages 1-3)
 
-**Allele frequency.** A universal frequency cannot be supplied because LDLR-FH comprises thousands of alleles. Most pathogenic variants are individually rare or absent in gnomAD; founder alleles can be locally enriched. Report **variant-specific gnomAD ancestry frequency and homozygote count**, not an aggregate disease frequency. Examples of founder enrichment occur in French Canadians, Lebanese, Afrikaners, Christian Lebanese, and several European isolates.
+No recurrent aneuploidy, translocation, mitochondrial defect, repeat expansion, or somatic mosaic mechanism characterizes this disease. Large LDLR deletions/duplications are relevant; conventional karyotyping is not. Disease-specific DNA methylation, histone, single-cell, spatial-transcriptomic, proteomic, or metabolomic signatures are not validated diagnostic entities. Altered plasma LDL lipidomics is a direct biochemical consequence, not a unique omics classifier.
 
-**Modifiers and epigenetics.** *LPA*, common polygenic LDL-C alleles, *APOE*, *PCSK9*, *ANGPTL3*, and genes affecting apoB production/clearance can modify phenotype. No reproducible disease-defining methylation or histone signature currently replaces DNA diagnosis. Epigenetic and transcriptomic changes observed in atherosclerotic plaque are predominantly downstream consequences of lipid exposure and inflammation.
+## 5. Environmental information
 
-**Structural abnormalities.** LDLR exon-level deletions/duplications are clinically important copy-number variants. Balanced translocations, aneuploidy, repeat expansions, and mitochondrial variants are not standard causes of LDLR-FH.
-
-## 5. Environmental and lifestyle information
-
-LDLR-FH is **not caused** by toxins, radiation, occupational exposure, or infection. Diet, exercise, adiposity, tobacco, alcohol-related metabolic effects, blood pressure, and diabetes modify cardiovascular expression. A heart-healthy diet and exercise are recommended adjuncts but rarely normalize genetically elevated LDL-C. Infectious agents and vaccination have no disease-specific etiologic role.
-
-Secondary causes that can worsen or mimic the biochemical phenotype include hypothyroidism, nephrotic syndrome, cholestatic liver disease, uncontrolled diabetes, obesity, and LDL-raising drugs. These should be addressed before assigning pathogenicity evidence or a definitive clinical diagnosis. ClinGen explicitly requires exclusion of alternative hypercholesterolemia causes. (chora2022theclinicalgenome pages 8-10)
+LDLR-FH is not caused by infection, pollution, radiation, or occupational exposure. Secondary hypercholesterolemia can intensify or mimic the phenotype and should be sought: hypothyroidism, nephrotic syndrome, cholestatic liver disease, uncontrolled diabetes, obesity, pregnancy, and LDL-raising drugs. Diet and exercise usually produce modest LDL changes relative to the inherited defect but materially affect total cardiovascular risk. Smoking is especially avoidable because it acts downstream on endothelial injury and thrombosis. No vaccine or antimicrobial prevention is applicable.
 
 ## 6. Mechanism and pathophysiology
 
-**Causal chain:** germline LDLR loss-of-function → reduced hepatocyte surface LDLR or impaired binding/internalization/recycling → slower removal of apoB-100 LDL and remnant particles → elevated plasma LDL-C from birth → arterial intimal entry and proteoglycan retention → oxidation/aggregation and endothelial activation → monocyte recruitment and macrophage foam cells → chronic inflammatory plaque growth, necrotic core and calcification → coronary ischemia, MI, aortic-root disease, stroke, or peripheral disease.
+### Ordered causal chain
 
-The LDLR normally undergoes clathrin-mediated endocytosis and recycling. PCSK9 binding diverts LDLR toward lysosomal degradation; statins and ezetimibe induce residual LDLR through intracellular cholesterol depletion, whereas PCSK9 antibodies or inclisiran preserve residual receptor. Consequently, these therapies work best when some LDLR function remains. ANGPTL3 inhibition, lomitapide, and apheresis act substantially independently of LDLR and are especially important in null/null HoFH. (srivastava2023areviewof pages 8-9, arnold2023familialhypercholesterolemiapitfalls pages 4-6)
+1. A germline pathogenic **LDLR** variant **leads to** absent, reduced, mislocalized, binding-defective, internalization-defective, or recycling-defective LDL receptor.
+2. Reduced functional LDLR at the hepatocyte surface **results in** impaired receptor-mediated uptake of circulating APOB-100-containing LDL.
+3. Impaired hepatic clearance **leads to** elevated plasma LDL-C from birth; biallelic/null variants **result in** the greatest elevation.
+4. Lifelong elevated LDL-C **causes** increased arterial entry and retention of APOB-containing particles in the subendothelial extracellular matrix.
+5. Retained LDL **undergoes** oxidative/enzymatic modification and **induces** endothelial activation, chemokine expression, and monocyte recruitment.
+6. Monocyte-derived macrophages **internalize** modified LDL through scavenger pathways, **forming** foam cells and fatty streaks.
+7. Persistent lipid retention and unresolved inflammation **lead to** smooth-muscle migration/proliferation, extracellular-matrix deposition, necrotic-core formation, and plaque calcification.
+8. Plaque growth **results in** coronary, carotid, aortic-root, and peripheral stenosis; plaque disruption and thrombosis **cause** acute coronary syndrome, myocardial infarction, stroke, or sudden death.
+9. **Branch:** extracellular cholesterol deposition in tendons, skin, and cornea **causes** xanthomas and corneal arcus.
+10. **Branch in severe biallelic disease:** extreme LDL exposure at the aortic root/valve **leads to** supravalvular disease and calcific aortic stenosis. The exact patient-level rate is genotype- and treatment-dependent.
 
-**Tissues/cells:** hepatocytes are the upstream causal cell; arterial endothelial cells, smooth-muscle cells, monocyte-derived macrophages, and valve interstitial cells mediate downstream injury. Suggested terms include **GO:0006898 receptor-mediated endocytosis**, GO:0034383 low-density lipoprotein particle clearance, GO:0042157 lipoprotein metabolic process, GO:0006954 inflammatory response, GO:0045766 positive regulation of angiogenesis/vascular remodeling as context-appropriate; **CL:0000182 hepatocyte**, CL:0000115 endothelial cell, CL:0000235 macrophage, and CL:0000192 smooth-muscle cell.
+This chain is established through human genetics, receptor biochemistry, pathology, and model systems. LDLR mediates cell-surface endocytosis; PCSK9 binding diverts LDLR toward lysosomal degradation rather than recycling. Accordingly, statins, PCSK9 antibodies, and inclisiran require at least some residual receptor capacity, whereas ANGPTL3 inhibition, MTP inhibition, and apheresis act substantially independently of LDLR. (fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5, bourbon2026thespectrumof pages 8-10)
 
-**Subcellular terms:** plasma membrane (GO:0005886), clathrin-coated pit (GO:0005905), endosome (GO:0005768), lysosome (GO:0005764), and endoplasmic reticulum (GO:0005783). The biochemical abnormality is receptor dysfunction rather than an enzyme or ion-channel deficiency.
-
-**Molecular profiling.** Routine diagnosis does not require transcriptomics, proteomics, metabolomics, single-cell, or spatial profiling. Lipidomics shows excess apoB-containing cholesterol-rich particles, while plaque single-cell/spatial studies illuminate downstream atherosclerosis rather than uniquely identifying LDLR-FH. Functional LDL uptake and cell-surface-expression assays are most useful for resolving VUS. In-silico prediction alone is insufficient; functional characterization or informative cascade segregation is preferred. (chora2022theclinicalgenome pages 1-3)
-
-**Advanced technology.** Preclinical base/gene-editing strategies targeting PCSK9 or ANGPTL3 achieved up to 90% PCSK9 and 60% LDL reduction for eight months in nonhuman primates; ANGPTL3 suppression exceeded 95% for up to two years in cited preclinical work. LDLR-enhancing strategies require a usable allele, whereas ANGPTL3 editing is potentially LDLR-independent. These are experimental and do not establish long-term human safety. (srivastava2023areviewof pages 14-16)
+Suggested annotations include **GO:0006897 endocytosis**, **GO:0006869 lipid transport**, **GO:0008203 cholesterol metabolic process**, **GO:0034383 low-density lipoprotein particle clearance**, **GO:0006954 inflammatory response**, and **GO:0043277 apoptotic cell clearance**. Principal cell types are **hepatocyte (CL:0000182)**, vascular endothelial cell, arterial smooth-muscle cell, circulating monocyte, and macrophage/foam cell. Relevant compartments include **plasma membrane (GO:0005886)**, clathrin-coated pit, endosome, lysosome, endoplasmic reticulum, and Golgi apparatus.
 
 ## 7. Anatomical structures affected
 
-The **liver** is the primary mechanistic organ because hepatic LDLR controls most plasma LDL clearance (**UBERON:0002107**). Secondary injury involves coronary arteries, aorta/aortic root, aortic valve, carotid and peripheral arteries, myocardium after ischemia, tendons, skin/eyelids, and cornea. Suggested mappings include heart **UBERON:0000948**, liver UBERON:0002107, coronary artery UBERON:0001621, aorta UBERON:0000947, aortic valve UBERON:0002137, Achilles tendon UBERON:0000979, cornea UBERON:0000964, and skin UBERON:0002097. Disease is systemic rather than lateralized.
+The primary biochemical organ is the **liver**, particularly hepatocytes that normally clear most circulating LDL. Clinical injury occurs in the **arterial system**: coronary arteries and myocardium, aortic root and aortic valve, carotid and cerebral arteries, and peripheral arteries. Secondary cholesterol deposits affect Achilles and hand extensor tendons, pressure-bearing skin, eyelids, and peripheral cornea. Suggested terms include **UBERON:0002107 liver**, **UBERON:0000948 heart**, **UBERON:0001621 coronary artery**, **UBERON:0001496 ascending aorta**, **UBERON:0002137 aortic valve**, **UBERON:0001619 carotid artery**, **UBERON:0001769 cornea**, and **UBERON:0000979 Achilles tendon**. Findings are generally systemic/bilateral rather than lateralized.
 
 ## 8. Temporal development
 
-LDL-C elevation is **congenital, chronic, and lifelong**. HeFH is frequently asymptomatic through childhood; subclinical atherosclerosis accumulates before adult coronary events. HoFH can produce childhood xanthomas, aortic and coronary disease, and occasionally fatal cardiovascular events in childhood or infancy when receptor activity is nearly absent. (sato2023generationofa pages 1-2)
+The molecular and biochemical disease begins **congenitally**: LDL-C is elevated from birth and exposure accumulates continuously. HeFH often remains clinically silent through childhood, with subclinical endothelial or carotid changes preceding adult premature ASCVD. Biallelic/null disease may produce xanthomas in early childhood and coronary/aortic disease during childhood or adolescence. The course is chronic and progressive without treatment; spontaneous remission does not occur. Treatment lowers current LDL-C and future risk but does not erase prior cumulative exposure.
 
-A practical course model is: (1) biochemical disease from birth; (2) subclinical arterial dysfunction/intima-media or plaque burden; (3) overt xanthomas/aortic or coronary disease; (4) recurrent ASCVD/heart failure or procedural burden. There is no spontaneous remission. LDL-C reduction is treatment-induced; plaques and xanthomas can stabilize or regress with intensive therapy, but the genotype remains. The critical intervention window is childhood, before cumulative LDL exposure produces irreversible plaque.
+The critical intervention window is childhood, before substantial plaque develops. In a 20-year follow-up of 214 children with genetically confirmed FH in 98%, LDL-C fell from 237.3 to 160.7 mg/dL (32%). By age 39, cardiovascular events were **1% in treated offspring versus 26% in affected parents**, and cardiovascular mortality was **0% versus 7%**. The study concluded that childhood statins “slowed the progression of carotid intima-media thickness and reduced the risk of cardiovascular disease in adulthood” (NEJM, 17 October 2019; DOI [10.1056/NEJMoa1816454](https://doi.org/10.1056/NEJMoa1816454); PMID 31618540). This cohort was broad genetic FH, not an exclusively reported LDLR subgroup.
 
 ## 9. Inheritance and population
 
-LDLR-FH is autosomal co-dominant. An affected heterozygous parent transmits the variant to **50%** of offspring. Two affected parents can have children with biallelic disease; reproductive risk depends on both parental genotypes. Penetrance for elevated LDL-C is high but age-dependent penetrance for ASCVD is incomplete and modified by treatment and other risk factors. Expressivity is variable; anticipation is not expected. Germline mosaicism is possible in principle but is not a characteristic feature. Consanguinity increases biallelic disease risk where the same founder allele circulates.
+Inheritance is **autosomal dominant with gene-dose/semi-dominant severity**: each child of a heterozygous affected person has a 50% risk. Biallelic disease can result from homozygosity, compound heterozygosity, or, rarely, double heterozygosity across FH genes. Penetrance for elevated LDL-C is high but not literally complete; ASCVD penetrance is strongly age-, sex-, treatment-, allele-, Lp(a)-, and lifestyle-dependent. Expressivity is variable. Anticipation is not established. Germline mosaicism is possible in principle but is not a recognized major contributor.
 
-Best contemporary estimates are approximately **1 in 311** people for FH globally—about 35 million individuals—and roughly 1 in 250–300 in many populations. HoFH is approximately 1 in 250,000–360,000; one 2023 review cited 1 in 300,000. Prevalence rises to approximately 1 in 17 among people with premature ASCVD. Only about 10% are diagnosed worldwide, and >80% of treated patients fail to achieve recommended LDL-C goals. Incidence is rarely reported because the condition is congenital; under stable population assumptions, birth incidence approximates prevalence. (watts2023internationalatherosclerosissociety pages 1-2, arnold2023familialhypercholesterolemiapitfalls pages 2-3, xiao2024efficacyandsafety pages 1-2)
+Broad-FH meta-analyses estimate HeFH near **1:250–1:313**; one recent review cites approximately 1:280 carriers and HoFH near 3 per million. These are not LDLR-only prevalence estimates. Ethnicity-specific broad-FH estimates range from approximately 1:400 in Asian populations to 1:192 in Black/brown groups, partly reflecting ascertainment and founder effects. (humphries2025geneticdeterminantsof pages 1-2, taranto2023geneticheterogeneityof pages 1-2)
 
-Both sexes and all ancestries are affected. Regional variation chiefly reflects founder effects, ascertainment, access to testing, and diagnostic infrastructure—not environmental endemicity.
+Founder variants produce substantially higher local prevalence in French Canadians, Afrikaners, Lebanese Christian groups, Ashkenazi Jews, Finns, and other isolates. Consanguinity increases the probability of biallelic disease. Both sexes inherit LDLR variants equally, but realized disease and care differ. A 2024 meta-analysis of 25 real-world studies (129,441 participants) found women less likely than men to receive lipid-lowering treatment (OR **0.74**, 95% CI 0.66–0.85) or reach LDL-C below 2.5 mmol/L (OR **0.85**, 95% CI 0.74–0.97), although fixed-dose trial response did not differ; men had approximately twice the relative risk of major cardiovascular events. This is broad-FH evidence. DOI [10.1093/eurheartj/ehae417](https://doi.org/10.1093/eurheartj/ehae417), July 2024. (iatan2024sexdifferencesin pages 8-8)
 
 ## 10. Diagnostics
 
-**Core tests:** fasting or nonfasting lipid profile, repeat LDL-C confirmation, apoB, triglycerides, liver/renal/thyroid tests to exclude secondary causes, and Lp(a) for risk and LDL-C interpretation. Opportunistic adult evaluation is recommended at LDL-C ≥190 mg/dL; age-, sex-, and country-specific >95th-percentile values are preferred for population screening. If triglycerides exceed 400 mg/dL, obtain a fasting sample and direct LDL-C measurement. (watts2023internationalatherosclerosissociety pages 2-3)
+Diagnosis combines: (1) at least two lipid measurements when clinically stable; (2) age-specific untreated LDL-C; (3) personal/family premature ASCVD; (4) tendon xanthomas or premature corneal arcus; (5) exclusion of secondary causes; and (6) molecular testing. Adult suspicion is high around untreated LDL-C ≥190 mg/dL (4.9 mmol/L); pediatric thresholds are lower and must be interpreted with family history. Dutch Lipid Clinic Network categories are **definite >8**, **probable 6–8**, and **possible 3–5** points. A pathogenic variant confirms molecular FH, but a negative result does not exclude clinical FH. (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, humphries2025geneticdeterminantsof pages 1-2)
 
-**Clinical criteria:** Dutch Lipid Clinic Network, Simon Broome, and MEDPED combine LDL-C, premature ASCVD, family history, xanthomas/arcus, and genotype. Their sensitivity varies by setting; one mutation-positive analysis reported sensitivities of only 9% for DLCN ≥6, 17% for Simon Broome, and 31% for MEDPED, supporting genetic confirmation where feasible. (arnold2023familialhypercholesterolemiapitfalls pages 2-3)
+**Recommended genetic workflow:** sequence LDLR, APOB, PCSK9, and—according to phenotype/inheritance—LDLRAP1 and phenocopy genes such as ABCG5, ABCG8, LIPA, and CYP27A1; include LDLR deletion/duplication analysis. Test the known familial variant directly in relatives. WES is useful when panels are negative or the phenotype is atypical but may miss CNVs and deep-intronic changes. WGS can identify structural and deep-intronic variants; RNA analysis may demonstrate aberrant splicing. CMA, karyotyping, FISH, mitochondrial sequencing, and repeat-expansion testing are not routine unless another indication exists. (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4, taranto2023geneticheterogeneityof pages 1-2)
 
-**Genetic approach:** sequence *LDLR*, *APOB*, and *PCSK9* at minimum, usually through an FH/dyslipidemia panel; add deletion/duplication analysis because LDLR CNVs are relevant. Broader panels may include *LDLRAP1*, *ABCG5*, *ABCG8*, and *LIPA* for phenocopies. A known familial LDLR variant should be tested directly in relatives. WES/WGS are useful after negative panel testing, for structural/noncoding variants or blended phenotypes, but are not obligatory first-line tests. CMA, karyotype, FISH, mtDNA, and repeat-expansion testing are not routine. A VUS does not confirm FH or justify predictive testing without additional evidence.
+Differential diagnoses include polygenic hypercholesterolemia, APOB-/PCSK9-/APOE-related FH, autosomal-recessive LDLRAP1 disease, sitosterolemia, lysosomal-acid-lipase deficiency, cerebrotendinous xanthomatosis, familial combined hyperlipidemia, and secondary hypercholesterolemia. Lp(a) should be measured because its cholesterol contributes to measured LDL-C and independently raises risk.
 
-**Imaging/risk assessment:** ECG and stress testing evaluate suspected ischemia; coronary CT angiography, carotid ultrasound, echocardiography, and aortic-root/valve imaging are used according to age, severity, symptoms, and HoFH status. Biopsy is unnecessary.
-
-**Differential diagnosis:** polygenic hypercholesterolemia; *APOB*- or *PCSK9*-related AD FH; recessive *LDLRAP1* hypercholesterolemia; sitosterolemia (*ABCG5/ABCG8*; elevated plant sterols); lysosomal acid lipase deficiency (*LIPA*; hepatic disease); familial combined hyperlipidemia; dysbetalipoproteinemia; high Lp(a); and secondary hypercholesterolemia.
-
-**Screening:** IAS gives Class 1 recommendations for multiple detection strategies, selective screening in premature ASCVD, and cascade testing of close relatives using genotype plus phenotype. Universal pediatric screening followed by reverse cascade testing is reasonable; at-risk HeFH children should be tested around age five—or age two with a strong premature-ASCVD history—while suspected HoFH should be evaluated at birth or by age two. Combined cascade and young-age universal screening could identify >90% of cases if effectively implemented. (watts2023internationalatherosclerosissociety pages 1-2, watts2023internationalatherosclerosissociety pages 2-3)
+**Screening.** Cascade testing of first-degree relatives is the most efficient LDLR-specific strategy because each has approximately 50% prior risk. Universal or child–parent screening can identify otherwise silent families. Real-world programs summarized in 2023 reported approximately **91% acceptance** among Slovenian five-year-olds using opt-out screening and about **60% participation** in a West Virginia school program. (gidding2023childhoodscreeningfor pages 4-6)
 
 ## 11. Outcome and prognosis
 
-Untreated LDLR-FH causes progressive premature ASCVD and excess cardiovascular mortality. Prognosis depends principally on cumulative LDL-C exposure, residual receptor activity, number/type of alleles, Lp(a), smoking, diabetes, blood pressure, established ASCVD, age at treatment, adherence, and achieved LDL-C. HoFH—particularly null/null disease—has the poorest untreated prognosis.
+Untreated prognosis is dominated by premature coronary disease. Older natural-history estimates suggest untreated CHD by age 50 in approximately 50% of men and by age 60 in 30% of women with FH; these historical broad-FH figures predate modern combination therapy. Null alleles, biallelic disease, higher cumulative LDL-C, elevated Lp(a), smoking, diabetes, hypertension, existing ASCVD, and delayed treatment worsen prognosis. (humphries2025geneticdeterminantsof pages 1-2)
 
-There is no meaningful universal “five-year survival” statistic analogous to oncology because modern outcome depends strongly on genotype, ascertainment age, and treatment. Early sustained statin-based therapy markedly improves outlook; intensive combination therapy can cause xanthoma disappearance and plaque stabilization/regression. Nevertheless, fewer than 3% reached guideline LDL targets in one reviewed global context, illustrating persistent morbidity risk. (arnold2023familialhypercholesterolemiapitfalls pages 1-2, arnold2023familialhypercholesterolemiapitfalls pages 7-8)
-
-Complications include MI, coronary revascularization, ischemic cardiomyopathy, aortic stenosis/root disease, stroke, peripheral arterial disease, and recurrent events. Functional disability is secondary to these complications and, in HoFH, treatment burden. Prognostic biomarkers include achieved and cumulative LDL-C, apoB, Lp(a), coronary plaque burden, and presence of a pathogenic/null LDLR genotype.
+Treatment can dramatically normalize the trajectory: the long-term pediatric cohort showed carotid-intima–media-thickness progression similar to unaffected siblings and markedly fewer events than affected parents, although only 20% reached LDL-C below 100 mg/dL. Recovery from established infarction, stenosis, or calcific valve disease is incomplete; the practical goal is lifelong biochemical control and prevention of new events.
 
 ## 12. Treatment
 
-**Strategy.** Begin lifestyle therapy and pharmacologic LDL lowering early. For most HeFH: maximally tolerated high-intensity statin → add ezetimibe → add a PCSK9 monoclonal antibody or inclisiran; bempedoic acid is an option for additional lowering or statin intolerance. LDL goals cited by ESC/EAS are ≥50% reduction and <70 mg/dL without major additional risk, or <55 mg/dL with ASCVD/another major risk factor. (arnold2023familialhypercholesterolemiapitfalls pages 4-6)
+Treatment is genotype-informed but risk-driven. Lifestyle therapy accompanies rather than replaces medication.
 
-* **Statins** inhibit HMG-CoA reductase and upregulate residual LDLR: approximately 50–60% LDL-C reduction with high-potency monotherapy. **Ezetimibe** inhibits NPC1L1; combination may achieve roughly 65–70%. Suggested NCIt: Statin (C1655 class), Atorvastatin (C28837), Rosuvastatin, Ezetimibe (C61731). (arnold2023familialhypercholesterolemiapitfalls pages 4-6)
-* **Bempedoic acid**, an ACLY inhibitor activated mainly in liver, reduced LDL-C by **22.3%** in a pooled 112-person clinical-HeFH subgroup. Hyperuricemia/gout and tendon injury are recognized concerns. (arnold2023familialhypercholesterolemiapitfalls pages 4-6)
-* **Alirocumab/evolocumab** prevent PCSK9-mediated LDLR degradation and reduce LDL-C approximately 45–65% in HeFH trials. Response is weak or absent with no functional receptor. A 2024 pediatric meta-analysis of nine studies found LDL-C −37.92% (95% CI −43.06 to −32.78), apoB −33.67%, and Lp(a) −16.94%; agents were generally well tolerated. (arnold2023familialhypercholesterolemiapitfalls pages 4-6, xiao2024efficacyandsafety pages 1-2)
-* **Inclisiran** is hepatocyte-targeted siRNA that suppresses PCSK9 synthesis. ORION-9 (**NCT03397121**) was a completed phase III randomized double-blind trial in 482 adults with HeFH, dosing on days 1 and 90 and then every six months. ORION-16 (**NCT04652726**) enrolled 141 adolescents in a completed phase III study. (NCT03397121 chunk 1, NCT04652726 chunk 1)
-* **Evinacumab**, an ANGPTL3 antibody, is LDLR-independent and lowers HoFH LDL-C by approximately 50%, including about 43% in null/null patients. The pivotal completed phase III trial **NCT03399786** randomized 65 HoFH patients; pediatric **NCT04233918** was a completed phase Ib/III single-arm study of 20 children. Suggested NCIt: Evinacumab (C158502). (arnold2023familialhypercholesterolemiapitfalls pages 7-8, NCT04233918 chunk 1, NCT03399786 chunk 1)
-* **Lomitapide** inhibits microsomal triglyceride-transfer protein, reducing VLDL/LDL production independently of LDLR. It is used chiefly in adult HoFH; hepatic steatosis, transaminase elevation, diarrhea, drug interactions, and fat-soluble-vitamin deficiency require monitoring.
-* **Lipoprotein apheresis** physically removes apoB lipoproteins and is often needed in severe HoFH, pregnancy, or refractory disease. The effect is immediate but rebounds between sessions; access, vascular burden, and cost are major limitations.
-* **Liver transplantation** supplies functional hepatic LDLR but carries operative risk and lifelong immunosuppression; it is a last-resort intervention.
+1. **High-intensity statin**—inhibits HMG-CoA reductase, activates SREBP2, and increases LDLR expression. First-line for HeFH; effect is reduced in receptor-null HoFH. Monitor transaminases and symptoms of myopathy. Suggested NCIT concept: *HMG-CoA Reductase Inhibitor Therapy*.
+2. **Ezetimibe**—inhibits intestinal NPC1L1 cholesterol absorption and adds approximately 15–25% LDL-C lowering in typical FH practice. Suggested NCIT: *Ezetimibe Therapy*.
+3. **PCSK9 monoclonal antibodies**—evolocumab or alirocumab preserve surface LDLR; response therefore depends on residual receptor function. A 2024 pediatric meta-analysis of nine studies, including three RCTs with 320 children, estimated LDL-C reduction of **37.92%** (95% CI 32.78–43.06), apoB reduction of **33.67%**, and Lp(a) reduction of **16.94%**. Effects were consistent in HeFH but highly variable in HoFH, and agents were generally well tolerated. (xiao2024efficacyandsafety pages 5-8, xiao2024efficacyandsafety pages 1-2)
+4. **Inclisiran**—GalNAc-siRNA suppressing hepatic PCSK9 synthesis; twice-yearly maintenance dosing improves convenience but remains LDLR-dependent. Pediatric HeFH and HoFH phase 3 programs are active or recently completed; cardiovascular-outcome evidence and genotype-specific pediatric evidence remain less mature than LDL-C evidence.
+5. **Bempedoic acid**—ATP-citrate-lyase inhibitor used in adults needing additional oral therapy or with statin intolerance; LDL lowering is substantially LDLR-mediated.
+6. **Lomitapide**—MTP inhibitor that reduces VLDL assembly and LDL production independently of LDLR; reserved for HoFH. Important harms include diarrhea, transaminase elevation, hepatic steatosis, drug interactions, and teratogenic risk; a very-low-fat diet and liver monitoring are required.
+7. **Evinacumab**—ANGPTL3 monoclonal antibody that lowers LDL-C largely independently of LDLR, making it especially valuable in null/null HoFH. Phase 3 programs include NCT03399786, NCT03409744, and pediatric NCT04233918. Access and intravenous administration remain limitations.
+8. **Lipoprotein apheresis**—direct extracorporeal removal; one procedure conventionally lowers LDL-C by **>60%**, but rebound creates a saw-tooth exposure pattern. Weekly/biweekly therapy can regress xanthomas, slow atherosclerosis, and improve survival. In severe childhood HoFH, initiation before approximately age 6–7 is recommended where feasible. (tokgozoglu2021familialhypercholesterolemiaglobal pages 9-10)
+9. **Liver transplantation**—replaces the principal organ expressing LDLR and can markedly normalize LDL clearance, but operative risk and lifelong immunosuppression restrict it to exceptional refractory biallelic disease.
+10. **Pregnancy**—preconception counseling is essential. Statins and several systemic agents are usually stopped during pregnancy according to jurisdiction and individual risk; bile-acid sequestrants and apheresis are established non-systemic options. Severe HoFH requires specialist management.
 
-**Genotype-guided care.** Residual LDLR activity predicts response to statins and PCSK9-directed therapy. Null/null disease favors early LDLR-independent treatment—evinacumab, lomitapide, and/or apheresis. This is clinically actionable pharmacogenetic stratification, although it is not principally a drug-metabolism PGx effect.
+Combination escalation—statin → ezetimibe → PCSK9-directed therapy, followed by LDLR-independent treatment or apheresis in severe biallelic disease—is standard. Pediatric evidence supports early statins; PCSK9 antibodies are added when targets remain unmet. Suggested CHEBI entities include cholesterol (**CHEBI:16113**) and low-density-lipoprotein cholesterol as the measured analyte; suggested NCIT intervention terms include statin therapy, cholesterol-absorption-inhibitor therapy, monoclonal-antibody therapy, siRNA therapy, therapeutic apheresis, and liver transplantation.
 
-**Experimental therapies.** LDLR replacement, mRNA/exosome delivery, in-vivo editing, and PCSK9/ANGPTL3 editing remain investigational. A recruiting phase III study, **NCT06597006**, is evaluating inclisiran in children aged 2–11 years with HoFH and documented biallelic null LDLR mutations; poor prior PCSK9-antibody response is an exclusion criterion. (NCT06597006 chunk 2)
+**Experimental therapy.** Liver-directed LDLR gene replacement, ex-vivo corrected hepatocytes, mRNA delivery, and genome editing remain investigational. Most current in-vivo editing programs reduce PCSK9 or ANGPTL3 rather than repair the diverse LDLR alleles. The 2023 literature identified PCSK9 inhibition, inclisiran, and gene therapy as leading research hotspots. (bourbon2026thespectrumof pages 8-10, taranto2023geneticheterogeneityof pages 1-2)
 
 ## 13. Prevention
 
-The pathogenic allele itself generally cannot be prevented after conception. **Primary cardiovascular prevention** comprises early diagnosis, no smoking, healthy diet/activity, blood-pressure and diabetes control, and lifelong LDL lowering. **Secondary prevention** is cascade/universal screening followed by treatment before symptoms. **Tertiary prevention** uses intensive combination therapy, apheresis, imaging, and management of established ASCVD to prevent recurrent events.
+Primary genetic prevention is not possible after conception. Reproductive options include genetic counseling, familial-variant prenatal testing, and preimplantation genetic testing, with nondirective counseling. Secondary prevention consists of universal/opportunistic lipid screening, molecular confirmation, cascade testing, and treatment before arterial injury. Tertiary prevention comprises intensive LDL-C lowering, tobacco avoidance, blood-pressure/diabetes management, antiplatelet therapy when otherwise indicated, and surveillance/treatment of coronary and aortic-valve disease.
 
-Genetic counseling should cover 50% transmission from an affected heterozygous parent, testing of first-degree relatives, reproductive partner testing when severe/founder disease is possible, and options for prenatal or preimplantation genetic testing when the familial variant is known. Vaccines and antimicrobial prophylaxis are not disease-specific interventions.
+There is no vaccine. Population priorities are clinician and public awareness, laboratory flagging of very high LDL-C, EHR case-finding, guaranteed cascade-testing pathways, pediatric screening, access to lipid specialists, and equitable availability of combination drugs and apheresis.
 
 ## 14. Other species and natural disease
 
-LDLR orthologues and receptor-mediated LDL clearance are evolutionarily conserved. Naturally occurring **Watanabe heritable hyperlipidemic rabbits** carry LDLR deficiency and develop severe hypercholesterolemia and atherosclerosis, closely modeling human FH. LDLR-related hypercholesterolemia has also been described in rhesus monkeys and selected pigs. This is not infectious, transmissible, or zoonotic. Breed-level VBO assignment should be made only for a verified veterinary strain/breed record; the WHHL rabbit is principally a research strain rather than a common companion-animal breed. (ishibashi1993hypercholesterolemiainlow pages 1-2)
+LDLR orthologues and receptor-mediated LDL clearance are strongly conserved across mammals. Naturally occurring **Watanabe heritable hyperlipidemic rabbits** (*Oryctolagus cuniculus*, NCBI Taxon 9986) have LDLR deficiency, LDL-rich hypercholesterolemia, tendon/skin lesions, and spontaneous atherosclerosis. The selectively bred WHHLMI strain develops vulnerable coronary plaques and myocardial infarction and has been important in statin development. Rabbits better reproduce human LDL-dominant lipoprotein physiology than ordinary mice.
+
+Naturally occurring LDLR-related hypercholesterolemia has also been described in some companion-animal families, but breed-specific evidence is too sparse for confident VBO annotations. The condition is inherited, not transmissible or zoonotic.
 
 ## 15. Model organisms
 
-* **Ldlr−/− mouse** (NCBI Taxon 10090): viable and fertile; total cholesterol is approximately twofold wild type, IDL/LDL rises seven- to ninefold, VLDL and LDL half-lives are prolonged 30-fold and 2.5-fold, and hepatic adenoviral LDLR normalized elevated IDL/LDL within four days. Strengths are tractability, controlled diet, and atherosclerosis/gene-therapy studies. Limitations include apoB48-rich murine metabolism and limited spontaneous atherosclerosis on normal chow. Exact abstract quote: “The elevated IDL/LDL level of LDLR-/- mice was reduced to normal 4 d after the intravenous injection” of LDLR adenovirus. (ishibashi1993hypercholesterolemiainlow pages 1-2)
-* **WHHL rabbit** (NCBI Taxon 9986): natural LDLR deficiency, LDL-rich profile, and early atherosclerosis; more human-like lipoprotein physiology than mice, but cost and genetic-tool availability are disadvantages.
-* **Ldlr-deficient hamster/pig:** useful because CETP and apoB-lipoprotein biology are more human-like; applied to PCSK9/LDLR pharmacology and large-vessel imaging. Greater expense and lower throughput limit use.
-* **CRISPR LDLR-KO cynomolgus monkey** (NCBI Taxon 9541): six animals had extremely high cholesterol/triglycerides, elevated VLDL/LDL, reduced HDL, poor drug response, and periocular xanthomas by one year, closely recapitulating HoFH. Exact abstract quote: “The levels of plasma cholesterol and triglyceride were quite high in the monkeys, and were similar to those in FH patients with homozygous mutations in the LDLR gene.” Limitations include small cohorts, mosaic/editing effects, ethics, cost, and short follow-up. (sato2023generationofa pages 1-2)
-* **Human cellular models:** patient fibroblasts, hepatocyte-like cells, engineered LDLR-null hepatic lines, and iPSC-derived hepatocytes support LDL-binding/uptake, receptor-abundance, trafficking, VUS, and gene-correction assays. They do not reproduce multicellular plaque biology.
+**Ldlr−/− mouse** (*Mus musculus*, Taxon 10090) is the standard high-throughput genetic model for LDL clearance, atherogenesis, inflammation, and therapeutic testing. It often requires a Western/cholesterol-rich diet for severe lesions; murine HDL-dominant physiology and limited spontaneous plaque rupture constrain translation.
 
-## Recent developments and evidence interpretation
+**WHHL/WHHLMI rabbit** provides more human-like LDL-rich plasma and spontaneous coronary disease, but breeding, cost, and genetic manipulation are less convenient than in mice.
 
-The most consequential 2023–2024 developments are implementation-focused IAS guidance, expanding pediatric PCSK9 evidence, pediatric and adolescent inclisiran programs, pediatric evinacumab development, and maturation of LDLR-independent and editing strategies. The expert consensus is that the central failure is no longer absence of effective LDL-lowering tools, but **late detection, undertreatment, inequitable access, and failure to sustain sufficiently low LDL-C from childhood**. Only about 10% of affected people are diagnosed, while most treated patients remain above recommended targets. (arnold2023familialhypercholesterolemiapitfalls pages 1-2, watts2023internationalatherosclerosissociety pages 1-2)
+**LDLR-null hamster** more closely models human lipoprotein handling and diet-induced coronary atherosclerosis than mice. **Zebrafish** support developmental and high-throughput lipid studies but incompletely reproduce human coronary disease.
 
-### Selected authoritative sources
+A major recent model advance was six CRISPR-edited **LDLR-knockout cynomolgus monkeys** (*Macaca fascicularis*, Taxon 9541). All had confirmed LDLR mutations, markedly elevated cholesterol/triglycerides, elevated VLDL/LDL, reduced HDL, periocular xanthoma by one year, and strong resistance to lipid-lowering medication—closely approximating biallelic LDLR-FH. The authors concluded that the phenotype was “similar to that of homozygous FH patients” (Scientific Reports, September 2023; DOI [10.1038/s41598-023-42763-1](https://doi.org/10.1038/s41598-023-42763-1)). Its limitations are cost, ethics, small sample size, and complete knockout being more severe than many human missense genotypes.
 
-1. Watts GF et al. *International Atherosclerosis Society guidance for implementing best practice in the care of familial hypercholesterolaemia.* **Nature Reviews Cardiology**, published June 2023; 20:845–869. DOI/URL: https://doi.org/10.1038/s41569-023-00892-0. (watts2023internationalatherosclerosissociety pages 1-2)
-2. Arnold N, Koenig W. *Familial Hypercholesterolemia: Pitfalls and Challenges in Diagnosis and Treatment.* **Reviews in Cardiovascular Medicine**, August 2023. DOI/URL: https://doi.org/10.31083/j.rcm2408236. (arnold2023familialhypercholesterolemiapitfalls pages 1-2)
-3. Chora JR et al. *ClinGen Familial Hypercholesterolemia Variant Curation Expert Panel consensus guidelines for LDLR variant classification.* **Genetics in Medicine**, February 2022;24:293–306. DOI/URL: https://doi.org/10.1016/j.gim.2021.09.012. (chora2022theclinicalgenome pages 1-3)
-4. Xiao G et al. *Efficacy and Safety of Evolocumab and Alirocumab…in Pediatric Patients with FH.* **Medicina**, published 8 October 2024. DOI/URL: https://doi.org/10.3390/medicina60101646. (xiao2024efficacyandsafety pages 1-2)
-5. Sato A et al. *Generation of a familial hypercholesterolemia model in non-human primate.* **Scientific Reports**, September 2023;13:15649. DOI/URL: https://doi.org/10.1038/s41598-023-42763-1. (sato2023generationofa pages 1-2)
-6. Srivastava RAK. *Targeting LDL receptor-dependent and-independent pathways…* **Cells**, June 2023;12:1648. DOI/URL: https://doi.org/10.3390/cells12121648. (srivastava2023areviewof pages 8-9)
+Cellular systems include patient fibroblasts, LDLR-null hepatoma cells, iPSC-derived hepatocyte-like cells, and CRISPR knock-in cells. These quantify LDLR maturation, surface abundance, LDL binding/uptake, endocytosis, and recycling and are especially important for resolving missense/splice VUS.
 
-**Evidence note.** Exact PMIDs were not exposed for every retrieved article, so DOI URLs are supplied rather than risking incorrect PMID assignment. Trial facts derive from ClinicalTrials.gov records; mechanistic claims are distinguished above as human clinical, expert-guidance, cellular, or model-organism evidence.
+## Knowledge-base cautions and gaps
+
+* Enter **MONDO:0007750 + a pathogenic/likely pathogenic LDLR variant** for the gene-specific disorder; do not equate every clinical FH or HoFH case with LDLR disease.
+* Frequencies of individual manifestations, allele-specific penetrance, and treatment effects are often unavailable because cohorts combine causal genes.
+* Disease-specific epigenetic, single-cell, spatial, proteomic, and metabolomic biomarkers are not clinically validated.
+* The strongest evidence supports LDL-C concentration and cumulative exposure as biomarkers, LDLR genotype/residual activity as severity and treatment-response modifiers, and early sustained LDL lowering as the principal determinant of improved prognosis.
 
 References
 
-1. (arnold2023familialhypercholesterolemiapitfalls pages 1-2): Natalie Arnold and Wolfgang Koenig. Familial hypercholesterolemia: pitfalls and challenges in diagnosis and treatment. Reviews in Cardiovascular Medicine, Aug 2023. URL: https://doi.org/10.31083/j.rcm2408236, doi:10.31083/j.rcm2408236. This article has 16 citations and is from a peer-reviewed journal.
+1. (fularski2024unveilingfamilialhypercholesterolemia—review pages 2-4): Piotr Fularski, Joanna Hajdys, Gabriela Majchrowicz, Magdalena Stabrawa, Ewelina Młynarska, Jacek Rysz, and Beata Franczyk. Unveiling familial hypercholesterolemia—review, cardiovascular complications, lipid-lowering treatment and its efficacy. International Journal of Molecular Sciences, 25:1637, Jan 2024. URL: https://doi.org/10.3390/ijms25031637, doi:10.3390/ijms25031637. This article has 30 citations.
 
-2. (chora2022theclinicalgenome pages 5-6): Joana R. Chora, Michael A. Iacocca, Lukáš Tichý, Hannah Wand, C. Lisa Kurtz, Heather Zimmermann, Annette Leon, Maggie Williams, Steve E. Humphries, Amanda J. Hooper, Mark Trinder, Liam R. Brunham, Alexandre Costa Pereira, Cinthia E. Jannes, Margaret Chen, Jessica Chonis, Jian Wang, Serra Kim, Tami Johnston, Premysl Soucek, Michal Kramarek, Sarah E. Leigh, Alain Carrié, Eric J. Sijbrands, Robert A. Hegele, Tomáš Freiberger, Joshua W. Knowles, and Mafalda Bourbon. The clinical genome resource (clingen) familial hypercholesterolemia variant curation expert panel consensus guidelines for ldlr variant classification. Genetics in Medicine, 24:293-306, Feb 2022. URL: https://doi.org/10.1016/j.gim.2021.09.012, doi:10.1016/j.gim.2021.09.012. This article has 179 citations and is from a highest quality peer-reviewed journal.
+2. (taranto2023geneticheterogeneityof pages 1-2): Maria Donata Di Taranto and Giuliana Fortunato. Genetic heterogeneity of familial hypercholesterolemia: repercussions for molecular diagnosis. Feb 2023. URL: https://doi.org/10.3390/ijms24043224, doi:10.3390/ijms24043224. This article has 54 citations.
 
-3. (watts2023internationalatherosclerosissociety pages 1-2): Gerald F. Watts, Samuel S. Gidding, Robert A. Hegele, Frederick J. Raal, Amy C. Sturm, Laney K. Jones, Mitchell N. Sarkies, Khalid Al-Rasadi, Dirk J. Blom, Magdalena Daccord, Sarah D. de Ferranti, Emanuela Folco, Peter Libby, Pedro Mata, Hapizah M. Nawawi, Uma Ramaswami, Kausik K. Ray, Claudia Stefanutti, Shizuya Yamashita, Jing Pang, Gilbert R. Thompson, and Raul D. Santos. International atherosclerosis society guidance for implementing best practice in the care of familial hypercholesterolaemia. Nature Reviews Cardiology, 20:845-869, Jun 2023. URL: https://doi.org/10.1038/s41569-023-00892-0, doi:10.1038/s41569-023-00892-0. This article has 294 citations and is from a domain leading peer-reviewed journal.
+3. (abifadel2023geneticandmolecular pages 1-2): Marianne Abifadel and Catherine Boileau. Genetic and molecular architecture of familial hypercholesterolemia. Oct 2023. URL: https://doi.org/10.1111/joim.13577, doi:10.1111/joim.13577. This article has 189 citations and is from a domain leading peer-reviewed journal.
 
-4. (chora2022theclinicalgenome pages 8-10): Joana R. Chora, Michael A. Iacocca, Lukáš Tichý, Hannah Wand, C. Lisa Kurtz, Heather Zimmermann, Annette Leon, Maggie Williams, Steve E. Humphries, Amanda J. Hooper, Mark Trinder, Liam R. Brunham, Alexandre Costa Pereira, Cinthia E. Jannes, Margaret Chen, Jessica Chonis, Jian Wang, Serra Kim, Tami Johnston, Premysl Soucek, Michal Kramarek, Sarah E. Leigh, Alain Carrié, Eric J. Sijbrands, Robert A. Hegele, Tomáš Freiberger, Joshua W. Knowles, and Mafalda Bourbon. The clinical genome resource (clingen) familial hypercholesterolemia variant curation expert panel consensus guidelines for ldlr variant classification. Genetics in Medicine, 24:293-306, Feb 2022. URL: https://doi.org/10.1016/j.gim.2021.09.012, doi:10.1016/j.gim.2021.09.012. This article has 179 citations and is from a highest quality peer-reviewed journal.
+4. (xiao2024efficacyandsafety pages 1-2): Guoguang Xiao, Shan Gao, Yongmei Xie, Zhiling Wang, and Min Shu. Efficacy and safety of evolocumab and alirocumab as pcsk9 inhibitors in pediatric patients with familial hypercholesterolemia: a systematic review and meta-analysis. Medicina, 60(10):1646, Oct 2024. URL: https://doi.org/10.3390/medicina60101646, doi:10.3390/medicina60101646. This article has 10 citations.
 
-5. (ishibashi1993hypercholesterolemiainlow pages 1-2): S. Ishibashi, Michael S. Brown, J. Goldstein, R. Gerard, R. Hammer, and J. Herz. Hypercholesterolemia in low density lipoprotein receptor knockout mice and its reversal by adenovirus-mediated gene delivery. The Journal of clinical investigation, 92 2:883-93, Aug 1993. URL: https://doi.org/10.1172/jci116663, doi:10.1172/jci116663. This article has 2174 citations.
+5. (OpenTargets Search: familial hypercholesterolemia-LDLR): Open Targets Query (familial hypercholesterolemia-LDLR, 34 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
 
-6. (arnold2023familialhypercholesterolemiapitfalls pages 4-6): Natalie Arnold and Wolfgang Koenig. Familial hypercholesterolemia: pitfalls and challenges in diagnosis and treatment. Reviews in Cardiovascular Medicine, Aug 2023. URL: https://doi.org/10.31083/j.rcm2408236, doi:10.31083/j.rcm2408236. This article has 16 citations and is from a peer-reviewed journal.
+6. (humphries2025geneticdeterminantsof pages 1-2): Steve Eric Humphries and Marta Futema. Genetic determinants of the familial hypercholesterolaemia phenotype. Annals of Human Genetics, 89:293-304, Apr 2025. URL: https://doi.org/10.1111/ahg.12594, doi:10.1111/ahg.12594. This article has 10 citations and is from a peer-reviewed journal.
 
-7. (arnold2023familialhypercholesterolemiapitfalls pages 2-3): Natalie Arnold and Wolfgang Koenig. Familial hypercholesterolemia: pitfalls and challenges in diagnosis and treatment. Reviews in Cardiovascular Medicine, Aug 2023. URL: https://doi.org/10.31083/j.rcm2408236, doi:10.31083/j.rcm2408236. This article has 16 citations and is from a peer-reviewed journal.
+7. (kalwick2025acomprehensivereview pages 1-3): Megan Kalwick and Mendel Roth. A comprehensive review of the genetics of dyslipidemias and risk of atherosclerotic cardiovascular disease. Feb 2025. URL: https://doi.org/10.3390/nu17040659, doi:10.3390/nu17040659. This article has 13 citations.
 
-8. (sato2023generationofa pages 1-2): Akira Sato, Tomoyuki Tsukiyama, Masahiro Komeno, Chizuru Iwatani, Hideaki Tsuchiya, Ikuo Kawamoto, Mitsuru Murase, Takahiro Nakagawa, Iori Itagaki, Yasunari Seita, Shoma Matsumoto, Masataka Nakaya, Akio Shimizu, Atsushi Yamada, Masatsugu Ema, and Hisakazu Ogita. Generation of a familial hypercholesterolemia model in non-human primate. Scientific Reports, Sep 2023. URL: https://doi.org/10.1038/s41598-023-42763-1, doi:10.1038/s41598-023-42763-1. This article has 9 citations and is from a peer-reviewed journal.
+8. (fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5): Piotr Fularski, Joanna Hajdys, Gabriela Majchrowicz, Magdalena Stabrawa, Ewelina Młynarska, Jacek Rysz, and Beata Franczyk. Unveiling familial hypercholesterolemia—review, cardiovascular complications, lipid-lowering treatment and its efficacy. International Journal of Molecular Sciences, 25:1637, Jan 2024. URL: https://doi.org/10.3390/ijms25031637, doi:10.3390/ijms25031637. This article has 30 citations.
 
-9. (xiao2024efficacyandsafety pages 1-2): Guoguang Xiao, Shan Gao, Yongmei Xie, Zhiling Wang, and Min Shu. Efficacy and safety of evolocumab and alirocumab as pcsk9 inhibitors in pediatric patients with familial hypercholesterolemia: a systematic review and meta-analysis. Medicina, 60:1646, Oct 2024. URL: https://doi.org/10.3390/medicina60101646, doi:10.3390/medicina60101646. This article has 10 citations.
+9. (gidding2023childhoodscreeningfor pages 4-6): Samuel S. Gidding. Childhood screening for familial hypercholesterolemia: jacc review topic of the week. Journal of the American College of Cardiology, 82 15:1558-1563, Oct 2023. URL: https://doi.org/10.1016/j.jacc.2023.07.028, doi:10.1016/j.jacc.2023.07.028. This article has 11 citations and is from a highest quality peer-reviewed journal.
 
-10. (OpenTargets Search: familial hypercholesterolemia-LDLR): Open Targets Query (familial hypercholesterolemia-LDLR, 34 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
+10. (xiao2024efficacyandsafety pages 5-8): Guoguang Xiao, Shan Gao, Yongmei Xie, Zhiling Wang, and Min Shu. Efficacy and safety of evolocumab and alirocumab as pcsk9 inhibitors in pediatric patients with familial hypercholesterolemia: a systematic review and meta-analysis. Medicina, 60(10):1646, Oct 2024. URL: https://doi.org/10.3390/medicina60101646, doi:10.3390/medicina60101646. This article has 10 citations.
 
-11. (srivastava2023areviewof pages 8-9): Rai Ajit K. Srivastava. A review of progress on targeting ldl receptor-dependent and -independent pathways for the treatment of hypercholesterolemia, a major risk factor of ascvd. Cells, 12:1648, Jun 2023. URL: https://doi.org/10.3390/cells12121648, doi:10.3390/cells12121648. This article has 49 citations.
+11. (xiao2024efficacyandsafety pages 4-5): Guoguang Xiao, Shan Gao, Yongmei Xie, Zhiling Wang, and Min Shu. Efficacy and safety of evolocumab and alirocumab as pcsk9 inhibitors in pediatric patients with familial hypercholesterolemia: a systematic review and meta-analysis. Medicina, 60(10):1646, Oct 2024. URL: https://doi.org/10.3390/medicina60101646, doi:10.3390/medicina60101646. This article has 10 citations.
 
-12. (chora2022theclinicalgenome pages 1-3): Joana R. Chora, Michael A. Iacocca, Lukáš Tichý, Hannah Wand, C. Lisa Kurtz, Heather Zimmermann, Annette Leon, Maggie Williams, Steve E. Humphries, Amanda J. Hooper, Mark Trinder, Liam R. Brunham, Alexandre Costa Pereira, Cinthia E. Jannes, Margaret Chen, Jessica Chonis, Jian Wang, Serra Kim, Tami Johnston, Premysl Soucek, Michal Kramarek, Sarah E. Leigh, Alain Carrié, Eric J. Sijbrands, Robert A. Hegele, Tomáš Freiberger, Joshua W. Knowles, and Mafalda Bourbon. The clinical genome resource (clingen) familial hypercholesterolemia variant curation expert panel consensus guidelines for ldlr variant classification. Genetics in Medicine, 24:293-306, Feb 2022. URL: https://doi.org/10.1016/j.gim.2021.09.012, doi:10.1016/j.gim.2021.09.012. This article has 179 citations and is from a highest quality peer-reviewed journal.
+12. (tokgozoglu2021familialhypercholesterolemiaglobal pages 9-10): Lale Tokgozoglu and Meral Kayikcioglu. Familial hypercholesterolemia: global burden and approaches. Current Cardiology Reports, 23:1-13, Sep 2021. URL: https://doi.org/10.1007/s11886-021-01565-5, doi:10.1007/s11886-021-01565-5. This article has 126 citations and is from a peer-reviewed journal.
 
-13. (NCT04233918 chunk 1):  Evaluate the Efficacy and Safety of Evinacumab in Pediatric Patients With Homozygous Familial Hypercholesterolemia. Regeneron Pharmaceuticals. 2020. ClinicalTrials.gov Identifier: NCT04233918
+13. (iatan2024sexdifferencesin pages 8-8): Iulia Iatan, Leo E Akioyamen, Isabelle Ruel, Amanda Guerin, Lindsay Hales, Thais Coutinho, Liam R Brunham, and Jacques Genest. Sex differences in treatment of familial hypercholesterolaemia: a meta-analysis. European Heart Journal, 45:3231-3250, Jul 2024. URL: https://doi.org/10.1093/eurheartj/ehae417, doi:10.1093/eurheartj/ehae417. This article has 44 citations and is from a highest quality peer-reviewed journal.
 
-14. (chora2022theclinicalgenome pages 11-13): Joana R. Chora, Michael A. Iacocca, Lukáš Tichý, Hannah Wand, C. Lisa Kurtz, Heather Zimmermann, Annette Leon, Maggie Williams, Steve E. Humphries, Amanda J. Hooper, Mark Trinder, Liam R. Brunham, Alexandre Costa Pereira, Cinthia E. Jannes, Margaret Chen, Jessica Chonis, Jian Wang, Serra Kim, Tami Johnston, Premysl Soucek, Michal Kramarek, Sarah E. Leigh, Alain Carrié, Eric J. Sijbrands, Robert A. Hegele, Tomáš Freiberger, Joshua W. Knowles, and Mafalda Bourbon. The clinical genome resource (clingen) familial hypercholesterolemia variant curation expert panel consensus guidelines for ldlr variant classification. Genetics in Medicine, 24:293-306, Feb 2022. URL: https://doi.org/10.1016/j.gim.2021.09.012, doi:10.1016/j.gim.2021.09.012. This article has 179 citations and is from a highest quality peer-reviewed journal.
+14. (tabet2026thefunctionallandscape pages 1-3): Daniel R. Tabet, Atina G. Coté, Megan C. Lancaster, Jochen Weile, Ashyad Rayhan, Iosifina Fotiadou, Nishka Kishore, Roujia Li, Da Kuang, Jennifer J. Knapp, Carmela S. Carrero, Olivia Taverniti, Anna Axakova, Jack M. P. Castelli, Mohammad M. Islam, Shahin Sowlati-Hashjin, Aanshi Gandhi, Ranim Maaieh, Michael Garton, Kenneth Matreyek, Douglas M. Fowler, Mafalda Bourbon, Simon G. Pfisterer, Andrew M. Glazer, Brett M. Kroncke, Victoria N. Parikh, Euan A. Ashley, Joshua W. Knowles, Melina Claussnitzer, Elizabeth T. Cirulli, Robert A. Hegele, Dan M. Roden, Calum A. MacRae, and Frederick P. Roth. The functional landscape of coding variation in the familial hypercholesterolemia gene <i>ldlr</i>. Science, 391(6787):eady7186-eady7186, Feb 2026. URL: https://doi.org/10.1126/science.ady7186, doi:10.1126/science.ady7186. This article has 41 citations and is from a highest quality peer-reviewed journal.
 
-15. (srivastava2023areviewof pages 14-16): Rai Ajit K. Srivastava. A review of progress on targeting ldl receptor-dependent and -independent pathways for the treatment of hypercholesterolemia, a major risk factor of ascvd. Cells, 12:1648, Jun 2023. URL: https://doi.org/10.3390/cells12121648, doi:10.3390/cells12121648. This article has 49 citations.
-
-16. (watts2023internationalatherosclerosissociety pages 2-3): Gerald F. Watts, Samuel S. Gidding, Robert A. Hegele, Frederick J. Raal, Amy C. Sturm, Laney K. Jones, Mitchell N. Sarkies, Khalid Al-Rasadi, Dirk J. Blom, Magdalena Daccord, Sarah D. de Ferranti, Emanuela Folco, Peter Libby, Pedro Mata, Hapizah M. Nawawi, Uma Ramaswami, Kausik K. Ray, Claudia Stefanutti, Shizuya Yamashita, Jing Pang, Gilbert R. Thompson, and Raul D. Santos. International atherosclerosis society guidance for implementing best practice in the care of familial hypercholesterolaemia. Nature Reviews Cardiology, 20:845-869, Jun 2023. URL: https://doi.org/10.1038/s41569-023-00892-0, doi:10.1038/s41569-023-00892-0. This article has 294 citations and is from a domain leading peer-reviewed journal.
-
-17. (arnold2023familialhypercholesterolemiapitfalls pages 7-8): Natalie Arnold and Wolfgang Koenig. Familial hypercholesterolemia: pitfalls and challenges in diagnosis and treatment. Reviews in Cardiovascular Medicine, Aug 2023. URL: https://doi.org/10.31083/j.rcm2408236, doi:10.31083/j.rcm2408236. This article has 16 citations and is from a peer-reviewed journal.
-
-18. (NCT03397121 chunk 1):  Trial to Evaluate the Effect of Inclisiran Treatment on Low Density Lipoprotein Cholesterol (LDL-C) in Subjects With Heterozygous Familial Hypercholesterolemia (HeFH). The Medicines Company. 2017. ClinicalTrials.gov Identifier: NCT03397121
-
-19. (NCT04652726 chunk 1):  Study to Evaluate Efficacy and Safety of Inclisiran in Adolescents With Heterozygous Familial Hypercholesterolemia. Novartis Pharmaceuticals. 2021. ClinicalTrials.gov Identifier: NCT04652726
-
-20. (NCT03399786 chunk 1):  Efficacy and Safety of Evinacumab in Patients With Homozygous Familial Hypercholesterolemia. Regeneron Pharmaceuticals. 2018. ClinicalTrials.gov Identifier: NCT03399786
-
-21. (NCT06597006 chunk 2):  Study to Evaluate Safety, Tolerability and Efficacy of Inclisiran in Children With Homozygous Familial Hypercholesterolemia. Novartis Pharmaceuticals. 2025. ClinicalTrials.gov Identifier: NCT06597006
+15. (bourbon2026thespectrumof pages 8-10): M. Bourbon, A. C. Alves, J. R. Chora, A. J. Hooper, and M. Abifadel. The spectrum of genetic causes of familial hypercholesterolemia phenotype. Jul 2026. URL: https://doi.org/10.1007/s11883-026-01435-x, doi:10.1007/s11883-026-01435-x. This article has 0 citations and is from a peer-reviewed journal.
 
 ## Artifacts
 
@@ -1195,12 +1223,50 @@ Checked with `linkml-reference-validator` 0.2.1.
 
 | Outcome | Count |
 | --- | --- |
-| References checked | 7 |
-| Resolved | 7 |
+| References checked | 16 |
+| Resolved | 16 |
 | Unresolved (possible confabulation) | 0 |
 | Unverifiable | 0 |
-| References weighed for topical relevance | 7 |
-| On topic | 3 |
+| Quoted claims checked | 2 |
+| Quoted claims found in source | 2 |
+| Quoted claims **not** found in source | 0 |
+| Quoted claims with nothing to check against | 1 |
+| References weighed for topical relevance | 16 |
+| On topic | 9 |
 | Off topic | 0 |
 
+### Quotes that could not be checked
+
+There was no text to compare these against, so they are neither confirmed nor contradicted:
+
+- `DOI:10.1056/NEJMoa1816454`: "slowed the progression of carotid intima-media thickness and reduced the risk of cardiovascular disease in adulthood"
+  - Reference resolved but exposes no abstract or full text to search
+
 All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 33 |
+| Resolved | 32 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 1 |
+| Terms whose name was checked | 1 |
+| Terms named correctly | 0 |
+| Terms named as a **different** term | 1 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `MONDO:0007750` (6 mentions) - the report calls it "if available", "association score 0.877"; MONDO calls it **hypercholesterolemia, familial, 1**
+
+### Terms named inconsistently
+
+The report gives these identifiers more than one name of its own:
+
+- `MONDO:0007750` - called "if available", "association score 0.877"

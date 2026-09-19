@@ -161,6 +161,24 @@ RCT's result to this specific mechanistic claim is only partial." A naive
 per-reference `evidence_level: HIGH` tag on this item, divorced from
 `supports`, would overstate confidence in the mechanistic claim itself.
 
+!!! note "Outcome (2026-08-29): this argument was acted on, and `PARTIAL` is gone"
+
+    This pilot's central observation — that `PARTIAL` was encoding *inferential
+    distance* rather than study strength — is the reasoning that issue #7439
+    ultimately followed. `supports` was narrowed to direction only
+    (`SUPPORT` / `REFUTE` / `NO_EVIDENCE`) and a separate optional `directness`
+    slot (`DIRECT` / `INDIRECT` / `UNKNOWN`) now carries the inferential leap
+    explicitly. This exact riluzole item is the canonical `INDIRECT` case: a
+    therapeutic response cited as validation of the mechanism the drug targets.
+
+    So the split that landed was direction/directness rather than the
+    direction/strength split an `evidence_level` field would have added. The
+    strength question this document opens is still open — see design decisions
+    §6b and §12, which hold that strength should be *derived* from a typed,
+    snippet-anchored experiment model rather than authored as a per-item grade.
+    The 0.47%-of-pathophysiology-evidence-cites-a-tagged-RCT finding below is
+    part of why.
+
 **2. Celiac Disease, `PMID:38914866`** (Dotsenko et al. 2024, *Nat Immunol* —
 the CEC-3 phase-2a randomized placebo-controlled trial of the TG2 inhibitor
 ZED1227 — `PublicationType`: `Randomized Controlled Trial`). This single PMID
