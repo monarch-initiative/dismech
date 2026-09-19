@@ -44422,6 +44422,122 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Black Widow Spider Envenomation",
+    "disease_id": "MONDO:0800176",
+    "category": "Injury",
+    "parents": [
+      "Envenomation",
+      "Arthropod Envenomation"
+    ],
+    "creation_date": "2026-09-18T17:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acute systemic envenomation following a bite by a widow spider (Latrodectus species). The syndrome is called latrodectism, and almost all of it is the work of a single 130 kDa protein toxin, alpha-latrotoxin, which is the only one of the venom's seven latrotoxins that targets vertebrates. The toxin does not block anything. It does the opposite of botulinum toxin: it drives presynaptic nerve terminals to discharge their neurotransmitter without regard to the normal controls on release, and the resulting cholinergic and adrenergic excess produces severe muscle cramping, autonomic hyperactivity and pain that is characteristically out of proportion to an almost unremarkable bite site. It is self-limited in the overwhelming majority of cases, which is what makes the evidence about how to treat it so contested.",
+    "pathophysiology": [
+      "Alpha-Latrotoxin Binding to Presynaptic Receptors",
+      "Alpha-Latrotoxin Tetramer Insertion and Pore Formation",
+      "Latrophilin Receptor Signalling at the Nerve Terminal",
+      "Presynaptic Calcium Influx",
+      "Unregulated Neurotransmitter Exocytosis",
+      "Synaptic Vesicle Pool Depletion",
+      "Sustained Motor End-Plate Activation",
+      "Autonomic Neurotransmitter Excess",
+      "Envenomation-Associated Myocardial Injury"
+    ],
+    "cell_types": [
+      "motor neuron",
+      "autonomic and neurosecretory neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000100",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "G protein-coupled receptor signaling pathway",
+      "calcium ion transmembrane transport",
+      "synaptic vesicle exocytosis",
+      "neurotransmitter secretion"
+    ],
+    "phenotypes": [
+      "Muscle spasm",
+      "Rigidity",
+      "Abdominal pain",
+      "Hypertension",
+      "Tachycardia",
+      "Hyperhidrosis",
+      "Nausea",
+      "Vomiting",
+      "Rhabdomyolysis",
+      "Myocarditis",
+      "Periorbital edema",
+      "Erythema",
+      "Local edema",
+      "Pain",
+      "Epiphora",
+      "Blepharospasm"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Autonomic",
+      "Ophthalmologic",
+      "Dermatologic",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003394",
+      "HP:0002063",
+      "HP:0002027",
+      "HP:0000822",
+      "HP:0001649",
+      "HP:0000975",
+      "HP:0002018",
+      "HP:0002013",
+      "HP:0003201",
+      "HP:0012819",
+      "HP:0100539",
+      "HP:0010783",
+      "HP:0000969",
+      "HP:0012531",
+      "HP:0009926",
+      "HP:0000643"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Opioid analgesia",
+      "Benzodiazepine muscle relaxation",
+      "Equine antivenom",
+      "Calcium gluconate"
+    ],
+    "environmental": [
+      "Bite by a female widow spider"
+    ],
+    "biochemical": [
+      "Creatine kinase"
+    ],
+    "source_file": "Black_Widow_Spider_Envenomation.yaml",
+    "page_url": "../pages/disorders/Black_Widow_Spider_Envenomation.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Bladder Urothelial Carcinoma",
     "disease_id": "MONDO:0005611",
     "category": "",
@@ -179295,55 +179411,87 @@ window.searchData = [
     "creation_date": "2026-07-13T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Legius syndrome (LGSS, also called neurofibromatosis type 1-like syndrome) is an autosomal dominant RASopathy of the RAS-MAPK pathway caused by heterozygous loss-of-function variants in SPRED1. It clinically overlaps the pigmentary features of neurofibromatosis type 1 (NF1) - multiple caf\u00e9-au-lait macules, with or without axillary or inguinal skinfold freckling, and macrocephaly - but is distinguished by the absence of the tumor manifestations and other complications of NF1: no neurofibromas, no Lisch nodules, and no optic pathway gliomas or malignant peripheral nerve sheath tumors. Learning disability, mild cognitive impairment, and attention deficit-hyperactivity disorder occur in a subset. SPRED1 is a Sprouty-related, EVH1 domain-containing negative regulator of RAS-MAPK signaling that binds neurofibromin (the NF1 gene product) and recruits it to the plasma membrane, so SPRED1 loss and NF1 loss converge on the same pathway, explaining the phenotypic overlap. Because Legius syndrome lacks the tumor risk of NF1, distinguishing the two - typically requiring molecular testing - is the central clinical management issue.",
+    "description": "Legius syndrome (LGSS; formerly \"neurofibromatosis type 1-like syndrome\", NFLS) is an autosomal dominant RASopathy caused by heterozygous germline loss-of-function variants in SPRED1. SPRED1 encodes a Sprouty-related, EVH1 domain-containing negative regulator of RAS-MAPK signaling whose principal function is to recruit neurofibromin \u2014 the RAS-GTPase-activating protein encoded by NF1 \u2014 to activated RAS at the plasma membrane. Loss of SPRED1 therefore phenocopies the pigmentary arm of neurofibromatosis type 1: multiple bilateral caf\u00e9-au-lait macules with or without axillary/inguinal freckling, macrocephaly, lipomas, and a mild neurocognitive profile of learning disability, ADHD, and developmental delay. Critically, and unlike NF1, Legius syndrome is not associated with neurofibromas, Lisch nodules, symptomatic optic pathway gliomas, or the characteristic NF1 osseous lesions, which is why it is classified as a RASopathy rather than a form of neurofibromatosis. Because the two conditions are clinically indistinguishable in early childhood when only pigmentary findings are present, molecular confirmation of a SPRED1 variant is the defining diagnostic criterion in the 2021 international consensus revision.",
     "pathophysiology": [
-      "SPRED1 Loss of Function",
-      "Neurofibromin Mislocalization and Loss of RAS-GAP Recruitment",
-      "RAS-MAPK Pathway Hyperactivation"
+      "Germline SPRED1 Loss of Function",
+      "Impaired Neurofibromin Recruitment to Activated RAS",
+      "RAS-MAPK Pathway Hyperactivation",
+      "Biallelic SPRED1 Inactivation in Melanocytes",
+      "Cafe-au-lait Macule Formation",
+      "Hippocampal Synaptic Plasticity Impairment"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000148"
+    ],
     "biological_processes": [
-      "negative regulation of MAPK cascade",
-      "positive regulation of MAPK cascade"
+      "negative regulation of Ras protein signal transduction",
+      "positive regulation of MAPK cascade",
+      "long-term synaptic potentiation"
     ],
     "phenotypes": [
       "Multiple Cafe-au-lait Macules",
       "Axillary Freckling",
+      "Inguinal Freckling",
       "Macrocephaly",
-      "Specific Learning Disability"
+      "Specific Learning Disability",
+      "Attention Deficit Hyperactivity Disorder",
+      "Developmental Delay",
+      "Lipoma",
+      "Pectus Excavatum",
+      "Scoliosis",
+      "Seizures",
+      "Hearing Impairment",
+      "Neurofibroma (Explicitly Absent)",
+      "Lisch Nodules (Explicitly Absent)"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
       "Head and Neck",
       "Integument",
       "Musculoskeletal",
+      "Neoplasm",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0007565",
       "HP:0000997",
+      "HP:0030052",
       "HP:0000256",
-      "HP:0001328"
+      "HP:0001328",
+      "HP:0007018",
+      "HP:0012758",
+      "HP:0012032",
+      "HP:0000767",
+      "HP:0002650",
+      "HP:0001250",
+      "HP:0000365",
+      "HP:0001067",
+      "HP:0009737"
     ],
     "frequencies": [],
     "genes": [
       "SPRED1"
     ],
     "treatments": [
-      "Genetic Counseling and Molecular Diagnosis",
-      "Supportive and Multidisciplinary Care"
+      "Supportive and Multidisciplinary Care",
+      "Developmental and Behavioral Surveillance",
+      "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Legius_Syndrome.yaml",
     "page_url": "../pages/disorders/Legius_Syndrome.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 3,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Leigh Syndrome",
@@ -241694,6 +241842,108 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Placenta Previa",
+    "disease_id": "MONDO:0005918",
+    "category": "Complex",
+    "parents": [
+      "Placenta disorder",
+      "Obstetric disorder"
+    ],
+    "creation_date": "2026-09-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Previa",
+      "Low-Lying"
+    ],
+    "description": "Placenta previa is a disorder of placental implantation site, not of placental function: the placenta develops over or beside the internal cervical os instead of in the fundus, so the organ that must stay attached until after delivery sits on the one part of the uterus that has to open first. Almost everything clinically important follows from that single geometric fact. Low implantation is favoured by endometrial and decidual damage - prior caesarean, curettage, uterine surgery, endometriosis - which is thought to impair decidualisation at the usual fundal site. The great majority of second-trimester diagnoses then resolve, because the placenta grows preferentially toward the better-vascularised fundus while the tissue over the cervix atrophies; persistence is failure of that trophotropic migration rather than a separate disease. In the pregnancies where it persists, cervical remodelling and lower-segment formation disrupt the utero-placental interface and open maternal venous sinuses, producing the classic painless bright-red antepartum haemorrhage; the placenta blocks the birth canal, forcing abdominal delivery, usually preterm; and after delivery the placental bed lies in the lower segment, which is a poorly contractile part of the uterus, so the mechanical haemostasis that normally closes the bed does not happen. Where the low implantation lands on a caesarean scar, the decidua basalis is deficient and placenta accreta spectrum is superimposed - which is why previa is by a wide margin the strongest risk factor for PAS rather than merely a co-occurring finding.",
+    "pathophysiology": [
+      "Endometrial and Decidual Damage at the Lower Uterine Segment",
+      "Low Implantation of the Blastocyst",
+      "Placental Development Overlying the Internal Cervical Os",
+      "Failure of Trophotropic Migration Away from the Internal Os",
+      "Persistent Placenta Previa in the Third Trimester",
+      "Cervical Remodelling and Lower Segment Formation at the Placental Edge",
+      "Maternal Sinus Haemorrhage from the Placental Bed",
+      "Deficient Decidua Basalis Over the Uterine Scar",
+      "Unimpeded Extravillous Trophoblast Invasion of the Myometrium",
+      "Failure of Placental Separation at Delivery",
+      "Poorly Contractile Placental Bed in the Lower Uterine Segment",
+      "Obstruction of the Birth Canal",
+      "Indicated Preterm Delivery"
+    ],
+    "cell_types": [
+      "endometrial stromal cell",
+      "decidual cell",
+      "extravillous trophoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002255",
+      "CL:2000002",
+      "CL:0008036"
+    ],
+    "biological_processes": [
+      "decidualization",
+      "embryo implantation",
+      "trophoblast cell migration",
+      "blood vessel remodeling"
+    ],
+    "phenotypes": [
+      "Antepartum Hemorrhage",
+      "Post-partum Hemorrhage",
+      "Hypovolemic Shock",
+      "Premature Birth",
+      "Fetal Growth Restriction",
+      "Neonatal Death"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Growth",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0025328",
+      "HP:0011891",
+      "HP:0031274",
+      "HP:0001622",
+      "HP:0001511"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Planned Cesarean Delivery",
+      "Antenatal Corticosteroid Therapy",
+      "Blood Transfusion and Haemorrhage Support",
+      "Uterotonic Therapy",
+      "Tranexamic Acid",
+      "Intrauterine Balloon Tamponade",
+      "Uterine Compression Sutures",
+      "Pelvic Arterial Embolization",
+      "Peripartum Hysterectomy"
+    ],
+    "environmental": [
+      "Maternal Cigarette Smoking",
+      "Endometriosis",
+      "Assisted Reproductive Technology"
+    ],
+    "biochemical": [],
+    "source_file": "Placenta_Previa.yaml",
+    "page_url": "../pages/disorders/Placenta_Previa.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 13,
+    "num_genes": 0,
+    "num_treatments": 9,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Placental Abruption",
     "disease_id": "MONDO:0004846",
     "category": "Complex",
@@ -242947,6 +243197,7 @@ window.searchData = [
     "genes": [],
     "treatments": [
       "Albendazole therapy",
+      "Praziquantel (adjunct combination therapy)",
       "Surgical resection"
     ],
     "environmental": [
@@ -242959,7 +243210,7 @@ window.searchData = [
     "num_phenotypes": 3,
     "num_pathophysiology": 3,
     "num_genes": 0,
-    "num_treatments": 2,
+    "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -253232,6 +253483,88 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Quebec Platelet Disorder",
+    "disease_id": "MONDO:0011136",
+    "category": "Mendelian",
+    "parents": [
+      "inherited bleeding disorder, platelet-type",
+      "alpha granule disease"
+    ],
+    "creation_date": "2026-09-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Quebec platelet disorder (QPD) is an autosomal dominant bleeding disorder caused by a 78-kb germline tandem duplication of PLAU. The duplication leaves the urokinase plasminogen activator (uPA) coding sequence intact and acts instead by rewiring gene regulation: one PLAU copy is relocated into the neighbourhood of a conserved megakaryocyte enhancer, which drives a >100-fold, megakaryocyte-restricted overexpression of structurally normal PLAU transcripts. Plasma and urinary uPA stay normal, so this is a platelet-localized rather than a systemic fibrinolytic defect. The excess uPA is packaged into platelet alpha-granules, where plasmin generation degrades the granule cargo - fibrinogen, factor V, von Willebrand factor, thrombospondin-1, multimerin-1, osteonectin and P-selectin - before release. The clinical consequence is a plug that forms and then dissolves: bleeding is characteristically delayed by 12 hours to several days after surgery, dental extraction or trauma, and responds to antifibrinolytic drugs but not to platelet transfusion.",
+    "pathophysiology": [
+      "PLAU Tandem Duplication",
+      "Megakaryocyte Enhancer Adoption by the Duplicated PLAU Allele",
+      "Megakaryocyte-Restricted PLAU Overexpression",
+      "Excess uPA Storage in Platelet Alpha-Granules",
+      "Intraplatelet Plasmin Generation and Alpha-Granule Protein Degradation",
+      "Accelerated Platelet-Localized Clot Lysis"
+    ],
+    "cell_types": [
+      "megakaryocyte",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "plasminogen activation",
+      "fibrinolysis"
+    ],
+    "phenotypes": [
+      "Delayed-Onset Bleeding After Hemostatic Challenge",
+      "Joint Bleeding",
+      "Hematuria",
+      "Epistaxis",
+      "Large Spreading Bruises",
+      "Prolonged Menstrual Bleeding",
+      "Poor Wound Healing",
+      "Mild Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0004846",
+      "HP:0005261",
+      "HP:0000790",
+      "HP:0000421",
+      "HP:0000978",
+      "HP:0000132",
+      "HP:0001058",
+      "HP:0001873"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PLAU"
+    ],
+    "treatments": [
+      "Tranexamic Acid"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Quebec_Platelet_Disorder.yaml",
+    "page_url": "../pages/disorders/Quebec_Platelet_Disorder.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "RAB23-related Carpenter Syndrome",
@@ -314703,17 +315036,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3023,
-  "total_subtypes": 3771,
-  "total_disorders_and_subtypes": 6794,
-  "total_unique_evidence_sources": 42988,
-  "total_unique_publications": 40589,
+  "total_disorder_pages": 3026,
+  "total_subtypes": 3773,
+  "total_disorders_and_subtypes": 6799,
+  "total_unique_evidence_sources": 43049,
+  "total_unique_publications": 40648,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3018,
-  "total_unique_pathological_events": 18360,
+  "total_pathographs": 3021,
+  "total_unique_pathological_events": 18390,
   "total_modules": 177,
-  "total_research_reports": 3139,
+  "total_research_reports": 3142,
   "total_classifications": 19,
   "total_comorbidities": 46,
   "total_groupings": 102
