@@ -262,6 +262,19 @@ _linkml-validate-config target_class="Disease":
 new-history *ARGS:
     uv run python scripts/new_history.py "$@"
 
+# Report when each KB entry last had a *substantive* curation pass, derived from
+# history/ with bulk sweeps (one summary recurring across many entries) excluded.
+# Ordered stalest-first, so the output is a re-pass worklist. Issue #5334.
+#   just last-pass-report                       # summary + stalest 25
+#   just last-pass-report --status PASSED       # oldest genuine passes
+#   just last-pass-report --status NO_HISTORY   # entries with no history record
+#   just last-pass-report --model sonnet-4      # re-pass everything an old model did
+#   just last-pass-report --list-bulk           # audit the sweep classification
+#   just last-pass-report --format tsv --limit 0
+[group('Analysis')]
+last-pass-report *args="":
+    uv run python -m dismech.last_pass {{args}}
+
 # Validate a single history record
 [group('QC')]
 validate-history file:
@@ -718,6 +731,20 @@ validate-graphs:
 # causal-connectivity (fraction of phenotype nodes reached by a causal edge) and
 # gene-to-mechanism wiring (fraction of causal genes wired into a mechanism).
 # Pass --list-unconnected to see floating phenotype / unwired gene names per file.
+#
+# GATING: exits non-zero when the KB-wide aggregate falls below the
+# `min_compliance` set for the metric in conf/qc_config.yaml -- currently 50.0
+# for `phenotypes[].causal_inlink`, and unset (advisory) for
+# `genetic[].mechanism_outlink`. `--fail-under` / `--genes-fail-under` override
+# per invocation. Runs in `just qc` and as an ungated whole-KB CI step, for the
+# reason check-duplicate-keys and check-causal-targets do: the aggregate moves
+# when an entry is added anywhere, so a changed-path filter would miss it.
+#
+# This is the complement of check-causal-targets, not a duplicate of it. That
+# one asks whether a declared target RESOLVES; this asks whether a phenotype is
+# REACHED at all. An entry can pass the first perfectly with every phenotype
+# floating, which is what Schizophrenia did -- one dangling target, six
+# phenotypes simply never wired.
 [group('QC')]
 compliance-connectivity *ARGS:
     uv run python -m dismech.qc_plugins {{kb_dir}} -c conf/qc_config.yaml {{ARGS}}
@@ -876,7 +903,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -901,6 +928,37 @@ qc-deep-research-strict:
 environmental-term-audit *args="":
     uv run python scripts/environmental_exposure_term_audit.py {{args}}
 
+# Census of KNOWLEDGE_GAP discussion completeness: unanchored gaps, missing
+# status, proposed experiments with no way to tell a supporting result from a
+# refuting one, and bare-name experiment targets that no other check sees.
+# Report-only by default (most states are pre-existing backlog); --strict exits
+# non-zero on the two states that are breakage rather than backlog.
+[group('QC')]
+knowledge-gap-audit *args="":
+    uv run python scripts/knowledge_gap_discussion_audit.py {{args}}
+
+# The gating half of knowledge-gap-audit. Both strict states are at zero, which
+# is the condition CLAUDE.md sets for promoting a reported state to a hard gate
+# (as check-environmental-evidence was once #8296 reached zero). Ungated and
+# whole-KB in CI for the reason its neighbours are: a bare experiment target is
+# written by a curation PR, and a curation PR touches only kb/, so it matches
+# neither pytest path filter.
+[group('QC')]
+check-knowledge-gap-targets *files:
+    uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet "$@"
+
+# Census of has_subtypes usage (how many subtypes are ever referenced by a
+# subtype: foreign key) plus the deterministic subtype-gene wiring check: a
+# gene named in has_subtypes[].genes that no pathophysiology node carries and
+# no genetic: node links into the mechanism chain is reported as
+# GENETIC_UNWIRED or ABSENT. Advisory by default; --strict exits non-zero.
+#   just subtype-usage-audit
+#   just subtype-usage-audit --format list --status ABSENT
+#   just subtype-usage-audit --format tsv --out /tmp/subtypes.tsv
+[group('QC')]
+subtype-usage-audit *args="":
+    uv run python scripts/subtype_usage_audit.py {{args}}
+
 # Compare each model->mechanism link's `model_scale` against its target node's
 # `biological_scale`. Reports upward extrapolation (model below its target's
 # scale -- it cannot observe the outcome it is cited for) separately from the
@@ -911,6 +969,16 @@ environmental-term-audit *args="":
 [group('QC')]
 model-scale-audit *args="":
     uv run python scripts/model_scale_audit.py {{args}}
+
+# Find quantitative figures (percentages, 1-in-N, rates, N-fold) written into
+# description:/notes: prose that do NOT appear in the references cited beside
+# them. Every other anti-hallucination check reads evidence[].snippet, so a
+# claim that never becomes a snippet is checked by nothing (#7791).
+# ADVISORY and heuristic -- deliberately not in `just qc` and not gated in CI.
+# --dr-only limits to entries with a deep-research report in research/.
+[group('QC')]
+prose-figure-audit *args="":
+    uv run python scripts/prose_figure_audit.py {{args}}
 
 # Census of how diet is represented, on its two INDEPENDENT tracks: causal
 # (environmental[] food_source/exposure_term -> influences_mechanisms) and
@@ -931,6 +999,18 @@ diet-audit *args="":
 [group('QC')]
 immune-antigen-audit *args="":
     uv run python scripts/immune_antigen_audit.py {{args}}
+
+# Census of Mendelian entries (single-locus inheritance + CAUSATIVE gene) that
+# carry no structured variant mechanism -- no
+# `GeneticContext.functional_impact_category` anywhere in the file. Advisory;
+# always exits 0. `--format list` ranks the gap by how many cited cached
+# references already contain a quotable mechanism sentence.
+#   just variant-mechanism-audit
+#   just variant-mechanism-audit --format list --single-gene --with-cached-hits
+#   just variant-mechanism-audit --format tsv --out /tmp/gap.tsv
+[group('QC')]
+variant-mechanism-audit *args="":
+    uv run python scripts/audit_variant_mechanism.py {{args}}
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -1017,8 +1097,14 @@ gen-dashboard:
     fi
     uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
     uv run python scripts/qc_uncurated_disease_links.py --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
+    just gen-phenotype-systems
     just gen-priority-dashboard
     echo "Dashboard generated in dashboard/"
+
+# Generate the phenotype-systems dashboard page (needs app/hpo_category_cache.json from `just gen-browser-data`)
+[group('QC')]
+gen-phenotype-systems:
+    uv run python -m dismech.phenotype_systems --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
 
 # Generate MONDO curation priority dashboard
 [group('QC')]
@@ -1132,22 +1218,55 @@ check-not4curation *args:
 # sides being HIGH confidence by default -- letting the gene/CL/UBERON fallbacks
 # in multiplies the mismatch rate several times over; pass --include-low to see
 # the rest, or `--format conformance-gates` for the current rate under each gate.
-# Design artifact -- nothing in kb/ or the schema depends on it.
+# Read-only: the tree and seed table under kb/node_classes/ are inputs.
 [group('QC')]
 node-class-scan *args:
     uv run python -m dismech.node_class_scan {{args}}
 
+# Audit the free-text pathophysiology `role` slot against what the graph
+# already says (step 1 of the node-classification design's next-step list).
+# Each normalised value is mapped to the facet it answers -- causal POSITION
+# (checked against downstream in/out-degree), therapeutic/biomarker INTERFACE
+# (checked against the linking slots), or a kind-of-thing claim that no
+# computation recovers. `summary` sizes the curated residue; `casing` lists
+# spellings that collapse; `crosstab` is role x computed position; `residue`
+# is the per-node worklist; `tsv` is everything. Read-only -- writes nothing
+# to kb/.
+[group('QC')]
+node-role-audit *args:
+    uv run python -m dismech.node_role_audit {{args}}
+
 # Parse and check the compact pathograph node-class tree
-# (docs/superpowers/pathograph_node_classes.txt). The tree is a DESIGN artifact
-# -- nothing in kb/ or the schema depends on it -- but its leaves are real
-# (node, disease) pairs, and a tree whose leaves have drifted from the KB is
-# worse than no tree because it still looks grounded. Bare invocation checks the
+# (kb/node_classes/pathograph_node_classes.txt). The tree is curated content
+# with no schema slot yet; its leaves are real (node, disease) pairs, and a
+# tree whose leaves have drifted from the KB is worse than no tree because it
+# still looks grounded. Bare invocation checks the
 # grammar only (instant); --verify-kb also resolves every cited leaf against
-# kb/ (slow: parses the whole KB). --format yaml|json|text emits the tree,
-# `text` being a stable round-trip of the compact form.
+# kb/ (slow: parses the whole KB); --check-definitions verifies every `=`
+# line's term labels against the caches (--online: against OLS); --evaluate
+# runs each logical definition over its own examples and the whole KB (needs
+# the local OAK GO sqlite). --format yaml|json|text emits the tree, `text`
+# being a stable round-trip of the compact form.
 [group('QC')]
 node-classes *args:
     uv run python -m dismech.node_classes {{args}}
+
+# Validate the Claude Code skill files under .claude/skills/ (#11758). A skill
+# whose SKILL.md is missing or miscased is simply never loaded -- no error, and
+# the only symptom is a skill that never triggers, which is indistinguishable
+# from one nobody needed. `microbiome-curation` sat that way for close to a
+# month. Ungated and whole-tree for the same reason check-duplicate-keys is:
+# skill files ride into the repo on PRs about something else (this one arrived
+# in a curation PR adding CMT disorder entries), so a changed-path check is
+# skipped by exactly the changes that break it. Offline, well under a second.
+[group('QC')]
+check-skill-files:
+    uv run python scripts/check_skill_files.py
+
+# Census of every skill and its description length, exit 0.
+[group('QC')]
+list-skill-files:
+    uv run python scripts/check_skill_files.py --list
 
 # Guard against duplicated mapping keys anywhere in kb/ (#8623). PyYAML keeps
 # the last value silently, so a duplicate is invisible to every test and
@@ -1158,6 +1277,16 @@ node-classes *args:
 [group('QC')]
 check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
+
+# Guard against tracked paths that differ only in letter case (#11204). On the
+# macOS/Windows default case-insensitive filesystem only one file of such a pair
+# can exist, so one path shows as modified forever and `git rebase` refuses to
+# run. Linux CI sees nothing wrong, which is how 17 DOI cache pairs accumulated.
+# Ungated and whole-repo for the same reason as check-duplicate-keys: the PRs
+# that add a collision touch only kb/ and references_cache/. <1s, offline.
+[group('QC')]
+check-case-collisions:
+    uv run python scripts/check_case_collisions.py
 
 # Guard against KB values that are not permissible in their slot's enum (#10061).
 # The schema-narrowing twin of check-duplicate-keys: #10003 narrowed
@@ -1170,6 +1299,19 @@ check-duplicate-keys *files:
 [group('QC')]
 check-enum-values *files:
     uv run python scripts/check_enum_values.py "$@"
+
+# Keep a treatment's carrier facts (delivery_platform, targeting ligand) consistent
+# across their two homes: the Treatment-level `delivery_system` block and the older
+# copy nested in `oligonucleotide_details`. Gates on a genuine defect -- the same
+# fact with two different values, an empty block, or a targeting_receptor alongside
+# targeting_ligand: UNCONJUGATED. The nested-only records are the migration
+# worklist and are reported, never gated; --format list shows them.
+#   just check-delivery-system
+#   just check-delivery-system --format list
+#   just check-delivery-system kb/disorders/ATTR_Amyloidosis.yaml
+[group('QC')]
+check-delivery-system *args:
+    uv run python scripts/check_delivery_system.py {{args}}
 
 # Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
 # run in `check_entity_ref_foreign_keys`, but that test is selected by the
@@ -1198,11 +1340,45 @@ check-causal-targets *files:
 list-causal-targets *files:
     uv run python scripts/check_causal_targets.py --report "$@"
 
+# Census of AOP-derivable causal chains: how many entries hold a run of nodes
+# that is measured at every node, cited at every edge, or both. Backs
+# docs/reports/aop-derivable-measurable-chains-2026-09-10.md -- run this rather
+# than trusting the numbers there, which move with every curation PR.
+# Example: just aop-chain-census --list-joint 3
+[group('QC')]
+aop-chain-census *args:
+    uv run python scripts/aop_chain_census.py "$@"
+
 # Regenerate the grandfathered dangling-target baseline. Only ever to REMOVE
 # entries as the backlog is burned down -- never to admit a new break.
 [group('QC')]
 update-causal-target-baseline:
     uv run python scripts/check_causal_targets.py --update-baseline
+
+# The complement of check-causal-targets: phenotypes that NO causal edge
+# explains. That check finds edges whose target resolves to nothing; this finds
+# phenotype nodes nothing points at, which is invisible to it -- an entry whose
+# every edge resolves cleanly can still leave every one of its phenotypes as a
+# disconnected island beside the pathophysiology layer. Reuses
+# `dismech.qc_plugins.causal_inlink_coverage`, the metric behind the
+# `phenotypes[].causal_inlink` compliance score, so the recipe and the score
+# cannot disagree. This is the triage view of that metric, not a replacement for
+# `just compliance-connectivity`, which stays the compliance view AND the gate
+# (phenotype inlink + gene outlink, enforcing the corpus `min_compliance` floor)
+# and has no per-entry ranking, tsv output, or attachment classes. The floor is
+# corpus-level so no single entry trips it; this is the per-entry worklist, which
+# is why it stays report-only and exit 0: connecting a phenotype is real curation
+# (which mechanism produces which feature), so an edge added to clear a report is
+# worse than no edge. The useful output is the
+# per-entry triage --
+# entries where NOTHING is connected, ranked by phenotypes stranded -- not the
+# corpus percentage. --format tsv/json, --zero-only, --strict, --fail-under.
+# See issue #11935.
+#
+# Phenotypes no causal edge explains: per-entry triage, exit 0.
+[group('QC')]
+list-disconnected-phenotypes *args="":
+    uv run python scripts/check_disconnected_phenotypes.py {{args}}
 
 # Derive each neoplasm entry's cell of origin from its own pathograph, and
 # report where the derivation fails. There is no `cell_of_origin:` slot: a node
@@ -1410,6 +1586,18 @@ list-snippet-grading *args="":
 [group('QC')]
 update-snippet-grading-baseline:
     uv run python scripts/check_snippet_grading.py --update-baseline
+
+# REPORT-ONLY -- no baseline, no gate, and never an autofill; each item is
+# decided by reading the sentence. Three tiers: A, deterministic, from NLM
+# structured-abstract section labels; B, the MeSH animal-without-Humans
+# heuristic, which covers a narrow slice and is a lower bound rather than a
+# measure of the problem; C, a recorded `quote_role` that contradicts tier A.
+# Pass `--format tsv` for detail, `--tier A` to narrow, or file paths to scan
+# only those.
+# Worklist for `quote_role`: evidence items whose snippet may not be the cited paper's own finding (#10262).
+[group('QC')]
+list-background-citations *args="":
+    uv run python scripts/check_background_citations.py {{args}}
 
 # Guard against reference titles that name a paper other than the one cited --
 # a correct PMID with a verified snippet and an invented `reference_title`,
@@ -2148,6 +2336,17 @@ discover-omicsdi *args="":
 discover-ebi-omics *args="":
     @uv run python scripts/discover_ebi_omics.py {{args}}
 
+# Find dbGaP and ImmPort studies for a disorder, keyed on the MONDO->MeSH
+# descriptor xref. These are the two repositories with coded disease indexing
+# and no overlap with GEO/ArrayExpress/EGA, queried through their own APIs
+# rather than the NIH Dataset Catalog (which returns the same records with more
+# incidental-mega-cohort noise and fewer fields).
+#   just discover-dbgap-immport Sjogrens_Syndrome
+#   just discover-dbgap-immport Asthma --include-subject-only
+[group('Research')]
+discover-dbgap-immport *args="":
+    @uv run python scripts/discover_dbgap_immport.py {{args}}
+
 # Deep research on a disorder using specified provider
 # Examples:
 #   just research-disorder perplexity Marfan_Syndrome
@@ -2649,15 +2848,41 @@ fetch-reference +identifiers:
     done
 
 # Tag top-level PublicationReference entries with authoritative-source labels
-# (e.g. GeneReviews).  Detects GeneReviews PMIDs from local references_cache
-# and writes `tags: [GeneReviews]` onto the matching reference entry.
-# Run after adding new GeneReviews citations or to refresh all tags.
+# (GeneReviews, StatPearls). Membership is decided from the committed Bookshelf
+# index (cache/bookshelf/), falling back to the citation form in the cached
+# record for a chapter newer than the snapshot, and writes `tags: [<Tag>]`
+# onto the matching reference entry.
+# Run after adding new GeneReviews / StatPearls citations or to refresh tags.
 #   just tag-references                   # tag all disorder files
 #   just tag-references --dry-run         # preview without writing
 #   just tag-references kb/disorders/Noonan_Syndrome.yaml
 [group('Curation')]
 tag-references *args="":
     uv run python scripts/tag_references.py {{args}}
+
+# Semi-deterministic GeneReviews / StatPearls baseline check (offline). Reports,
+# per entry and per collection, whether a Bookshelf chapter names the disease
+# and whether it is tagged in `references:`. Exact-title and identity findings
+# are deterministic; partial title matches are listed as CANDIDATE_CHAPTER for a
+# reviewer to judge. Runs inside the automated PR reviewer, which cannot curl.
+#   just check-genereviews kb/disorders/Asthma.yaml   # one or more files
+#   just check-genereviews                             # whole KB, findings only
+#   just check-genereviews --strict FILE               # exit 1 on a GeneReviews gap
+#   just check-genereviews --online FILE               # also live PubMed (network)
+#   just check-genereviews --format tsv                # census
+[group('Curation')]
+check-genereviews *args="":
+    uv run python scripts/check_genereviews_baseline.py {{args}}
+
+# Rebuild cache/bookshelf/ (every PubMed-indexed GeneReviews and StatPearls
+# chapter: PMID, NBK accession, title, date) from PubMed's `<name>[book]`
+# field. ~30 throttled E-utilities requests; set NCBI_API_KEY for the faster
+# tier. Rows are sorted by PMID with no per-row timestamps, so the diff after a
+# refresh is exactly the chapters that appeared, retired, or were renamed.
+#   just refresh-bookshelf-index
+[group('Curation')]
+refresh-bookshelf-index *args="":
+    uv run python scripts/build_bookshelf_index.py {{args}}
 
 # Backfill missing publication titles on KB references and evidence items
 # (`reference_title` on EvidenceItem, `title` on top-level PublicationReference).
@@ -2741,6 +2966,17 @@ genesets-refresh:
 [group('Research')]
 structured-rebuild-orphanet *args="":
     uv run python -m dismech.structured_sources.cli rebuild orphanet {{args}}
+
+# Enumerate and classify the publications Orphanet *recites* on the
+# prevalence/epidemiology rows the KB imports -- a citation that today survives
+# only as display text inside `snippet` (#7518). Offline and deterministic;
+# regenerates research/orphanet_prevalence_source_audit.md in place.
+# Not every recited token is a publication: `_clean_source()` discards Orphadata's
+# source tag, so years, ISBNs and DOI fragments reach the cache wearing a `PMID:`
+# prefix. Add --format tsv/summary, or --strict to fail on a flagged token.
+[group('Research')]
+orphanet-prevalence-source-audit *args="":
+    uv run python scripts/orphanet_prevalence_source_audit.py {{args}}
 
 # Rebuild every references_cache/CGGV_*.md from current ClinGen CSV
 # Use --id to limit to specific CGGV assertion IDs.
@@ -2894,6 +3130,17 @@ ncit-edges-list limit="20":
 [group('Research')]
 ncit-p302-audit *args="":
     uv run python scripts/ncit_p302_audit.py {{args}}
+
+# Census how many references_cache/PMID_*.md files cached abstract_only are
+# actually recoverable full text under the JATS extractor fix from #10876
+# (issue #10878). --phase idconv|recoverability|missing-tables|summarize|all;
+# missing-tables is offline and fast (the default here) -- idconv/recoverability
+# hit PMC/NCBI and are resumable, and recoverability over the full PMC-linked
+# set takes several hours without an NCBI_API_KEY. See docs/reports/ for the
+# write-up.
+[group('Research')]
+abstract-only-recovery-census *args="--phase missing-tables":
+    uv run python scripts/audit_abstract_only_recovery.py {{args}}
 
 # ============== Classification Schemas ==============
 
