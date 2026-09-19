@@ -71840,6 +71840,99 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Chronic Lymphocytic Inflammation With Pontine Perivascular Enhancement Responsive To Steroids",
+    "disease_id": "MONDO:0017297",
+    "category": "Complex",
+    "parents": [
+      "Central nervous system inflammatory disease"
+    ],
+    "creation_date": "2026-09-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CLIPPERS is a chronic inflammatory disorder of the central nervous system that centres on the brainstem. It was defined in 2010 from eight patients as a triad: a clinical syndrome of episodic diplopia, facial paraesthesia and gait ataxia progressing to brainstem and sometimes myelopathic signs; a distinctive MRI appearance of symmetric curvilinear gadolinium enhancement \"peppering\" the pons and extending into medulla, middle cerebellar peduncles, cerebellum, midbrain and occasionally cord; and a perivascular, predominantly T-lymphocytic white-matter infiltrate on biopsy, without granulomas, organisms, lymphoma or vasculitis. Clinical and radiological response to high-dose glucocorticosteroids is marked, and relapse on taper is the rule rather than the exception, so patients need chronic immunosuppression.\nThe name is a description, not a mechanism, and that is the honest state of the disease. The T-cell-predominant pathology and the corticosteroid responsiveness are together taken as evidence of an immune-mediated process, but no antigen, autoantibody, infectious trigger or genetic susceptibility locus has been established, and no diagnostic biomarker exists. This entry therefore models the pathograph from the earliest node anyone has actually observed - perivascular T-cell infiltration of brainstem white matter - and records the missing upstream trigger as an explicit knowledge gap rather than supplying a plausible one.\nCLIPPERS is also a diagnosis of exclusion with a documented and consequential mimic problem. Formal criteria published in 2017 were motivated by reports of dissimilar patients labelled CLIPPERS, and in that series 12 of 35 patients referred with suspected CLIPPERS had another diagnosis. Corticosteroid responsiveness does not settle it: most of the non-CLIPPERS patients improved on steroids too. Individual patients with textbook presentations have declared themselves months to years later as CNS B-cell lymphoma. Follow-up dependency is therefore part of the disease definition, not an afterthought.\n",
+    "pathophysiology": [
+      "Impaired Cytotoxic Lymphocyte Granule-Mediated Killing",
+      "Perivascular T-Lymphocytic Infiltration of Brainstem White Matter",
+      "Blood-Brain Barrier Breakdown at Pontine Perforating Vessels",
+      "Inflammatory Tissue Injury with Astrogliosis and Secondary Myelin Loss",
+      "Brainstem and Cerebellar Dysfunction"
+    ],
+    "cell_types": [
+      "natural killer cell",
+      "cytotoxic T cell",
+      "CD3-positive T lymphocyte",
+      "B lymphocyte",
+      "macrophage",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000623",
+      "CL:0000910",
+      "CL:0000084",
+      "CL:0000236",
+      "CL:0000235",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "natural killer cell mediated cytotoxicity",
+      "regulated exocytosis of cytotoxic granules",
+      "T cell migration into brainstem white matter",
+      "reactive gliosis"
+    ],
+    "phenotypes": [
+      "Diplopia",
+      "Facial paraesthesia",
+      "Gait ataxia",
+      "Dysarthria",
+      "Cognitive impairment",
+      "Myelopathy",
+      "Pontine perivascular gadolinium enhancement"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Imaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000651",
+      "HP:0003401",
+      "HP:0002066",
+      "HP:0001260",
+      "HP:0100543",
+      "HP:0002196",
+      "HP:0012747"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "PRF1",
+      "UNC13D"
+    ],
+    "treatments": [
+      "High-Dose Glucocorticosteroid Therapy",
+      "Chronic Steroid-Sparing Immunosuppression",
+      "Intravenous Immunoglobulin"
+    ],
+    "environmental": [
+      "Intracranial Epstein-Barr virus infection"
+    ],
+    "biochemical": [],
+    "source_file": "Chronic_Lymphocytic_Inflammation_With_Pontine_Perivascular_Enhancement_Responsive_To_Steroids.yaml",
+    "page_url": "../pages/disorders/Chronic_Lymphocytic_Inflammation_With_Pontine_Perivascular_Enhancement_Responsive_To_Steroids.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Chronic Lymphocytic Leukemia",
     "disease_id": "MONDO:0004948",
     "category": "",
@@ -121402,6 +121495,123 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Fowler Syndrome",
+    "disease_id": "MONDO:0009168",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Cerebrovascular Disorder",
+      "Fetal Akinesia Deformation Sequence Disorder"
+    ],
+    "creation_date": "2026-09-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive disorder of central nervous system angiogenesis caused by biallelic variants in FLVCR2, delineated by Fowler in 1972 as a stereotyped lethal fetal phenotype and molecularly solved in 2010. The defining lesion is not a malformation of brain tissue but of the vessels that supply it: abnormally thickened, aberrant perforating vessels form glomeruloids of poorly organised endothelium throughout the CNS and retina. Everything else follows from that vasculopathy. The brain is destroyed rather than mis-built - hydranencephaly and hydrocephaly arise from clastic ischaemic injury with dystrophic calcification and necrosis - and the spinal cord and brainstem lesions produce a fetal akinesia deformation sequence with neurogenic muscular atrophy, joint contractures and pterygia. The proliferative vasculopathy is confined to the CNS; it has never been observed outside it.\nWhat FLVCR2 actually transports is the live mechanistic question in this disease, and this entry curates it as one rather than resolving it. FLVCR2 is a major facilitator superfamily carrier expressed in brain endothelium. For over a decade the working model was heme import, from a 2010 demonstration that FLVCR2 mediates heme uptake and from structural modelling of patient alleles interpreted as stabilising an occluded conformation. In 2024 two independent structural and functional studies instead identified choline - and ethanolamine - as the physiological substrates, with FLVCR2 responsible for the majority of choline uptake into the brain across the blood-brain barrier. A patient allele has since been assayed directly against radiolabelled choline, and partial rather than complete transport loss was sufficient for disease. The two models are not simply successive: a 2026 retinal study revives a heme-dependent route through NOTCH tip/stalk specification, and the choline work itself splits on direction, with one group reading FLVCR2 as a luminal importer and another, from endothelial-specific knockouts with paradoxically raised brain choline, as an exporter of lysophosphatidylcholine-derived choline. The pathograph therefore carries both substrate arms as hypothesis groups converging on the same endothelial node.\nThe disorder is almost invariably prenatally lethal and is usually detected on ultrasound between 13 and 27 weeks, though first-trimester recognition is documented. Survival is rare: across the systematic literature review, six of seventy-two reported patients lived beyond birth, with profound neurological disability and gross ventriculomegaly. There is no disease-modifying therapy.\n",
+    "pathophysiology": [
+      "Biallelic FLVCR2 Loss of Function",
+      "Impaired FLVCR2 Solute Transport at the CNS Endothelial Membrane",
+      "Failure of Brain Choline Supply",
+      "Reduced Endothelial Heme Availability",
+      "CNS Endothelial Angiogenic Dysfunction",
+      "Deficient Pericyte Coverage of CNS Vessels",
+      "Glomeruloid Vascular Proliferation of CNS and Retinal Vessels",
+      "Diffuse Clastic Ischemic Injury of the Developing CNS",
+      "Spinal Cord and Brainstem Clastic Lesions with Neurogenic Muscular Atrophy",
+      "Fetal Akinesia Deformation Sequence"
+    ],
+    "cell_types": [
+      "brain microvascular endothelial cell",
+      "endothelial cell",
+      "retinal blood vessel endothelial cell",
+      "pericyte",
+      "motor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:2000044",
+      "CL:0000115",
+      "CL:0002585",
+      "CL:0000669",
+      "CL:0000100"
+    ],
+    "biological_processes": [
+      "choline transport",
+      "sprouting angiogenesis",
+      "endothelial tip cell fate specification",
+      "Notch signaling pathway",
+      "angiogenesis",
+      "brain development"
+    ],
+    "phenotypes": [
+      "Hydranencephaly",
+      "Hydrocephalus",
+      "Ventriculomegaly",
+      "Cerebral calcification",
+      "Cerebellar hypoplasia",
+      "Seizure",
+      "Abnormal retinal vascular morphology",
+      "Arthrogryposis multiplex congenita",
+      "Pterygium",
+      "Micrognathia",
+      "Cleft palate",
+      "Decreased fetal movement",
+      "Cystic hygroma",
+      "Microcephaly"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Musculoskeletal",
+      "Craniofacial",
+      "Prenatal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0002324",
+      "HP:0000238",
+      "HP:0002119",
+      "HP:0002514",
+      "HP:0001321",
+      "HP:0001250",
+      "HP:0008046",
+      "HP:0002804",
+      "HP:0001059",
+      "HP:0000347",
+      "HP:0000175",
+      "HP:0001558",
+      "HP:0000476",
+      "HP:0000252"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "FLVCR2 variants"
+    ],
+    "treatments": [
+      "Genetic counseling and recurrence-risk assessment"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Fowler_Syndrome.yaml",
+    "page_url": "../pages/disorders/Fowler_Syndrome.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Fragile X-Associated Primary Ovarian Insufficiency",
@@ -183305,6 +183515,9 @@ window.searchData = [
       "Systemic Immune Activation",
       "T Cell Exhaustion and Tissue Trafficking",
       "Endothelial Dysfunction and Microclots",
+      "Lung Epithelial Endothelin-1 Elevation",
+      "Systemic Iron Dysregulation",
+      "Chondrocyte Injury and Growth Plate Damage",
       "Serotonin Depletion Mechanisms",
       "Vagus-Hippocampal Signaling Impairment",
       "Autonomic Nervous System Dysfunction",
@@ -183324,6 +183537,8 @@ window.searchData = [
       "CD4-positive T cell",
       "endothelial cell",
       "platelet",
+      "alveolar type II cell",
+      "chondrocyte",
       "mast cell",
       "microglial cell",
       "macrophage",
@@ -183339,6 +183554,8 @@ window.searchData = [
       "CL:0000624",
       "CL:0000115",
       "CL:0000233",
+      "CL:0002063",
+      "CL:0000138",
       "CL:0000097",
       "CL:0000129",
       "CL:0000235",
@@ -183355,6 +183572,9 @@ window.searchData = [
       "T cell migration",
       "T cell activation",
       "fibrinolysis",
+      "endothelin production",
+      "intracellular iron homeostasis",
+      "iron accumulation in joint tissue",
       "tryptophan transport",
       "platelet activation",
       "serotonin metabolic process",
@@ -183440,7 +183660,8 @@ window.searchData = [
       "Beta adrenergic agent therapy for POTS-associated symptoms",
       "Hyperbaric oxygen therapy",
       "Intranasal and transcranial photobiomodulation",
-      "Corticosteroid therapy for post-COVID persistent interstitial lung disease"
+      "Corticosteroid therapy for post-COVID persistent interstitial lung disease",
+      "Macitentan"
     ],
     "environmental": [
       "Infection during ancestral-strain dominance"
@@ -183458,10 +183679,10 @@ window.searchData = [
     "source_file": "Long_COVID.yaml",
     "page_url": "../pages/disorders/Long_COVID.html",
     "num_phenotypes": 23,
-    "num_pathophysiology": 16,
+    "num_pathophysiology": 19,
     "num_genes": 0,
-    "num_treatments": 8,
-    "causal_graph_edges": "67",
+    "num_treatments": 9,
+    "causal_graph_edges": "73",
     "causal_graph_longest_path": "5"
   },
   {
@@ -314482,17 +314703,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3021,
+  "total_disorder_pages": 3023,
   "total_subtypes": 3771,
-  "total_disorders_and_subtypes": 6792,
-  "total_unique_evidence_sources": 42961,
-  "total_unique_publications": 40562,
+  "total_disorders_and_subtypes": 6794,
+  "total_unique_evidence_sources": 42988,
+  "total_unique_publications": 40589,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3016,
-  "total_unique_pathological_events": 18342,
+  "total_pathographs": 3018,
+  "total_unique_pathological_events": 18360,
   "total_modules": 177,
-  "total_research_reports": 3138,
+  "total_research_reports": 3139,
   "total_classifications": 19,
   "total_comorbidities": 46,
   "total_groupings": 102
