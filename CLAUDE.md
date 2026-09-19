@@ -29,6 +29,9 @@ Claude Code skills are available in `.claude/skills/`:
 - **dismech-references**: Use when curating or validating evidence and references.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
+- **extend-schema**: Use when adding, narrowing, deprecating, or removing a
+  class, slot, or enum in `src/dismech/schema/`, or when deciding whether a
+  curation need warrants a schema change at all.
 
 **A skill file that is misnamed or missing its frontmatter is not an error — it
 is a skill that never loads.** Claude Code discovers a skill by looking for
@@ -499,9 +502,24 @@ same way a PMID is: by fetching the record into `references_cache/`.
 ```bash
 just datasets-coverage                    # which entries still need datasets
 just discover-datasets Asthma             # real candidates from the GEO index
+just discover-dbgap-immport Asthma        # dbGaP + ImmPort, keyed on MONDO->MeSH
 just verify-datasets kb/disorders/Asthma.yaml   # resolve accessions (run before commit)
 just research-datasets openscientist Marfan_Syndrome  # non-GEO repositories
 ```
+
+`discover-dbgap-immport` is the only **coded-disease** route: dbGaP and ImmPort
+publish MeSH/disease fields, so it queries the entry's MONDO→MeSH xref instead
+of its name. It tiers hits as `TITLE_MATCH`, `VARIABLE_MATCH` (the study's own
+dbGaP data dictionary records the disease as an outcome variable — both
+auto-approved), `SUBJECT_ONLY` (coded but neither of the above; never
+auto-approved) and `CONFLICT` (sibling disease, vetoed). **dbGaP variables are a
+triage signal, never KB content** — do not ingest data dictionaries into
+`Dataset` records, and never read `*.var_report.xml`, whose statistics are
+disease-cohort distributions rather than the clinical normal intervals
+`reference_ranges` means. Use the
+repositories' own APIs, **not** `datasetcatalog.nlm.nih.gov`, which mirrors the
+same records with more noise and fewer fields — see
+[`docs/reports/nlm-dataset-catalog-evaluation-2026-08-07.md`](docs/reports/nlm-dataset-catalog-evaluation-2026-08-07.md).
 
 **Always run `just verify-datasets` on any file whose `datasets:` block you
 touched.** An offline pytest guard catches malformed/mis-prefixed accessions;
@@ -1786,6 +1804,25 @@ again.
 
 See `docs/history.md` and `src/dismech/schema/history.yaml` for the full format.
 
+**Reading the ledger back — "when was this entry last really curated?"**
+`history/` is what answers that; git cannot, because a whole-KB slot migration and a
+genuine re-curation are the same kind of touch in `git log`. But a bulk sweep writes a
+history record too (one identical `Backfill therapeutic_modality` record sits on 700
+entries), so the newest record is not the answer either.
+
+```bash
+just last-pass-report                       # summary + stalest 25, as a worklist
+just last-pass-report --status NO_HISTORY   # entries with no history record at all
+just last-pass-report --model sonnet-4      # everything last passed by an older model
+just last-pass-report --list-bulk           # audit which summaries counted as sweeps
+```
+
+It classifies each entry `PASSED` / `BULK_ONLY` / `NO_HISTORY`, flags `PASSED` entries
+whose *newest* record is a sweep, and orders stalest-first. The report is only as
+complete as the ledger — a real pass whose PR forgot its history record reads as stale
+— which is another reason to add the record. See
+[`docs/last-pass-report.md`](docs/last-pass-report.md) and issue #5334.
+
 Quick classification rules (use these before tagging):
 - HUMAN_CLINICAL: human patients, cohorts, case reports, clinical trials (NCT), epidemiology.
 - MODEL_ORGANISM: any in vivo animal data (mouse, zebrafish, dog/cat/horse veterinary case series, primate, or other non-human animals), even if observational and not interventional.
@@ -1864,6 +1901,16 @@ binding is right, so a fabricated CURIE landing inside its enum produces the
 **When you cannot source an identifier, omit the field and say why in `notes`.**
 An absent binding with a recorded reason is a curation gap someone can close. A
 fabricated one that validates is a false statement about an ontology.
+
+**But that recorded reason is itself a claim, and it is the one nothing checks.**
+Writing "no more specific term exists" without having run the search produces an
+over-broad binding whose false justification tells the next reviewer to skip the
+one check that would catch it — three such bindings came out of a single batch of
+ten entries (dismech#7835), each refuted by re-running the search the note said
+had been run. Write the query verbatim and what it returned, or write no note:
+an unexplained over-broad binding is a smaller defect than one carrying a false
+justification. Step 3a of the `dismech-terms` skill has the rule and the worked
+examples.
 
 **The same rule governs citation strings**, which have the same failure shape:
 `reference_title` is copied from the `title:` frontmatter of the
@@ -2585,6 +2632,97 @@ Argonaute-2 cleavage). A disorder whose entry models the therapy itself should
 `conforms_to` the one matching its drug; they are not interchangeable.
 `ATTR_Amyloidosis` is the worked RNAi conformer.
 
+### Delivery Systems — What Carries a Drug (`delivery_system`)
+
+A treatment's **carrier** goes in a `delivery_system` block on the `Treatment`,
+for **any** modality — not only oligonucleotides:
+
+```yaml
+treatments:
+- name: Vutrisiran
+  therapeutic_modality: SIRNA
+  delivery_system:
+    delivery_platform: CONJUGATE
+    targeting_ligand: GALNAC
+    targeting_receptor:
+      preferred_term: ASGR1
+      term:
+        id: hgnc:742
+        label: ASGR1
+    target_cell_types:
+    - preferred_term: hepatocyte
+      term:
+        id: CL:0000182
+        label: hepatocyte
+```
+
+**Do not reach for `oligonucleotide_details` to record a carrier.** That is where
+`delivery_platform` and `conjugation` used to live, which put the carrier axis
+inside the payload chemistry and left every non-oligonucleotide nanomedicine
+with nowhere to state its carrier. The KB shows the damage: `nab-sirolimus`
+(`Perivascular_Epithelioid_Cell_Neoplasm`, FDA-approved, `SMALL_MOLECULE`) and
+liposomal irinotecan in NALIRIFOX (`Pancreatic_Ductal_Adenocarcinoma`) both
+carried the fact only in a free-text `preferred_term`, and `MRNA_THERAPY` — a
+modality *defined* by its carrier — has zero uses across the whole KB.
+
+| Slot | Claim |
+|---|---|
+| `delivery_platform` | What carries the agent at all (`DeliveryPlatformEnum`) |
+| `targeting_ligand` | What is on the carrier, or the agent, that drives uptake (`TargetingLigandEnum`) |
+| `targeting_receptor` | The receptor or antigen that ligand binds, bindable to HGNC |
+| `target_cell_types` | The cell type the carrier is aimed at, bindable to CL |
+
+- **Platform and ligand are orthogonal in both directions.** Patisiran is
+  `UNCONJUGATED` *and* `LIPID_NANOPARTICLE`; vutrisiran is `GALNAC` *and*
+  `CONJUGATE`. A nanoparticle can also carry a ligand on its own surface — an
+  antibody-coated mRNA-LNP is `ANTIBODY` *and* `LIPID_NANOPARTICLE` — which is
+  why the ligand slot is no longer scoped to covalent attachment to an
+  oligonucleotide.
+- **`LIPOSOME` is not a spelling of `LIPID_NANOPARTICLE`.** The ionizable lipid
+  in an LNP releases a nucleic-acid payload from the endosome; a PEGylated
+  bilayer vesicle carrying an already cell-permeant cytotoxic changes
+  biodistribution and toxicity instead. Picking the wrong one erases the reason
+  the other exists.
+- **An untargeted carrier is a normal record.** A PEGylated liposome accumulates
+  passively — no ligand, no receptor, no target cell. Leave those slots absent
+  rather than asserting a target the formulation does not have. A
+  `targeting_receptor` alongside `targeting_ligand: UNCONJUGATED` is a
+  contradiction and is gated.
+- **`targeting_receptor` is the receptor, not the ligand.** A receptor may be
+  reachable by more than one ligand.
+- **Dosing interval stays on `Treatment`.** It applies to any treatment — but
+  read it next to the carrier, which is usually *why* the interval is what it
+  is.
+
+**`oligonucleotide_details.delivery_platform` and `.conjugation` are still
+valid**, kept rather than retired for the reason the *Retired Enum Values*
+section above records: retiring a spelling invalidates every in-flight PR using
+it, and ~44 oligonucleotide entries carry these slots. `conjugation` is
+deprecated in favour of `targeting_ligand`. Both render, with the Treatment-level
+block resolved first.
+
+```bash
+just check-delivery-system                 # gate (runs in `just qc`)
+just check-delivery-system --format list   # full census, including the worklist
+```
+
+It gates on `CONFLICT` (the same fact in both homes with different values — one
+is wrong and the renderer silently hides the nested one), `EMPTY` (a block
+carrying no carrier fact), and `LIGANDLESS_TARGET`. It **reports without
+gating** on `DUPLICATE` and on `LEGACY` — the nested-only records, currently 81,
+which are the migration worklist. Gating `LEGACY` would turn every
+oligonucleotide entry red for a change none of their curators made.
+
+Worked examples: `ATTR_Amyloidosis` Vutrisiran (all four slots, migrated off the
+nested spelling — the only entry migrated on purpose),
+`Pancreatic_Ductal_Adenocarcinoma` NALIRIFOX (`LIPOSOME` on a regimen where only
+one component is carried), `Perivascular_Epithelioid_Cell_Neoplasm` Nab-Sirolimus
+(`PROTEIN_NANOPARTICLE`, with `notes:` recording why the albumin's gp60
+transcytosis route is *not* filled into the targeting slots — the cited report
+states it as a possibility, and a hypothesized uptake route is not a targeting
+claim). `INORGANIC_NANOPARTICLE` has no worked example yet. See
+[`docs/delivery-systems.md`](docs/delivery-systems.md).
+
 ### Subtype Naming Conventions
 
 The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
@@ -2610,6 +2748,25 @@ phenotypes:
 ```
 
 **When `display_name` is set**, renderers show it instead of `name`. When absent, `name` is displayed directly.
+
+**A subtype list is a start, not an end state.** Only ~36% of declared
+subtypes are ever referenced by a `subtype:` foreign key, and about a third
+of the genes named in `has_subtypes[].genes` are not wired into the
+pathograph at all (no pathophysiology node carries the gene, and no causal
+`genetic:` entry links to one). When you declare a gene-specific subtype,
+also (a) stratify at least the subtype-divergent phenotypes/genetic rows via
+`subtype:`, and (b) make sure the gene reaches the pathograph — a `genes:`
+descriptor on the relevant pathophysiology node is enough for
+`dismech.graph` to auto-link it. Audit with:
+
+```bash
+just subtype-usage-audit                          # census + wiring summary
+just subtype-usage-audit --format list --status ABSENT
+just subtype-usage-audit kb/disorders/MyDisease.yaml --format list
+```
+
+See `docs/reports/subtype-field-usage-audit-2026-09-04.md` for the baseline
+census and the two recurring failure shapes.
 
 ### Reference Ranges and Interpretation Bands
 
@@ -3276,13 +3433,15 @@ they were removed.
 just check-case-collisions      # whole repo, <1s, offline
 ```
 
-It runs in `just qc` and as an ungated CI step. The usual source is a DOI
+It runs in `just qc` and as an ungated CI step. The usual source was a DOI
 fetched in two capitalizations: DOIs resolve case-insensitively, but the cache
-filename copies the DOI as written (#9112), and some scripts lowercase it first.
-Fetch a DOI once, in the publisher's capitalization. To fix a collision, keep
-the path matching the publisher's capitalization and remove the other from the
-index with `git rm --cached <path>`, which works on a case-insensitive disk
-because it never touches the file itself.
+filename copies the DOI as written. The patched fetcher now reuses an existing
+`DOI_*.md` file whose name differs only in case, on both read and write
+(`src/dismech/doi_cache_case.py`, #9112), so a second spelling no longer writes a
+second file; a DOI with no cache file yet is still saved as written. To fix a
+collision that gets past it, keep the path matching the publisher's
+capitalization and remove the other from the index with `git rm --cached <path>`,
+which works on a case-insensitive disk because it never touches the file itself.
 
 ## Retired Enum Values (dismech#10061)
 
@@ -3777,6 +3936,27 @@ status. It checks for newer/running reviews and existing current-commit verdicts
 before retrying. The default budget is five retries per sweep; `dry_run`,
 `pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
 the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
+
+### Shepherd repair scope and generated-cache conflicts
+
+The shepherd tends eligible abandoned code, tests, schema, workflow, and
+documentation PRs as well as curation. Python is in scope. Unresolved review
+feedback comes first; an approved clean branch is the merge controller's work,
+even when it is behind main. Do not refresh a branch merely for freshness.
+
+The separate `repair-caches` job handles additive conflicts in term and enum
+CSVs only. It preserves every source row, rejects competing fields (including
+timestamps) and deletions, and never checks out PR code. A private index changes
+only verified conflicting CSV blobs in Git's ordinary merge result. Publication
+must fast-forward the exact inspected PR head; an explicit expected-head lease
+also rejects concurrent rewinds or branch deletion. This cannot rewrite history.
+Reference markdown and other generated formats remain shepherd work; never
+resolve a generated directory wholesale by taking one side. A deterministic
+refusal does not authorize abandoning the PR.
+
+The job uses the agent's existing author/assignment guards. Manual inputs
+`max_cache_repairs` (default 3; 0 disables), `dry_run`, and `pr_number` control it.
+See [the repair contract](docs/explanation/automation-and-agents.md#tending-abandoned-prs-and-repairing-cache-conflicts).
 
 ### Deterministic auto-merge of ready PRs
 
