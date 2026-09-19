@@ -395,6 +395,7 @@ the table below mirrors it.
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
+| Physical variant classes / genomic sequence contexts | Sequence Ontology | `SO:` |
 | Treatments / clinical interventions | NCI Thesaurus | `NCIT:` |
 | Exposures | ECTO, ExO, XCO | `ECTO:`, `ExO:`, `XCO:` |
 | Environment | ENVO | `ENVO:` |

@@ -38,6 +38,7 @@ prefixes:
   NCIT: http://purl.obolibrary.org/obo/NCIT_
   OPL: http://purl.obolibrary.org/obo/OPL_
   GENO: http://purl.obolibrary.org/obo/GENO_
+  SO: http://purl.obolibrary.org/obo/SO_
   PATO: http://purl.obolibrary.org/obo/PATO_
   ECTO: http://purl.obolibrary.org/obo/ECTO_
   ExO: http://purl.obolibrary.org/obo/ExO_
@@ -592,6 +593,70 @@ enums:
         aliases:
           - has_uncertain_significance_for_condition
         meaning: GENO:0000845
+  VariantTypeEnum:
+    description: >-
+      Physical sequence alteration, independently of genomic location or
+      functional consequence. Human-readable values map to Sequence Ontology.
+      This is an optional classification alongside the legacy free-text type;
+      it is not an exhaustive vocabulary for complex rearrangements.
+    permissible_values:
+      single nucleotide variant:
+        description: SNV
+        meaning: SO:0001483
+        notes:
+          - A single-nucleotide change; does not assert population frequency as SNP would.
+      deletion:
+        description: deletion
+        meaning: SO:0000159
+      insertion:
+        description: insertion
+        meaning: SO:0000667
+      duplication:
+        description: duplication
+        meaning: SO:1000035
+      inversion:
+        description: inversion
+        meaning: SO:1000036
+      translocation:
+        description: translocation
+        meaning: SO:0000199
+      copy number variation:
+        description: copy_number_variation
+        meaning: SO:0001019
+        notes:
+          - Use deletion or duplication when the physical alteration is known.
+      short tandem repeat expansion:
+        description: short_tandem_repeat_expansion
+        meaning: SO:0002162
+        notes:
+          - Do not use for repeat expansions outside the short tandem repeat class.
+  GenomicContextEnum:
+    description: >-
+      Genomic features overlapped by a variant, independently of its functional
+      effect. Values describe sequence features, not variant consequences.
+      Contexts may overlap and are relative to the relevant gene or transcript;
+      record those details in the variant description.
+    permissible_values:
+      coding sequence:
+        description: CDS
+        meaning: SO:0000316
+      intron:
+        description: intron
+        meaning: SO:0000188
+      "5' UTR":
+        description: five_prime_UTR
+        meaning: SO:0000204
+      "3' UTR":
+        description: three_prime_UTR
+        meaning: SO:0000205
+      noncoding exon:
+        description: noncoding_exon
+        meaning: SO:0000198
+        notes:
+          - An entire exon without codons; use a UTR value for the untranslated part of an otherwise coding exon.
+      intergenic region:
+        description: intergenic_region
+        meaning: SO:0000605
   RegulatoryVariantCategoryEnum:
     description: >-
       Functional classification of non-coding gene regulatory variants
@@ -4170,6 +4235,20 @@ slots:
     range: string
   type:
     range: string
+  variant_type:
+    description: >-
+      Optional controlled physical variant class. Complements the legacy
+      free-text type without requiring it or replacing its narrative detail.
+      Does not imply a coding or regulatory functional effect.
+    range: VariantTypeEnum
+  genomic_contexts:
+    description: >-
+      Sequence features overlapped by the variant. Multiple values are allowed
+      because an SV may span several features, or transcripts may differ.
+      Specify relevant genes, transcripts, and overlap details in description;
+      an intronic host gene need not be the regulatory target. Omit when unknown.
+    range: GenomicContextEnum
+    multivalued: true
   clinical_significance:
     range: ClinicalSignificanceEnum
   background:
@@ -4284,6 +4363,15 @@ slots:
       using the LOE/mLOE/GOE framework (Cheng et al. 2024, PMID:38436667)
       or traditional coding categories (LOF/GOF/DN).
     range: RegulatoryVariantCategoryEnum
+  regulatory_target_gene:
+    description: >-
+      Gene whose expression is affected, or proposed to be affected, by a
+      regulatory variant. Does not assert that the variant overlaps this gene.
+      Describe the expression effect and its uncertainty in functional_effects
+      and evidence. A variant that also overlaps the gene may specify both
+      gene and regulatory_target_gene.
+    range: GeneDescriptor
+    inlined: true
   regulatory_element_type:
     description: >-
       Type of gene regulatory element disrupted by a non-coding variant
@@ -5357,8 +5445,9 @@ slots:
       Type of allele or mutation (e.g., null, missense, splice_site,
       deletion, frameshift, nonsense, hypomorphic, structural_variant).
       Free text retained for legacy or unusually complex contexts. Prefer the
-      structured `allelic_events`, `allelic_hit_role`, `variant_origin`, and
-      `functional_impact_category` slots when possible.
+      structured `variant_type`, `genomic_contexts`, `allelic_events`,
+      `allelic_hit_role`, `variant_origin`, and `functional_impact_category`
+      slots when possible.
     range: string
   allelic_hit_role:
     description: >-
@@ -6027,10 +6116,15 @@ classes:
       groups, and complex genotypes. The description slot accommodates
       contexts that don't fit neatly into the structured fields
       (e.g., structural variants, complex rearrangements).
+      Physical variant class and sequence overlap use the same controlled
+      fields as Variant. Separate alternative initiating alterations into
+      distinct pathophysiology nodes when their classes or overlaps differ.
     slots:
       - gene
       - genes
       - allele_type
+      - variant_type
+      - genomic_contexts
       - variant_origin
       - allelic_hit_role
       - allelic_events
@@ -7167,6 +7261,15 @@ classes:
       - pdb_structures
       - mechanism_confidence
       - biological_scale
+      - regulatory_category
+    slot_usage:
+      regulatory_category:
+        description: >-
+          Controlled classification of the expression-effect claim represented
+          by this node. Interpret together with mechanism_confidence: a
+          HYPOTHETICAL node classifies a proposed effect, not an observed one.
+          For regulatory SVs, annotate the target gene here rather than on the
+          physical initiating lesion when its sequence is intact.
   Phenotype:
     slots:
       - category
@@ -7602,6 +7705,7 @@ classes:
       - name
       - description
       - gene
+      - regulatory_target_gene
       - evidence
       - functional_effects
       - synonyms
@@ -7610,6 +7714,8 @@ classes:
       - sequence_length
       - clinical_significance
       - type
+      - variant_type
+      - genomic_contexts
       - regulatory_category
   FunctionalEffect:
     description: >-

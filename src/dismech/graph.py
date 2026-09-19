@@ -108,6 +108,7 @@ MODEL_RELATIONSHIP_PREDICATES = {
 # the slot existed. Keeps those edges exactly as they were.
 DEFAULT_MODEL_PREDICATE = "models"
 
+
 def model_edge_predicate(relationship: Any) -> str:
     """Map a ModelMechanismLink relationship onto its edge predicate."""
     if isinstance(relationship, str):
@@ -673,7 +674,9 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
             continue
 
         genetic_targets: set[str] = set()
-        if parent_name:
+        # An explicit regulatory target need not overlap the variant sequence.
+        # Nesting under that gene is an association, not a sequence-overlap claim.
+        if parent_name and not variant.get("regulatory_target_gene"):
             genetic_targets.add(parent_name)
         for key in _gene_lookup_keys(variant):
             genetic_targets.update(genetic_nodes_by_gene_key.get(key, set()))
@@ -688,11 +691,28 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                         source_type="genetic",
                     )
                 )
-            continue
-
         mechanism_targets: set[str] = set()
-        for key in _gene_lookup_keys(variant):
-            mechanism_targets.update(pathophysiology_by_gene_key.get(key, set()))
+        if not genetic_targets:
+            for key in _gene_lookup_keys(variant):
+                mechanism_targets.update(pathophysiology_by_gene_key.get(key, set()))
+
+        regulatory_keys = _descriptor_lookup_keys(variant.get("regulatory_target_gene"))
+        regulatory_targets: set[str] = set()
+        for key in regulatory_keys:
+            regulatory_targets.update(genetic_nodes_by_gene_key.get(key, set()))
+        if regulatory_targets:
+            for target in sorted(regulatory_targets):
+                graph.edges.append(
+                    Edge(
+                        source=source,
+                        target=target,
+                        predicate="has_regulatory_target",
+                        source_type="genetic",
+                    )
+                )
+        else:
+            for key in regulatory_keys:
+                mechanism_targets.update(pathophysiology_by_gene_key.get(key, set()))
 
         for target in sorted(mechanism_targets):
             graph.edges.append(
@@ -829,9 +849,9 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
     gene_labels: list[str] = []
     gene_terms: list[dict[str, str]] = []
 
-    def add_gene_descriptor(descriptor: Any) -> None:
+    def add_gene_descriptor(descriptor: Any) -> dict[str, str] | None:
         if not isinstance(descriptor, dict):
-            return
+            return None
         term = descriptor.get("term")
         term = term if isinstance(term, dict) else {}
         label = descriptor.get("preferred_term") or term.get("label", "")
@@ -850,6 +870,7 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
         }
         if entry and entry not in gene_terms:
             gene_terms.append(entry)
+        return entry or None
 
     # Genes
     add_gene_descriptor(item.get("gene"))
@@ -860,6 +881,9 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
             add_gene_descriptor(gene_descriptor)
 
     add_gene_descriptor(item.get("gene_term"))
+    regulatory_target = add_gene_descriptor(item.get("regulatory_target_gene"))
+    if regulatory_target:
+        meta["regulatory_target_gene"] = regulatory_target
 
     if gene_labels:
         meta["genes"] = list(dict.fromkeys(gene_labels))
@@ -893,6 +917,7 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
             key: genetic_context[key]
             for key in (
                 "allele_type",
+                "variant_type",
                 "variant_origin",
                 "allelic_hit_role",
                 "zygosity",
@@ -906,6 +931,9 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
         allelic_events = _coerce_string_list(genetic_context.get("allelic_events"))
         if allelic_events:
             context_meta["allelic_events"] = allelic_events
+        genomic_contexts = _coerce_string_list(genetic_context.get("genomic_contexts"))
+        if genomic_contexts:
+            context_meta["genomic_contexts"] = genomic_contexts
         if context_gene_terms:
             context_meta["gene_terms"] = context_gene_terms
         if context_meta:
@@ -1086,12 +1114,22 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
     variants = item.get("variants", []) or []
     if variants:
         meta["variant_count"] = len(variants)
-    if item.get("type"):
-        meta["variant_type"] = item["type"]
+    variant_type = item.get("variant_type") or item.get("type")
+    if variant_type:
+        meta["variant_type"] = variant_type
+    if item.get("variant_type") and item.get("type"):
+        # The legacy field may carry useful detail beyond the static class.
+        legacy_type = str(item["type"]).replace("_", " ").strip().lower()
+        if legacy_type != str(item["variant_type"]).replace("_", " ").strip().lower():
+            meta["variant_type_detail"] = item["type"]
+    if item.get("genomic_contexts"):
+        meta["genomic_contexts"] = item["genomic_contexts"]
     if item.get("clinical_significance"):
         meta["clinical_significance"] = item["clinical_significance"]
     if item.get("regulatory_category"):
         meta["regulatory_category"] = item["regulatory_category"]
+    if item.get("mechanism_confidence"):
+        meta["mechanism_confidence"] = item["mechanism_confidence"]
 
     return meta
 

@@ -27,6 +27,9 @@ Claude Code skills are available in `.claude/skills/`:
 
 - **dismech-terms**: Use when selecting, validating, or repairing ontology bindings and term caches.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
+  Use when curating noncoding variant effects, including regulatory structural
+  variants, expression changes, and target-gene relationships.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
 - **extend-schema**: Use when adding, narrowing, deprecating, or removing a

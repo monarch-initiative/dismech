@@ -129,6 +129,8 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/PATO_'},
                   'PMID': {'prefix_prefix': 'PMID',
                            'prefix_reference': 'http://www.ncbi.nlm.nih.gov/pubmed/'},
+                  'SO': {'prefix_prefix': 'SO',
+                         'prefix_reference': 'http://purl.obolibrary.org/obo/SO_'},
                   'UBERON': {'prefix_prefix': 'UBERON',
                              'prefix_reference': 'http://purl.obolibrary.org/obo/UBERON_'},
                   'XCO': {'prefix_prefix': 'XCO',
@@ -3418,6 +3420,74 @@ class ClinicalSignificanceEnum(str, Enum):
     Uncertain_significance = "UNCERTAIN_SIGNIFICANCE"
     """
     Clinical significance of the variant is uncertain (ACMG class 3)
+    """
+
+
+class VariantTypeEnum(str, Enum):
+    """
+    Physical sequence alteration, independently of genomic location or functional consequence. Human-readable values map to Sequence Ontology. This is an optional classification alongside the legacy free-text type; it is not an exhaustive vocabulary for complex rearrangements.
+    """
+    single_nucleotide_variant = "single nucleotide variant"
+    """
+    SNV
+    """
+    deletion = "deletion"
+    """
+    deletion
+    """
+    insertion = "insertion"
+    """
+    insertion
+    """
+    duplication = "duplication"
+    """
+    duplication
+    """
+    inversion = "inversion"
+    """
+    inversion
+    """
+    translocation = "translocation"
+    """
+    translocation
+    """
+    copy_number_variation = "copy number variation"
+    """
+    copy_number_variation
+    """
+    short_tandem_repeat_expansion = "short tandem repeat expansion"
+    """
+    short_tandem_repeat_expansion
+    """
+
+
+class GenomicContextEnum(str, Enum):
+    """
+    Genomic features overlapped by a variant, independently of its functional effect. Values describe sequence features, not variant consequences. Contexts may overlap and are relative to the relevant gene or transcript; record those details in the variant description.
+    """
+    coding_sequence = "coding sequence"
+    """
+    CDS
+    """
+    intron = "intron"
+    """
+    intron
+    """
+    number_5APOSTROPHE_UTR = "5' UTR"
+    """
+    five_prime_UTR
+    """
+    number_3APOSTROPHE_UTR = "3' UTR"
+    """
+    three_prime_UTR
+    """
+    noncoding_exon = "noncoding exon"
+    """
+    noncoding_exon
+    """
+    intergenic_region = "intergenic region"
+    """
+    intergenic_region
     """
 
 
@@ -8825,7 +8895,7 @@ class SampleTypeDescriptor(Descriptor):
 
 class GeneticContext(ConfiguredBaseModel):
     """
-    A structured description of a genetic context that modifies phenotype frequency, severity, or presentation. Flexible enough to capture single genes, multiple genes, mutation types, zygosity, complementation groups, and complex genotypes. The description slot accommodates contexts that don't fit neatly into the structured fields (e.g., structural variants, complex rearrangements).
+    A structured description of a genetic context that modifies phenotype frequency, severity, or presentation. Flexible enough to capture single genes, multiple genes, mutation types, zygosity, complementation groups, and complex genotypes. The description slot accommodates contexts that don't fit neatly into the structured fields (e.g., structural variants, complex rearrangements). Physical variant class and sequence overlap use the same controlled fields as Variant. Separate alternative initiating alterations into distinct pathophysiology nodes when their classes or overlaps differ.
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
@@ -8843,7 +8913,9 @@ class GeneticContext(ConfiguredBaseModel):
                        'Pathophysiology',
                        'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
-    allele_type: Optional[str] = Field(default=None, description="""Type of allele or mutation (e.g., null, missense, splice_site, deletion, frameshift, nonsense, hypomorphic, structural_variant). Free text retained for legacy or unusually complex contexts. Prefer the structured `allelic_events`, `allelic_hit_role`, `variant_origin`, and `functional_impact_category` slots when possible.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
+    allele_type: Optional[str] = Field(default=None, description="""Type of allele or mutation (e.g., null, missense, splice_site, deletion, frameshift, nonsense, hypomorphic, structural_variant). Free text retained for legacy or unusually complex contexts. Prefer the structured `variant_type`, `genomic_contexts`, `allelic_events`, `allelic_hit_role`, `variant_origin`, and `functional_impact_category` slots when possible.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
+    variant_type: Optional[VariantTypeEnum] = Field(default=None, description="""Optional controlled physical variant class. Complements the legacy free-text type without requiring it or replacing its narrative detail. Does not imply a coding or regulatory functional effect.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext', 'Variant']} })
+    genomic_contexts: Optional[list[GenomicContextEnum]] = Field(default=None, description="""Sequence features overlapped by the variant. Multiple values are allowed because an SV may span several features, or transcripts may differ. Specify relevant genes, transcripts, and overlap details in description; an intronic host gene need not be the regulatory target. Omit when unknown.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext', 'Variant']} })
     variant_origin: Optional[VariantOriginEnum] = Field(default=None, description="""The origin of disease-associated variation in this gene (germline, somatic, de novo, or both). Bound to GENO allele origin terms.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext', 'Genetic'], 'examples': [{'value': 'SOMATIC'}]} })
     allelic_hit_role: Optional[AllelicHitRoleEnum] = Field(default=None, description="""Role of the alteration in a multi-hit mechanism, such as first hit, second hit, or biallelic inactivation.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
     allelic_events: Optional[list[AllelicEventEnum]] = Field(default=None, description="""Event types affecting the allele or locus. Multivalued so events such as deletion plus loss of heterozygosity can be composed without cross-product enum values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext']} })
@@ -15548,7 +15620,26 @@ class EpidemiologyInfo(ConfiguredBaseModel):
 
 
 class Pathophysiology(ConfiguredBaseModel):
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'regulatory_category': {'description': 'Controlled '
+                                                               'classification of the '
+                                                               'expression-effect '
+                                                               'claim represented by '
+                                                               'this node. Interpret '
+                                                               'together with '
+                                                               'mechanism_confidence: '
+                                                               'a HYPOTHETICAL node '
+                                                               'classifies a proposed '
+                                                               'effect, not an '
+                                                               'observed one. For '
+                                                               'regulatory SVs, '
+                                                               'annotate the target '
+                                                               'gene here rather than '
+                                                               'on the physical '
+                                                               'initiating lesion when '
+                                                               'its sequence is '
+                                                               'intact.',
+                                                'name': 'regulatory_category'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel',
                        'Experiment',
@@ -15871,6 +15962,7 @@ class Pathophysiology(ConfiguredBaseModel):
     mechanism_confidence: Optional[MechanismConfidenceEnum] = Field(default=None, description="""Level of confidence in this pathophysiology mechanism. If not specified, the mechanism is assumed to be established.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology']} })
     biological_scale: Optional[BiologicalScaleEnum] = Field(default=None, description="""Biological scale of the substrate this pathophysiology node primarily describes — molecular, cellular, tissue/organ, or organism. Optional tag; each value covers both ongoing processes and persistent states at that scale. See BiologicalScaleEnum for scope of each value and projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md for the design rationale.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology'],
          'examples': [{'value': 'MOLECULAR'}, {'value': 'TISSUE'}]} })
+    regulatory_category: Optional[RegulatoryVariantCategoryEnum] = Field(default=None, description="""Controlled classification of the expression-effect claim represented by this node. Interpret together with mechanism_confidence: a HYPOTHETICAL node classifies a proposed effect, not an observed one. For regulatory SVs, annotate the target gene here rather than on the physical initiating lesion when its sequence is intact.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Variant', 'FunctionalEffect']} })
 
 
 class Phenotype(ConfiguredBaseModel):
@@ -20077,6 +20169,7 @@ class Variant(ConfiguredBaseModel):
                        'LogicalCriterion',
                        'DifferentiatingMechanism'],
          'examples': [{'value': '{preferred_term: MEFV}'}]} })
+    regulatory_target_gene: Optional[GeneDescriptor] = Field(default=None, description="""Gene whose expression is affected, or proposed to be affected, by a regulatory variant. Does not assert that the variant overlaps this gene. Describe the expression effect and its uncertainty in functional_effects and evidence. A variant that also overlaps the gene may specify both gene and regulatory_target_gene.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Variant']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -20150,7 +20243,9 @@ class Variant(ConfiguredBaseModel):
     sequence_length: Optional[int] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant']} })
     clinical_significance: Optional[ClinicalSignificanceEnum] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant']} })
     type: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant', 'FunctionalEffect']} })
-    regulatory_category: Optional[RegulatoryVariantCategoryEnum] = Field(default=None, description="""Functional classification of a variant's impact on gene expression, using the LOE/mLOE/GOE framework (Cheng et al. 2024, PMID:38436667) or traditional coding categories (LOF/GOF/DN).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Variant', 'FunctionalEffect']} })
+    variant_type: Optional[VariantTypeEnum] = Field(default=None, description="""Optional controlled physical variant class. Complements the legacy free-text type without requiring it or replacing its narrative detail. Does not imply a coding or regulatory functional effect.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext', 'Variant']} })
+    genomic_contexts: Optional[list[GenomicContextEnum]] = Field(default=None, description="""Sequence features overlapped by the variant. Multiple values are allowed because an SV may span several features, or transcripts may differ. Specify relevant genes, transcripts, and overlap details in description; an intronic host gene need not be the regulatory target. Omit when unknown.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext', 'Variant']} })
+    regulatory_category: Optional[RegulatoryVariantCategoryEnum] = Field(default=None, description="""Functional classification of a variant's impact on gene expression, using the LOE/mLOE/GOE framework (Cheng et al. 2024, PMID:38436667) or traditional coding categories (LOF/GOF/DN).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Variant', 'FunctionalEffect']} })
 
 
 class FunctionalEffect(ConfiguredBaseModel):
