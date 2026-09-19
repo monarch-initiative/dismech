@@ -183056,6 +183056,111 @@ window.searchData = [
     "causal_graph_longest_path": "13"
   },
   {
+    "name": "Local Anesthetic Systemic Toxicity",
+    "disease_id": "MONDO:0100335",
+    "category": "Environmental",
+    "parents": [],
+    "creation_date": "2026-09-19T04:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Local anesthetic systemic toxicity is an acute drug toxicity that follows an excessive plasma concentration of a local anesthetic, usually after inadvertent intravascular injection, rapid absorption from a vascular tissue bed, or cumulative overdose during regional anesthesia. It affects the two tissues whose function depends most on fast sodium currents: the central nervous system and the heart.\nThe shared molecular action is blockade of voltage-gated sodium channels. In the cortex, inhibitory interneurons are silenced before excitatory pathways, so the first clinical picture is excitation - perioral numbness, tinnitus, agitation, then seizure - and only at higher concentrations does global conduction failure produce coma and apnoea. In the heart, blockade of Nav1.5 slows conduction and sets up reentrant ventricular arrhythmia, while a separate mitochondrial action impairs the myocardium's fatty acid fuel supply. The two arms converge on cardiovascular collapse.\nBupivacaine is the prototypical offender, and the reason is pharmacological rather than incidental: it accelerates the cardiac sodium channel's entry into slow inactivation, so blockade deepens with successive beats. Note that use-dependent block is a class property rather than something unique to bupivacaine - the electrophysiology paper cited below is explicit that this is \"consistent with other local anesthetics\" - and that the recent mortality literature reports lidocaine, not bupivacaine, as the leading reported cause of death attributed to this syndrome. Neither observation is curated as a claim here; both are reasons the prototypical-offender framing is a simplification.\nTreatment is unusual among toxidromes in having a specific antidote, intravenous lipid emulsion, whose mechanism remains unsettled. Incidence has fallen with ultrasound guidance, and the presentation has shifted: the classic progressive sequence described in textbooks fits only about three-fifths of published cases.",
+    "pathophysiology": [
+      "Systemic Local Anesthetic Exposure",
+      "Cortical GABAergic Interneuron Blockade",
+      "Cortical Disinhibition",
+      "Global Neuronal Conduction Failure",
+      "Cardiac Sodium Channel Blockade",
+      "Impaired Cardiac Impulse Conduction",
+      "Reentrant Ventricular Arrhythmia",
+      "Mitochondrial Carnitine-Acylcarnitine Translocase Inhibition",
+      "Myocardial Bioenergetic Failure",
+      "Myocardial Contractile Depression",
+      "Cardiovascular Collapse"
+    ],
+    "cell_types": [
+      "cortical GABAergic interneuron",
+      "neuron",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000617",
+      "CL:0000540",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "cardiac conduction",
+      "cardiac muscle cell action potential",
+      "carnitine shuttle",
+      "cardiac muscle contraction"
+    ],
+    "phenotypes": [
+      "Seizure",
+      "Agitation",
+      "Tinnitus",
+      "Dysarthria",
+      "Circumoral paresthesia",
+      "Metallic taste",
+      "Dizziness",
+      "Visual disturbance",
+      "Muscle twitching",
+      "Coma",
+      "Cardiac arrest",
+      "Cardiac conduction abnormality",
+      "Ventricular arrhythmia",
+      "Bradycardia",
+      "Hypotension"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0000713",
+      "HP:0000360",
+      "HP:0001260",
+      "HP:0003401",
+      "HP:0031249",
+      "HP:0002321",
+      "HP:0000504",
+      "HP:0002380",
+      "HP:0001259",
+      "HP:0001695",
+      "HP:0031546",
+      "HP:0004308",
+      "HP:0001662",
+      "HP:0002615"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SCN5A"
+    ],
+    "treatments": [
+      "Intravenous Lipid Emulsion",
+      "Airway Management and Ventilation",
+      "Supportive Care and Modified Resuscitation"
+    ],
+    "environmental": [
+      "Injection of local anesthetic for regional or local anesthesia"
+    ],
+    "biochemical": [],
+    "source_file": "Local_Anesthetic_Systemic_Toxicity.yaml",
+    "page_url": "../pages/disorders/Local_Anesthetic_Systemic_Toxicity.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Loeys-Dietz Syndrome",
     "disease_id": "MONDO:0018954",
     "category": "Mendelian",
@@ -315187,17 +315292,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3027,
+  "total_disorder_pages": 3028,
   "total_subtypes": 3773,
-  "total_disorders_and_subtypes": 6800,
-  "total_unique_evidence_sources": 43078,
-  "total_unique_publications": 40677,
+  "total_disorders_and_subtypes": 6801,
+  "total_unique_evidence_sources": 43097,
+  "total_unique_publications": 40696,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3022,
-  "total_unique_pathological_events": 18406,
+  "total_pathographs": 3023,
+  "total_unique_pathological_events": 18416,
   "total_modules": 177,
-  "total_research_reports": 3143,
+  "total_research_reports": 3144,
   "total_classifications": 19,
   "total_comorbidities": 46,
   "total_groupings": 102
