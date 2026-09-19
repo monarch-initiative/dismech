@@ -211,3 +211,32 @@ def test_cli_service_failure_is_recorded_not_classified(tmp_path, monkeypatch):
     assert record["error"] == "ReadTimeout"
     assert "result" not in record
     assert "sensitive" not in output.read_text()
+
+
+def test_direct_support_arms_only_differ_by_source_text():
+    from dismech.classifier.direct_support import direct_support_task
+
+    without = direct_support_task("X causes Y", "These patients had Y.")
+    with_source = direct_support_task(
+        "X causes Y",
+        "These patients had Y.",
+        "We studied patients with X. These patients had Y.",
+    )
+    assert without.instructions == with_source.instructions
+    assert without.criteria == with_source.criteria
+    assert without.version == with_source.version
+    assert without.state == {
+        k: v for k, v in with_source.state.items() if k != "source_text"
+    }
+    assert set(without.state) == {"claim", "snippet"}
+    assert "supports" not in with_source.state
+    assert "directness" not in with_source.state
+    assert with_source.state["source_text"].startswith("We studied")
+
+
+@pytest.mark.parametrize("args", [("", "quote"), ("claim", ""), ("claim", "quote", "")])
+def test_direct_support_rejects_empty_inputs(args):
+    from dismech.classifier.direct_support import direct_support_task
+
+    with pytest.raises(ValueError, match="nonempty"):
+        direct_support_task(*args)

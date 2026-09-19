@@ -62,6 +62,11 @@ prototype, not a whole-KB quality gate.
 
 ## Runs
 
+- [2026-09-19 source context](2026-09-19-source-context/FINDINGS.md): the simplified
+  direct-support question with versus without source text, 17 cases repeated
+  three times per arm. Use `direct_support_task(claim, snippet, source_text=None)`
+  from `dismech.classifier` for this task. `source_context.py` runs the paired
+  experiment; the original CLI above retains its annotation-aware task.
 - [2026-09-18](2026-09-18/FINDINGS.md): paired smoke test and two unmodified KB audits.
   Expected smoke-test labels were assigned by the implementing agent before the
   first run; they are not independently adjudicated ground truth.
