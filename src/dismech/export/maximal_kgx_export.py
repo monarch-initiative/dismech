@@ -193,6 +193,29 @@ def _grounding_edges(
             acc.add_edge(
                 node_id, "dismech:involves_gene", curie, "pathophysiology.gene", stem
             )
+        # genetic_context: the lesion behind this mechanism node. A distinct
+        # predicate (not involves_gene) so germline vs somatic drivers stay
+        # queryable — the variant origin and impact ride along as properties.
+        context = item.get("genetic_context")
+        if isinstance(context, dict):
+            descriptors = [context.get("gene"), *(context.get("genes") or [])]
+            for descriptor in descriptors:
+                got = _term(descriptor)
+                if not got:
+                    continue
+                curie, label = got
+                acc.add_node(curie, label, "biolink:Gene")
+                acc.add_edge(
+                    node_id,
+                    "dismech:has_causal_variant_in",
+                    curie,
+                    "pathophysiology.genetic_context",
+                    stem,
+                    variant_origin=context.get("variant_origin"),
+                    functional_impact_category=context.get(
+                        "functional_impact_category"
+                    ),
+                )
         return
 
     if section == "treatments":

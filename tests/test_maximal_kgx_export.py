@@ -12,6 +12,18 @@ DISORDER = {
     "disease_term": {"term": {"id": "MONDO:0000001", "label": "test disease"}},
     "pathophysiology": [
         {
+            "name": "KRAS Oncogene Activation",
+            "genetic_context": {
+                "variant_origin": "SOMATIC",
+                "functional_impact_category": "GAIN_OF_FUNCTION",
+                "gene": {
+                    "preferred_term": "KRAS",
+                    "term": {"id": "hgnc:6407", "label": "KRAS"},
+                },
+            },
+            "downstream": [{"target": "Fibrosis"}],
+        },
+        {
             "name": "Mesenchymal Cell Activation",
             "conforms_to": "fibrotic_response#Mesenchymal Cell Activation",
             "cell_types": [
@@ -59,6 +71,16 @@ def test_process_entry_promotes_pathograph_nodes():
         "dismech:conforms_to",
         pathophysiology_node_id("fibrotic_response", "Mesenchymal Cell Activation"),
     ) in triples
+
+
+def test_genetic_context_exports_with_variant_origin():
+    acc = GraphAccumulator()
+    process_entry(acc, "Test_Disease", DISORDER, "disorder")
+    kras_node = pathophysiology_node_id("Test_Disease", "KRAS Oncogene Activation")
+    edge = acc.edges[(kras_node, "dismech:has_causal_variant_in", "hgnc:6407")]
+    assert edge["variant_origin"] == "SOMATIC"
+    assert edge["functional_impact_category"] == "GAIN_OF_FUNCTION"
+    assert acc.nodes["hgnc:6407"]["category"] == ["biolink:Gene"]
 
 
 def test_process_entry_grounds_phenotypes_and_subtypes():
