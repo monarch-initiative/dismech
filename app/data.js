@@ -87514,6 +87514,8 @@ window.searchData = [
     "genes": [
       "SF3B2",
       "FOXI3",
+      "GBX2",
+      "SHROOM3",
       "MYT1",
       "EDNRB"
     ],
@@ -87536,9 +87538,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Craniofacial_Microsomia.html",
     "num_phenotypes": 20,
     "num_pathophysiology": 7,
-    "num_genes": 4,
+    "num_genes": 6,
     "num_treatments": 7,
-    "causal_graph_edges": "30",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "5"
   },
   {
@@ -88112,8 +88114,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Crohn Disease",
@@ -90195,7 +90197,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "88",
+    "causal_graph_edges": "89",
     "causal_graph_longest_path": "6"
   },
   {
@@ -97350,11 +97352,17 @@ window.searchData = [
     ],
     "description": "Diabetes mellitus is a heterogeneous group of disorders characterized by chronic hyperglycemia due to defects in insulin secretion, insulin action, or both.",
     "pathophysiology": [
+      "Monogenic Beta-Cell Dysfunction",
       "Chronic Hyperglycemia (shared diabetic complication cascade)"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "pancreatic beta cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000169"
+    ],
     "biological_processes": [
+      "insulin secretion",
       "glucose homeostasis"
     ],
     "phenotypes": [
@@ -97441,7 +97449,16 @@ window.searchData = [
       "WFS1",
       "ALMS1",
       "CISD2",
-      "SLC19A2"
+      "SLC19A2",
+      "PDX1",
+      "NEUROD1",
+      "CEL",
+      "INS (monogenic beta-cell defect)",
+      "RFX6",
+      "KLF11",
+      "PAX4",
+      "BLK",
+      "APPL1"
     ],
     "treatments": [
       "Insulin therapy",
@@ -97473,11 +97490,11 @@ window.searchData = [
     "source_file": "Diabetes_Mellitus.yaml",
     "page_url": "../pages/disorders/Diabetes_mellitus.html",
     "num_phenotypes": 18,
-    "num_pathophysiology": 1,
-    "num_genes": 20,
+    "num_pathophysiology": 2,
+    "num_genes": 29,
     "num_treatments": 10,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Diabetic Retinopathy",
@@ -98213,6 +98230,124 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Diethylene Glycol Poisoning",
+    "disease_id": null,
+    "category": "Environmental",
+    "parents": [],
+    "creation_date": "2026-09-19T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Diethylene glycol poisoning is an acute toxic nephropathy with delayed neurological sequelae, caused by ingestion of diethylene glycol - a sweet, viscous industrial solvent and humectant. Almost every large outbreak has been a pharmaceutical mass poisoning in which diethylene glycol was substituted, as a cheaper adulterant, for pharmaceutical grade glycerin or propylene glycol in a liquid medicine. Diethylene glycol itself is not the toxicant. It is oxidised by alcohol and aldehyde dehydrogenase to 2-hydroxyethoxyacetic acid and then to diglycolic acid, and it is diglycolic acid - a close structural mimic of the citric acid cycle dicarboxylate succinate - that is carried into renal proximal tubular cells by the transporters that normally reclaim succinate, is poorly effluxed once inside, and inhibits mitochondrial complex II. The resulting ATP depletion produces proximal tubular necrosis rather than apoptosis, and the swollen necrotic epithelium obstructs the tubular lumen, giving the anuric acute kidney injury that defines the syndrome. Survivors of the renal phase may develop a distinct delayed neurological syndrome of cranial neuropathies - bilateral facial palsy is the classic finding - bulbar palsy, and a sensorimotor polyneuropathy. The cited sources do not agree on how delayed: one case series places the cranial neuropathies in the second week after ingestion, while a rat study's review of the human literature reports onset at two to seven days.",
+    "pathophysiology": [
+      "Systemic Diethylene Glycol Exposure",
+      "Alcohol Dehydrogenase Oxidation of Diethylene Glycol",
+      "2-Hydroxyethoxyacetic Acid Formation",
+      "Diglycolic Acid Formation",
+      "Dicarboxylate Transporter-Mediated Renal Uptake",
+      "Intracellular Diglycolic Acid Trapping",
+      "Renal Mitochondrial Complex II Inhibition",
+      "Proximal Tubular ATP Depletion and Necrosis",
+      "Tubular Luminal Obstruction",
+      "Organic Acid Accumulation",
+      "Neuronal Mitochondrial Complex II Inhibition"
+    ],
+    "cell_types": [
+      "renal proximal tubular epithelial cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0002306",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "dicarboxylic acid transport",
+      "mitochondrial depolarization",
+      "ATP biosynthetic process"
+    ],
+    "phenotypes": [
+      "Gastrointestinal prodrome",
+      "Acute kidney injury",
+      "Anuria",
+      "Metabolic acidosis",
+      "Facial palsy",
+      "Limb muscle weakness",
+      "Autonomic dysfunction",
+      "Bulbar palsy",
+      "Sensorimotor neuropathy",
+      "Encephalopathy",
+      "Cerebral edema",
+      "Tetraparesis",
+      "Optic neuropathy",
+      "Hypertension",
+      "Hepatic failure",
+      "Seizure",
+      "Gastrointestinal hemorrhage"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Renal",
+      "Metabolic",
+      "Neurologic",
+      "Ophthalmologic",
+      "Cardiovascular",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002017",
+      "HP:0001919",
+      "HP:0100519",
+      "HP:0001942",
+      "HP:0430025",
+      "HP:0003690",
+      "HP:0012332",
+      "HP:0001283",
+      "HP:0007141",
+      "HP:0001298",
+      "HP:0002181",
+      "HP:0002273",
+      "HP:0001138",
+      "HP:0000822",
+      "HP:0001399",
+      "HP:0001250",
+      "HP:0002239"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Fomepizole",
+      "Ethanol",
+      "Supportive correction of the metabolic acidosis",
+      "Hemodialysis"
+    ],
+    "environmental": [
+      "Ingestion of a liquid medicine adulterated with diethylene glycol"
+    ],
+    "biochemical": [],
+    "source_file": "Diethylene_Glycol_Poisoning.yaml",
+    "page_url": "../pages/disorders/Diethylene_Glycol_Poisoning.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Dieulafoy Lesion",
@@ -316143,17 +316278,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3035,
+  "total_disorder_pages": 3036,
   "total_subtypes": 3773,
-  "total_disorders_and_subtypes": 6808,
-  "total_unique_evidence_sources": 43169,
-  "total_unique_publications": 40768,
+  "total_disorders_and_subtypes": 6809,
+  "total_unique_evidence_sources": 43209,
+  "total_unique_publications": 40808,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3030,
-  "total_unique_pathological_events": 18470,
+  "total_pathographs": 3031,
+  "total_unique_pathological_events": 18482,
   "total_modules": 177,
-  "total_research_reports": 3149,
+  "total_research_reports": 3150,
   "total_classifications": 19,
   "total_comorbidities": 46,
   "total_groupings": 102
