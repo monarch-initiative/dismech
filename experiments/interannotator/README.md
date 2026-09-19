@@ -9,6 +9,7 @@ where the two versions agree.
 | Study | Disease | Curators | Phenotype agreement (strict / subsumption-aware) | Band agreement |
 |---|---|---|---|---|
 | [`FG_Syndrome_1/`](FG_Syndrome_1/) | FG syndrome 1 (`MONDO:0010590`) | A: merged [#7254](https://github.com/monarch-initiative/dismech/pull/7254) · B: independent | 0.484 / 0.766–0.812 | 25/31 = 0.806 |
+| [`Rienhoff_Syndrome/`](Rienhoff_Syndrome/) | Rienhoff syndrome (`MONDO:0014262`) | A: merged [#7345](https://github.com/monarch-initiative/dismech/pull/7345) post-#7228 · B: closed [#7322](https://github.com/monarch-initiative/dismech/pull/7322) (MAXO→NCIT remapped for metrics) | 0.531 / 0.840–0.833 | 14/17 = 0.824 |
 
 ## Layout
 
@@ -85,3 +86,15 @@ Findings that generalise beyond a single disease. Add to this as studies accumul
   checks whether a snippet supports its claim; it is far less likely to notice
   that a better, more specific source exists and was not cited. That class of
   defect survived three review rounds and an approval in the FG syndrome 1 study.
+
+- **Shared mechanism modules inflate pathograph agreement.** When both curators
+  independently `conforms_to` the same module (Rienhoff → `aortopathy_tgfbeta_dysregulation`),
+  terminal node names and the aortopathy chain converge for institutional reasons, not
+  free invention. Score module-scaffolded arms separately from disease-specific nodes.
+- **Accidental dual curation can be a cleaner natural experiment than a planned re-curation.**
+  Rienhoff's two same-day PRs (#7322 and #7345) show no evidence of cross-reading and
+  better independence than FG, where curator B had read A's PR description. Still record
+  shared scaffolding (GeneReviews, modules) honestly.
+- **Ontology-era mismatch needs an explicit remap step.** B was MAXO-era; A was post-#7228
+  NCIT. Keep the original snapshot, mechanically remap with the project map for id-level
+  metrics, and never compute treatment Jaccard across mixed vocabularies.
