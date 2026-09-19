@@ -903,7 +903,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1379,6 +1379,17 @@ update-causal-target-baseline:
 [group('QC')]
 list-disconnected-phenotypes *args="":
     uv run python scripts/check_disconnected_phenotypes.py {{args}}
+
+# Infectious-disease entries against the granularity ladder (design decisions
+# §3e, issue #10115): deterministic classes (missing/unbound agent, missing
+# transmission, rung-0 anchor, double modelling, shared anchor, pathotype
+# collapse, dangling `curated_in` pointer) and advisory ones (undecided lumps,
+# unbound subtypes, no progression, lifecycle prompts). Report-only, exit 0;
+# `--strict` gates the deterministic classes, `--scope all` runs the
+# cross-entry classes KB-wide. See docs/quality-control.md.
+[group('QC')]
+check-granularity *args="":
+    uv run python scripts/check_granularity.py {{args}}
 
 # Derive each neoplasm entry's cell of origin from its own pathograph, and
 # report where the derivation fails. There is no `cell_of_origin:` slot: a node
