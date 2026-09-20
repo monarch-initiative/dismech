@@ -3412,6 +3412,52 @@ window.searchData = [
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
   },
   {
+    "model_key": "Rosacea--computational-model-rosacea-innate-immune-axis-boolean-model--0",
+    "name": "Rosacea Innate-Immune Axis Boolean Model",
+    "description": "A synchronous Boolean network of the cutaneous innate-immune arm of rosacea: barrier impairment and Demodex proliferation through pro-cathelicidin transcription, TLR2, KLK5/KLK7 and LL-37 to the inflammasome, mast-cell, Th1/Th17 and angiogenic branches, and on to the vascular and papulopustular phenotypes. Authored in this repository rather than curated from a publication, because no Boolean, logical or other dynamical model of rosacea has been published; PubMed returns nothing for rosacea combined with Boolean network, logical model, agent-based or mathematical model, and the computational rosacea literature is entirely network pharmacology and molecular docking. Every node maps to a pathophysiology, environmental, treatment or phenotype node in this entry, and every rule transcribes causal edges curated here, so the model asserts no biology of its own: it makes the curated chain executable, so that what the chain implies can be derived instead of argued. Nothing in it is fitted to data.",
+    "model_type": "Boolean Network",
+    "model_type_raw": "BOOLEAN_NETWORK",
+    "model_format": "Boolean rule specification (YAML)",
+    "model_software": "Python (standard library and PyYAML)",
+    "base_model": "",
+    "model_id": "rosacea_innate_boolean",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Rosacea",
+    "disease_id": "MONDO:0006604",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Skin Disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Papulopustular inflammation",
+      "Neurovascular vasodilation"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "No combination of the interventions that can be grounded in this entry switches off the papulopustular phenotype in the model.",
+      "Removing mites alone clears only telangiectasia in the model, which overstates what an acaricide does to the cathelicidin axis.",
+      "The erythematotelangiectatic scenario produces papules and pustules, which is clinically wrong and exposes the absence of subtype gating in the curated graph."
+    ],
+    "num_findings": 3,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Spec models/rosacea_innate_boolean.yaml, runner models/rosacea_innate_boolean.py, committed results models/rosacea_innate_boolean.results.json. Regenerate with `uv run python models/rosacea_innate_boolean.py`; `--check` fails if the committed results are stale and `--print` shows the summary. The runner is deterministic, uses only the standard library and PyYAML, and parses the rule language rather than calling eval. NOT wired to dismech-perturb and deliberately given no models/rosacea_innate_boolean.config.yaml: that runner executes SBML through tellurium and cannot run a logical network, so the model is correctly reported as not runnable in-repo by the models browser. The spec records, per rule, which curated edges it encodes and which Boolean choices (the AND at LL-37 generation, the ORs elsewhere) the edge list did not itself determine.",
+    "creation_date": "2026-04-05T12:00:00Z",
+    "page_url": "../../pages/disorders/Rosacea.html#computational-model-rosacea-innate-immune-axis-boolean-model",
+    "source_file": "kb/disorders/Rosacea.yaml"
+  },
+  {
     "model_key": "Cystic_Fibrosis--computational-model-sandefur-purinergic-model-of-airway-surface-liquid-homeostasis--1",
     "name": "Sandefur purinergic model of airway-surface-liquid homeostasis",
     "description": "Systems model coupling epithelial ion and water transport to extracellular ATP and adenosine signaling. Fifteen ODEs represent baseline ASL homeostasis; a 23-equation extension simulates prolonged low-dose P2Y2-agonist delivery.",
@@ -4854,8 +4900,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 103,
-  "total_source_entries": 40,
+  "total_models": 104,
+  "total_source_entries": 41,
   "total_model_types": 8,
   "total_runnable": 4,
   "total_with_repository": 43

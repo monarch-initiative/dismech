@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ricin Poisoning · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Ricin Poisoning</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Ricin Poisoning</h1>
+                
+                <p class="report-subtitle">Ricin Poisoning: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-17</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0035511" target="_blank" rel="noopener noreferrer">MONDO:0035511</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">62 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Ricin Poisoning: Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>Ricin poisoning is an acute, potentially life-threatening toxidrome caused by exposure — via ingestion, inhalation, injection, or (rarely) ocular/dermal contact — to ricin, a highly potent ribosome-inactivating protein (RIP) lectin found in the seeds ("castor beans") of <em>Ricinus communis</em> L. (family Euphorbiaceae), the castor oil plant. The condition is not a genetic disease but an environmentally/intentionally acquired <strong>toxin-mediated cellular injury syndrome</strong>: a single ricin molecule reaching the cytosol can inactivate ribosomes at a rate of ~1,500 per minute and is considered potentially lethal to that cell <a href="https://www.ncbi.nlm.nih.gov/books/NBK441948/">StatPearls NBK441948</a>. Clinical severity and organ pattern depend heavily on the route of exposure, with inhalation being the most toxic route per unit dose, followed by parenteral injection, then ingestion <a href="https://rarediseases.org/mondo-disease/ricin-poisoning/">StatPearls; NORD</a>.</p>
+<p>Ricin is produced as a defensive protein in the endosperm of castor seeds; the waste "mash" remaining after industrial extraction of castor oil (used for lubricants, biodiesel, and pharmaceutical excipients) contains approximately 5% ricin by weight, making it a large-scale, low-cost byproduct with genuine dual-use/bioterrorism concern <a href="https://www.cdc.gov/chemical-emergencies/chemical-fact-sheets/ricin.html">StatPearls; CDC</a>. Ricin is one of the most acutely toxic substances known — reported to be roughly 400× more toxic than cobra venom, 1,000× more toxic than cyanide, and 4,000× more toxic than arsenic on a molar/weight basis [WebSearch synthesis of toxicology reviews].</p>
+<h3>Key Identifiers</h3>
+<ul>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0035511" target="_blank" rel="noopener noreferrer">MONDO:0035511</a> (ricin poisoning) — as provided in the task; cross-referenced by NORD/<a href="https://rarediseases.org/mondo-disease/ricin-poisoning/">rarediseases.org MONDO page</a> and MalaCards (<a href="https://www.malacards.org/card/ricin_poisoning">Ricin Poisoning – MalaCards</a>).</li>
+<li><strong>ICD-10-CM:</strong> T62.2X– series ("Toxic effect of other ingested (parts of) plant(s)"), with 5th/6th/7th-character modifiers for intent (accidental T62.2X1–, intentional self-harm T62.2X2–, assault T62.2X3–, undetermined T62.2X4–) and encounter type (initial A, subsequent D, sequela S) <a href="https://icdlist.com/icd-10/T62.2X1A">ICD List</a>. No dedicated ICD-10 code exists specifically for "ricin" as distinct from generic plant-toxin ingestion; inhalational/parenteral ricin exposure would code under the corresponding T-code sections for those routes (curators should verify per current ICD-10-CM/ICD-11 tabular index rather than relying on T62.2 alone for non-oral routes).</li>
+<li><strong>CDC Select Agent status:</strong> Ricin toxin is a <strong>CDC Category B bioterrorism agent</strong> and is listed as a <strong>Schedule 1 toxic chemical under the Chemical Weapons Convention</strong> [WebSearch synthesis; CDC/NIOSH].</li>
+<li><strong>CHEBI:</strong> A specific curator-verified CHEBI accession for ricin (the ~65 kDa heterodimeric holotoxin) was <strong>not confirmed</strong> through available web search in this session — ChEBI is queryable at ebi.ac.uk/chebi, but no authoritative ID could be extracted from search snippets alone. <strong>This should be verified directly via OAK/ChEBI lookup before binding any CHEBI CURIE</strong> (per the project's "never write an ontology identifier from memory" rule).</li>
+<li><strong>NCIT:</strong> Not confirmed from search results; verify via <code>runoak -i sqlite:obo:ncit search "ricin"</code> for the correct term prior to binding.</li>
+<li><strong>Structural biology:</strong> Ricin is a ~65 kDa disulfide-linked AB-toxin glycoprotein: the <strong>A chain (RTA, ~32 kDa)</strong> is the catalytic N-glycosidase; the <strong>B chain (RTB, ~34 kDa)</strong> is a galactose/N-acetylgalactosamine-specific lectin. Isoforms D and E have been characterized <a href="https://doi.org/10.3390/toxins15020100">Medical Countermeasures against Ricin Intoxication, <em>Toxins</em> 2023, doi:10.3390/toxins15020100</a>; <a href="https://www.mdpi.com/2072-6651/16/10/412">A Monoclonal Antibody with High Affinity for Ricin Isoforms D and E, <em>Toxins</em> 2024</a>.</li>
+</ul>
+<h3>Synonyms / Alternative Names</h3>
+<p>Ricin toxin; castor bean toxin; <em>Ricinus communis</em> agglutinin II (RCA-II, to distinguish the toxic lectin from the non-toxic agglutinin RCA-I); "the perfect poison" (media/forensic shorthand); castor bean poisoning; ricinus toxicosis (veterinary usage).</p>
+<h3>Data Provenance</h3>
+<p>Information here derives from aggregated disease-level literature — case reports/series, systematic reviews, toxicology textbooks (StatPearls), CDC/NIOSH/OSHA fact sheets, and mechanistic bench-science publications — rather than a single large EHR cohort. No dedicated disease registry or large aggregated-EHR cohort for ricin poisoning was identified; most epidemiological and clinical-course data come from individual case reports, small case series, forensic/medico-legal case compilations, and animal-model extrapolation.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factor</h3>
+<p>Ricin poisoning has a single, well-defined <strong>toxicological (non-genetic, non-infectious) etiology</strong>: exposure to ricin protein, either from crude castor-seed material (chewed/crushed seeds, seed mash, homemade extracts) or from purified/semi-purified ricin preparations (forensic/bioterrorism scenarios). As few as <strong>two chewed castor seeds</strong> can cause toxicity in a child, although some adult patients have survived ingesting up to 30 seeds because intact (unchewed) seed coats resist digestion and pass through the GI tract without releasing ricin <a href="https://www.ncbi.nlm.nih.gov/books/NBK441948/">StatPearls NBK441948</a>.</p>
+<h3>Risk Factors</h3>
+<p><strong>Environmental/exposure risk factors (the dominant causal axis for this entry):</strong>
+- Occupational exposure in castor-oil processing facilities (seed handling, mash disposal)
+- Deliberate/criminal exposure (bioterrorism, assassination, self-harm) — historically documented incidents include the 1978 Georgi Markov assassination (injected ricin-laden pellet), the 2003/2004 White House and Senate mail incidents, and the 2013 letters mailed to President Obama and others <a href="https://www.fbi.gov/contact-us/field-offices/newyork/news/press-releases/manhattan-u.s.-attorney-and-fbi-assistant-director-announce-arrest-of-new-york-man-for-attempting-to-acquire-deadly-toxin-ricin">Wikipedia: List of incidents involving ricin; FBI press releases</a>
+- Accidental pediatric ingestion of ornamental castor bean plant seeds (castor bean is a common ornamental/landscaping plant)
+- Ingestion of adulterated herbal remedies containing castor bean material
+- Route of exposure itself strongly modifies risk: inhalation LD (5–10 µg/kg) &lt;&lt; injection &lt;&lt; ingestion (1–20 mg/kg) [StatPearls]
+- Age: pediatric patients are at higher risk from smaller absolute seed quantities due to lower body weight and greater likelihood of exploratory ingestion</p>
+<p><strong>Genetic/host risk and modifying factors (mechanistic, not classic Mendelian susceptibility):</strong>
+- A genome-wide mammalian genetic-interaction screen identified ~200 host factors that sensitize or protect cells from ricin, clustering around the retrograde-transport pathway, ribosome biogenesis, and cholesterol biosynthesis (HMG-CoA reductase inhibitors dose-dependently protect ricin-exposed cells) <a href="https://www.cell.com/fulltext/S0092-8674(13)00082-2">A Systematic Mammalian Genetic Interaction Map Reveals Pathways Underlying Ricin Susceptibility, <em>Cell</em> 2013</a>
+- Cell-surface glycosylation state modulates susceptibility: inactivation of the sialyltransferase responsible for Lewis X modification increases ricin sensitivity, while its overexpression confers relative resistance — i.e., host glycan "sugar code" is a documented modifier of cellular vulnerability <a href="https://www.nature.com/articles/cr2017116">A vital sugar code for ricin toxicity, <em>Cell Research</em> 2017</a>
+- No human Mendelian susceptibility locus or population-level genetic risk variant for ricin poisoning has been established in the literature surveyed; this is fundamentally an acute environmental exposure, not a heritable disease.</p>
+<p><strong>Protective factors:</strong>
+- Active immunization (RiVax/RVEc vaccines — see Treatment/Prevention) confers antibody-mediated protection in vaccinated individuals
+- Passive immunization with neutralizing anti-ricin monoclonal antibodies administered pre- or shortly post-exposure
+- Small-molecule retrograde-transport inhibitors (Retro-2) in preclinical models
+- HMGCR inhibitors (statins) show in vitro protective effects against ricin cytotoxicity, an unconfirmed but mechanistically plausible protective lead
+- Unbroken/unchewed seed coat (intact castor seeds largely resist gastric digestion, limiting toxin release)</p>
+<h3>Gene-Environment Interaction</h3>
+<p>There is no established classical gene-environment interaction for human disease susceptibility to ricin analogous to pharmacogenomic drug-metabolism variability. The closest documented analog is the cell-intrinsic host-factor network above (glycosylation machinery, retrograde-transport genes, cholesterol biosynthesis genes) that determines cellular — not organismal — susceptibility in experimental systems, which is a mechanistic rather than epidemiological GxE finding.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Ricin poisoning phenotypes are strongly <strong>route-dependent</strong>. All are acute-onset (minutes to ~24 hours), non-progressive in a chronic sense (the condition either resolves with supportive care or evolves to multi-organ failure/death over days), and none currently have HPO frequency data (this is an acute toxidrome, not a chronic Mendelian phenotype set, so classic HPO frequency percentages from cohort studies are largely unavailable — most frequency information below is qualitative/case-series-derived).</p>
+<h3>A. Ingestion (oral) route</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HP term</th>
+<th>Onset/Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nausea</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" rel="noopener noreferrer">HP:0002018</a> Nausea</td>
+<td>Onset 15 min–20 h post-ingestion</td>
+</tr>
+<tr>
+<td>Vomiting</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a> Vomiting</td>
+<td>Early, prominent</td>
+</tr>
+<tr>
+<td>Diarrhea (often hemorrhagic)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> Diarrhea</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Abdominal pain / colic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> Abdominal pain</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Hematemesis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002248" target="_blank" rel="noopener noreferrer">HP:0002248</a> Hematemesis (or closest available HPO term)</td>
+<td>Indicates GI mucosal necrosis</td>
+</tr>
+<tr>
+<td>Melena</td>
+<td>(search for closest HP GI-bleeding term)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Hepatic necrosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" rel="noopener noreferrer">HP:0001395</a> Hepatic necrosis (verify exact term)</td>
+<td>Multi-organ target</td>
+</tr>
+<tr>
+<td>Renal tubular necrosis / acute kidney injury</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" rel="noopener noreferrer">HP:0000083</a> Renal insufficiency / acute tubular necrosis term</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Splenic necrosis</td>
+<td>(verify HPO term)</td>
+<td>Reported at autopsy in fatal cases</td>
+</tr>
+<tr>
+<td>Hypovolemic shock</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0032263" target="_blank" rel="noopener noreferrer">HP:0032263</a> or closest shock term</td>
+<td>Late-stage</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11363666/">StatPersk; Ricin intoxication by lethal dose of castor seeds ingestion: a case report, <em>PMC</em> 2024</a></p>
+<h3>B. Inhalation route</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HP term</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cough</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a> Cough</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Wheezing</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" rel="noopener noreferrer">HP:0030828</a> Wheezing</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Dyspnea</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> Dyspnea</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Sore throat / pharyngeal congestion</td>
+<td>(verify HP term)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Fever</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> Fever</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Chest tightness</td>
+<td>(verify HP term)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Diaphoresis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" rel="noopener noreferrer">HP:0000975</a> (verify)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Pulmonary edema</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100598" target="_blank" rel="noopener noreferrer">HP:0100598</a> Pulmonary edema</td>
+<td>Onset within hours</td>
+</tr>
+<tr>
+<td>Interstitial pneumonia / necrotizing pneumonia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006515" target="_blank" rel="noopener noreferrer">HP:0006515</a> (verify)</td>
+<td>Documented in animal inhalation models and human case reports</td>
+</tr>
+<tr>
+<td>Respiratory failure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" rel="noopener noreferrer">HP:0002878</a> Respiratory failure</td>
+<td>Terminal event in severe cases</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Animal inhalation-model pathology corroborates the human picture: mice exposed to sublethal inhaled ricin show "marked interstitial pneumonia, neutrophil infiltration, pro-inflammatory cytokine response, alveolar macrophage and alveolar epithelial type II cell death and edema" over days 1–7, with residual peribronchial/perivascular inflammation, alveolar wall thickening, and possible mild fibrosis of respiratory bronchioles by day 34–96 <a href="https://www.nature.com/articles/s41598-024-62222-9">Short- and long-term outcomes of pulmonary exposure to a sublethal dose of ricin in mice, <em>Scientific Reports</em> 2024</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10145923/">Comparative Aspects of Ricin Toxicity by Inhalation, <em>Toxins</em> 2023</a>.</p>
+<h3>C. Injection/parenteral route</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HP term</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Localized erythema/induration at injection site</td>
+<td>(verify HP term)</td>
+<td>Immediate</td>
+</tr>
+<tr>
+<td>Blistering</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" rel="noopener noreferrer">HP:0008066</a> Bullous skin lesions (verify closest)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Capillary leak syndrome</td>
+<td>(search HP; may need free text)</td>
+<td>Systemic vascular injury</td>
+</tr>
+<tr>
+<td>Localized tissue necrosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031630" target="_blank" rel="noopener noreferrer">HP:0031630</a> or verify</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Coagulopathy / prolonged PT-APTT</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001928" target="_blank" rel="noopener noreferrer">HP:0001928</a> Abnormal coagulation</td>
+<td>Documented in mouse/swine IM models</td>
+</tr>
+<tr>
+<td>Thrombocytopenia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a> Thrombocytopenia</td>
+<td>4–5-fold platelet decrease by 48–72h in mouse IM models</td>
+</tr>
+<tr>
+<td>Shock</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Multi-organ failure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001626" target="_blank" rel="noopener noreferrer">HP:0001626</a> (cardiac) plus organ-specific terms</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The classic Markov-case clinical course: "pain developed immediately at the injection site, weakness developed within 5 hours, fever and vomiting developed within 24 hours, followed by shock and multi-organ failure, and death within 3 days" <a href="https://www.researchgate.net/publication/23781130_Ricin_and_the_Assassination_of_Georgi_Markov">Ricin and the Assassination of Georgi Markov</a>.</p>
+<h3>D. Systemic / laboratory phenotypes (multiple routes)</h3>
+<ul>
+<li><strong>Hypoglycemia</strong>: parenteral ricin exposure in mice induces fatal hypoglycemia via cytokine-mediated suppression of hepatic glucose-6-phosphatase expression <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9786807/">Parenteral Exposure of Mice to Ricin Toxin Induces Fatal Hypoglycemia by Cytokine-Mediated Suppression of Hepatic Glucose-6-Phosphatase Expression, <em>PMC</em> 2022</a> — a plausible-but-model-organism-only finding (evidence_source: MODEL_ORGANISM)</li>
+<li><strong>Cytokine storm</strong>: sudden acute rise in circulating pro-inflammatory cytokines (TNF-α rises early/rapidly; IL-6, IL-1, IFN-γ, IL-17 rise later, if at all) <a href="https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2022.900755/xml">Frontiers in Immunology 2022</a></li>
+<li><strong>Endothelial glycocalyx shedding</strong>: elevated soluble heparan sulfate, hyaluronic acid, and syndecan-1 in blood, with microvascular flow abnormality <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8618821/">Intramuscular Exposure to a Lethal Dose of Ricin Toxin Leads to Endothelial Glycocalyx Shedding, <em>PMC</em> 2021</a></li>
+<li><strong>Leukocytosis, electrolyte abnormalities, hepatic/renal failure markers</strong> on routine labs [StatPearls]</li>
+</ul>
+<h3>Quality of Life Impact</h3>
+<p>Acute survivors generally recover fully with no long-term sequelae if supportive care is prompt (see Prognosis); however, animal inhalation models show residual pulmonary fibrosis and inflammatory changes persisting for weeks to months after sublethal exposure, raising the possibility of long-term respiratory impairment in inhalation survivors — no dedicated human quality-of-life instrument data (EQ-5D/SF-36) for ricin-poisoning survivors were identified in this search.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Ricin poisoning has no causal human gene</strong> — it is a toxin-exposure syndrome, not an inherited disease. This section is therefore reframed around the toxin's own molecular biology and the host genes it acts on/through, rather than a human disease-gene table.</p>
+<h3>The toxin's own molecular identity (source organism: <em>Ricinus communis</em>, not human)</h3>
+<ul>
+<li>Ricin is encoded by a gene family in castor bean; the mature protein is ~65 kDa, two chains (RTA ~32 kDa, RTB ~34 kDa) joined by a single disulfide bond <a href="https://www.sciencedirect.com/topics/biochemistry-genetics-and-molecular-biology/ricin">ScienceDirect Topics: Ricin overview</a></li>
+<li>RTA is a <strong>type II ribosome-inactivating protein (RIP)</strong> N-glycosidase (EC 3.2.2.22)</li>
+<li>Isoforms D and E have been distinguished serologically, with isoform-specific monoclonal antibodies now characterized <a href="https://www.mdpi.com/2072-6651/16/10/412"><em>Toxins</em> 2024</a></li>
+</ul>
+<h3>Host genes/targets relevant to mechanism (for <code>genetic:</code> or <code>biological_processes</code> annotation purposes, not as causal disease genes)</h3>
+<ul>
+<li><strong>Ricin's molecular target:</strong> a single, universally conserved adenine (<strong>A4324</strong> in humans) within the <strong>sarcin-ricin loop (SRL)</strong> of <strong>28S rRNA</strong>, in the GAGA tetraloop motif — this is an RNA target, not a protein-coding gene, but is essential to describing mechanism</li>
+<li><strong>ASNA1/TRC40</strong>: mediates ER-targeting/insertion of tail-anchored proteins; required for ricin's translocation route and is the target of the protective small molecule Retro-2 <a href="https://elifesciences.org/articles/48434">Retro-2 protects cells from ricin toxicity by inhibiting ASNA1-mediated ER targeting, <em>eLife</em> 2019</a></li>
+<li><strong>HMGCR</strong> (HMG-CoA reductase): cholesterol-biosynthesis pathway gene whose inhibition (statins) protects cells from ricin in vitro [<em>Cell</em> 2013 genetic interaction map]</li>
+<li>Sialyltransferase genes controlling Lewis X modification: loss increases ricin sensitivity in cellular models [<em>Cell Research</em> 2017]</li>
+<li><strong>ASGR1</strong> (asialoglycoprotein receptor 1, hgnc-bound gene): plays a well-established role in hepatocyte receptor-mediated endocytosis of galactose/GalNAc-terminal glycoproteins generally, and ricin's B chain binds β-1,4-linked galactose residues on cell-surface glycoproteins/glycolipids broadly — however, a specific literature link establishing ASGR1 as ricin's primary hepatocyte entry receptor was <strong>not confirmed</strong> in this search; ricin's B-chain lectin binding is generally described as promiscuous across galactose/GalNAc-bearing surface receptors rather than ASGR1-specific, and this claim should not be curated without a direct primary-literature citation.</li>
+</ul>
+<h3>Variant classification / population frequency</h3>
+<p>Not applicable — there is no ClinVar/gnomAD-relevant human germline variant catalog for this toxin-exposure condition.</p>
+<h3>Epigenetics</h3>
+<p>No disease-specific epigenetic (DNA methylation/histone) literature for ricin poisoning was identified; this is outside scope for an acute-toxicity condition without chronic epigenetic reprogramming data in the literature surveyed.</p>
+<h3>Chromosomal abnormalities</h3>
+<p>Not applicable.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>Environmental/Toxicological Factor</h3>
+<p>The entry's entire "genetic/environmental" causal weight sits on the environmental side: <strong>ricin exposure from <em>Ricinus communis</em></strong> is the sole documented cause. Key environmental-curation points:</p>
+<ul>
+<li><strong>Source material:</strong> castor bean seed, castor-oil-extraction waste mash (~5% ricin by weight)</li>
+<li><strong>Routes:</strong> ingestion (seeds, contaminated food/herbal products), inhalation (aerosolized powder — the highest bioterrorism/military concern route), injection (targeted assassination/self-harm), and rarely ocular or transdermal (with abraded skin) contact</li>
+<li><strong>Toxin stability:</strong> ricin is heat-labile above ~80°C but stable at room temperature for extended periods in dried/powdered form, relevant to environmental persistence and forensic sample handling</li>
+</ul>
+<h3>Occupational/Lifestyle Factors</h3>
+<ul>
+<li>Castor-oil industry workers handling seed mash</li>
+<li>Home gardeners/ornamental-plant exposure (castor bean is a popular landscaping plant with visually distinctive but attractive spiny seed capsules, posing accidental pediatric ingestion risk)</li>
+<li>Illicit drug/extraction-kit exposure (do-it-yourself extraction from online "recipes," as documented in the 2013 Dutschke case, where beans were purchased on eBay and processed with a coffee grinder <a href="https://www.fbi.gov/contact-us/field-offices/newyork/news/press-releases/manhattan-u.s.-attorney-and-fbi-assistant-director-announce-arrest-of-new-york-man-for-attempting-to-acquire-deadly-toxin-ricin">FBI press release</a>)</li>
+</ul>
+<h3>Infectious Agents</h3>
+<p>Not applicable — ricin poisoning is a non-infectious toxin exposure.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered Causal Chain</h3>
+<ol>
+<li><strong>Exposure</strong> to ricin-containing material (chewed/crushed castor seeds, extracted toxin powder, or purified ricin) <strong>leads to</strong> systemic or local absorption of the ricin heterodimer, depending on route (GI mucosa for ingestion; alveolar epithelium for inhalation; direct tissue/vascular deposition for injection).</li>
+<li>The <strong>RTB lectin domain binds</strong> cell-surface glycoproteins/glycolipids bearing terminal β-1,4-linked galactose or N-acetylgalactosamine residues, which <strong>leads to</strong> receptor-mediated (clathrin-dependent or -independent, depending on the specific surface ligand engaged) <strong>endocytosis</strong> of the ricin holotoxin <a href="https://pubmed.ncbi.nlm.nih.gov/11111920/">Ricin transport into cells: studies of endocytosis and intracellular transport, PMID:11111920</a>.</li>
+<li>Internalized ricin <strong>traffics retrogradely</strong> — early endosome → trans-Golgi network → Golgi → endoplasmic reticulum — bypassing lysosomal degradation via this non-canonical retrograde route, which <strong>is required for</strong> cytotoxicity (this retrograde step is the target of the experimental inhibitor Retro-2) <a href="https://www.cell.com/fulltext/S0092-8674(10)00078-4">Inhibition of Retrograde Transport Protects Mice from Lethal Ricin Challenge, <em>Cell</em> 2010</a>.</li>
+<li>In the ER, <strong>protein disulfide isomerase reduces</strong> the single A-chain/B-chain disulfide bond, and the partially unfolded RTA is <strong>translocated</strong> across the ER membrane into the cytosol via the Sec61 translocon (co-opting the ER-associated degradation/ERAD pathway meant for misfolded host proteins) — this dislocation step <strong>utilizes host ER-targeting/tail-anchored-protein machinery including ASNA1/TRC40</strong> <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3122183/">Dislocation of Ricin Toxin A Chains in Human Cells Utilizes Selective Cellular Factors, <em>PMC</em> 2011</a>; <a href="https://elifesciences.org/articles/48434">Retro-2 mechanism, <em>eLife</em> 2019</a>.</li>
+<li>Cytosolic, catalytically active <strong>RTA hydrolyzes the N-glycosidic bond</strong> of a single, universally conserved adenine (<strong>A4324</strong>) within the <strong>sarcin-ricin loop (SRL)</strong> of the 28S ribosomal RNA in the 60S large ribosomal subunit, <strong>irreversibly depurinating</strong> this residue while leaving the RNA phosphodiester backbone intact <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6273143/">Structures and Ribosomal Interaction of Ribosome-Inactivating Proteins, <em>PMC</em> 2018</a>.</li>
+<li>SRL depurination <strong>abolishes</strong> elongation-factor-1-dependent aminoacyl-tRNA binding and elongation-factor-2-dependent GTP hydrolysis at the ribosome, <strong>arresting protein synthesis at the elongation step</strong> — one RTA molecule can inactivate ~1,500 ribosomes/minute, so a very small number of cytosolic RTA molecules is sufficient to shut down a cell's entire translational output.</li>
+<li>In parallel to (and partly downstream of) direct ribosome inactivation, the damaged sarcin-ricin loop itself <strong>acts as a stress signal</strong>, activating the <strong>ribotoxic stress response (RSR)</strong>: the MAP3K <strong>ZAK</strong> senses SRL damage and <strong>activates p38 MAPK and JNK</strong> stress-activated protein kinase (SAPK) cascades <a href="https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0049075">Structures and Ribosomal Interaction of RIPs; Identification of Small Molecules That Suppress Ricin-Induced Stress-Activated Signaling Pathways, <em>PLOS ONE</em></a>.</li>
+<li>SAPK/RSR activation <strong>drives two convergent downstream branches</strong>:</li>
+<li><strong>(8a) Apoptotic branch</strong>: ricin/RTA activates <strong>both the extrinsic (death-receptor) and intrinsic (mitochondrial) apoptosis pathways</strong>, with JNK signaling required for apoptosis in nontransformed epithelial cells <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2783365/">Ricin A-chain requires JNK to induce apoptosis, <em>PMC</em></a>.</li>
+<li><strong>(8b) Pro-inflammatory branch</strong>: SAPK activation <strong>increases production of pro-inflammatory cytokines</strong> (TNF-α rising early; IL-6, IL-1, IFN-γ, IL-17 rising later in a delayed "cytokine storm" pattern), with airway epithelial NF-κB activation documented after inhalational exposure <a href="https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2022.900755/xml">Frontiers Immunology 2022</a>.</li>
+<li>The combined loss of protein synthesis (step 6), apoptotic cell death (8a), and cytokine-driven inflammation (8b) <strong>leads to</strong> organ-specific tissue injury whose pattern tracks the exposure route: alveolar epithelial/macrophage death, neutrophil infiltration and pulmonary edema after inhalation; enterocyte/hepatocyte/splenocyte necrosis and hemorrhagic GI mucosal injury after ingestion; and local tissue necrosis with systemic vascular injury after injection.</li>
+<li>Systemically, ricin <strong>binds preferentially to vascular endothelium</strong>, <strong>causing endothelial glycocalyx shedding</strong> (elevated circulating heparan sulfate, hyaluronic acid, syndecan-1) and <strong>microvascular flow abnormality</strong>, which <strong>leads to capillary leak syndrome</strong>, <strong>coagulopathy</strong> (prolonged PT/APTT, thrombocytopenia), and <strong>widespread hemorrhage</strong> <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8618821/">Intramuscular Exposure to a Lethal Dose of Ricin Toxin Leads to Endothelial Glycocalyx Shedding, <em>PMC</em> 2021</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6628730/">Intramuscular Ricin Poisoning of Mice Leads to Widespread Damage in the Heart, Spleen, and Bone Marrow, <em>Toxins</em> 2019</a>.</li>
+<li>A cytokine-mediated suppression of <strong>hepatic glucose-6-phosphatase</strong> expression <strong>contributes to</strong> fatal hypoglycemia in parenteral-exposure mouse models — an additional, partially independent lethal mechanism layered on top of direct cytotoxicity (evidence: MODEL_ORGANISM only) <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9786807/"><em>PMC</em> 2022, PMID search</a>.</li>
+<li>The cumulative effect of (9)–(11) — hypovolemic/distributive shock, multi-organ (hepatic, renal, splenic, cardiac, bone-marrow, pulmonary) failure, and refractory cardiovascular collapse — <strong>is the proximate cause of death</strong> in fatal cases, typically within 36–72 hours of severe untreated exposure.</li>
+</ol>
+<h3>Molecular Pathways (GO/pathway suggestions)</h3>
+<ul>
+<li>Ribosome inactivation / translational elongation arrest: <strong><a href="http://purl.obolibrary.org/obo/GO_0017148" target="_blank" rel="noopener noreferrer">GO:0017148</a></strong> (negative regulation of translation), <strong><a href="http://purl.obolibrary.org/obo/GO_0006414" target="_blank" rel="noopener noreferrer">GO:0006414</a></strong> (translational elongation)</li>
+<li>rRNA N-glycosidase activity: <strong><a href="http://purl.obolibrary.org/obo/GO_0030598" target="_blank" rel="noopener noreferrer">GO:0030598</a></strong> (rRNA N-glycosylase activity)</li>
+<li>Ribotoxic stress response / SAPK activation: <strong><a href="http://purl.obolibrary.org/obo/GO_0007254" target="_blank" rel="noopener noreferrer">GO:0007254</a></strong> (JNK cascade), <strong><a href="http://purl.obolibrary.org/obo/GO_0038066" target="_blank" rel="noopener noreferrer">GO:0038066</a></strong> (p38MAPK cascade)</li>
+<li>Apoptotic signaling, extrinsic and intrinsic: <strong><a href="http://purl.obolibrary.org/obo/GO_0097191" target="_blank" rel="noopener noreferrer">GO:0097191</a></strong> (extrinsic apoptotic signaling pathway), <strong><a href="http://purl.obolibrary.org/obo/GO_0097193" target="_blank" rel="noopener noreferrer">GO:0097193</a></strong> (intrinsic apoptotic signaling pathway)</li>
+<li>Retrograde vesicle-mediated transport, Golgi to ER: <strong><a href="http://purl.obolibrary.org/obo/GO_0042147" target="_blank" rel="noopener noreferrer">GO:0042147</a></strong> (retrograde transport, endosome to Golgi)</li>
+<li>Endoplasmic-reticulum-associated protein catabolic process (ERAD, co-opted for translocation): <strong><a href="http://purl.obolibrary.org/obo/GO_0030433" target="_blank" rel="noopener noreferrer">GO:0030433</a></strong></li>
+<li>Cytokine-mediated inflammatory response: <strong><a href="http://purl.obolibrary.org/obo/GO_0002526" target="_blank" rel="noopener noreferrer">GO:0002526</a></strong> (acute inflammatory response), <strong><a href="http://purl.obolibrary.org/obo/GO_0032640" target="_blank" rel="noopener noreferrer">GO:0032640</a></strong> (TNF production)</li>
+</ul>
+<h3>Cell Types Involved (CL term suggestions — verify via OAK before binding)</h3>
+<ul>
+<li>Alveolar type I/II pneumocytes (<a href="http://purl.obolibrary.org/obo/CL_0002062" target="_blank" rel="noopener noreferrer">CL:0002062</a>, <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" rel="noopener noreferrer">CL:0002063</a>) and alveolar macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a>) — inhalation route</li>
+<li>Enterocytes / intestinal epithelial cells (<a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" rel="noopener noreferrer">CL:0000584</a>) — ingestion route</li>
+<li>Hepatocytes (<a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a>), splenocytes, renal tubular epithelial cells (<a href="http://purl.obolibrary.org/obo/CL_1001318" target="_blank" rel="noopener noreferrer">CL:1001318</a> or nearest), vascular endothelial cells (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>), cardiomyocytes (<a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a>), bone marrow hematopoietic cells</li>
+<li>Neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>) — prominent infiltrating effector cell in pulmonary injury</li>
+</ul>
+<h3>Anatomical structures targeted (UBERON — verify via OAK)</h3>
+<p>Lung/respiratory epithelium (inhalation), small/large intestine mucosa (ingestion), liver, spleen, kidney (particularly renal tubules), bone marrow, heart, and systemic vasculature/microvasculature (all routes, secondary to endothelial tropism).</p>
+<h3>Molecular profiling</h3>
+<p>No large-scale human transcriptomic/proteomic/metabolomic dataset specific to ricin poisoning was identified; mouse pulmonary gene-expression profiling after inhaled ricin has been reported <a href="https://www.sciencedirect.com/science/article/abs/pii/S0041010103000357">Pulmonary gene expression profiling of inhaled ricin, <em>Toxicology</em> 2003</a>, and serum peptide/MALDI-TOF profiling has been explored as a murine diagnostic approach <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3497349/">Detection of Ricin Intoxication in Mice Using Serum Peptide Profiling by MALDI-TOF/MS, <em>PMC</em></a>.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level (primary):</strong> Route-dependent — lungs (inhalation), gastrointestinal tract (ingestion), skin/soft tissue at injection site (parenteral)</li>
+<li><strong>Organ level (secondary/systemic, all severe cases):</strong> liver (hepatic necrosis/failure), kidney (acute tubular necrosis), spleen (necrosis, reported at autopsy), heart (myocyte necrosis, collagen deposition in mouse IM models), bone marrow (widespread damage documented in mouse IM studies)</li>
+<li><strong>Body systems:</strong> respiratory, gastrointestinal, hepatic, renal, cardiovascular (via endothelial/coagulation injury), hematologic (thrombocytopenia, coagulopathy), immune (cytokine storm)</li>
+<li><strong>Tissue level:</strong> alveolar epithelium and interstitium, intestinal mucosa (hemorrhagic necrosis), vascular endothelium/glycocalyx (a specific, mechanistically central tissue target), skeletal/cardiac muscle at injection sites</li>
+<li><strong>Subcellular level:</strong> ribosome (60S large subunit, specifically the sarcin-ricin loop of 28S rRNA — GO Cellular Component: cytosolic large ribosomal subunit, <a href="http://purl.obolibrary.org/obo/GO_0022625" target="_blank" rel="noopener noreferrer">GO:0022625</a>), endoplasmic reticulum (site of A-chain translocation), Golgi/trans-Golgi network (retrograde transport waypoint), mitochondria (intrinsic apoptosis)</li>
+<li><strong>Localization:</strong> generally systemic/bilateral once absorbed; injection-site findings are unilateral/localized initially before systemic spread</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Acute onset</strong> in all routes; this is not a congenital/developmental-onset condition</li>
+<li>Ingestion: symptom onset from as early as 15 minutes up to 20 hours post-exposure [WebSearch synthesis of case reports]</li>
+<li>Inhalation: symptoms typically within a few hours</li>
+<li>Injection: pain immediate at site; systemic symptoms (weakness, fever, vomiting) within 5–24 hours in the Markov case</li>
+</ul>
+<h3>Progression</h3>
+<ul>
+<li><strong>Rapid progression</strong> pattern: mild, nonspecific prodromal GI or respiratory symptoms → hypovolemic/distributive shock → multi-organ failure → refractory cardiovascular collapse in severe/fatal cases <a href="https://link.springer.com/article/10.1007/s00414-026-03949-0">Medico-legal aspects of fatal ricin poisoning systematic review, <em>Int J Legal Med</em> 2026, PMID:42560523</a></li>
+<li><strong>Time to death</strong> in severe, untreated exposure: typically 36–72 hours</li>
+<li><strong>No chronic/relapsing-remitting course</strong> — the condition is monophasic: either resolves with supportive care within days, or progresses to death within roughly 3–5 days</li>
+<li>Long-term pulmonary sequelae (peribronchial/perivascular inflammation, mild fibrosis) can persist for weeks to months in inhalation-exposure survivors based on animal-model long-term follow-up <a href="https://doi.org/10.3390/toxins16020103">Scientific Reports 2024; Long-Term Pulmonary Damage in Surviving Antitoxin-Treated Mice, <em>Toxins</em> 2024</a></li>
+</ul>
+<h3>Patterns</h3>
+<ul>
+<li>No spontaneous remission pattern reported beyond simple resolution of acute intoxication with supportive care in survivors</li>
+<li>Critical intervention window: earliest possible decontamination/supportive care (within the first hour for GI decontamination) is repeatedly emphasized as the dominant modifiable prognostic factor</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li>Ricin poisoning is <strong>rare</strong> as a clinical presentation; there is no formal population-based prevalence or incidence rate (cases per 100,000) reported in the literature, consistent with its status as an intentional/accidental toxin-exposure event rather than an endemic disease</li>
+<li>Multiple discrete, well-documented <strong>bioterrorism/forensic incidents</strong> in the US and UK from 1978–2013 constitute the bulk of "epidemiological" data: Georgi Markov (1978, fatal), Vladimir Kostov (1978, survived), Boris Korczak (1981), 2003/2004 White House/Senate mail incidents, 2013 letters to President Obama and others (James Everett Dutschke case, and the 2013 Spokane, WA mailings) <a href="https://en.wikipedia.org/wiki/List_of_incidents_involving_ricin">Wikipedia: List of incidents involving ricin</a>; <a href="https://en.wikipedia.org/wiki/April_2013_ricin_letters">April 2013 ricin letters</a>; <a href="https://en.wikipedia.org/wiki/2003_ricin_letters">2003 ricin letters</a></li>
+<li>The FBI has noted a possible increase in ricin-related copycat incidents attributed to the relative accessibility of extraction methods online <a href="https://www.seattletimes.com/nation-world/the-perfect-poison-ricin-used-in-3-recent-cases/">Seattle Times coverage of 2013 cases</a></li>
+</ul>
+<h3>Inheritance Pattern</h3>
+<p><strong>Not applicable</strong> — ricin poisoning is not a heritable Mendelian, X-linked, mitochondrial, or polygenic condition. There is no penetrance, expressivity, genetic anticipation, germline mosaicism, founder effect, consanguinity role, or carrier frequency to report, as this is an acquired toxic exposure.</p>
+<h3>Population Demographics</h3>
+<ul>
+<li>No specific ethnic/demographic predisposition documented (would be expected to track exposure opportunity rather than biological susceptibility)</li>
+<li>Castor bean cultivation and endemic accidental-exposure risk is geographically concentrated where <em>Ricinus communis</em> is grown commercially or ornamentally (tropical/subtropical regions for cultivation; globally for ornamental garden use)</li>
+<li>Age distribution: pediatric accidental ingestion cases (ornamental seed exposure) and adult intentional/forensic cases are the two dominant demographic clusters reported in case literature</li>
+<li>No consistent sex ratio has been established from the sparse case-report literature</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical/Laboratory Tests</h3>
+<ul>
+<li><strong>Routine labs:</strong> leukocytosis, electrolyte abnormalities, elevated liver enzymes/renal function markers, coagulation panel abnormalities (prolonged PT/APTT), thrombocytopenia [StatPearls NBK441948]</li>
+<li><strong>Imaging:</strong> chest radiography (may be normal early, or show pulmonary edema/infiltrates/pneumonia pattern in inhalational exposure)</li>
+<li><strong>Histopathology (post-mortem or biopsy):</strong> hemorrhagic necrosis of GI tract, hepatic injury, renal tubular necrosis, cerebral/pulmonary edema, hepatic steatosis — from the 2026 medico-legal systematic review of fatal cases <a href="https://pubmed.ncbi.nlm.nih.gov/42560523/">PMID:42560523</a></li>
+</ul>
+<h3>Specific/Confirmatory Diagnostic Methods</h3>
+<ul>
+<li><strong>Ricinine biomarker (urine/serum)</strong>: Ricinine (3-cyano-4-methoxy-N-methyl-2-pyridone), a minor castor-bean alkaloid co-extracted with ricin, is measurable by <strong>LC-MS/MS</strong> (including dried urine/blood spot methods) as a biomarker of castor-bean-product exposure. Reported urine concentrations 12–41 hours post-intoxication: <strong>20–58 ng/mL</strong>, versus background population detection in only 1.2% of urine specimens (range 0.186–4.15 ng/mL) <a href="https://pubmed.ncbi.nlm.nih.gov/23471955/">Analysis of a Ricin Biomarker, Ricinine, in 989 Individual Human Urine Samples, PMID:23471955</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23592744/">Serial ricinine levels in serum and urine after ricin intoxication, PMID:23592744</a>. <strong>Important limitation:</strong> ricinine is a marker of castor-bean-product exposure, not of purified ricin — it "may be absent or present only in negligible amounts" in highly purified/criminal ricin preparations, so a negative ricinine result does not exclude purified-ricin poisoning.</li>
+<li><strong>Direct ricin detection</strong>: LC-MS/MS-based rapid serum ricin identification methods <a href="https://doi.org/10.3390/toxins13020079">Rapid, Sensitive and Reliable Ricin Identification in Serum Samples Using LC–MS/MS, doi:10.3390/toxins13020079</a>; immunoassays (ELISA-type); ambient mass spectrometry two-tiered screening approaches <a href="https://pubmed.ncbi.nlm.nih.gov/35173958/">A Proof-of-Concept, Two-Tiered Approach for Ricin Detection Using Ambient Mass Spectrometry, PMID:35173958</a></li>
+<li><strong>Molecular/forensic depurination assay</strong>: RT-PCR-based (reverse transcription-ligase-PCR) detection of the specific depurinated adenine signature left in 28S rRNA after ricin action, usable on biological samples as a functional/mechanistic confirmatory test rather than direct toxin immunodetection <a href="https://link.springer.com/article/10.1007/s11419-017-0377-6">Determination of ricin intoxication in biological samples by monitoring depurinated 28S rRNA, <em>Forensic Toxicology</em> 2018, doi:10.1007/s11419-017-0377-6</a></li>
+<li><strong>Nanopore direct RNA sequencing</strong> to identify depurination events induced by ricin and other RIPs — an emerging research-grade method <a href="https://www.biorxiv.org/content/10.1101/2021.08.13.456275.full.pdf">bioRxiv 2021</a></li>
+</ul>
+<h3>Genetic Testing</h3>
+<p>Not applicable — no genetic test is diagnostic for this acquired toxin exposure.</p>
+<h3>Clinical Criteria / Epidemiologic Diagnostic Pattern</h3>
+<p>Per StatPearls, recognition often depends on <strong>exposure-pattern epidemiology</strong> rather than a single confirmatory bedside test: simultaneous presentation of multiple patients at one location with consistent symptoms (e.g., "sudden onset of respiratory distress among several people in one place") should raise suspicion for aerosolized/inhalational exposure; multi-patient GI-symptom clusters suggest ingestion exposure <a href="https://www.ncbi.nlm.nih.gov/books/NBK441948/">StatPearls NBK441948</a>.</p>
+<h3>Differential Diagnosis</h3>
+<p>Cellulitis, pneumonia, sepsis, <em>Salmonella</em>/<em>Shigella</em> enteric infection, tularemia, Q fever, phosgene toxicity, staphylococcal enterotoxin B exposure, and myocardial infarction (for the shock/cardiovascular-collapse presentation) [StatPearls NBK441948].</p>
+<h3>Veterinary diagnosis (comparative)</h3>
+<p>In livestock, diagnosis "is based primarily on exposure history, compatible clinical signs, and identification of castor bean plants or seeds within the environment," since "bloodwork results are usually not specific to ricin poisoning" [castor bean toxicosis review, various veterinary sources].</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<h3>Survival and Mortality</h3>
+<ul>
+<li>With prompt supportive care, <strong>approximately 98% of people who ingest ricin survive</strong>, reflecting the relatively high oral LD (1–20 mg/kg) and the buffering effect of intact seed coats limiting toxin release [WebSearch synthesis of clinical toxicology sources]</li>
+<li><strong>Very limited human outcome data exist for inhalation or injection routes</strong>, given their rarity; these routes are associated with substantially lower LD (5–10 µg/kg inhalation) and historically higher lethality in documented forensic cases (e.g., Markov, fatal within days)</li>
+<li><strong>Severe/untreated exposure</strong>: progression to fatality within <strong>36–72 hours</strong>, characterized by rapid evolution from nonspecific GI/respiratory prodrome to hypovolemic shock, multi-organ failure, and refractory cardiovascular collapse [Systematic review, <em>Int J Legal Med</em> 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/42560523/" target="_blank" rel="noopener noreferrer">PMID:42560523</a>]</li>
+</ul>
+<h3>Morbidity/Function</h3>
+<ul>
+<li>Full recovery is typical in survivors of mild-to-moderate exposure managed supportively — e.g., a documented case of a 47-year-old woman who ingested six castor beans, received symptomatic treatment, and was "discharged home after a complete recovery three days later" [case report, <em>ScienceDirect</em>/PubMed synthesis]</li>
+<li>Long-term pulmonary impairment is a plausible but human-data-sparse concern for inhalation survivors, based on residual fibrotic/inflammatory changes documented in mouse models up to day 96 post-exposure</li>
+</ul>
+<h3>Complications</h3>
+<p>Hypovolemic/distributive shock, disseminated coagulopathy and thrombocytopenia, capillary leak syndrome, hepatic and renal failure, hypoglycemia (model-organism evidence), and respiratory failure/ARDS-like picture in inhalation cases.</p>
+<h3>Prognostic Factors</h3>
+<ul>
+<li><strong>Dose and route of exposure</strong> are the two dominant prognostic determinants</li>
+<li><strong>Time to initiation of supportive care</strong> is repeatedly emphasized in clinical sources as the single most important modifiable survival factor ("the single most important factor in survival is how quickly someone gets to emergency care after exposure")</li>
+<li>No validated ricin-specific prognostic biomarker/severity score was identified in this search.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>No Approved Antidote</h3>
+<p><strong>There is currently no FDA-approved antidote or specific antitoxin for human ricin poisoning.</strong> Management is exclusively <strong>supportive care</strong>, and this is the single most important treatment-section fact to encode [StatPearls NBK441948; multiple corroborating sources].</p>
+<h3>Supportive Care (by route) — suggested NCIT terms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Route context</th>
+<th>Suggested NCIT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gastric lavage (within ~1 hour of ingestion)</td>
+<td>Ingestion</td>
+<td>NCIT:C15329 (Surgical/procedural) or nearest procedure term — verify</td>
+</tr>
+<tr>
+<td>Activated charcoal administration</td>
+<td>Ingestion (after airway secured)</td>
+<td>verify NCIT term</td>
+</tr>
+<tr>
+<td>Fluid resuscitation / IV fluids</td>
+<td>All routes</td>
+<td>NCIT:C15986 Pharmacotherapy (supportive)</td>
+</tr>
+<tr>
+<td>Vasopressor support for shock</td>
+<td>All routes, severe</td>
+<td>NCIT:C15986 Pharmacotherapy</td>
+</tr>
+<tr>
+<td>Mechanical ventilation / respiratory support</td>
+<td>Inhalation</td>
+<td>verify device/procedure term</td>
+</tr>
+<tr>
+<td>Wound/skin decontamination (soap and water)</td>
+<td>Dermal/injection-site</td>
+<td>NCIT:C15747 Supportive Care</td>
+</tr>
+<tr>
+<td>Correction of electrolyte/coagulopathy abnormalities</td>
+<td>All routes, severe</td>
+<td>NCIT:C15747 Supportive Care</td>
+</tr>
+<tr>
+<td>Seizure management</td>
+<td>Severe systemic cases</td>
+<td>NCIT:C15986 Pharmacotherapy</td>
+</tr>
+<tr>
+<td>ICU admission and monitoring</td>
+<td>All symptomatic suspected exposures</td>
+<td>NCIT:C15747 Supportive Care</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>"All symptomatic patients with suspected ricin exposure should be admitted" for monitoring [StatPearls NBK441948].</p>
+<h3>Experimental / Investigational Countermeasures</h3>
+<ul>
+<li><strong>Passive immunotherapy — anti-ricin monoclonal antibodies</strong>: e.g., monoclonal antibody RicE5 conferred &gt;90% survival in a murine model when given 6 hours post-intoxication, with 35% survival even at 24 hours post-exposure treatment; other monoclonal antibodies target isoforms D and E specifically <a href="https://www.mdpi.com/2072-6651/16/10/412">PMC 2024, <em>Toxins</em></a></li>
+<li><strong>Active immunization / vaccines</strong>:</li>
+<li><strong>RiVax</strong>: a recombinant RTA-based vaccine with two point mutations that genetically inactivate both the ribotoxic (N-glycosidase) active site and the vascular-leak-syndrome-inducing epitope; advanced through Phase 1A (dose-escalation, no adjuvant, 20/50/100 µg doses) and Phase 1B (alum-adjuvanted, safe/well-tolerated, improved neutralizing-antibody titers) human clinical trials <a href="https://journals.asm.org/doi/10.1128/cvi.00381-12">Pilot Phase IB Clinical Trial of an Alhydrogel-Adsorbed Recombinant Ricin Vaccine, <em>Clin Vaccine Immunol</em>, doi:10.1128/cvi.00381-12</a>; FDA granted Soligenix "Fast Track" designation for RiVax <a href="https://globalbiodefense.com/newswire/fda-grants-soligenix-fast-track-designation-for-rivax-in-the-prevention-of-ricin-poisoning/">Global Biodefense</a></li>
+<li><strong>RVEc™</strong>: another recombinant ricin-toxin vaccine candidate with reported Phase 1 safety/immunogenicity data <a href="https://www.sciencedirect.com/science/article/abs/pii/S0264410X15015509">ScienceDirect, <em>Vaccine</em> 2015</a></li>
+<li>Thermostable lyophilized subunit vaccine formulations have been shown to elicit durable immunity in preclinical models <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8565519/"><em>PMC</em> 2021</a></li>
+<li>Vaccine-induced serum antibody correlates of protection against aerosolized ricin have been profiled in rhesus macaques <a href="https://www.nature.com/articles/s41541-022-00582-x"><em>npj Vaccines</em> 2022</a></li>
+<li><strong>Small-molecule retrograde-transport inhibitors</strong>: <strong>Retro-2</strong> blocks ricin's retrograde trafficking at the early-endosome/TGN interface by inhibiting ASNA1/TRC40-mediated ER-targeting of tail-anchored proteins; "rescued mice from lethal doses of ricin" and was "tolerated at high doses" in preclinical studies — "the first small molecule that shows efficacy against ricin in animal experiments" <a href="https://www.cell.com/fulltext/S0092-8674(10)00078-4"><em>Cell</em> 2010</a>; <a href="https://elifesciences.org/articles/48434"><em>eLife</em> 2019</a>. A related "novel small molecule retrograde transport blocker" has shown <strong>post-exposure</strong> protection in preclinical models <a href="https://pubmed.ncbi.nlm.nih.gov/32140395/">PMID:32140395</a>.</li>
+<li><strong>Immunomodulatory/anti-inflammatory approaches</strong>: activation of the cholinergic anti-inflammatory pathway reduced ricin-induced mortality and organ failure in mice <a href="https://link.springer.com/article/10.2119/molmed.2008.00105"><em>Molecular Medicine</em>, doi:10.2119/molmed.2008.00105</a>; small molecules suppressing ricin-induced SAPK stress signaling have been identified in screens <a href="https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0049075"><em>PLOS ONE</em></a></li>
+<li><strong>Post-exposure antitoxin in large-animal models</strong>: post-exposure anti-ricin treatment protected swine against lethal systemic and pulmonary exposures <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7354453/"><em>PMC</em> 2020</a></li>
+</ul>
+<h3>Treatment Strategy Notes for Curation</h3>
+<p>For a dismech <code>Treatment</code> entry, the mainstay entry should be <code>treatment_term: NCIT:C15747 Supportive Care</code> (verify exact NCIT code via OAK) with <code>description</code> covering airway/fluid/electrolyte management, and a <strong>separate</strong> experimental-treatment cluster for RiVax (<code>therapeutic_modality: VACCINE</code>) and anti-ricin monoclonal antibodies (<code>therapeutic_modality: MONOCLONAL_ANTIBODY</code>), each carrying its own PMID evidence and clearly marked as investigational/not FDA-approved.</p>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary Prevention</h3>
+<ul>
+<li><strong>Occupational controls</strong>: PPE and engineering controls in castor-oil processing facilities to limit dust/mash exposure (OSHA hazard guidance exists: <a href="https://www.osha.gov/ricin/hazards">OSHA Ricin Hazard Recognition</a>)</li>
+<li><strong>Restriction of access to purified ricin</strong>: Schedule 1 Chemical Weapons Convention controls and CDC Select Agent Program registration requirements for laboratories handling ricin toxin</li>
+<li><strong>Public/consumer safety</strong>: awareness messaging about ornamental castor bean plant seed toxicity, particularly for households with young children</li>
+<li><strong>Active immunization</strong> (RiVax/RVEc) is being developed specifically as a <strong>pre-exposure primary-prevention</strong> countermeasure for at-risk populations (military personnel, laboratory workers), not yet in general public use</li>
+</ul>
+<h3>Secondary Prevention / Early Detection</h3>
+<ul>
+<li>Rapid clinical recognition using the exposure-pattern heuristics above (clustered presentations)</li>
+<li>Rapid decontamination protocols: GI decontamination (gastric lavage/activated charcoal) within the first hour of suspected ingestion; skin decontamination with soap and water for dermal exposure</li>
+<li>Forensic/public-health mail-screening programs (developed in response to the 2003/2013 mail incidents) for early interception of intentional exposures</li>
+</ul>
+<h3>Tertiary Prevention</h3>
+<p>Aggressive ICU-level supportive care to prevent progression to multi-organ failure once poisoning is confirmed or strongly suspected.</p>
+<h3>Genetic Counseling / Screening</h3>
+<p>Not applicable — no heritable component to counsel on.</p>
+<h3>Public Health / Biodefense</h3>
+<p>Ricin's CDC Category B and CWC Schedule 1 status drive a public-health/biodefense prevention framework (select-agent regulation, law-enforcement interdiction, mail-screening infrastructure) distinct from the individual clinical-prevention measures above.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<h3>Taxonomy</h3>
+<ul>
+<li>Source organism: <strong><em>Ricinus communis</em></strong> L. (NCBITaxon:3988), family Euphorbiaceae</li>
+<li>Affected species: broadly mammalian (and likely other vertebrate) susceptibility, given the conserved eukaryotic ribosomal sarcin-ricin loop target</li>
+</ul>
+<h3>Natural/Accidental Veterinary Disease</h3>
+<p>Castor bean toxicosis is a well-documented <strong>naturally occurring accidental poisoning in livestock and companion animals</strong>:</p>
+<ul>
+<li><strong>Relative species susceptibility</strong>: "Horses are the most susceptible of the farm animals; sheep, cattle and pigs are intermediate; and poultry are the most resistant" [Mad Barn veterinary summary; academic castor-bean-toxicosis reviews]</li>
+<li><strong>Toxic dose thresholds</strong>: seeds ingested at ~0.2% of body weight caused toxicosis in cattle; ~0.01% of body weight was toxic in horses</li>
+<li><strong>Onset/course</strong>: clinical signs appear 6–30 hours after seed ingestion; clinical evolution to death ranges from 4–56 hours across species</li>
+<li><strong>Clinical signs</strong>: predominantly gastrointestinal — diarrhea, vomiting, and colic (notably prominent in horses) — mirroring the human ingestion phenotype</li>
+<li><strong>Mechanistic prerequisite</strong>: "chewing of the beans is vital in releasing the ricin, as the seed coat is very hard and the seed will pass harmlessly through the digestive tract unless the seed coat is broken" — the same intact-seed-coat protective mechanism documented in human cases</li>
+<li>Documented case reports/series: castor bean toxicosis in a sheep flock <a href="https://www.sciencedirect.com/science/article/abs/pii/S004101010600403X">ScienceDirect</a>; accidental poisoning by castor bean cake in horses in Brazil <a href="https://www.scielo.br/j/pvb/a/XwzKzyyw97sqWQj9Ch6n3Br/?lang=en">SciELO</a></li>
+</ul>
+<h3>Comparative Biology</h3>
+<p>The core molecular mechanism (RTA-mediated depurination of the conserved sarcin-ricin loop) is expected to be conserved across all eukaryotic species studied, since the SRL is a near-universally conserved rRNA element — this underlies both the broad mammalian veterinary susceptibility pattern and the utility of non-mammalian/cell-based systems (including yeast, <em>Saccharomyces cerevisiae</em>) for mechanistic dissection <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1828414/">Ribosome Depurination Is Not Sufficient for Ricin-Mediated Cell Death in <em>Saccharomyces cerevisiae</em>, <em>PMC</em></a> — notably, this yeast study demonstrates that depurination alone is <em>not sufficient</em> for ricin-mediated cell death, implying additional downstream cytotoxic mechanisms beyond simple translational arrest, an important nuance for the mechanism-chain description above.</p>
+<h3>Transmission / Zoonotic Potential</h3>
+<p>Not applicable — ricin poisoning is a direct toxin exposure, not a transmissible infectious disease; there is no zoonotic transmission concept relevant here, only shared plant-source exposure risk across species.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Mouse Models</h3>
+<ul>
+<li><strong>Intranasal instillation</strong>: LD50 in rodents 3.5–4.8 µg/kg</li>
+<li><strong>Aerosolized inhalation</strong>: LD50 in mice 10–20 µg/kg (higher than intranasal instillation, attributed to nasal turbinate filtering of inhaled aerosol particles) <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10145923/">Comparative Aspects of Ricin Toxicity by Inhalation, <em>Toxins</em> 2023</a></li>
+<li><strong>Intramuscular/parenteral models</strong>: demonstrate widespread damage to heart, spleen, and bone marrow, with diffuse hemorrhages, myocyte necrosis, collagen deposition, coagulopathy, and severe thrombocytopenia — closely recapitulating human injection-route pathology <a href="https://pubmed.ncbi.nlm.nih.gov/31208156/"><em>Toxins</em> 2019, PMID:31208156</a></li>
+<li><strong>Pulmonary/inhalation models</strong>: recapitulate acute interstitial pneumonia, neutrophilic infiltration, pro-inflammatory cytokine response, and alveolar epithelial cell death (days 1–7), with residual inflammatory/fibrotic changes at days 21–96, closely tracking presumed human inhalation-injury biology (fidelity: <strong>HIGH</strong> to <strong>MODERATE</strong> for acute-phase pulmonary injury; long-term fibrosis correlation to humans is <strong>UNCONFIRMED</strong> due to sparse human inhalation-survivor data) <a href="https://www.nature.com/articles/s41598-024-62222-9"><em>Scientific Reports</em> 2024</a></li>
+<li><strong>Hypoglycemia model</strong>: parenteral mouse exposure reveals a cytokine-mediated hepatic glucose-6-phosphatase suppression mechanism not yet confirmed in human cases — a clear candidate for <code>HUMAN_MODEL_MISMATCH</code>/translational-uncertainty flagging if curated <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9786807/">PMC:9786807</a></li>
+<li><strong>Antitoxin/vaccine efficacy models</strong>: RiVax, RVEc, monoclonal antibody (RicE5 and others), and Retro-2 efficacy have all been established primarily in mouse lethal-challenge models, with confirmatory work extending to <strong>rhesus macaques</strong> (vaccine correlate-of-protection studies) and <strong>swine</strong> (post-exposure antitoxin efficacy for both systemic and pulmonary exposure, and endothelial glycocalyx/microvascular-flow pathology) <a href="https://www.nature.com/articles/s41541-022-00582-x"><em>npj Vaccines</em> 2022</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7354453/"><em>PMC</em> 2020 swine antitoxin</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8618821/"><em>PMC</em> 2021 swine glycocalyx</a></li>
+</ul>
+<h3>Cellular/Genetic Screening Models</h3>
+<ul>
+<li>Genome-wide mammalian cell (haploid/CRISPR) genetic-interaction screens have identified ~200 sensitizing/protective host factors, clustering in retrograde transport, ribosome biogenesis, and cholesterol biosynthesis pathways — providing a systems-level map of cellular ricin susceptibility determinants usable for mechanistic annotation <a href="https://www.cell.com/fulltext/S0092-8674(13)00082-2"><em>Cell</em> 2013</a></li>
+<li>Yeast (<em>S. cerevisiae</em>) models have been used to dissect depurination-vs-cytotoxicity relationships, showing depurination is necessary but not sufficient for cell death <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1828414/"><em>PMC</em>, PMID search</a></li>
+</ul>
+<h3>Model Limitations</h3>
+<ul>
+<li>Nasal-anatomy differences between rodents and humans (turbinate filtering) complicate direct LD50 extrapolation for inhalation exposure</li>
+<li>Most severe systemic pathophysiology data (coagulopathy, glycocalyx shedding, cytokine storm kinetics) derive from <strong>parenteral (IM/IV)</strong> rodent/swine models rather than the clinically more common ingestion route in humans — a route-mismatch worth flagging in any model-to-mechanism link (<code>model_scale</code>/<code>divergences</code> per dismech's <code>ModelMechanismLink</code> conventions)</li>
+<li>No engineered genetic (knockout/transgenic) mouse model of "ricin poisoning" exists in the conventional sense, since this is an induced-exposure rather than genetic model; genetic screens instead identify modifier genes in cultured cells</li>
+</ul>
+<h3>Resources</h3>
+<p>No dedicated ricin-poisoning model repository/database catalog (comparable to IMPC/MGI for genetic disease models) was identified — model access is via individual published studies (MGI/RGD apply only incidentally, for strain-background documentation of the mice used in the cited studies).</p>
+<hr />
+<h2>Summary of Curation-Relevant Gaps and Cautions</h2>
+<ol>
+<li><strong>No confirmed CHEBI or NCIT CURIE for ricin</strong> was extracted from this search — these must be looked up directly via OAK/ChEBI before binding, per dismech's ontology-term contract.</li>
+<li><strong>ASGR1-specific ricin hepatocyte-entry claim is unconfirmed</strong> — do not curate this link without a direct primary citation; ricin's B-chain lectin binding is generally described as broadly galactose/GalNAc-receptor-promiscuous rather than ASGR1-specific in the sources found.</li>
+<li>Most severe-pathophysiology mechanistic detail (hypoglycemia, glycocalyx shedding, cytokine kinetics, coagulopathy) is <strong>MODEL_ORGANISM evidence</strong> (mouse/swine), not confirmed in human case series — grade <code>evidence_source</code> accordingly and consider <code>HUMAN_MODEL_MISMATCH</code> discussion entries where translational fidelity to human ricin poisoning is untested.</li>
+<li>HPO term suggestions above are <strong>illustrative and unverified</strong> — every HP CURIE must be confirmed via OAK lookup (<code>just validate-terms</code>) before use; several suggested terms are marked "(verify exact term)" because exact-match searches were not run against the live HPO in this session.</li>
+<li>This is fundamentally a <strong>toxicology/environmental</strong> entry with minimal true "genetic" content — Sections 4/9 genetic subsections are appropriately sparse and should not be padded to fit a template designed primarily for Mendelian disease.</li>
+</ol>
+<hr />
+<h3>Sources</h3>
+<ul>
+<li><a href="https://link.springer.com/article/10.1007/s11419-017-0377-6">Determination of ricin intoxication in biological samples by monitoring depurinated 28S rRNA (Forensic Toxicology, 2018)</a></li>
+<li><a href="https://www.biorxiv.org/content/10.1101/2021.08.13.456275.full.pdf">Using Oxford Nanopore Technology direct RNA sequencing to identify depurination events (bioRxiv, 2021)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1828414/">Ribosome Depurination Is Not Sufficient for Ricin-Mediated Cell Death in <em>S. cerevisiae</em> (PMC)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6273143/">Structures and Ribosomal Interaction of Ribosome-Inactivating Proteins (PMC, 2018)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK441948/">Ricin Toxicity — StatPearls (NCBI Bookshelf)</a></li>
+<li><a href="https://doi.org/10.3390/toxins15020100">Medical Countermeasures against Ricin Intoxication (Toxins, 2023)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6372112/">Fine-Specificity Epitope Analysis Identifies Contact Points on Ricin Toxin (PMC)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6628406/">Intracellular Transport and Cytotoxicity of the Protein Toxin Ricin (PMC)</a></li>
+<li><a href="https://rarediseases.org/mondo-disease/ricin-poisoning/">ricin poisoning — National Organization for Rare Disorders</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11363666/">Ricin intoxication by lethal dose of castor seeds ingestion: a case report (PMC, 2024)</a></li>
+<li><a href="https://www.jclinmedcasereports.com/articles/OJCMCR-1966.html">Intentional ricin intoxication: A case report and review of the literature</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23471955/">Analysis of a Ricin Biomarker, Ricinine, in 989 Individual Human Urine Samples — PubMed (PMID:23471955)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23592744/">Serial ricinine levels in serum and urine after ricin intoxication — PubMed (PMID:23592744)</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s00414-026-03949-0">Medico-legal aspects of fatal ricin poisoning: a systematic review (Int J Legal Med, 2026, PMID:42560523)</a></li>
+<li><a href="https://doi.org/10.3390/toxins13020079">Rapid, Sensitive and Reliable Ricin Identification in Serum Samples Using LC–MS/MS (Toxins, 2021)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35173958/">A Proof-of-Concept, Two-Tiered Approach for Ricin Detection Using Ambient Mass Spectrometry — PubMed (PMID:35173958)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7354453/">Post-Exposure Anti-Ricin Treatment Protects Swine against Lethal Systemic and Pulmonary Exposures (PMC)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2783365/">Ricin A-Chain requires JNK to induce apoptosis (PMC)</a></li>
+<li><a href="https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0049075">Identification of Small Molecules That Suppress Ricin-Induced Stress-Activated Signaling Pathways (PLOS ONE / PMC)</a></li>
+<li><a href="https://ncbi.nlm.nih.gov/pmc/articles/PMC1880874">Role of Apoptotic Signaling Pathways in Regulation of Inflammatory Responses to Ricin in Primary Murine Macrophages (PMC)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31208156/">Intramuscular Ricin Poisoning of Mice Leads to Widespread Damage in the Heart, Spleen, and Bone Marrow (Toxins, 2019, PMID:31208156)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8618821/">Intramuscular Exposure to a Lethal Dose of Ricin Toxin Leads to Endothelial Glycocalyx Shedding and Microvascular Flow Abnormality in Mice and Swine (PMC, 2021)</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Georgi_Markov">Georgi Markov — Wikipedia</a></li>
+<li><a href="https://www.researchgate.net/publication/23781130_Ricin_and_the_Assassination_of_Georgi_Markov">Ricin and the Assassination of Georgi Markov (ResearchGate)</a></li>
+<li><a href="https://journals.asm.org/doi/10.1128/cvi.00381-12">Pilot Phase IB Clinical Trial of an Alhydrogel-Adsorbed Recombinant Ricin Vaccine (Clin Vaccine Immunol)</a></li>
+<li><a href="https://www.mdpi.com/2072-6651/16/10/412">A Monoclonal Antibody with a High Affinity for Ricin Isoforms D and E (Toxins, 2024)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0264410X15015509">Safety and immunogenicity of ricin vaccine, RVEc™, in a Phase 1 clinical trial (Vaccine, 2015)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8565519/">Durable Immunity to Ricin Toxin Elicited by a Thermostable, Lyophilized Subunit Vaccine (PMC, 2021)</a></li>
+<li><a href="https://www.nature.com/articles/s41541-022-00582-x">Serum antibody profiling identifies vaccine-induced correlates of protection against aerosolized ricin toxin in rhesus macaques (npj Vaccines, 2022)</a></li>
+<li><a href="https://www.nature.com/articles/s41598-024-62222-9">Short- and long-term outcomes of pulmonary exposure to a sublethal dose of ricin in mice (Scientific Reports, 2024)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10145923/">Comparative Aspects of Ricin Toxicity by Inhalation (Toxins, 2023)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9531258/">Csf2ra deletion attenuates acute lung injuries induced by intratracheal inoculation of aerosolized ricin in mice (PMC)</a></li>
+<li><a href="https://doi.org/10.3390/toxins16020103">Long-Term Pulmonary Damage in Surviving Antitoxin-Treated Mice following a Lethal Ricin Intoxication (Toxins, 2024)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0041010103000357">Pulmonary gene expression profiling of inhaled ricin (Toxicology, 2003)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9786807/">Parenteral Exposure of Mice to Ricin Toxin Induces Fatal Hypoglycemia by Cytokine-Mediated Suppression of Hepatic Glucose-6-Phosphatase Expression (PMC, 2022)</a></li>
+<li><a href="https://link.springer.com/article/10.2119/molmed.2008.00105">Activation of the Cholinergic Antiinflammatory Pathway Reduces Ricin-Induced Mortality and Organ Failure in Mice (Molecular Medicine)</a></li>
+<li><a href="https://www.cell.com/fulltext/S0092-8674(13)00082-2">A Systematic Mammalian Genetic Interaction Map Reveals Pathways Underlying Ricin Susceptibility (Cell, 2013)</a></li>
+<li><a href="https://www.nature.com/articles/cr2017116">A vital sugar code for ricin toxicity (Cell Research, 2017)</a></li>
+<li><a href="https://elifesciences.org/articles/48434">Retro-2 protects cells from ricin toxicity by inhibiting ASNA1-mediated ER targeting (eLife, 2019)</a></li>
+<li><a href="https://www.cell.com/fulltext/S0092-8674(10)00078-4">Inhibition of Retrograde Transport Protects Mice from Lethal Ricin Challenge (Cell, 2010)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32140395/">Novel small molecule retrograde transport blocker confers post-exposure protection against ricin intoxication — PubMed (PMID:32140395)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3122183/">Dislocation of Ricin Toxin A Chains in Human Cells Utilizes Selective Cellular Factors (PMC)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/11111920/">Ricin transport into cells: studies of endocytosis and intracellular transport — PubMed (PMID:11111920)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S004101010600403X">Castor bean (Ricinus communis) toxicosis in a sheep flock (ScienceDirect)</a></li>
+<li><a href="https://www.scielo.br/j/pvb/a/XwzKzyyw97sqWQj9Ch6n3Br/?lang=en">Accidental poisoning by castor bean cake in horses (SciELO)</a></li>
+<li><a href="https://madbarn.com/castor-bean-poisoning-in-horses/">Castor Bean (Ricin) Toxicosis in Horses (Mad Barn)</a></li>
+<li><a href="https://en.wikipedia.org/wiki/List_of_incidents_involving_ricin">List of incidents involving ricin — Wikipedia</a></li>
+<li><a href="https://en.wikipedia.org/wiki/April_2013_ricin_letters">April 2013 ricin letters — Wikipedia</a></li>
+<li><a href="https://en.wikipedia.org/wiki/2003_ricin_letters">2003 ricin letters — Wikipedia</a></li>
+<li><a href="https://www.fbi.gov/contact-us/field-offices/newyork/news/press-releases/manhattan-u.s.-attorney-and-fbi-assistant-director-announce-arrest-of-new-york-man-for-attempting-to-acquire-deadly-toxin-ricin">FBI: Manhattan U.S. Attorney and FBI Assistant Director Announce Arrest of New York Man for Attempting to Acquire Deadly Toxin, Ricin</a></li>
+<li><a href="https://www.everycrsreport.com/reports/RS21383.html">Ricin: Technical Background and Potential Role in Terrorism (EveryCRSReport.com)</a></li>
+<li><a href="https://www.osha.gov/ricin/hazards">Ricin — Hazard Recognition (OSHA)</a></li>
+<li><a href="https://www.cdc.gov/chemical-emergencies/chemical-fact-sheets/ricin.html">Ricin | Chemical Emergencies (CDC)</a></li>
+<li><a href="https://icdlist.com/icd-10/T62.2X1A">ICD-10-CM Diagnosis Code T62.2X1A (ICD List)</a></li>
+<li><a href="https://www.malacards.org/card/ricin_poisoning">Ricin Poisoning — MalaCards</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>31</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>47</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>46</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0000975</code> (1 mention) - the report calls it "verify"; HP calls it <strong>Hyperhidrosis</strong></li>
+<li><code>HP:0006515</code> (1 mention) - the report calls it "verify"; HP calls it <strong>Interstitial pneumonitis</strong></li>
+<li><code>HP:0001626</code> (1 mention) - the report calls it "cardiac"; HP calls it <strong>Abnormality of the cardiovascular system</strong></li>
+<li><code>CL:0000584</code> (1 mention) - the report calls it "Enterocytes / intestinal epithelial cells"; CL calls it <strong>enterocyte</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0030433</code> (obsolete ubiquitin-dependent ERAD pathway) (1 mention) - replaced by <code>GO:0036503</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>NCIT:C15329</code> (1 mention) - the report calls it "Surgical/procedural"; NCIT calls it <strong>Surgical Procedure</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="RHYNS_Syndrome-openscientist.html">← RHYNS Syndrome (OpenScientist)</a>
+                
+                
+                <a href="Rienhoff_Syndrome-claude_code.html">Rienhoff Syndrome (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Ricin_Poisoning.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Ricin_Poisoning-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
