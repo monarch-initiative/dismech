@@ -363,13 +363,16 @@ def test_baseline_only_shrinks():
       from this branch, and 3 came off where main's curators rebound a coarse
       term to a narrower one. The rate -- roughly 1 in 10 new entries -- is the
       argument for landing the guard rather than for widening it again.
+
+    397 -> 396 is the ordinary direction: review promoted Noonan's
+    `Tumor Predisposition` to PATHOGRAPH_HUB, which takes a row off.
     """
     rows = [
         line
         for line in BASELINE.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith("#")
     ]
-    assert len(rows) <= 397, (
+    assert len(rows) <= 396, (
         f"{len(rows)} grandfathered coarse bindings — the baseline may only shrink. "
         "The two exceptions on record are a deliberate widening of the coarse set "
         "and a refresh onto a moved main; both are argued in this test's docstring. "

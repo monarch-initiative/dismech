@@ -179,22 +179,41 @@ findings converge. It carries no clinical claim of its own, so it takes no
 
 ```yaml
 pathophysiology:
-- name: CREBBP haploinsufficiency
+- name: RASopathy Neoplastic Predisposition
   downstream:
-  - target: Ocular abnormalities        # bare name, per the pathograph rule
-    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Tumor Predisposition        # bare name, per the pathograph rule
 
 phenotypes:
-- name: Ocular abnormalities
+- name: Tumor Predisposition
   phenotype_term:
-    preferred_term: Ocular abnormalities
+    preferred_term: Neoplasm
     term:
-      id: HP:0000478
-      label: Abnormality of the eye
+      id: HP:0002664
+      label: Neoplasm
     coarse_binding_basis: PATHOGRAPH_HUB
 ```
 
-Worked example: `Rubinstein-Taybi_Syndrome`.
+Worked example: `Noonan_Syndrome`.
+
+**An arriving edge proves nothing on its own.** The guard can ask whether an
+edge reaches the node; it cannot ask whether that edge means anything, and a
+node reached by one arm of a wide fan-out is not a convergence point. The
+counter-example is real: `Rubinstein-Taybi_Syndrome` declared *Ocular
+abnormalities* a hub on one incoming edge that turned out to be one of **twenty**
+`INDIRECT_UNKNOWN_INTERMEDIATES` targets of a single upstream node — *Short
+stature* and *Broad thumb* satisfied the guard identically. Nothing converged,
+the entry held no specific eye findings, and the snippet was a GeneReviews list
+sentence. It is `SOURCE_UNSPECIFIED`.
+
+Noonan is the contrast: `RASopathy Neoplastic Predisposition` targets that node
+and nothing else, and the coarseness is a property of the biology rather than of
+the source — germline RAS/MAPK hyperactivation raises risk across lineages
+instead of producing one characteristic tumour.
+
+`just list-coarse-phenotypes` prints incoming-edge count and the widest fan-out
+among the sources for every declared hub, and flags a source fanning out past 3.
+Advisory only: a real hub can be reached from a node that also points elsewhere,
+and no threshold separates the two cases.
 
 Two things about hubs are easy to get wrong.
 
@@ -234,13 +253,13 @@ path, and a curation PR touches only `kb/`, matching neither the `python` nor th
 `schema` filter. The checks written to protect knowledge-base content are exactly
 the ones a content-only PR skips.
 
-The 397 bindings that predate the slot are grandfathered in
+The 396 bindings that predate the slot are grandfathered in
 `tests/coarse_phenotype_baseline.txt`. **That file may only shrink**, with two
 exceptions, both argued in the diff that takes them: deliberately widening the
 coarse set grows it once (adding tier 1 took it from 164 to 341 in a reviewed
 pass), and so does refreshing the branch onto a moved `main`, because the
 baseline is a snapshot of the pre-existing backlog taken at the moment the guard
-lands (331 to 386 to 397, from entries curated in the meantime). Clearing a row means
+lands (331 to 386 to 397, from entries curated in the meantime; 396 after review promoted one to a hub). Clearing a row means
 a curator decided between the four values, or bound a specific term instead. A
 companion-rule violation is never grandfathered, because a declared basis can
 only come from content written after the slot existed.
@@ -253,7 +272,7 @@ unchecked.
 
 ## Burning down the backlog
 
-397 bindings across 279 files, of which 203 files carry exactly one. The census
+396 bindings across 279 files, of which 203 files carry exactly one. The census
 sorts them by term:
 
 ```bash

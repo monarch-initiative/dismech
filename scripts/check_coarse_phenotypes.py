@@ -335,7 +335,12 @@ def incoming_targets(data: dict[str, Any]) -> set[str]:
     so the two guards cannot drift about what an edge is. Self-edges are dropped:
     a node listing itself does not make it a convergence point.
     """
-    targets: set[str] = set()
+    return set(incoming_edges(data))
+
+
+def incoming_edges(data: dict[str, Any]) -> dict[str, list[str]]:
+    """Map each targeted node name to the source names that point at it."""
+    incoming: dict[str, list[str]] = {}
     for section, slot in BARE_TARGET_SLOTS:
         for item in data.get(section) or []:
             if not isinstance(item, dict):
@@ -346,8 +351,53 @@ def incoming_targets(data: dict[str, Any]) -> set[str]:
                     continue
                 target = edge.get("target")
                 if isinstance(target, str) and target and target != source:
-                    targets.add(target)
-    return targets
+                    incoming.setdefault(target, []).append(source)
+    return incoming
+
+
+def outgoing_degree(data: dict[str, Any]) -> dict[str, int]:
+    """How many distinct nodes each node points a causal edge at."""
+    degree: dict[str, int] = {}
+    for section, slot in BARE_TARGET_SLOTS:
+        for item in data.get(section) or []:
+            if not isinstance(item, dict):
+                continue
+            source = item.get("name")
+            if not source:
+                continue
+            seen = {
+                edge["target"]
+                for edge in item.get(slot) or []
+                if isinstance(edge, dict)
+                and isinstance(edge.get("target"), str)
+                and edge["target"]
+                and edge["target"] != source
+            }
+            degree[source] = degree.get(source, 0) + len(seen)
+    return degree
+
+
+def hub_convergence(data: dict[str, Any], node: str) -> tuple[int, int]:
+    """(incoming edge count, widest fan-out among those sources) for `node`.
+
+    A hub is meant to be a place a mechanism CONVERGES. The guard can only ask
+    whether an edge arrives, and an edge arriving proves nothing on its own: in
+    `Rubinstein-Taybi_Syndrome` the sole edge reaching `Ocular abnormalities`
+    was one of twenty `INDIRECT_UNKNOWN_INTERMEDIATES` targets of a single
+    upstream node, which `Short stature` and `Broad thumb` satisfied
+    identically. That is fan-out, the opposite of convergence, and it passed.
+
+    So the widest fan-out among a node's sources is reported beside the
+    declaration rather than gated. There is no threshold here on purpose, for
+    the same reason this check has no depth or information-content metric: a
+    real hub can be reached by one edge from a node that also points elsewhere,
+    and no number separates the two cases. A reader can.
+    """
+    incoming = incoming_edges(data).get(node) or []
+    if not incoming:
+        return 0, 0
+    degree = outgoing_degree(data)
+    return len(incoming), max(degree.get(src, 0) for src in incoming)
 
 
 def find_in(data: dict[str, Any], display: str, coarse: dict[str, str]) -> list[Finding]:
@@ -447,6 +497,7 @@ def _print_census(findings: list[Finding], paths: list[str], coarse: dict[str, s
     # Bindings that DID say why. Not a defect -- the point of the guard -- but
     # the count is what tells you whether the backlog is being worked.
     declared: Counter[str] = Counter()
+    hubs: list[tuple[str, str, int, int]] = []
     for path in iter_yaml_files(paths):
         try:
             data = safe_load(path.read_text(encoding="utf-8"))
@@ -458,9 +509,25 @@ def _print_census(findings: list[Finding], paths: list[str], coarse: dict[str, s
             basis = binding.descriptor.get("coarse_binding_basis")
             if isinstance(basis, str):
                 declared[basis] += 1
+            if basis == "PATHOGRAPH_HUB":
+                node = (binding.parent or {}).get("name")
+                if isinstance(node, str) and node:
+                    nin, fan = hub_convergence(data, node)
+                    hubs.append((_display(path), node, nin, fan))
     print(f"\n== declared bases: {sum(declared.values())} ==")
     for basis, count in declared.most_common():
         print(f"  {count:4d}  {basis}")
+
+    # Convergence, for the hubs only. The guard can ask whether an edge arrives;
+    # it cannot ask whether that edge means anything, and a node reached by one
+    # arm of a wide fan-out is not a convergence point. Reported, never gated --
+    # no number separates the two cases, so this is for a reader to judge.
+    if hubs:
+        print(f"\n== PATHOGRAPH_HUB convergence: {len(hubs)} ==")
+        print(f"  {'in':>3} {'fan':>4}  entry / node")
+        for disp, node, nin, fan in sorted(hubs, key=lambda h: -h[3]):
+            flag = "  <- widest source fans out; check this is convergence" if fan > 3 else ""
+            print(f"  {nin:>3} {fan:>4}  {disp} / {node}{flag}")
 
 
 def main() -> int:

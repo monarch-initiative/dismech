@@ -32,6 +32,8 @@ Claude Code skills are available in `.claude/skills/`:
 - **extend-schema**: Use when adding, narrowing, deprecating, or removing a
   class, slot, or enum in `src/dismech/schema/`, or when deciding whether a
   curation need warrants a schema change at all.
+- **coarse-phenotype-bindings**: Use when choosing, reviewing, or repairing a
+  `coarse_binding_basis` on a phenotype bound to a coarse HPO term.
 
 **A skill file that is misnamed or missing its frontmatter is not an error — it
 is a skill that never loads.** Claude Code discovers a skill by looking for
@@ -1969,26 +1971,10 @@ the curation queue.
 ### Coarse Phenotype Bindings Must Say Why
 
 A phenotype bound to a **coarse HPO term** — `HP:0000478` *Abnormality of the
-eye*, `HP:0002664` *Neoplasm*, `HP:0000077` *Abnormality of the kidney* —
-passes every other gate while saying almost nothing. `Schaaf-Yang_Syndrome`
-named strabismus, esotropia and myopia in its `description` and then discarded
-all three in the binding.
-
-The coarse set is 56 terms across two hand-reviewed schema enums:
-`PhenotypeCategoryEnum` (the 23 organ-system roots, which are also the browser's
-facet vocabulary) and `CoarsePhenotypeTermEnum` (33 curated terms below those
-roots that still name a system, organ or region). Both are `meaning:`-bound, so
-`just validate-terms-schema` checks every label.
-
-Such a binding is not forbidden. It must **say why**, via
-`coarse_binding_basis` on the descriptor:
-
-| Value | Means | Requirement |
-|---|---|---|
-| `VARIABLE_SPECTRUM` | involvement varies in form between patients | none — a bare declaration |
-| `SOURCE_UNSPECIFIED` | the cited source characterizes it no further | none — the snippet is the proof |
-| `NO_HPO_TERM` | narrower than any HP term | `preferred_term` ≠ the bound label; record `term_gap` |
-| `PATHOGRAPH_HUB` | a deliberately unqualified convergence node | ≥1 causal edge in the entry targets it; no `frequency` |
+eye*, `HP:0002664` *Neoplasm*, `HP:0000077` *Abnormality of the kidney* — passes
+every other gate while saying almost nothing. Such a binding is not forbidden,
+but it must **say why**, via `coarse_binding_basis` on the descriptor:
+`VARIABLE_SPECTRUM`, `SOURCE_UNSPECIFIED`, `NO_HPO_TERM`, or `PATHOGRAPH_HUB`.
 
 ```bash
 just check-coarse-phenotypes                    # gate (offline, in `just qc`)
@@ -1998,47 +1984,16 @@ just update-coarse-phenotype-baseline           # only ever to SHRINK
 
 **This is not a rule to prefer narrow terms.** Manufacturing a specificity the
 source does not support is a worse defect than a coarse binding, and the
-[Ontology Term Contract](#ontology-term-contract) forbids it. There is
-deliberately no depth or information-content metric: `HP:0004322` *Short
-stature* is the most-used HP term in the KB and `HP:0001627` *Abnormal heart
-morphology* carries "Congenital heart defect" as an EXACT synonym, so any such
-metric would flag the two terms that are most often exactly right. Tier 1 was
-curated in one pass over all 360 distinct `Abnormal*` terms bound in the KB, and
-lands `HP:0000077` *Abnormality of the kidney* in the list while leaving
-`HP:0001627` and `HP:0001999` out — two decisions one step below the same roots
-that no rule over depth or label shape can separate. Widening the set is a
-schema PR with an argument, not a threshold; the enum's description records why
-each near-miss (`HP:0012443`, `HP:0012332`, `HP:0000164`, `HP:0000504`,
-`HP:0000925`, `HP:0002926`, `HP:0002270`) was left out.
+[Ontology Term Contract](#ontology-term-contract) forbids it. The coarse set is
+56 hand-reviewed terms across two `meaning:`-bound schema enums, not a depth or
+information-content metric.
 
-**If you can list the findings, it is not a spectrum — they are phenotypes.**
-`VARIABLE_SPECTRUM` is for the case where involvement is real but its form varies
-with no characteristic finding to bind, so there is nothing to list; that is why
-it takes no companion slot. Where the source *does* name findings and you have a
-quote for them, curate each as an ordinary `phenotypes` entry with its own term
-and evidence. A `spectrum_terms` slot for listing them inside the binding was
-built and removed before this shipped: it produced second-class annotations that
-the phenotype table, the facets and the exports could not see, and it inverted
-the value's meaning by demanding enumeration of exactly the case where
-enumeration is impossible. Do not reintroduce it.
-
-**A hub is defined by its INCOMING edges.** Do not connect a `PATHOGRAPH_HUB` to
-its constituent findings with `sequelae`: that slot is a `CausalEdge`, and a
-coloboma is not *caused by* an eye abnormality, it *is* one. Drawing subsumption
-as causation would corrupt the graph to satisfy a guard. A hub reached by a
-mechanism is complete on its own; the specific findings, where known, are
-ordinary phenotype entries beside it. A hub is also **not** a "disruption of eye
-development" node — that belongs in `pathophysiology`, binds GO, and asserts a process, where
-a hub binds HP and asserts a system-level outcome; the two may sit in sequence.
-A coarse node carrying a `frequency` is a `VARIABLE_SPECTRUM`, not a hub.
-
-The 397 bindings predating the slot are grandfathered in
-`tests/coarse_phenotype_baseline.txt`, which may only shrink — except when the
-coarse set itself is deliberately widened, as adding tier 1 did, or when the
-snapshot is retaken against a moved `main`. Worked examples,
-one per value: `Schaaf-Yang_Syndrome`, `PAICS_Deficiency`,
-`Li-Fraumeni_Syndrome`, `Rubinstein-Taybi_Syndrome`. See
+Use the **`coarse-phenotype-bindings` skill** when choosing, reviewing, or
+repairing a basis — it covers picking between the four values, the
+spectrum-vs-unspecified line, why a hub is defined by its incoming edges and how
+to tell convergence from fan-out, and the baseline's shrink-only rule. See also
 [`docs/coarse-phenotype-bindings.md`](docs/coarse-phenotype-bindings.md).
+
 
 ### Terms Inside `qualifiers` Are Not Covered by `validate-terms`
 
