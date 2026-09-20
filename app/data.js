@@ -112518,6 +112518,114 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Evans Syndrome",
+    "disease_id": "MONDO:0016030",
+    "category": "",
+    "parents": [
+      "autoimmune hematologic disease"
+    ],
+    "creation_date": "2026-09-10T00:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An acquired autoimmune disease defined by at least two of the three autoimmune cytopenias - immune thrombocytopenia, autoimmune haemolytic anaemia and autoimmune neutropenia - occurring simultaneously or sequentially in the same patient. The definition is deliberately combinatorial rather than mechanistic, which is the central difficulty of the entry: what unites the cytopenias is not a shared autoantigen but a shared failure of lymphocyte self-tolerance, with each lineage destroyed by its own antibody. That framing is what explains the clinical observations that set Evans syndrome apart from its component diseases. Initial response rates to standard therapy match those of isolated immune thrombocytopenia and haemolytic anaemia, but relapse is more frequent, splenectomy is less durable, and survival is worse. In children the syndrome is increasingly a presenting sign of an inborn error of immunity rather than a diagnosis in itself.",
+    "pathophysiology": [
+      "Loss of Lymphocyte Self-Tolerance",
+      "Skewed T Cell Compartment",
+      "Autoreactive B Cell Activation and Multi-Lineage Autoantibody Production",
+      "Antibody-Mediated Erythrocyte Destruction",
+      "Antibody-Mediated Platelet Destruction"
+    ],
+    "cell_types": [
+      "regulatory T cell",
+      "B cell",
+      "CD8-positive, alpha-beta T cell",
+      "plasma cell",
+      "erythrocyte",
+      "macrophage",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000815",
+      "CL:0000236",
+      "CL:0000625",
+      "CL:0000786",
+      "CL:0000232",
+      "CL:0000235",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "T cell homeostasis",
+      "B cell activation",
+      "humoral immune response mediated by circulating immunoglobulin",
+      "complement activation",
+      "phagocytosis"
+    ],
+    "phenotypes": [
+      "Coombs-Positive Hemolytic Anemia",
+      "Thrombocytopenia",
+      "Decreased Total Neutrophil Count",
+      "Jaundice",
+      "Systemic Lupus Erythematosus",
+      "Mucocutaneous Bleeding",
+      "Severe and Recurrent Infections",
+      "Increased Double-Negative T Cells"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Constitutional",
+      "Immunologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0004844",
+      "HP:0001873",
+      "HP:0001875",
+      "HP:0000952",
+      "MONDO:0007915",
+      "HP:0001892",
+      "HP:0002719",
+      "HP:0002851"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CTLA4",
+      "LRBA",
+      "TPP2",
+      "STAT3",
+      "FAS",
+      "KRAS"
+    ],
+    "treatments": [
+      "Corticosteroid Therapy",
+      "Intravenous Immunoglobulin",
+      "Rituximab",
+      "Sirolimus",
+      "Mycophenolate Mofetil",
+      "Thrombopoietin Receptor Agonist Therapy",
+      "Fostamatinib",
+      "Splenectomy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Evans_Syndrome.yaml",
+    "page_url": "../pages/disorders/Evans_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 6,
+    "num_treatments": 8,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Ewing Sarcoma",
     "disease_id": "MONDO:0012817",
     "category": "",
@@ -317157,17 +317265,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3043,
+  "total_disorder_pages": 3044,
   "total_subtypes": 3782,
-  "total_disorders_and_subtypes": 6825,
-  "total_unique_evidence_sources": 43416,
-  "total_unique_publications": 41003,
+  "total_disorders_and_subtypes": 6826,
+  "total_unique_evidence_sources": 43432,
+  "total_unique_publications": 41019,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3038,
-  "total_unique_pathological_events": 18564,
+  "total_pathographs": 3039,
+  "total_unique_pathological_events": 18569,
   "total_modules": 177,
-  "total_research_reports": 3157,
+  "total_research_reports": 3158,
   "total_classifications": 19,
   "total_comorbidities": 46,
   "total_groupings": 102
