@@ -32,6 +32,8 @@ Claude Code skills are available in `.claude/skills/`:
 - **extend-schema**: Use when adding, narrowing, deprecating, or removing a
   class, slot, or enum in `src/dismech/schema/`, or when deciding whether a
   curation need warrants a schema change at all.
+- **coarse-phenotype-bindings**: Use when choosing, reviewing, or repairing a
+  `coarse_binding_basis` on a phenotype bound to a coarse HPO term.
 
 **A skill file that is misnamed or missing its frontmatter is not an error — it
 is a skill that never loads.** Claude Code discovers a skill by looking for
@@ -1965,6 +1967,33 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `skos:exactMatch` or `skos:narrowMatch`; `broadMatch`, `closeMatch`, and
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
+
+### Coarse Phenotype Bindings Must Say Why
+
+A phenotype bound to a **coarse HPO term** — `HP:0000478` *Abnormality of the
+eye*, `HP:0002664` *Neoplasm*, `HP:0000077` *Abnormality of the kidney* — passes
+every other gate while saying almost nothing. Such a binding is not forbidden,
+but it must **say why**, via `coarse_binding_basis` on the descriptor:
+`VARIABLE_SPECTRUM`, `SOURCE_UNSPECIFIED`, `NO_HPO_TERM`, or `PATHOGRAPH_HUB`.
+
+```bash
+just check-coarse-phenotypes                    # gate (offline, in `just qc`)
+just list-coarse-phenotypes                     # census by term and file
+just update-coarse-phenotype-baseline           # only ever to SHRINK
+```
+
+**This is not a rule to prefer narrow terms.** Manufacturing a specificity the
+source does not support is a worse defect than a coarse binding, and the
+[Ontology Term Contract](#ontology-term-contract) forbids it. The coarse set is
+56 hand-reviewed terms across two `meaning:`-bound schema enums, not a depth or
+information-content metric.
+
+Use the **`coarse-phenotype-bindings` skill** when choosing, reviewing, or
+repairing a basis — it covers picking between the four values, the
+spectrum-vs-unspecified line, why a hub is defined by its incoming edges and how
+to tell convergence from fan-out, and the baseline's shrink-only rule. See also
+[`docs/coarse-phenotype-bindings.md`](docs/coarse-phenotype-bindings.md).
+
 
 ### Terms Inside `qualifiers` Are Not Covered by `validate-terms`
 
