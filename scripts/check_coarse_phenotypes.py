@@ -127,19 +127,20 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import Counter
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator, NamedTuple
+from typing import Any, NamedTuple
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from check_causal_targets import BARE_TARGET_SLOTS  # noqa: E402
+from check_causal_targets import BARE_TARGET_SLOTS
 
 BASELINE_PATH = ROOT / "tests" / "coarse_phenotype_baseline.txt"
 CLASSIFICATIONS = ROOT / "src" / "dismech" / "schema" / "classifications"
