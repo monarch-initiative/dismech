@@ -118,6 +118,32 @@ types:
     uri: xsd:string
 
 enums:
+  ClaimContextRoleEnum:
+    description: Origin of inherited or explicitly selected claim context.
+    permissible_values:
+      ancestor: {}
+      subtype: {}
+      explicit: {}
+  ClaimJudgmentEnum:
+    description: Whether the declared evidence relationship is justified for the whole assertion.
+    permissible_values:
+      MATCH:
+        title: Match
+        description: The selected excerpt justifies the declared relationship to the whole assertion.
+      MISMATCH:
+        title: Mismatch
+        description: The selected excerpt fails to justify the declared relationship to the whole assertion.
+  ClaimMismatchReasonEnum:
+    description: Diagnostic reason for a failed whole-claim evaluation.
+    permissible_values:
+      insufficient_specificity:
+        description: Evidence supports only a broader or incomplete assertion; required detail is missing.
+      incompatible_assertion:
+        description: Evidence asserts an incompatible value or relationship under the same scope.
+      unrelated:
+        description: Evidence does not bear on the selected assertion.
+      other:
+        description: A mismatch not described by the other reasons; explanation is needed.
   EvidenceItemSupportEnum:
     description: >-
       Which way the cited evidence cuts relative to the claim. This is direction
@@ -8421,3 +8447,113 @@ classes:
           Foreign key to a mechanism module filename stem in kb/modules/. Node
           anchors are not used for collection membership.
         required: true
+
+  StructuredClaim:
+    description: >-
+      Derived evidence-evaluation view of one complete dismech assertion. Original
+      field names, ontology bindings and qualifiers are preserved; no prose claim
+      is generated. This is not a new authored section on Disease.
+    attributes:
+      about:
+        description: Disease identity and inherited scope of the assertion.
+        range: ClaimAbout
+        required: true
+        inlined: true
+      assertion_type:
+        description: Original dismech class of the assertion, resolved through schema slot ranges.
+        range: string
+        required: true
+      assertion:
+        description: >-
+          Original assertion object with evidence, references and review notes removed
+          recursively. Any preserves heterogeneous existing dismech classes without
+          creating a parallel assertion schema. assertion_type identifies its class.
+        range: Any
+        required: true
+        inlined: true
+      selected_evidence:
+        description: Original selected evidence annotation; its direction does not negate the assertion.
+        range: EvidenceItem
+        required: true
+        inlined: true
+      origin:
+        description: Source document locations used in extraction.
+        range: ClaimOrigin
+        required: true
+        inlined: true
+  ClaimAbout:
+    description: Disease identity and explicit inherited context for the assertion.
+    attributes:
+      disease:
+        description: Original disease identity fields.
+        range: ClaimDiseaseIdentity
+        required: true
+        inlined: true
+      context:
+        description: >-
+          Ancestor identities and qualifiers, resolved subtype definitions and explicitly
+          requested context. These are claim context, not additional evidence. Conflicting
+          scopes remain visible rather than being silently overridden.
+        range: ClaimContextBinding
+        multivalued: true
+        inlined_as_list: true
+  ClaimDiseaseIdentity:
+    description: Original disease name and ontology descriptor, without a generated summary.
+    slots:
+      - name
+      - disease_term
+    slot_usage:
+      name:
+        required: true
+  ClaimContextBinding:
+    description: A pointer-addressed original context value and its role in claim interpretation.
+    attributes:
+      path:
+        description: RFC 6901 JSON Pointer into the original disease document.
+        range: string
+        required: true
+      value:
+        description: >-
+          Original scalar, list or object at the path. Ancestor and subtype objects
+          retain local fields but omit evidence and separate evidence-bearing child
+          objects, to avoid importing sibling assertions as context.
+        range: Any
+        required: true
+      role:
+        range: ClaimContextRoleEnum
+        required: true
+  ClaimOrigin:
+    description: Locations in the source disease YAML used to derive a structured claim.
+    attributes:
+      assertion_path:
+        description: RFC 6901 JSON Pointer to the complete assertion object.
+        range: string
+        required: true
+      evidence_path:
+        description: RFC 6901 JSON Pointer to its selected evidence list entry.
+        range: string
+        required: true
+      context_paths:
+        description: Pointers supplying disease identity and additional context bindings.
+        range: string
+        multivalued: true
+  ClaimEvaluation:
+    description: >-
+      Optional human or system judgment of the declared evidence relationship to a
+      complete StructuredClaim. Reasons are evaluation diagnostics, not EvidenceItem
+      support values or new curator-authored evidence appraisal slots.
+    attributes:
+      judgment:
+        description: Whether the selected evidence relationship is justified.
+        range: ClaimJudgmentEnum
+        required: true
+      reason:
+        description: Principal reason for a mismatch, when assessed.
+        range: ClaimMismatchReasonEnum
+      disputed_paths:
+        description: RFC 6901 pointers within the StructuredClaim, identifying disputed fields.
+        range: string
+        multivalued: true
+      justification:
+        description: Explanation supplied by the evaluating human or system.
+        range: string

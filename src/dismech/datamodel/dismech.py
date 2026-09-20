@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-09-17T03:29:32
+# Generation date: 2026-09-20T15:42:07
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -104,6 +104,7 @@ GEO = CurieNamespace('geo', 'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=
 GTEX = CurieNamespace('gtex', 'https://gtexportal.org/home/datasets/')
 HCA = CurieNamespace('hca', 'https://data.humancellatlas.org/explore/projects/')
 ICD11F = CurieNamespace('icd11f', 'http://purl.obolibrary.org/obo/icd11f_')
+IMMPORT = CurieNamespace('immport', 'https://www.immport.org/shared/study/')
 LINKML = CurieNamespace('linkml', 'https://w3id.org/linkml/')
 MASSIVE = CurieNamespace('massive', 'https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=')
 METABOLIGHTS = CurieNamespace('metabolights', 'https://www.ebi.ac.uk/metabolights/')
@@ -314,6 +315,10 @@ class GroupingName(extended_str):
 
 
 class ModuleCollectionName(extended_str):
+    pass
+
+
+class ClaimDiseaseIdentityName(extended_str):
     pass
 
 
@@ -4297,6 +4302,7 @@ class Treatment(YAMLRoot):
     treatment_term: Optional[Union[dict, TreatmentDescriptor]] = None
     regimen_term: Optional[Union[dict, RegimenDescriptor]] = None
     therapeutic_modality: Optional[Union[str, "TherapeuticModalityEnum"]] = None
+    delivery_system: Optional[Union[dict, "DeliverySystem"]] = None
     oligonucleotide_details: Optional[Union[dict, "OligonucleotideDetail"]] = None
     aso_details: Optional[Union[dict, "OligonucleotideDetail"]] = None
     dosing_interval: Optional[str] = None
@@ -4332,6 +4338,9 @@ class Treatment(YAMLRoot):
 
         if self.therapeutic_modality is not None and not isinstance(self.therapeutic_modality, TherapeuticModalityEnum):
             self.therapeutic_modality = TherapeuticModalityEnum(self.therapeutic_modality)
+
+        if self.delivery_system is not None and not isinstance(self.delivery_system, DeliverySystem):
+            self.delivery_system = DeliverySystem(**as_dict(self.delivery_system))
 
         if self.oligonucleotide_details is not None and not isinstance(self.oligonucleotide_details, OligonucleotideDetail):
             self.oligonucleotide_details = OligonucleotideDetail(**as_dict(self.oligonucleotide_details))
@@ -4385,6 +4394,11 @@ class OligonucleotideDetail(YAMLRoot):
     ANTISENSE_OLIGONUCLEOTIDE or SIRNA. Single-stranded ASOs and double-stranded siRNAs share this class deliberately
     - they differ in effector (RNase H1 versus Argonaute-2) but are the same programmable platform, described by the
     same target, chemistry, and delivery attributes.
+    The carrier attributes here (delivery_platform, targeting_ligand, and the deprecated conjugation) predate the
+    Treatment-level delivery_system block and are retained so entries authored before it continue to validate. New
+    treatments record the carrier in delivery_system; this class keeps the mechanism, RNA target, exon, and backbone
+    chemistry, which are genuinely specific to base-pairing therapeutics. just check-delivery-system reports entries
+    still using the nested slots and gates on a value recorded in both places.
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -4398,8 +4412,9 @@ class OligonucleotideDetail(YAMLRoot):
     target_transcript: Optional[str] = None
     target_exon: Optional[str] = None
     oligonucleotide_chemistry: Optional[Union[str, "OligonucleotideChemistryEnum"]] = None
-    conjugation: Optional[Union[str, "OligonucleotideConjugationEnum"]] = None
-    delivery_platform: Optional[Union[str, "OligonucleotideDeliveryPlatformEnum"]] = None
+    targeting_ligand: Optional[Union[str, "TargetingLigandEnum"]] = None
+    conjugation: Optional[Union[str, "TargetingLigandEnum"]] = None
+    delivery_platform: Optional[Union[str, "DeliveryPlatformEnum"]] = None
     aso_mechanism: Optional[Union[str, "OligonucleotideMechanismEnum"]] = None
     aso_chemistry: Optional[Union[str, "OligonucleotideChemistryEnum"]] = None
 
@@ -4419,17 +4434,78 @@ class OligonucleotideDetail(YAMLRoot):
         if self.oligonucleotide_chemistry is not None and not isinstance(self.oligonucleotide_chemistry, OligonucleotideChemistryEnum):
             self.oligonucleotide_chemistry = OligonucleotideChemistryEnum(self.oligonucleotide_chemistry)
 
-        if self.conjugation is not None and not isinstance(self.conjugation, OligonucleotideConjugationEnum):
-            self.conjugation = OligonucleotideConjugationEnum(self.conjugation)
+        if self.targeting_ligand is not None and not isinstance(self.targeting_ligand, TargetingLigandEnum):
+            self.targeting_ligand = TargetingLigandEnum(self.targeting_ligand)
 
-        if self.delivery_platform is not None and not isinstance(self.delivery_platform, OligonucleotideDeliveryPlatformEnum):
-            self.delivery_platform = OligonucleotideDeliveryPlatformEnum(self.delivery_platform)
+        if self.conjugation is not None and not isinstance(self.conjugation, TargetingLigandEnum):
+            self.conjugation = TargetingLigandEnum(self.conjugation)
+
+        if self.delivery_platform is not None and not isinstance(self.delivery_platform, DeliveryPlatformEnum):
+            self.delivery_platform = DeliveryPlatformEnum(self.delivery_platform)
 
         if self.aso_mechanism is not None and not isinstance(self.aso_mechanism, OligonucleotideMechanismEnum):
             self.aso_mechanism = OligonucleotideMechanismEnum(self.aso_mechanism)
 
         if self.aso_chemistry is not None and not isinstance(self.aso_chemistry, OligonucleotideChemistryEnum):
             self.aso_chemistry = OligonucleotideChemistryEnum(self.aso_chemistry)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class DeliverySystem(YAMLRoot):
+    """
+    How a treatment's active agent is carried to its target - the formulation platform, any targeting ligand on the
+    carrier, the receptor that ligand binds, and the cell type the carrier is aimed at. Attach via the delivery_system
+    slot on a Treatment of any modality: the carrier is a property of the formulation, not of the payload chemistry,
+    so an mRNA lipid nanoparticle, an albumin-bound small molecule, a liposomal cytotoxic, and a GalNAc-conjugated
+    siRNA are all described here by the same four attributes.
+    Two facts that used to be inexpressible are the reason this class exists. A carrier could only be recorded inside
+    oligonucleotide_details, so no non-oligonucleotide formulation had a home for it - nab-sirolimus and liposomal
+    irinotecan were curated with the carrier visible only in free-text prose. And there was nowhere to say what a
+    targeted particle is aimed at, which is the whole claim of a receptor-targeted nanomedicine: an anti-TREM2-coated
+    mRNA lipid nanoparticle is aimed at tumor-associated macrophages, and that is a citable, falsifiable statement
+    about the delivery system rather than about the drug.
+    The targeting slots are optional and an untargeted carrier is a normal record: a PEGylated liposome relies on
+    passive accumulation and has no ligand, no receptor, and no target cell type. Leave them absent rather than
+    asserting a target the formulation does not have.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["DeliverySystem"]
+    class_class_curie: ClassVar[str] = "dismech:DeliverySystem"
+    class_name: ClassVar[str] = "DeliverySystem"
+    class_model_uri: ClassVar[URIRef] = DISMECH.DeliverySystem
+
+    delivery_platform: Optional[Union[str, "DeliveryPlatformEnum"]] = None
+    targeting_ligand: Optional[Union[str, "TargetingLigandEnum"]] = None
+    targeting_receptor: Optional[Union[dict, GeneDescriptor]] = None
+    target_cell_types: Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]] = empty_list()
+    description: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.delivery_platform is not None and not isinstance(self.delivery_platform, DeliveryPlatformEnum):
+            self.delivery_platform = DeliveryPlatformEnum(self.delivery_platform)
+
+        if self.targeting_ligand is not None and not isinstance(self.targeting_ligand, TargetingLigandEnum):
+            self.targeting_ligand = TargetingLigandEnum(self.targeting_ligand)
+
+        if self.targeting_receptor is not None and not isinstance(self.targeting_receptor, GeneDescriptor):
+            self.targeting_receptor = GeneDescriptor(**as_dict(self.targeting_receptor))
+
+        self._normalize_inlined_as_list(slot_name="target_cell_types", slot_type=CellTypeDescriptor, key_name="preferred_term", keyed=False)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
 
         super().__post_init__(**kwargs)
 
@@ -6763,7 +6839,257 @@ class ModuleCollectionMember(YAMLRoot):
         super().__post_init__(**kwargs)
 
 
+@dataclass(repr=False)
+class StructuredClaim(YAMLRoot):
+    """
+    Derived evidence-evaluation view of one complete dismech assertion. Original field names, ontology bindings and
+    qualifiers are preserved; no prose claim is generated. This is not a new authored section on Disease.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["StructuredClaim"]
+    class_class_curie: ClassVar[str] = "dismech:StructuredClaim"
+    class_name: ClassVar[str] = "StructuredClaim"
+    class_model_uri: ClassVar[URIRef] = DISMECH.StructuredClaim
+
+    about: Union[dict, "ClaimAbout"] = None
+    assertion_type: str = None
+    assertion: Union[dict, Any] = None
+    selected_evidence: Union[dict, EvidenceItem] = None
+    origin: Union[dict, "ClaimOrigin"] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.about):
+            self.MissingRequiredField("about")
+        if not isinstance(self.about, ClaimAbout):
+            self.about = ClaimAbout(**as_dict(self.about))
+
+        if self._is_empty(self.assertion_type):
+            self.MissingRequiredField("assertion_type")
+        if not isinstance(self.assertion_type, str):
+            self.assertion_type = str(self.assertion_type)
+
+        if self._is_empty(self.selected_evidence):
+            self.MissingRequiredField("selected_evidence")
+        if not isinstance(self.selected_evidence, EvidenceItem):
+            self.selected_evidence = EvidenceItem(**as_dict(self.selected_evidence))
+
+        if self._is_empty(self.origin):
+            self.MissingRequiredField("origin")
+        if not isinstance(self.origin, ClaimOrigin):
+            self.origin = ClaimOrigin(**as_dict(self.origin))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ClaimAbout(YAMLRoot):
+    """
+    Disease identity and explicit inherited context for the assertion.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ClaimAbout"]
+    class_class_curie: ClassVar[str] = "dismech:ClaimAbout"
+    class_name: ClassVar[str] = "ClaimAbout"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ClaimAbout
+
+    disease: Union[dict, "ClaimDiseaseIdentity"] = None
+    context: Optional[Union[Union[dict, "ClaimContextBinding"], list[Union[dict, "ClaimContextBinding"]]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.disease):
+            self.MissingRequiredField("disease")
+        if not isinstance(self.disease, ClaimDiseaseIdentity):
+            self.disease = ClaimDiseaseIdentity(**as_dict(self.disease))
+
+        self._normalize_inlined_as_list(slot_name="context", slot_type=ClaimContextBinding, key_name="path", keyed=False)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ClaimDiseaseIdentity(YAMLRoot):
+    """
+    Original disease name and ontology descriptor, without a generated summary.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ClaimDiseaseIdentity"]
+    class_class_curie: ClassVar[str] = "dismech:ClaimDiseaseIdentity"
+    class_name: ClassVar[str] = "ClaimDiseaseIdentity"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ClaimDiseaseIdentity
+
+    name: Union[str, ClaimDiseaseIdentityName] = None
+    disease_term: Optional[Union[dict, DiseaseDescriptor]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ClaimDiseaseIdentityName):
+            self.name = ClaimDiseaseIdentityName(self.name)
+
+        if self.disease_term is not None and not isinstance(self.disease_term, DiseaseDescriptor):
+            self.disease_term = DiseaseDescriptor(**as_dict(self.disease_term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ClaimContextBinding(YAMLRoot):
+    """
+    A pointer-addressed original context value and its role in claim interpretation.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ClaimContextBinding"]
+    class_class_curie: ClassVar[str] = "dismech:ClaimContextBinding"
+    class_name: ClassVar[str] = "ClaimContextBinding"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ClaimContextBinding
+
+    path: str = None
+    value: Union[dict, Any] = None
+    role: Union[str, "ClaimContextRoleEnum"] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.path):
+            self.MissingRequiredField("path")
+        if not isinstance(self.path, str):
+            self.path = str(self.path)
+
+        if self._is_empty(self.role):
+            self.MissingRequiredField("role")
+        if not isinstance(self.role, ClaimContextRoleEnum):
+            self.role = ClaimContextRoleEnum(self.role)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ClaimOrigin(YAMLRoot):
+    """
+    Locations in the source disease YAML used to derive a structured claim.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ClaimOrigin"]
+    class_class_curie: ClassVar[str] = "dismech:ClaimOrigin"
+    class_name: ClassVar[str] = "ClaimOrigin"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ClaimOrigin
+
+    assertion_path: str = None
+    evidence_path: str = None
+    context_paths: Optional[Union[str, list[str]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.assertion_path):
+            self.MissingRequiredField("assertion_path")
+        if not isinstance(self.assertion_path, str):
+            self.assertion_path = str(self.assertion_path)
+
+        if self._is_empty(self.evidence_path):
+            self.MissingRequiredField("evidence_path")
+        if not isinstance(self.evidence_path, str):
+            self.evidence_path = str(self.evidence_path)
+
+        if not isinstance(self.context_paths, list):
+            self.context_paths = [self.context_paths] if self.context_paths is not None else []
+        self.context_paths = [v if isinstance(v, str) else str(v) for v in self.context_paths]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ClaimEvaluation(YAMLRoot):
+    """
+    Optional human or system judgment of the declared evidence relationship to a complete StructuredClaim. Reasons are
+    evaluation diagnostics, not EvidenceItem support values or new curator-authored evidence appraisal slots.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ClaimEvaluation"]
+    class_class_curie: ClassVar[str] = "dismech:ClaimEvaluation"
+    class_name: ClassVar[str] = "ClaimEvaluation"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ClaimEvaluation
+
+    judgment: Union[str, "ClaimJudgmentEnum"] = None
+    reason: Optional[Union[str, "ClaimMismatchReasonEnum"]] = None
+    disputed_paths: Optional[Union[str, list[str]]] = empty_list()
+    justification: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.judgment):
+            self.MissingRequiredField("judgment")
+        if not isinstance(self.judgment, ClaimJudgmentEnum):
+            self.judgment = ClaimJudgmentEnum(self.judgment)
+
+        if self.reason is not None and not isinstance(self.reason, ClaimMismatchReasonEnum):
+            self.reason = ClaimMismatchReasonEnum(self.reason)
+
+        if not isinstance(self.disputed_paths, list):
+            self.disputed_paths = [self.disputed_paths] if self.disputed_paths is not None else []
+        self.disputed_paths = [v if isinstance(v, str) else str(v) for v in self.disputed_paths]
+
+        if self.justification is not None and not isinstance(self.justification, str):
+            self.justification = str(self.justification)
+
+        super().__post_init__(**kwargs)
+
+
 # Enumerations
+class ClaimContextRoleEnum(EnumDefinitionImpl):
+    """
+    Origin of inherited or explicitly selected claim context.
+    """
+    ancestor = PermissibleValue(text="ancestor")
+    subtype = PermissibleValue(text="subtype")
+    explicit = PermissibleValue(text="explicit")
+
+    _defn = EnumDefinition(
+        name="ClaimContextRoleEnum",
+        description="Origin of inherited or explicitly selected claim context.",
+    )
+
+class ClaimJudgmentEnum(EnumDefinitionImpl):
+    """
+    Whether the declared evidence relationship is justified for the whole assertion.
+    """
+    MATCH = PermissibleValue(
+        text="MATCH",
+        title="Match",
+        description="The selected excerpt justifies the declared relationship to the whole assertion.")
+    MISMATCH = PermissibleValue(
+        text="MISMATCH",
+        title="Mismatch",
+        description="The selected excerpt fails to justify the declared relationship to the whole assertion.")
+
+    _defn = EnumDefinition(
+        name="ClaimJudgmentEnum",
+        description="Whether the declared evidence relationship is justified for the whole assertion.",
+    )
+
+class ClaimMismatchReasonEnum(EnumDefinitionImpl):
+    """
+    Diagnostic reason for a failed whole-claim evaluation.
+    """
+    insufficient_specificity = PermissibleValue(
+        text="insufficient_specificity",
+        description="Evidence supports only a broader or incomplete assertion; required detail is missing.")
+    incompatible_assertion = PermissibleValue(
+        text="incompatible_assertion",
+        description="Evidence asserts an incompatible value or relationship under the same scope.")
+    unrelated = PermissibleValue(
+        text="unrelated",
+        description="Evidence does not bear on the selected assertion.")
+    other = PermissibleValue(
+        text="other",
+        description="A mismatch not described by the other reasons; explanation is needed.")
+
+    _defn = EnumDefinition(
+        name="ClaimMismatchReasonEnum",
+        description="Diagnostic reason for a failed whole-claim evaluation.",
+    )
+
 class EvidenceItemSupportEnum(EnumDefinitionImpl):
     """
     Which way the cited evidence cuts relative to the claim. This is direction only. How *directly* the quote bears on
@@ -9280,16 +9606,17 @@ class OligonucleotideChemistryEnum(EnumDefinitionImpl):
         description="""Backbone / sugar chemistry of a therapeutic oligonucleotide. Determines nuclease resistance and binding affinity, and for single-stranded ASOs whether the oligonucleotide supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy. siRNA duplexes typically combine alternating 2'-O-methyl and 2'-fluoro ribose modifications with terminal phosphorothioate linkages; a treatment whose duplex uses more than one of these should record the modification most characteristic of its design and describe the rest in the treatment description.""",
     )
 
-class OligonucleotideConjugationEnum(EnumDefinitionImpl):
+class TargetingLigandEnum(EnumDefinitionImpl):
     """
-    Targeting ligand covalently attached to a therapeutic oligonucleotide to direct tissue uptake or improve
-    pharmacokinetics. Distinct from delivery_platform, which records whether the oligonucleotide is carried by a
-    conjugate at all as opposed to a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide may
-    still be formulated in a lipid nanoparticle (e.g., patisiran).
+    Targeting ligand attached to a therapeutic agent, or to the carrier particle that holds it, to direct tissue or
+    cell uptake or to improve pharmacokinetics. Distinct from delivery_platform, which records what carries the agent
+    at all as opposed to a nanoparticle, a viral vector, or nothing. The two axes are orthogonal in both directions:
+    an unconjugated oligonucleotide may still be formulated in a lipid nanoparticle (e.g., patisiran), and a
+    nanoparticle may itself carry a ligand on its surface (e.g., an antibody-coated mRNA lipid nanoparticle).
     """
     UNCONJUGATED = PermissibleValue(
         text="UNCONJUGATED",
-        description="No targeting conjugate (naked ASO)")
+        description="No targeting ligand - a naked ASO, or a carrier particle with an unmodified surface")
     GALNAC = PermissibleValue(
         text="GALNAC",
         title="GalNAc-conjugated",
@@ -9303,24 +9630,29 @@ class OligonucleotideConjugationEnum(EnumDefinitionImpl):
         description="Cell-penetrating or targeting peptide conjugate")
     ANTIBODY = PermissibleValue(
         text="ANTIBODY",
-        description="Antibody-oligonucleotide conjugate (AOC) for receptor-targeted delivery")
+        description="""Antibody or antibody fragment as the targeting ligand - an antibody-oligonucleotide conjugate (AOC), or an antibody coupled to the surface of a carrier particle for receptor-targeted delivery""")
+    MANNOSE = PermissibleValue(
+        text="MANNOSE",
+        title="Mannose / mannosylated",
+        description="""Mannose or a mannosylated surface directing uptake via the macrophage mannose receptor (MRC1/CD206)""")
     OTHER = PermissibleValue(
         text="OTHER",
-        description="Conjugate not covered by the above categories")
+        description="Targeting ligand not covered by the above categories")
 
     _defn = EnumDefinition(
-        name="OligonucleotideConjugationEnum",
-        description="""Targeting ligand covalently attached to a therapeutic oligonucleotide to direct tissue uptake or improve pharmacokinetics. Distinct from delivery_platform, which records whether the oligonucleotide is carried by a conjugate at all as opposed to a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide may still be formulated in a lipid nanoparticle (e.g., patisiran).""",
+        name="TargetingLigandEnum",
+        description="""Targeting ligand attached to a therapeutic agent, or to the carrier particle that holds it, to direct tissue or cell uptake or to improve pharmacokinetics. Distinct from delivery_platform, which records what carries the agent at all as opposed to a nanoparticle, a viral vector, or nothing. The two axes are orthogonal in both directions: an unconjugated oligonucleotide may still be formulated in a lipid nanoparticle (e.g., patisiran), and a nanoparticle may itself carry a ligand on its surface (e.g., an antibody-coated mRNA lipid nanoparticle).""",
     )
 
-class OligonucleotideDeliveryPlatformEnum(EnumDefinitionImpl):
+class DeliveryPlatformEnum(EnumDefinitionImpl):
     """
-    How a therapeutic oligonucleotide is carried to its target tissue. This is the delivery strategy, not the
-    targeting ligand (see conjugation) and not the route of administration: it is what solves the stability,
+    How a treatment's active agent is carried to its target tissue. This is the delivery strategy, not the targeting
+    ligand (see targeting_ligand) and not the route of administration: it is what solves the stability,
     cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing -
     patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed
     intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three
-    months without it.
+    months without it. The same axis separates two formulations of one small molecule: conventional and albumin-bound
+    paclitaxel share an agent and differ in carrier.
     """
     UNFORMULATED = PermissibleValue(
         text="UNFORMULATED",
@@ -9329,14 +9661,25 @@ class OligonucleotideDeliveryPlatformEnum(EnumDefinitionImpl):
     CONJUGATE = PermissibleValue(
         text="CONJUGATE",
         title="Ligand conjugate",
-        description="""Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in conjugation (e.g., GalNAc for hepatocyte ASGR1 uptake)""")
+        description="""Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in targeting_ligand (e.g., GalNAc for hepatocyte ASGR1 uptake)""")
     LIPID_NANOPARTICLE = PermissibleValue(
         text="LIPID_NANOPARTICLE",
         title="Lipid nanoparticle (LNP)",
-        description="""Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran)""")
+        description="""Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran, mRNA therapeutics). Distinct from LIPOSOME - the ionizable lipid is what releases a nucleic-acid payload from the endosome""")
+    LIPOSOME = PermissibleValue(
+        text="LIPOSOME",
+        title="Liposome",
+        description="""Encapsulated in a phospholipid bilayer vesicle, commonly PEGylated for circulation time, altering biodistribution and toxicity of an already cell-permeant agent rather than solving endosomal escape (e.g., liposomal doxorubicin, liposomal irinotecan, liposomal amphotericin B)""")
     POLYMER_NANOPARTICLE = PermissibleValue(
         text="POLYMER_NANOPARTICLE",
         description="Encapsulated in a polymeric or dendrimer nanoparticle")
+    PROTEIN_NANOPARTICLE = PermissibleValue(
+        text="PROTEIN_NANOPARTICLE",
+        title="Protein nanoparticle (albumin-bound)",
+        description="""Bound to or assembled with a carrier protein, usually albumin, to solubilize a hydrophobic agent without a synthetic surfactant (e.g., nab-paclitaxel, nab-sirolimus)""")
+    INORGANIC_NANOPARTICLE = PermissibleValue(
+        text="INORGANIC_NANOPARTICLE",
+        description="Carried on an inorganic core such as iron oxide, gold, or hafnium oxide")
     VIRAL_VECTOR = PermissibleValue(
         text="VIRAL_VECTOR",
         description="Delivered by an engineered viral vector (e.g., AAV-expressed short hairpin RNA)")
@@ -9349,8 +9692,8 @@ class OligonucleotideDeliveryPlatformEnum(EnumDefinitionImpl):
         description="Delivery platform not covered by the above categories")
 
     _defn = EnumDefinition(
-        name="OligonucleotideDeliveryPlatformEnum",
-        description="""How a therapeutic oligonucleotide is carried to its target tissue. This is the delivery strategy, not the targeting ligand (see conjugation) and not the route of administration: it is what solves the stability, cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing - patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three months without it.""",
+        name="DeliveryPlatformEnum",
+        description="""How a treatment's active agent is carried to its target tissue. This is the delivery strategy, not the targeting ligand (see targeting_ligand) and not the route of administration: it is what solves the stability, cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing - patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three months without it. The same axis separates two formulations of one small molecule: conventional and albumin-bound paclitaxel share an agent and differ in carrier.""",
     )
 
 class MechanisticHypothesisStatusEnum(EnumDefinitionImpl):
@@ -13320,6 +13663,9 @@ slots.therapeutic_modality = Slot(uri=DISMECH.therapeutic_modality, name="therap
 slots.oligonucleotide_details = Slot(uri=DISMECH.oligonucleotide_details, name="oligonucleotide_details", curie=DISMECH.curie('oligonucleotide_details'),
                    model_uri=DISMECH.oligonucleotide_details, domain=None, range=Optional[Union[dict, OligonucleotideDetail]])
 
+slots.delivery_system = Slot(uri=DISMECH.delivery_system, name="delivery_system", curie=DISMECH.curie('delivery_system'),
+                   model_uri=DISMECH.delivery_system, domain=None, range=Optional[Union[dict, DeliverySystem]])
+
 slots.aso_details = Slot(uri=DISMECH.aso_details, name="aso_details", curie=DISMECH.curie('aso_details'),
                    model_uri=DISMECH.aso_details, domain=None, range=Optional[Union[dict, OligonucleotideDetail]])
 
@@ -13345,10 +13691,19 @@ slots.aso_chemistry = Slot(uri=DISMECH.aso_chemistry, name="aso_chemistry", curi
                    model_uri=DISMECH.aso_chemistry, domain=None, range=Optional[Union[str, "OligonucleotideChemistryEnum"]])
 
 slots.conjugation = Slot(uri=DISMECH.conjugation, name="conjugation", curie=DISMECH.curie('conjugation'),
-                   model_uri=DISMECH.conjugation, domain=None, range=Optional[Union[str, "OligonucleotideConjugationEnum"]])
+                   model_uri=DISMECH.conjugation, domain=None, range=Optional[Union[str, "TargetingLigandEnum"]])
+
+slots.targeting_ligand = Slot(uri=DISMECH.targeting_ligand, name="targeting_ligand", curie=DISMECH.curie('targeting_ligand'),
+                   model_uri=DISMECH.targeting_ligand, domain=None, range=Optional[Union[str, "TargetingLigandEnum"]])
+
+slots.targeting_receptor = Slot(uri=DISMECH.targeting_receptor, name="targeting_receptor", curie=DISMECH.curie('targeting_receptor'),
+                   model_uri=DISMECH.targeting_receptor, domain=None, range=Optional[Union[dict, GeneDescriptor]])
+
+slots.target_cell_types = Slot(uri=DISMECH.target_cell_types, name="target_cell_types", curie=DISMECH.curie('target_cell_types'),
+                   model_uri=DISMECH.target_cell_types, domain=None, range=Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]])
 
 slots.delivery_platform = Slot(uri=DISMECH.delivery_platform, name="delivery_platform", curie=DISMECH.curie('delivery_platform'),
-                   model_uri=DISMECH.delivery_platform, domain=None, range=Optional[Union[str, "OligonucleotideDeliveryPlatformEnum"]])
+                   model_uri=DISMECH.delivery_platform, domain=None, range=Optional[Union[str, "DeliveryPlatformEnum"]])
 
 slots.dosing_interval = Slot(uri=DISMECH.dosing_interval, name="dosing_interval", curie=DISMECH.curie('dosing_interval'),
                    model_uri=DISMECH.dosing_interval, domain=None, range=Optional[str])
@@ -13873,6 +14228,57 @@ slots.proteinStructure__publication = Slot(uri=DISMECH.publication, name="protei
 
 slots.animalModel__name = Slot(uri=DISMECH.name, name="animalModel__name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.animalModel__name, domain=None, range=Optional[str])
+
+slots.structuredClaim__about = Slot(uri=DISMECH.about, name="structuredClaim__about", curie=DISMECH.curie('about'),
+                   model_uri=DISMECH.structuredClaim__about, domain=None, range=Union[dict, ClaimAbout])
+
+slots.structuredClaim__assertion_type = Slot(uri=DISMECH.assertion_type, name="structuredClaim__assertion_type", curie=DISMECH.curie('assertion_type'),
+                   model_uri=DISMECH.structuredClaim__assertion_type, domain=None, range=str)
+
+slots.structuredClaim__assertion = Slot(uri=DISMECH.assertion, name="structuredClaim__assertion", curie=DISMECH.curie('assertion'),
+                   model_uri=DISMECH.structuredClaim__assertion, domain=None, range=Union[dict, Any])
+
+slots.structuredClaim__selected_evidence = Slot(uri=DISMECH.selected_evidence, name="structuredClaim__selected_evidence", curie=DISMECH.curie('selected_evidence'),
+                   model_uri=DISMECH.structuredClaim__selected_evidence, domain=None, range=Union[dict, EvidenceItem])
+
+slots.structuredClaim__origin = Slot(uri=DISMECH.origin, name="structuredClaim__origin", curie=DISMECH.curie('origin'),
+                   model_uri=DISMECH.structuredClaim__origin, domain=None, range=Union[dict, ClaimOrigin])
+
+slots.claimAbout__disease = Slot(uri=DISMECH.disease, name="claimAbout__disease", curie=DISMECH.curie('disease'),
+                   model_uri=DISMECH.claimAbout__disease, domain=None, range=Union[dict, ClaimDiseaseIdentity])
+
+slots.claimAbout__context = Slot(uri=DISMECH.context, name="claimAbout__context", curie=DISMECH.curie('context'),
+                   model_uri=DISMECH.claimAbout__context, domain=None, range=Optional[Union[Union[dict, ClaimContextBinding], list[Union[dict, ClaimContextBinding]]]])
+
+slots.claimContextBinding__path = Slot(uri=DISMECH.path, name="claimContextBinding__path", curie=DISMECH.curie('path'),
+                   model_uri=DISMECH.claimContextBinding__path, domain=None, range=str)
+
+slots.claimContextBinding__value = Slot(uri=DISMECH.value, name="claimContextBinding__value", curie=DISMECH.curie('value'),
+                   model_uri=DISMECH.claimContextBinding__value, domain=None, range=Union[dict, Any])
+
+slots.claimContextBinding__role = Slot(uri=DISMECH.role, name="claimContextBinding__role", curie=DISMECH.curie('role'),
+                   model_uri=DISMECH.claimContextBinding__role, domain=None, range=Union[str, "ClaimContextRoleEnum"])
+
+slots.claimOrigin__assertion_path = Slot(uri=DISMECH.assertion_path, name="claimOrigin__assertion_path", curie=DISMECH.curie('assertion_path'),
+                   model_uri=DISMECH.claimOrigin__assertion_path, domain=None, range=str)
+
+slots.claimOrigin__evidence_path = Slot(uri=DISMECH.evidence_path, name="claimOrigin__evidence_path", curie=DISMECH.curie('evidence_path'),
+                   model_uri=DISMECH.claimOrigin__evidence_path, domain=None, range=str)
+
+slots.claimOrigin__context_paths = Slot(uri=DISMECH.context_paths, name="claimOrigin__context_paths", curie=DISMECH.curie('context_paths'),
+                   model_uri=DISMECH.claimOrigin__context_paths, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.claimEvaluation__judgment = Slot(uri=DISMECH.judgment, name="claimEvaluation__judgment", curie=DISMECH.curie('judgment'),
+                   model_uri=DISMECH.claimEvaluation__judgment, domain=None, range=Union[str, "ClaimJudgmentEnum"])
+
+slots.claimEvaluation__reason = Slot(uri=DISMECH.reason, name="claimEvaluation__reason", curie=DISMECH.curie('reason'),
+                   model_uri=DISMECH.claimEvaluation__reason, domain=None, range=Optional[Union[str, "ClaimMismatchReasonEnum"]])
+
+slots.claimEvaluation__disputed_paths = Slot(uri=DISMECH.disputed_paths, name="claimEvaluation__disputed_paths", curie=DISMECH.curie('disputed_paths'),
+                   model_uri=DISMECH.claimEvaluation__disputed_paths, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.claimEvaluation__justification = Slot(uri=DISMECH.justification, name="claimEvaluation__justification", curie=DISMECH.curie('justification'),
+                   model_uri=DISMECH.claimEvaluation__justification, domain=None, range=Optional[str])
 
 slots.CurationEvent_curation_timestamp = Slot(uri=DISMECH.curation_timestamp, name="CurationEvent_curation_timestamp", curie=DISMECH.curie('curation_timestamp'),
                    model_uri=DISMECH.CurationEvent_curation_timestamp, domain=CurationEvent, range=Union[str, XSDDateTime])
@@ -14482,3 +14888,6 @@ slots.ModuleCollection_module_members = Slot(uri=DISMECH.module_members, name="M
 
 slots.ModuleCollectionMember_module = Slot(uri=DISMECH.module, name="ModuleCollectionMember_module", curie=DISMECH.curie('module'),
                    model_uri=DISMECH.ModuleCollectionMember_module, domain=ModuleCollectionMember, range=str)
+
+slots.ClaimDiseaseIdentity_name = Slot(uri=DISMECH.name, name="ClaimDiseaseIdentity_name", curie=DISMECH.curie('name'),
+                   model_uri=DISMECH.ClaimDiseaseIdentity_name, domain=ClaimDiseaseIdentity, range=Union[str, ClaimDiseaseIdentityName])

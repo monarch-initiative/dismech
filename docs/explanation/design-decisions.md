@@ -1486,3 +1486,24 @@ retiring the hand-labelled GO rows. Both wait on the leaf set stabilising. The d
 record is
 [`docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`](../superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md);
 the tree's own build notes record what each draw forced.
+
+## 15. Whole-object claim evaluation uses a derived structured view (2026-09-20)
+
+**Decision (maintainer-directed implementation).** `StructuredClaim` is defined in
+`dismech.yaml` and deterministically extracted from an evidence-owning object. It
+preserves its original assertion fields, lifts disease and ancestor/subtype scope,
+and records JSON Pointers into the source document. It is not a new authored KB
+section or a natural-language paraphrase. Refutation remains an evidence relationship
+rather than changing the assertion. See [structured claims](../structured-claims.md).
+
+**Why.** Paraphrasing dropped qualifications and changed what selected evidence was
+being judged against. Whole-object support must include ontology selections and
+subtype, assay, population and other substantive qualifiers. Supporting only a broader
+claim differs from asserting an incompatible result, but neither justifies a complete
+positive assertion. The wrapper derives context; it does not invent evidence strength.
+
+**Ownership.** Dismech owns the wrapper, extractor and classification task. The private
+benchmark repository owns expectations, reviews and run artifacts, with independent
+metadata schemas. Claim evaluation diagnostics do not extend EvidenceItem direction
+values or alter existing KB validation. Existing semantic case revisions are retained
+when the benchmark changes its input representation.

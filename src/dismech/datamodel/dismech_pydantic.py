@@ -167,6 +167,8 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                           'prefix_reference': 'https://data.humancellatlas.org/explore/projects/'},
                   'icd11f': {'prefix_prefix': 'icd11f',
                              'prefix_reference': 'http://purl.obolibrary.org/obo/icd11f_'},
+                  'immport': {'prefix_prefix': 'immport',
+                              'prefix_reference': 'https://www.immport.org/shared/study/'},
                   'linkml': {'prefix_prefix': 'linkml',
                              'prefix_reference': 'https://w3id.org/linkml/'},
                   'massive': {'prefix_prefix': 'massive',
@@ -3099,6 +3101,51 @@ Wild is explicit that the domains overlap and that some exposures are hard to pl
     """
 
 
+class ClaimContextRoleEnum(str, Enum):
+    """
+    Origin of inherited or explicitly selected claim context.
+    """
+    ancestor = "ancestor"
+    subtype = "subtype"
+    explicit = "explicit"
+
+
+class ClaimJudgmentEnum(str, Enum):
+    """
+    Whether the declared evidence relationship is justified for the whole assertion.
+    """
+    Match = "MATCH"
+    """
+    The selected excerpt justifies the declared relationship to the whole assertion.
+    """
+    Mismatch = "MISMATCH"
+    """
+    The selected excerpt fails to justify the declared relationship to the whole assertion.
+    """
+
+
+class ClaimMismatchReasonEnum(str, Enum):
+    """
+    Diagnostic reason for a failed whole-claim evaluation.
+    """
+    insufficient_specificity = "insufficient_specificity"
+    """
+    Evidence supports only a broader or incomplete assertion; required detail is missing.
+    """
+    incompatible_assertion = "incompatible_assertion"
+    """
+    Evidence asserts an incompatible value or relationship under the same scope.
+    """
+    unrelated = "unrelated"
+    """
+    Evidence does not bear on the selected assertion.
+    """
+    other = "other"
+    """
+    A mismatch not described by the other reasons; explanation is needed.
+    """
+
+
 class EvidenceItemSupportEnum(str, Enum):
     """
     Which way the cited evidence cuts relative to the claim. This is direction only. How *directly* the quote bears on the claim is a separate axis -- see DirectnessEnum and the `directness` slot -- and how strong the evidence is has no slot at all (see design decisions section 12).
@@ -5231,13 +5278,13 @@ class OligonucleotideChemistryEnum(str, Enum):
     """
 
 
-class OligonucleotideConjugationEnum(str, Enum):
+class TargetingLigandEnum(str, Enum):
     """
-    Targeting ligand covalently attached to a therapeutic oligonucleotide to direct tissue uptake or improve pharmacokinetics. Distinct from delivery_platform, which records whether the oligonucleotide is carried by a conjugate at all as opposed to a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide may still be formulated in a lipid nanoparticle (e.g., patisiran).
+    Targeting ligand attached to a therapeutic agent, or to the carrier particle that holds it, to direct tissue or cell uptake or to improve pharmacokinetics. Distinct from delivery_platform, which records what carries the agent at all as opposed to a nanoparticle, a viral vector, or nothing. The two axes are orthogonal in both directions: an unconjugated oligonucleotide may still be formulated in a lipid nanoparticle (e.g., patisiran), and a nanoparticle may itself carry a ligand on its surface (e.g., an antibody-coated mRNA lipid nanoparticle).
     """
     UNCONJUGATED = "UNCONJUGATED"
     """
-    No targeting conjugate (naked ASO)
+    No targeting ligand - a naked ASO, or a carrier particle with an unmodified surface
     """
     GalNAc_conjugated = "GALNAC"
     """
@@ -5253,17 +5300,21 @@ class OligonucleotideConjugationEnum(str, Enum):
     """
     ANTIBODY = "ANTIBODY"
     """
-    Antibody-oligonucleotide conjugate (AOC) for receptor-targeted delivery
+    Antibody or antibody fragment as the targeting ligand - an antibody-oligonucleotide conjugate (AOC), or an antibody coupled to the surface of a carrier particle for receptor-targeted delivery
+    """
+    Mannose_SOLIDUS_mannosylated = "MANNOSE"
+    """
+    Mannose or a mannosylated surface directing uptake via the macrophage mannose receptor (MRC1/CD206)
     """
     OTHER = "OTHER"
     """
-    Conjugate not covered by the above categories
+    Targeting ligand not covered by the above categories
     """
 
 
-class OligonucleotideDeliveryPlatformEnum(str, Enum):
+class DeliveryPlatformEnum(str, Enum):
     """
-    How a therapeutic oligonucleotide is carried to its target tissue. This is the delivery strategy, not the targeting ligand (see conjugation) and not the route of administration: it is what solves the stability, cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing - patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three months without it.
+    How a treatment's active agent is carried to its target tissue. This is the delivery strategy, not the targeting ligand (see targeting_ligand) and not the route of administration: it is what solves the stability, cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing - patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three months without it. The same axis separates two formulations of one small molecule: conventional and albumin-bound paclitaxel share an agent and differ in carrier.
     """
     Unformulated_SOLIDUS_free_uptake = "UNFORMULATED"
     """
@@ -5271,15 +5322,27 @@ class OligonucleotideDeliveryPlatformEnum(str, Enum):
     """
     Ligand_conjugate = "CONJUGATE"
     """
-    Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in conjugation (e.g., GalNAc for hepatocyte ASGR1 uptake)
+    Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in targeting_ligand (e.g., GalNAc for hepatocyte ASGR1 uptake)
     """
     Lipid_nanoparticle_LEFT_PARENTHESISLNPRIGHT_PARENTHESIS = "LIPID_NANOPARTICLE"
     """
-    Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran)
+    Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran, mRNA therapeutics). Distinct from LIPOSOME - the ionizable lipid is what releases a nucleic-acid payload from the endosome
+    """
+    Liposome = "LIPOSOME"
+    """
+    Encapsulated in a phospholipid bilayer vesicle, commonly PEGylated for circulation time, altering biodistribution and toxicity of an already cell-permeant agent rather than solving endosomal escape (e.g., liposomal doxorubicin, liposomal irinotecan, liposomal amphotericin B)
     """
     POLYMER_NANOPARTICLE = "POLYMER_NANOPARTICLE"
     """
     Encapsulated in a polymeric or dendrimer nanoparticle
+    """
+    Protein_nanoparticle_LEFT_PARENTHESISalbumin_boundRIGHT_PARENTHESIS = "PROTEIN_NANOPARTICLE"
+    """
+    Bound to or assembled with a carrier protein, usually albumin, to solubilize a hydrophobic agent without a synthetic surfactant (e.g., nab-paclitaxel, nab-sirolimus)
+    """
+    INORGANIC_NANOPARTICLE = "INORGANIC_NANOPARTICLE"
+    """
+    Carried on an inorganic core such as iron oxide, gold, or hafnium oxide
     """
     VIRAL_VECTOR = "VIRAL_VECTOR"
     """
@@ -5957,6 +6020,7 @@ class Descriptor(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -6018,7 +6082,7 @@ class Qualifier(ConfiguredBaseModel):
          'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     predicate: Optional[Descriptor] = Field(default=None, description="""The relationship/predicate in a qualifier (e.g., RO:0002233 'has input')""", json_schema_extra = { "linkml_meta": {'domain_of': ['Qualifier']} })
-    value: Optional[Descriptor] = Field(default=None, description="""The value/filler in a qualifier""", json_schema_extra = { "linkml_meta": {'domain_of': ['Qualifier']} })
+    value: Optional[Descriptor] = Field(default=None, description="""The value/filler in a qualifier""", json_schema_extra = { "linkml_meta": {'domain_of': ['Qualifier', 'ClaimContextBinding']} })
 
 
 class DietaryModification(ConfiguredBaseModel):
@@ -6069,6 +6133,7 @@ class DietaryModification(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -6141,6 +6206,7 @@ class CellTypeDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -6239,6 +6305,7 @@ class BiologicalProcessDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -6337,6 +6404,7 @@ class MolecularFunctionDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -6435,6 +6503,7 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -6533,6 +6602,7 @@ class ChemicalEntityDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -6631,6 +6701,7 @@ class GeneDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -6729,6 +6800,7 @@ class CellularComponentDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -6827,6 +6899,7 @@ class ProteinComplexDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -6938,6 +7011,7 @@ class AssayDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -7035,6 +7109,7 @@ class TriggerDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -7132,6 +7207,7 @@ class DiseaseDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -7230,6 +7306,7 @@ class SubtypeDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -7327,6 +7404,7 @@ class BiomarkerDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -7424,6 +7502,7 @@ class GeneProductDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -7530,6 +7609,7 @@ class HistopathologyFindingDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -7632,6 +7712,7 @@ class ImagingFindingDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -7745,6 +7826,7 @@ class LifeCycleStageDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -7842,6 +7924,7 @@ class PhenotypeDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -7940,6 +8023,7 @@ class InheritanceDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -8082,6 +8166,7 @@ class TreatmentDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -8179,6 +8264,7 @@ class RegimenDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -8281,6 +8367,7 @@ class ExposureDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -8381,6 +8468,7 @@ class EnvironmentDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -8483,6 +8571,7 @@ class FoodDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -8580,6 +8669,7 @@ class OrganismDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -8644,7 +8734,11 @@ class HostDescriptor(OrganismDescriptor):
                       'TRIGGERS` link for non-mutational initiation (design decisions '
                       '3d). An earlier version did read this slot and mis-fired. See '
                       'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
-         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+         'domain_of': ['HostDescriptor',
+                       'Pathophysiology',
+                       'Stage',
+                       'Treatment',
+                       'ClaimContextBinding'],
          'examples': [{'value': 'Primary'}]} })
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
@@ -8683,6 +8777,7 @@ class HostDescriptor(OrganismDescriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -8777,6 +8872,7 @@ class SampleTypeDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -8887,6 +8983,7 @@ class GeneticContext(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -8945,6 +9042,7 @@ class GeneticContext(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -9014,6 +9112,7 @@ class OnsetDescriptor(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -9103,6 +9202,7 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -9163,6 +9263,7 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -9292,6 +9393,7 @@ class Dataset(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -9377,6 +9479,7 @@ class Dataset(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -9435,6 +9538,7 @@ class Dataset(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -9513,7 +9617,8 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -9551,6 +9656,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -9640,6 +9746,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -9698,6 +9805,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -9804,7 +9912,8 @@ class Experiment(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -9842,6 +9951,7 @@ class Experiment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -9928,6 +10038,7 @@ Distinct from `would_support`, which takes entity references. A curator writing 
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -9986,6 +10097,7 @@ Distinct from `would_support`, which takes entity references. A curator writing 
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -10061,7 +10173,8 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -10099,6 +10212,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -10196,6 +10310,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -10254,6 +10369,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -10358,7 +10474,8 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -10396,6 +10513,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -10493,6 +10611,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -10551,6 +10670,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -10622,7 +10742,8 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -10660,6 +10781,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -10723,6 +10845,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -10781,6 +10904,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -10894,7 +11018,8 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, description="""Brief summary or key details of the clinical trial""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -10932,6 +11057,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -11003,6 +11129,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -11070,6 +11197,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -11156,7 +11284,8 @@ class ComputationalModel(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -11194,6 +11323,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -11281,6 +11411,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -11339,6 +11470,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -11415,7 +11547,8 @@ class ModelVariable(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     dataset_identifier: Optional[str] = Field(default=None, description="""Native identifier for this variable in the source dataset or model (e.g., SBML species ID, database column name, COBRA reaction ID). When the parent context already specifies the dataset (e.g., a ComputationalModel with model_id), this field gives the local name within that dataset.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModelVariable'],
          'examples': [{'value': 'ECCPhos'}, {'value': 'Qbone'}]} })
@@ -11455,6 +11588,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -11519,6 +11653,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -11596,7 +11731,8 @@ class SeverityTier(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
 
 
@@ -11659,6 +11795,7 @@ class ModelVariableDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -11773,7 +11910,8 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, description="""Clinical or mechanistic overlaps, shared presentations, and diagnostic considerations with the focal disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -11811,6 +11949,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -11874,6 +12013,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -11932,6 +12072,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -11953,7 +12094,10 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
-    disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis', 'Disease', 'GroupingMember']} })
+    disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis',
+                       'Disease',
+                       'GroupingMember',
+                       'ClaimDiseaseIdentity']} })
 
 
 class Subtype(ConfiguredBaseModel):
@@ -11998,7 +12142,8 @@ class Subtype(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember', 'ModuleCollection']} })
     subtype_term: Optional[SubtypeDescriptor] = Field(default=None, description="""The ontology term grounding this subtype or cancer facet value. Prefer MONDO when available; use NCIT for oncology-specific subtype refinement when needed.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
@@ -12039,6 +12184,7 @@ class Subtype(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -12100,6 +12246,7 @@ class Subtype(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -12285,6 +12432,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -12346,6 +12494,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -12441,6 +12590,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -12502,6 +12652,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -12607,6 +12758,7 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -12668,6 +12820,7 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -12769,6 +12922,7 @@ class ModelDivergence(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -12831,6 +12985,7 @@ class ModelDivergence(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -12979,6 +13134,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -13072,6 +13228,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -13203,6 +13360,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -13264,6 +13422,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -13387,6 +13546,7 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -13448,6 +13608,7 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -13575,7 +13736,8 @@ class ReferenceRangeBand(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     lower_bound: Optional[float] = Field(default=None, description="""Inclusive lower bound of this band's value interval. Omit for an open-below band (the lowest tier).""", json_schema_extra = { "linkml_meta": {'domain_of': ['ReferenceRangeBand', 'ReferenceRange']} })
     upper_bound: Optional[float] = Field(default=None, description="""Exclusive upper bound of this band's value interval, so adjacent bands sharing a boundary value partition cleanly (a result exactly at the boundary falls in the next band, whose inclusive lower_bound equals it). Omit for an open-above band (the highest tier).""", json_schema_extra = { "linkml_meta": {'domain_of': ['ReferenceRangeBand', 'ReferenceRange']} })
@@ -13738,6 +13900,7 @@ class ReferenceRange(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -13796,6 +13959,7 @@ class ReferenceRange(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -13937,6 +14101,7 @@ class SurrogateEndpoint(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -13995,6 +14160,7 @@ class SurrogateEndpoint(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -14066,7 +14232,8 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -14104,6 +14271,7 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -14169,6 +14337,7 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -14235,6 +14404,7 @@ class ProteinStructure(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -14367,10 +14537,11 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     source: str = Field(default=..., description="""Source dataset or provenance label""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion', 'AssociationSignal']} })
-    assertion_type: Optional[str] = Field(default=None, description="""Type/category of the external assertion or registry record""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion']} })
+    assertion_type: Optional[str] = Field(default=None, description="""Type/category of the external assertion or registry record""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion', 'StructuredClaim']} })
     external_id: str = Field(default=..., description="""Identifier used by the external resource (e.g., CCID:009009, CA2573049045)""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion']} })
     url: Optional[str] = Field(default=None, description="""URL for the external assertion or registry record""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion', 'TrackedIssue']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
@@ -14409,6 +14580,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -14470,6 +14642,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -14528,6 +14701,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -14624,6 +14798,7 @@ class TrackedIssue(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -14694,6 +14869,7 @@ class Finding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -14794,6 +14970,7 @@ Optional elsewhere: a record that omits it falls back to the denominator implied
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -14852,6 +15029,7 @@ Optional elsewhere: a record that omits it falls back to the denominator implied
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -14930,6 +15108,7 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -14988,6 +15167,7 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -15069,6 +15249,7 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -15141,6 +15322,7 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -15232,6 +15414,7 @@ class ClinicalBurden(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -15290,6 +15473,7 @@ class ClinicalBurden(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -15355,7 +15539,8 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -15393,6 +15578,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -15454,6 +15640,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -15523,6 +15710,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -15589,7 +15777,8 @@ class Pathophysiology(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -15627,6 +15816,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -15691,6 +15881,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -15735,7 +15926,11 @@ class Pathophysiology(ConfiguredBaseModel):
                       'TRIGGERS` link for non-mutational initiation (design decisions '
                       '3d). An earlier version did read this slot and mis-fired. See '
                       'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
-         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+         'domain_of': ['HostDescriptor',
+                       'Pathophysiology',
+                       'Stage',
+                       'Treatment',
+                       'ClaimContextBinding'],
          'examples': [{'value': 'Primary'}]} })
     conforms_to: Optional[str] = Field(default=None, description="""Reference to a mechanism module that this pathophysiology node is an organ-specific instance of. Value is a path relative to kb/modules/ (e.g., \"fibrotic_response\") plus an optional node name after a hash (e.g., \"fibrotic_response#Mesenchymal Cell Activation\"). Used for cross-disorder consistency checking: if a node declares conformance, it should include the expected cell types, biological processes, and causal edges defined in the referenced module node.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology']} })
     synonyms: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
@@ -15829,6 +16024,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -15917,7 +16113,8 @@ class Phenotype(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     phenotype_term: Optional[PhenotypeDescriptor] = Field(default=None, description="""The HP term for this phenotype""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalReadout',
                        'ReferenceRangeBand',
@@ -15970,6 +16167,7 @@ class Phenotype(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -16035,6 +16233,7 @@ class Phenotype(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -16064,7 +16263,8 @@ class Phenotype(ConfiguredBaseModel):
                        'Stage',
                        'AgentLifeCycle',
                        'AgentLifeCycleStage',
-                       'Treatment'],
+                       'Treatment',
+                       'ClaimAbout'],
          'examples': [{'value': 'Pregnancy'}]} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
@@ -16120,6 +16320,7 @@ class Phenotype(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -16210,7 +16411,8 @@ class Biochemical(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     biomarker_term: Optional[BiomarkerDescriptor] = Field(default=None, description="""Ontology term for a biomarker (from NCIT)""", json_schema_extra = { "linkml_meta": {'comments': ['Use NCIT terms for biomarkers (proteins, genes, fusion '
                       'products)',
@@ -16266,6 +16468,7 @@ class Biochemical(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -16334,6 +16537,7 @@ class Biochemical(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -16362,7 +16566,8 @@ class Biochemical(ConfiguredBaseModel):
                        'Stage',
                        'AgentLifeCycle',
                        'AgentLifeCycleStage',
-                       'Treatment'],
+                       'Treatment',
+                       'ClaimAbout'],
          'examples': [{'value': 'Pregnancy'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
@@ -16465,7 +16670,8 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Flexner-Wintersteiner Rosettes'},
                       {'value': 'Spindle Cell Morphology'},
                       {'value': 'High Grade (Fuhrman Grade 3-4)'}]} })
@@ -16512,6 +16718,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -16583,6 +16790,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -16641,6 +16849,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -16669,7 +16878,8 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'Stage',
                        'AgentLifeCycle',
                        'AgentLifeCycleStage',
-                       'Treatment'],
+                       'Treatment',
+                       'ClaimAbout'],
          'examples': [{'value': 'Pregnancy'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
@@ -16763,7 +16973,8 @@ class ImagingFinding(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     modality: Optional[ImagingModalityEnum] = Field(default=None, description="""The imaging modality by which this finding is detected""", json_schema_extra = { "linkml_meta": {'domain_of': ['ImagingFinding']} })
     imaging_finding_term: Optional[ImagingFindingDescriptor] = Field(default=None, description="""Ontology term for an imaging finding (from the NCIT Imaging Finding branch or HP)""", json_schema_extra = { "linkml_meta": {'comments': ['Use NCIT Imaging Finding terms (C176708 / C199145) or HP '
@@ -16806,6 +17017,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -16891,6 +17103,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -16949,6 +17162,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -16977,7 +17191,8 @@ class ImagingFinding(ConfiguredBaseModel):
                        'Stage',
                        'AgentLifeCycle',
                        'AgentLifeCycleStage',
-                       'Treatment'],
+                       'Treatment',
+                       'ClaimAbout'],
          'examples': [{'value': 'Pregnancy'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
@@ -17032,7 +17247,8 @@ class Genetic(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     gene_term: Optional[GeneDescriptor] = Field(default=None, description="""The HGNC term for this gene""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic']} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
@@ -17076,6 +17292,7 @@ class Genetic(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -17175,6 +17392,7 @@ class Genetic(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -17249,7 +17467,8 @@ class Environmental(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
@@ -17292,6 +17511,7 @@ class Environmental(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -17350,6 +17570,7 @@ class Environmental(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -17407,6 +17628,7 @@ class Environmental(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -17526,9 +17748,13 @@ class Disease(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
-    disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis', 'Disease', 'GroupingMember']} })
+    disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis',
+                       'Disease',
+                       'GroupingMember',
+                       'ClaimDiseaseIdentity']} })
     creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this disease entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease',
                        'ComorbidityAssociation',
                        'Grouping',
@@ -17573,6 +17799,7 @@ class Disease(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -17698,6 +17925,7 @@ class Disease(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -17802,7 +18030,8 @@ class Stage(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -17840,6 +18069,7 @@ class Stage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -17901,6 +18131,7 @@ class Stage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -17959,6 +18190,7 @@ class Stage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -17987,7 +18219,8 @@ class Stage(ConfiguredBaseModel):
                        'Stage',
                        'AgentLifeCycle',
                        'AgentLifeCycleStage',
-                       'Treatment'],
+                       'Treatment',
+                       'ClaimAbout'],
          'examples': [{'value': 'Pregnancy'}]} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
@@ -18008,7 +18241,11 @@ class Stage(ConfiguredBaseModel):
                       'TRIGGERS` link for non-mutational initiation (design decisions '
                       '3d). An earlier version did read this slot and mis-fired. See '
                       'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
-         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+         'domain_of': ['HostDescriptor',
+                       'Pathophysiology',
+                       'Stage',
+                       'Treatment',
+                       'ClaimContextBinding'],
          'examples': [{'value': 'Primary'}]} })
     examples: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
                        'Genetic',
@@ -18059,6 +18296,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -18126,6 +18364,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -18184,6 +18423,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -18212,7 +18452,8 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'Stage',
                        'AgentLifeCycle',
                        'AgentLifeCycleStage',
-                       'Treatment'],
+                       'Treatment',
+                       'ClaimAbout'],
          'examples': [{'value': 'Pregnancy'}]} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
@@ -18270,7 +18511,8 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     life_cycle_stage_term: Optional[LifeCycleStageDescriptor] = Field(default=None, description="""The OPL term for this agent life cycle stage""", json_schema_extra = { "linkml_meta": {'domain_of': ['AgentLifeCycleStage']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
@@ -18309,6 +18551,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -18370,6 +18613,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -18428,6 +18672,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -18456,7 +18701,8 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'Stage',
                        'AgentLifeCycle',
                        'AgentLifeCycleStage',
-                       'Treatment'],
+                       'Treatment',
+                       'ClaimAbout'],
          'examples': [{'value': 'Pregnancy'}]} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
@@ -18554,6 +18800,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -18632,6 +18879,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -18690,6 +18938,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -18750,7 +18999,8 @@ class AnimalModel(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'recommended': True} })
 
 
@@ -18796,7 +19046,8 @@ class Treatment(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -18834,6 +19085,7 @@ class Treatment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -18860,6 +19112,7 @@ class Treatment(ConfiguredBaseModel):
     treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The NCIT term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Treatment']} })
     regimen_term: Optional[RegimenDescriptor] = Field(default=None, description="""The NCIT term for this treatment regimen""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     therapeutic_modality: Optional[TherapeuticModalityEnum] = Field(default=None, description="""Broad therapeutic platform/modality of a treatment (e.g., small molecule, monoclonal antibody, antisense oligonucleotide, gene therapy). Complements treatment_term (the NCIT action) and therapeutic_agent (the specific drug) by classifying the kind of therapeutic, enabling cross-disease queries by platform. Prefer this enum-backed slot over the free-text role slot for modality.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
+    delivery_system: Optional[DeliverySystem] = Field(default=None, description="""Structured detail of how this treatment's active agent reaches its target: the formulation platform, any targeting ligand on the carrier, the receptor that ligand binds, and the cell type the carrier is aimed at. Populate for any modality whose carrier is part of the therapeutic identity - an mRNA lipid nanoparticle, an albumin-bound or liposomal small molecule, an AAV vector - not only for oligonucleotides. Supersedes the delivery_platform and conjugation slots nested in oligonucleotide_details, which remain valid for entries authored before this slot existed.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     oligonucleotide_details: Optional[OligonucleotideDetail] = Field(default=None, description="""Structured detail specific to nucleic-acid treatments that act by base-pairing with a target RNA. Populate when therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE or SIRNA.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     aso_details: Optional[OligonucleotideDetail] = Field(default=None, description="""Deprecated alias of oligonucleotide_details, retained so entries authored before the slot was generalized continue to validate.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_details, which covers siRNA as well '
                        'as antisense oligonucleotides. Existing entries carrying '
@@ -18928,6 +19181,7 @@ class Treatment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -18986,6 +19240,7 @@ class Treatment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -19014,7 +19269,8 @@ class Treatment(ConfiguredBaseModel):
                        'Stage',
                        'AgentLifeCycle',
                        'AgentLifeCycleStage',
-                       'Treatment'],
+                       'Treatment',
+                       'ClaimAbout'],
          'examples': [{'value': 'Pregnancy'}]} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
@@ -19035,7 +19291,11 @@ class Treatment(ConfiguredBaseModel):
                       'TRIGGERS` link for non-mutational initiation (design decisions '
                       '3d). An earlier version did read this slot and mis-fired. See '
                       'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
-         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+         'domain_of': ['HostDescriptor',
+                       'Pathophysiology',
+                       'Stage',
+                       'Treatment',
+                       'ClaimContextBinding'],
          'examples': [{'value': 'Primary'}]} })
     mechanism: Optional[list[Mechanism]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     examples: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
@@ -19049,6 +19309,7 @@ class Treatment(ConfiguredBaseModel):
 class OligonucleotideDetail(ConfiguredBaseModel):
     """
     Structured attributes of a treatment that acts by base-pairing with a target RNA: its molecular mechanism, RNA target, splice exon (for splice-switching antisense oligonucleotides), backbone chemistry, targeting conjugate, and delivery platform. Attach via the oligonucleotide_details slot on a Treatment whose therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE or SIRNA. Single-stranded ASOs and double-stranded siRNAs share this class deliberately - they differ in effector (RNase H1 versus Argonaute-2) but are the same programmable platform, described by the same target, chemistry, and delivery attributes.
+    The carrier attributes here (delivery_platform, targeting_ligand, and the deprecated conjugation) predate the Treatment-level delivery_system block and are retained so entries authored before it continue to validate. New treatments record the carrier in delivery_system; this class keeps the mechanism, RNA target, exon, and backbone chemistry, which are genuinely specific to base-pairing therapeutics. just check-delivery-system reports entries still using the nested slots and gates on a value recorded in both places.
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'aliases': ['AntisenseOligonucleotideDetail'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
@@ -19058,12 +19319,210 @@ class OligonucleotideDetail(ConfiguredBaseModel):
     target_transcript: Optional[str] = Field(default=None, description="""The specific transcript, pre-mRNA element, or sequence motif targeted by a therapeutic oligonucleotide (e.g., a RefSeq/Ensembl transcript ID, \"SMN2 ISS-N1\", or \"APOB mRNA\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
     target_exon: Optional[str] = Field(default=None, description="""The exon (or exons) modulated by a splice-switching antisense oligonucleotide, expressed in human-readable form (e.g., \"exon 51\", \"exon 7\"). Not applicable to siRNA, which acts on mature mRNA rather than on splicing.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
     oligonucleotide_chemistry: Optional[OligonucleotideChemistryEnum] = Field(default=None, description="""Backbone / sugar chemistry of a therapeutic oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
-    conjugation: Optional[OligonucleotideConjugationEnum] = Field(default=None, description="""Targeting ligand covalently attached to a therapeutic oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
-    delivery_platform: Optional[OligonucleotideDeliveryPlatformEnum] = Field(default=None, description="""How the oligonucleotide is carried to its target tissue - unformulated, ligand conjugate, lipid nanoparticle, viral vector. Orthogonal to conjugation: an unconjugated oligonucleotide may still be delivered in a nanoparticle.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    targeting_ligand: Optional[TargetingLigandEnum] = Field(default=None, description="""Targeting ligand attached to the active agent, or to the carrier particle holding it, to direct uptake by a particular tissue or cell type. Orthogonal to delivery_platform: an unconjugated agent may still travel in a nanoparticle, and a nanoparticle may carry a ligand on its surface.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail', 'DeliverySystem']} })
+    conjugation: Optional[TargetingLigandEnum] = Field(default=None, description="""Deprecated alias of targeting_ligand, retained so entries authored before the slot was generalized continue to validate.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to targeting_ligand, which describes a ligand coupled '
+                       'to a carrier particle as well as one conjugated directly to an '
+                       'oligonucleotide. Existing entries carrying conjugation remain '
+                       'valid; do not populate it on new treatments.',
+         'domain_of': ['OligonucleotideDetail']} })
+    delivery_platform: Optional[DeliveryPlatformEnum] = Field(default=None, description="""How the active agent is carried to its target tissue - unformulated, ligand conjugate, lipid nanoparticle, liposome, albumin-bound particle, viral vector. Orthogonal to targeting_ligand: an unconjugated agent may still be delivered in a nanoparticle. Prefer the Treatment-level delivery_system block, which carries this slot alongside the targeting detail; the copy nested in oligonucleotide_details predates it and stays valid.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail', 'DeliverySystem']} })
     aso_mechanism: Optional[OligonucleotideMechanismEnum] = Field(default=None, description="""Deprecated alias of oligonucleotide_mechanism.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_mechanism.',
          'domain_of': ['OligonucleotideDetail']} })
     aso_chemistry: Optional[OligonucleotideChemistryEnum] = Field(default=None, description="""Deprecated alias of oligonucleotide_chemistry.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_chemistry.',
          'domain_of': ['OligonucleotideDetail']} })
+
+
+class DeliverySystem(ConfiguredBaseModel):
+    """
+    How a treatment's active agent is carried to its target - the formulation platform, any targeting ligand on the carrier, the receptor that ligand binds, and the cell type the carrier is aimed at. Attach via the delivery_system slot on a Treatment of any modality: the carrier is a property of the formulation, not of the payload chemistry, so an mRNA lipid nanoparticle, an albumin-bound small molecule, a liposomal cytotoxic, and a GalNAc-conjugated siRNA are all described here by the same four attributes.
+    Two facts that used to be inexpressible are the reason this class exists. A carrier could only be recorded inside oligonucleotide_details, so no non-oligonucleotide formulation had a home for it - nab-sirolimus and liposomal irinotecan were curated with the carrier visible only in free-text prose. And there was nowhere to say what a targeted particle is aimed at, which is the whole claim of a receptor-targeted nanomedicine: an anti-TREM2-coated mRNA lipid nanoparticle is aimed at tumor-associated macrophages, and that is a citable, falsifiable statement about the delivery system rather than about the drug.
+    The targeting slots are optional and an untargeted carrier is a normal record: a PEGylated liposome relies on passive accumulation and has no ligand, no receptor, and no target cell type. Leave them absent rather than asserting a target the formulation does not have.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    delivery_platform: Optional[DeliveryPlatformEnum] = Field(default=None, description="""How the active agent is carried to its target tissue - unformulated, ligand conjugate, lipid nanoparticle, liposome, albumin-bound particle, viral vector. Orthogonal to targeting_ligand: an unconjugated agent may still be delivered in a nanoparticle. Prefer the Treatment-level delivery_system block, which carries this slot alongside the targeting detail; the copy nested in oligonucleotide_details predates it and stays valid.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail', 'DeliverySystem']} })
+    targeting_ligand: Optional[TargetingLigandEnum] = Field(default=None, description="""Targeting ligand attached to the active agent, or to the carrier particle holding it, to direct uptake by a particular tissue or cell type. Orthogonal to delivery_platform: an unconjugated agent may still travel in a nanoparticle, and a nanoparticle may carry a ligand on its surface.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail', 'DeliverySystem']} })
+    targeting_receptor: Optional[GeneDescriptor] = Field(default=None, description="""The cell-surface receptor or antigen that the targeting ligand binds, bindable to HGNC (e.g., ASGR1 for a GalNAc conjugate, TREM2 for an anti-TREM2-coated nanoparticle). Record the receptor here and the ligand's chemical class in targeting_ligand - they are different facts, and a receptor may be reachable by more than one ligand.""", json_schema_extra = { "linkml_meta": {'domain_of': ['DeliverySystem']} })
+    target_cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, description="""The cell type(s) a targeted delivery system is aimed at, bindable to CL. This is the carrier's intended destination, which is not always the cell the disease mechanism runs in: a macrophage-targeted particle may be aimed at reprogramming the macrophage rather than at the tumor cell beside it.""", json_schema_extra = { "linkml_meta": {'domain_of': ['DeliverySystem']} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'AlgorithmValidationStatus',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'DeliverySystem',
+                       'Transmission',
+                       'Diagnosis',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
 
 
 class InfectiousAgent(ConfiguredBaseModel):
@@ -19108,7 +19567,8 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     infectious_agent_term: Optional[OrganismDescriptor] = Field(default=None, description="""The NCBITaxon term for this infectious agent""", json_schema_extra = { "linkml_meta": {'domain_of': ['InfectiousAgent']} })
     food_source: Optional[FoodDescriptor] = Field(default=None, description="""The FOODON or CHEBI term for a specific food, beverage, nutrient, mineral, or supplement source or vehicle relevant to an exposure""", json_schema_extra = { "linkml_meta": {'domain_of': ['Environmental', 'InfectiousAgent']} })
@@ -19151,6 +19611,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -19209,6 +19670,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -19276,7 +19738,8 @@ class Transmission(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -19314,6 +19777,7 @@ class Transmission(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -19375,6 +19839,7 @@ class Transmission(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -19433,6 +19898,7 @@ class Transmission(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -19500,7 +19966,8 @@ class Assay(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -19538,6 +20005,7 @@ class Assay(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -19604,7 +20072,8 @@ class Diagnosis(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     diagnosis_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The NCIT term for this diagnostic procedure""", json_schema_extra = { "linkml_meta": {'comments': ['NCIT includes diagnostic procedures under Clinical Intervention '
                       'or Procedure (C25218)',
@@ -19652,6 +20121,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -19710,6 +20180,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -19770,6 +20241,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -19836,7 +20308,8 @@ class Inheritance(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     inheritance_term: Optional[InheritanceDescriptor] = Field(default=None, description="""The HPO mode of inheritance term for this inheritance pattern""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance', 'LogicalCriterion']} })
     penetrance: Optional[PenetranceEnum] = Field(default=None, description="""Penetrance classification for this inheritance pattern""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance']} })
@@ -19883,6 +20356,7 @@ class Inheritance(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -19941,6 +20415,7 @@ class Inheritance(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -20010,7 +20485,8 @@ class Variant(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -20048,6 +20524,7 @@ class Variant(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -20116,6 +20593,7 @@ class Variant(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -20196,6 +20674,7 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -20268,7 +20747,8 @@ class Mechanism(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -20306,6 +20786,7 @@ class Mechanism(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -20372,7 +20853,8 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -20410,6 +20892,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -20471,6 +20954,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -20540,6 +21024,7 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -20598,6 +21083,7 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -20687,6 +21173,7 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -20745,6 +21232,7 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -20834,6 +21322,7 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -20892,6 +21381,7 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -20981,6 +21471,7 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -21039,6 +21530,7 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -21128,6 +21620,7 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -21186,6 +21679,7 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -21275,6 +21769,7 @@ class IUISAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -21333,6 +21828,7 @@ class IUISAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -21422,6 +21918,7 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -21480,6 +21977,7 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -21569,6 +22067,7 @@ class ICIMDAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -21627,6 +22126,7 @@ class ICIMDAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -21716,6 +22216,7 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -21774,6 +22275,7 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -21863,6 +22365,7 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -21921,6 +22424,7 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -22010,6 +22514,7 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -22068,6 +22573,7 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -22157,6 +22663,7 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -22215,6 +22722,7 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -22304,6 +22812,7 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -22362,6 +22871,7 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -22451,6 +22961,7 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -22509,6 +23020,7 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -22598,6 +23110,7 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -22656,6 +23169,7 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -22745,6 +23259,7 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -22803,6 +23318,7 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -22892,6 +23408,7 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -22950,6 +23467,7 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -23039,6 +23557,7 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -23097,6 +23616,7 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -23186,6 +23706,7 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -23244,6 +23765,7 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -23367,7 +23889,8 @@ class Definition(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     definition_type: DefinitionTypeEnum = Field(default=..., description="""The type of definition or criteria set""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition']} })
     derivation_basis: Optional[DefinitionDerivationBasisEnum] = Field(default=None, description="""Epistemic grounding of a definition, orthogonal to definition_type: established criteria vs. a mechanistic hypothesis vs. model-system extrapolation. When MECHANISTIC_HYPOTHESIS, the definition should `attaches_to` the pathophysiology node(s)/edge(s) it is predicated on, so the hypothesis basis can be inferred from those edges' `hypothesis_groups`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition']} })
@@ -23408,6 +23931,7 @@ class Definition(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -23474,6 +23998,7 @@ class Definition(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -23532,6 +24057,7 @@ class Definition(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -23616,6 +24142,7 @@ class AlgorithmValidationStatus(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -23686,7 +24213,8 @@ class CriteriaSet(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -23724,6 +24252,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -23793,6 +24322,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -23851,6 +24381,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -23917,6 +24448,7 @@ class CriteriaItem(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -24018,6 +24550,7 @@ class TermMapping(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -24100,6 +24633,7 @@ class ICD10CMMapping(TermMapping):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -24182,6 +24716,7 @@ class ICD11FMapping(TermMapping):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -24264,6 +24799,7 @@ class MondoMapping(TermMapping):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -24346,6 +24882,7 @@ class NCITMapping(TermMapping):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -24421,6 +24958,7 @@ class MappingConsistency(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -24510,6 +25048,7 @@ class ConditionDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -24617,7 +25156,8 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this comorbidity entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease',
                        'ComorbidityAssociation',
@@ -24672,6 +25212,7 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -24796,6 +25337,7 @@ class AssociationSignal(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -24854,6 +25396,7 @@ class AssociationSignal(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -24940,6 +25483,7 @@ class AssociationMetric(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -25009,6 +25553,7 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -25067,6 +25612,7 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -25133,6 +25679,7 @@ class GOEnrichment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -25217,6 +25764,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -25278,6 +25826,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -25346,6 +25895,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -25407,6 +25957,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -25486,6 +26037,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -25548,6 +26100,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -25606,6 +26159,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -25692,6 +26246,7 @@ class Discussion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -25754,6 +26309,7 @@ class Discussion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -25829,7 +26385,8 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -25867,6 +26424,7 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -25932,6 +26490,7 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -26011,7 +26570,8 @@ class Grouping(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember', 'ModuleCollection']} })
     creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this grouping entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease',
@@ -26055,6 +26615,7 @@ class Grouping(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -26121,6 +26682,7 @@ class Grouping(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -26203,6 +26765,7 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -26266,6 +26829,7 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -26324,6 +26888,7 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -26392,6 +26957,7 @@ class LogicalCriterion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -26456,7 +27022,10 @@ class GroupingMember(ConfiguredBaseModel):
     member: str = Field(default=..., description="""Foreign key to the grouped entity. For member_type DISEASE this is the Disease entry's `name`; for GROUPING it is another grouping's `name`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GroupingMember']} })
     member_type: Optional[GroupingMemberTypeEnum] = Field(default=None, description="""The kind of entity referenced (defaults conceptually to DISEASE).""", json_schema_extra = { "linkml_meta": {'domain_of': ['GroupingMember']} })
     display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember', 'ModuleCollection']} })
-    disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis', 'Disease', 'GroupingMember']} })
+    disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis',
+                       'Disease',
+                       'GroupingMember',
+                       'ClaimDiseaseIdentity']} })
     differentiating_mechanisms: Optional[list[DifferentiatingMechanism]] = Field(default=None, description="""Mechanisms or features that distinguish this member from its siblings in the grouping, as prose plus optional structured descriptors.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GroupingMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
@@ -26497,6 +27066,7 @@ class GroupingMember(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -26555,6 +27125,7 @@ class GroupingMember(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -26624,6 +27195,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -26708,6 +27280,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -26766,6 +27339,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -26847,7 +27421,8 @@ class ModuleCollection(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation',
                        'Grouping',
-                       'ModuleCollection'],
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember', 'ModuleCollection']} })
     creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this module collection. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease',
@@ -26891,6 +27466,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -26955,6 +27531,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -27013,6 +27590,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -27101,6 +27679,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
@@ -27162,6 +27741,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
@@ -27220,6 +27800,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
                        'ClassificationAssignment',
@@ -27241,6 +27822,130 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
+
+
+class StructuredClaim(ConfiguredBaseModel):
+    """
+    Derived evidence-evaluation view of one complete dismech assertion. Original field names, ontology bindings and qualifiers are preserved; no prose claim is generated. This is not a new authored section on Disease.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    about: ClaimAbout = Field(default=..., description="""Disease identity and inherited scope of the assertion.""", json_schema_extra = { "linkml_meta": {'domain_of': ['StructuredClaim']} })
+    assertion_type: str = Field(default=..., description="""Original dismech class of the assertion, resolved through schema slot ranges.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion', 'StructuredClaim']} })
+    assertion: Any = Field(default=..., description="""Original assertion object with evidence, references and review notes removed recursively. Any preserves heterogeneous existing dismech classes without creating a parallel assertion schema. assertion_type identifies its class.""", json_schema_extra = { "linkml_meta": {'domain_of': ['StructuredClaim']} })
+    selected_evidence: EvidenceItem = Field(default=..., description="""Original selected evidence annotation; its direction does not negate the assertion.""", json_schema_extra = { "linkml_meta": {'domain_of': ['StructuredClaim']} })
+    origin: ClaimOrigin = Field(default=..., description="""Source document locations used in extraction.""", json_schema_extra = { "linkml_meta": {'domain_of': ['StructuredClaim']} })
+
+
+class ClaimAbout(ConfiguredBaseModel):
+    """
+    Disease identity and explicit inherited context for the assertion.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    disease: ClaimDiseaseIdentity = Field(default=..., description="""Original disease identity fields.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClaimAbout']} })
+    context: Optional[list[ClaimContextBinding]] = Field(default=None, description="""Ancestor identities and qualifiers, resolved subtype definitions and explicitly requested context. These are claim context, not additional evidence. Conflicting scopes remain visible rather than being silently overridden.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'ClaimAbout']} })
+
+
+class ClaimDiseaseIdentity(ConfiguredBaseModel):
+    """
+    Original disease name and ontology descriptor, without a generated summary.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'name': {'name': 'name', 'required': True}}})
+
+    name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'SeverityTier',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'ReferenceRangeBand',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ComorbidityAssociation',
+                       'Grouping',
+                       'ModuleCollection',
+                       'ClaimDiseaseIdentity'],
+         'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis',
+                       'Disease',
+                       'GroupingMember',
+                       'ClaimDiseaseIdentity']} })
+
+
+class ClaimContextBinding(ConfiguredBaseModel):
+    """
+    A pointer-addressed original context value and its role in claim interpretation.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    path: str = Field(default=..., description="""RFC 6901 JSON Pointer into the original disease document.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClaimContextBinding']} })
+    value: Any = Field(default=..., description="""Original scalar, list or object at the path. Ancestor and subtype objects retain local fields but omit evidence and separate evidence-bearing child objects, to avoid importing sibling assertions as context.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Qualifier', 'ClaimContextBinding']} })
+    role: ClaimContextRoleEnum = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['HostDescriptor',
+                       'Pathophysiology',
+                       'Stage',
+                       'Treatment',
+                       'ClaimContextBinding']} })
+
+
+class ClaimOrigin(ConfiguredBaseModel):
+    """
+    Locations in the source disease YAML used to derive a structured claim.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    assertion_path: str = Field(default=..., description="""RFC 6901 JSON Pointer to the complete assertion object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClaimOrigin']} })
+    evidence_path: str = Field(default=..., description="""RFC 6901 JSON Pointer to its selected evidence list entry.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClaimOrigin']} })
+    context_paths: Optional[list[str]] = Field(default=None, description="""Pointers supplying disease identity and additional context bindings.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClaimOrigin']} })
+
+
+class ClaimEvaluation(ConfiguredBaseModel):
+    """
+    Optional human or system judgment of the declared evidence relationship to a complete StructuredClaim. Reasons are evaluation diagnostics, not EvidenceItem support values or new curator-authored evidence appraisal slots.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    judgment: ClaimJudgmentEnum = Field(default=..., description="""Whether the selected evidence relationship is justified.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClaimEvaluation']} })
+    reason: Optional[ClaimMismatchReasonEnum] = Field(default=None, description="""Principal reason for a mismatch, when assessed.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClaimEvaluation']} })
+    disputed_paths: Optional[list[str]] = Field(default=None, description="""RFC 6901 pointers within the StructuredClaim, identifying disputed fields.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClaimEvaluation']} })
+    justification: Optional[str] = Field(default=None, description="""Explanation supplied by the evaluating human or system.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClaimEvaluation']} })
 
 
 # Model rebuild
@@ -27331,6 +28036,7 @@ AgentLifeCycleStage.model_rebuild()
 AnimalModel.model_rebuild()
 Treatment.model_rebuild()
 OligonucleotideDetail.model_rebuild()
+DeliverySystem.model_rebuild()
 InfectiousAgent.model_rebuild()
 Transmission.model_rebuild()
 Assay.model_rebuild()
@@ -27393,3 +28099,9 @@ GroupingMember.model_rebuild()
 DifferentiatingMechanism.model_rebuild()
 ModuleCollection.model_rebuild()
 ModuleCollectionMember.model_rebuild()
+StructuredClaim.model_rebuild()
+ClaimAbout.model_rebuild()
+ClaimDiseaseIdentity.model_rebuild()
+ClaimContextBinding.model_rebuild()
+ClaimOrigin.model_rebuild()
+ClaimEvaluation.model_rebuild()
