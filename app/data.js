@@ -18256,6 +18256,141 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Amatoxin Poisoning",
+    "disease_id": null,
+    "category": "Environmental",
+    "parents": [
+      "Poisoning"
+    ],
+    "creation_date": "2026-09-19T19:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Amatoxin poisoning follows ingestion of a mushroom containing alpha-amanitin or one of its congeners. It causes the large majority of deaths from eating wild mushrooms, and the reason is as much timing as potency: the toxin is not destroyed by cooking, and it produces no symptom at all for a latent interval of six to eighteen hours, with the gastrointestinal phase beginning between six and twenty-four hours, so the patient presents after absorption is complete and the meal is rarely volunteered as relevant. The species differ and the toxin does not - Amanita phalloides, Amanita virosa, several Galerina and several Lepiota converge on the same molecule, which is why this entry is named for the toxin rather than the genus.\nAlpha-amanitin is a poor membrane permeant, and the step that makes an otherwise general poison organ-selective is carriage across the hepatocyte sinusoidal membrane by the uptake transporter OATP1B3. Cells that express the transporter take the toxin up and die; cells that do not are largely spared, which is why lung, heart and brain escape while liver, gut and kidney do not. Inside the cell the toxin binds RNA polymerase II and stops transcription, so the tissues that fail first are the ones with the highest demand for new protein.\nClinically this reads as four phases - a latent interval, a cholera-like gastroenteritis, an apparent recovery, and hepatic failure from about the third day. The third phase is the dangerous one, because a patient who looks better is discharged while transcription is already silenced.",
+    "pathophysiology": [
+      "Systemic Alpha-Amanitin Exposure",
+      "OATP1B3-Mediated Hepatocyte Uptake of Alpha-Amanitin",
+      "STT3B-Dependent Cellular Entry of Alpha-Amanitin",
+      "RNA Polymerase II Inhibition",
+      "Arrest of Messenger RNA Synthesis",
+      "Failure of Protein Synthesis",
+      "p53- and Caspase-Dependent Hepatocyte Apoptosis",
+      "TNF-Mediated Amplification of Hepatocyte Injury",
+      "Centrilobular Hepatic Necrosis",
+      "Hepatic Synthetic and Metabolic Failure",
+      "Enterohepatic Recirculation of Alpha-Amanitin",
+      "Intestinal Epithelial Injury",
+      "Renal Proximal Tubular Injury",
+      "Mitochondrial Injury in Proximal Tubular Epithelium",
+      "Hematopoietic Cell Apoptosis"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "centrilobular region hepatocyte",
+      "enterocyte",
+      "epithelial cell of proximal tubule",
+      "hematopoietic stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0019029",
+      "CL:0000584",
+      "CL:0002306",
+      "CL:0000037"
+    ],
+    "biological_processes": [
+      "transcription elongation by RNA polymerase II",
+      "mRNA synthesis",
+      "translation",
+      "apoptotic process",
+      "mitochondrion organization"
+    ],
+    "phenotypes": [
+      "Profuse watery diarrhea",
+      "Vomiting",
+      "Abdominal pain",
+      "Dehydration",
+      "Hypotension",
+      "Elevated hepatic transaminases",
+      "Jaundice",
+      "Hyperbilirubinemia",
+      "Prolonged prothrombin time",
+      "Hepatic encephalopathy",
+      "Hypoglycemia",
+      "Metabolic acidosis",
+      "Acute liver failure",
+      "Acute kidney injury",
+      "Oliguria",
+      "Ulcerating ileocolitis",
+      "Thrombocytopenia",
+      "Anemia"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional",
+      "Cardiovascular",
+      "Hepatic",
+      "Hematologic",
+      "Neurologic",
+      "Metabolic",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0002013",
+      "HP:0002027",
+      "HP:0001944",
+      "HP:0002615",
+      "HP:0002910",
+      "HP:0000952",
+      "HP:0002904",
+      "HP:0008151",
+      "HP:0002480",
+      "HP:0001943",
+      "HP:0001942",
+      "HP:0006554",
+      "HP:0001919",
+      "HP:0100520",
+      "HP:0004387",
+      "HP:0001873",
+      "HP:0001903"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Intravenous Fluid Resuscitation and Supportive Care",
+      "Multiple-Dose Activated Charcoal",
+      "Silibinin",
+      "Benzylpenicillin",
+      "N-Acetylcysteine",
+      "Therapeutic Plasma Exchange",
+      "Biliary Drainage",
+      "Liver Transplantation"
+    ],
+    "environmental": [
+      "Ingestion of foraged amatoxin-containing mushrooms"
+    ],
+    "biochemical": [],
+    "source_file": "Amatoxin_Poisoning.yaml",
+    "page_url": "../pages/disorders/Amatoxin_Poisoning.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 15,
+    "num_genes": 0,
+    "num_treatments": 8,
+    "causal_graph_edges": "42",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Ameloblastoma",
     "disease_id": "MONDO:0017795",
     "category": "",
@@ -98938,6 +99073,123 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Digitalis Poisoning",
+    "disease_id": "MONDO:0017863",
+    "category": "Complex",
+    "parents": [
+      "Poisoning"
+    ],
+    "creation_date": "2026-09-19T22:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Acute",
+      "Chronic",
+      "Acute-on-chronic"
+    ],
+    "description": "Poisoning by digoxin or another cardiac glycoside. One molecular lesion accounts for nearly all of it: the drug binds the extracellular face of the sodium-potassium pump and stops it. That is also how the drug works at therapeutic dose, so unlike most poisonings there is no separate toxic mechanism to describe - only more of the intended one, in a drug whose therapeutic window is narrow enough that the two overlap.\nWhat follows is a chain of ion-gradient failures. Sodium accumulates inside the myocyte, which starves the sodium-calcium exchanger of the gradient it uses to pump calcium out, so calcium accumulates too. An overloaded sarcoplasmic reticulum releases calcium spontaneously after repolarization, the exchanger turns that release into an inward current, and the resulting afterdepolarization fires an unscheduled beat. Meanwhile the same drug raises vagal tone and slows conduction through the atrioventricular node. The combination - ectopic firing from below, block from above - is the classic description of the toxidrome as increased automaticity with decreased conduction, and it is why the electrocardiogram can show a fast rhythm and a blocked one at once.\nTwo features set the clinical problem apart. Potassium leaks out of every cell whose pump is inhibited, so in acute poisoning the serum potassium is a readout of how comprehensively the pump has been shut down, and it carries prognostic information. And the poison is not confined to pharmacy shelves: foxglove, oleander, lily-of-the-valley and toad bufadienolides produce the same syndrome by the same mechanism.",
+    "pathophysiology": [
+      "Systemic Cardiac Glycoside Excess",
+      "Sodium-Potassium ATPase Inhibition",
+      "Intracellular Sodium Accumulation",
+      "Reduced Sodium-Calcium Exchanger Calcium Extrusion",
+      "Sarcoplasmic Reticulum Calcium Overload",
+      "Spontaneous Diastolic Calcium Release",
+      "Delayed Afterdepolarization",
+      "Triggered Automaticity",
+      "Increased Vagal Tone",
+      "Atrioventricular Conduction Block",
+      "Extracellular Potassium Shift",
+      "Direct Cardiac Ion Channel Block",
+      "Retinal Sodium-Potassium ATPase Inhibition",
+      "Central and Gastrointestinal Pump Inhibition",
+      "Hemodynamic Collapse"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "Purkinje myocyte",
+      "Purkinje myocyte of atrioventricular node"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002068",
+      "CL:1000479"
+    ],
+    "biological_processes": [
+      "release of sequestered calcium ion into cytosol by sarcoplasmic reticulum",
+      "cardiac muscle cell action potential",
+      "AV node cell action potential",
+      "potassium ion homeostasis"
+    ],
+    "phenotypes": [
+      "Bidirectional ventricular tachycardia",
+      "Premature ventricular contraction",
+      "Junctional ectopic tachycardia",
+      "Supraventricular tachycardia with atrioventricular block",
+      "Atrioventricular block",
+      "Bradycardia",
+      "Cardiac arrest",
+      "Hyperkalemia",
+      "Vomiting",
+      "Nausea",
+      "Confusion",
+      "Disturbed color vision"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Metabolic",
+      "Gastrointestinal",
+      "Neurologic",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0034040",
+      "HP:0006682",
+      "HP:0011716",
+      "HP:0004755",
+      "HP:0001678",
+      "HP:0001662",
+      "HP:0001695",
+      "HP:0002153",
+      "HP:0002013",
+      "HP:0002018",
+      "HP:0001289",
+      "HP:0000551"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ABCB1"
+    ],
+    "treatments": [
+      "Digoxin-Specific Antibody Fragments",
+      "Multiple-Dose Activated Charcoal",
+      "Atropine",
+      "Therapeutic Plasma Exchange",
+      "Supportive Care and Electrolyte Management",
+      "Temporary Cardiac Pacing"
+    ],
+    "environmental": [
+      "Ingestion of a cardiac-glycoside-containing plant or animal product"
+    ],
+    "biochemical": [
+      "Serum potassium"
+    ],
+    "source_file": "Digitalis_Poisoning.yaml",
+    "page_url": "../pages/disorders/Digitalis_Poisoning.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 15,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Dihydropyrimidine Dehydrogenase Deficiency",
     "disease_id": "MONDO:0010130",
     "category": "Mendelian",
@@ -164742,7 +164994,13 @@ window.searchData = [
       "STS",
       "TGM1",
       "ALOX12B",
-      "ABCA12"
+      "ABCA12",
+      "CYP4F22",
+      "ALOXE3",
+      "NIPAL4",
+      "KRT1",
+      "KRT10",
+      "KRT2"
     ],
     "treatments": [
       "Topical emollients and keratolytic/supportive therapy",
@@ -164756,9 +165014,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Inherited_Ichthyosis.html",
     "num_phenotypes": 9,
     "num_pathophysiology": 5,
-    "num_genes": 5,
+    "num_genes": 11,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "5"
   },
   {
@@ -164783,6 +165041,11 @@ window.searchData = [
     ],
     "description": "Inherited porphyria is a heterogeneous group of hereditary heme-biosynthesis disorders. Each major subtype reflects a defect or dysregulation at a different enzymatic step, producing hepatic or erythropoietic accumulation of heme intermediates. Clinically, the group spans acute hepatic porphyrias with neurovisceral attacks and cutaneous or erythropoietic porphyrias with photosensitivity, blistering, or protoporphyrin-mediated phototoxic pain.",
     "pathophysiology": [
+      "Hydroxymethylbilane Synthase Block",
+      "ALA Dehydratase Block",
+      "Coproporphyrinogen Oxidase Block",
+      "Protoporphyrinogen Oxidase Block",
+      "Uroporphyrinogen Decarboxylase Block",
       "Heme Biosynthesis Enzyme Deficiency",
       "Porphyrin Precursor and Porphyrin Accumulation",
       "Hepatic ALAS1 Induction and Acute Precursor Overproduction",
@@ -164845,6 +165108,7 @@ window.searchData = [
       "CPOX pathogenic variants",
       "PPOX pathogenic variants",
       "UROS pathogenic variants",
+      "GATA1 pathogenic variants",
       "UROD pathogenic variants",
       "Protoporphyria genes"
     ],
@@ -164866,11 +165130,11 @@ window.searchData = [
     "source_file": "Inherited_Porphyria.yaml",
     "page_url": "../pages/disorders/Inherited_Porphyria.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 7,
-    "num_genes": 8,
+    "num_pathophysiology": 12,
+    "num_genes": 9,
     "num_treatments": 7,
-    "causal_graph_edges": "33",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Inherited Retinal Dystrophy",
@@ -168364,12 +168628,14 @@ window.searchData = [
     "subtypes": [
       "ARWH1",
       "ARWH2",
-      "ADWH"
+      "ADWH",
+      "ARWH3",
+      "HYPT13"
     ],
     "description": "Isolated (non-syndromic) familial woolly hair is a rare congenital structural abnormality of the scalp hair shaft characterized by tightly curled, fine, fragile, and slow-growing hair present from birth in individuals not of African ancestry. Unlike syndromic woolly hair (e.g., Naxos and Carvajal cardiocutaneous syndromes or skin fragility-woolly hair syndrome), the isolated form has no cardiac, palmoplantar keratoderma, or skin-fragility features. It is genetically heterogeneous: autosomal recessive woolly hair with or without hypotrichosis is caused by biallelic loss-of-function variants in LIPH (lipase H, which generates 2-acyl lysophosphatidic acid) or LPAR6/P2RY5 (the lysophosphatidic acid receptor 6), disrupting the LPA-signaling axis required for hair-follicle differentiation; autosomal dominant woolly hair is caused by heterozygous variants in the hair-shaft keratin gene KRT74. The resulting hairs are abnormally curved with an altered cross-sectional shape, are difficult to comb, and may be associated with variable degrees of hypotrichosis (sparse hair).\n",
     "pathophysiology": [
       "Disrupted LIPH-LPAR6 Lysophosphatidic Acid Signaling",
-      "KRT74 Hair-Shaft Keratin Filament Defect"
+      "Inner Root Sheath Keratin Filament Defect"
     ],
     "cell_types": [
       "hair follicular keratinocyte"
@@ -168408,7 +168674,10 @@ window.searchData = [
     "genes": [
       "LIPH",
       "LPAR6",
-      "KRT74"
+      "KRT74",
+      "KRT71",
+      "KRT25",
+      "C3ORF52"
     ],
     "treatments": [
       "Supportive Hair Care and Genetic Counseling",
@@ -168420,10 +168689,10 @@ window.searchData = [
     "page_url": "../pages/disorders/Isolated_Woolly_Hair.html",
     "num_phenotypes": 6,
     "num_pathophysiology": 2,
-    "num_genes": 3,
+    "num_genes": 6,
     "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Isoniazid Toxicity",
@@ -169770,7 +170039,12 @@ window.searchData = [
       "TMEM218",
       "CEP104",
       "ARL3",
-      "KIAA0753"
+      "KIAA0753",
+      "TMEM216",
+      "TMEM138",
+      "TMEM231",
+      "FAM149B1",
+      "NPHP1"
     ],
     "treatments": [
       "Supportive care",
@@ -169796,9 +170070,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Joubert_syndrome.html",
     "num_phenotypes": 43,
     "num_pathophysiology": 16,
-    "num_genes": 35,
+    "num_genes": 40,
     "num_treatments": 11,
-    "causal_graph_edges": "123",
+    "causal_graph_edges": "128",
     "causal_graph_longest_path": "7"
   },
   {
@@ -275047,6 +275321,7 @@ window.searchData = [
       "Cytokine receptor signaling defect",
       "Defective V(D)J recombination and DNA repair",
       "Toxic purine metabolite accumulation",
+      "Non-lymphoid tissue purine metabolite toxicity",
       "Defective haematopoietic precursor survival",
       "Blocked T-lymphocyte development",
       "Absent adaptive immunity"
@@ -275068,6 +275343,8 @@ window.searchData = [
       "V(D)J recombination",
       "DNA recombination",
       "adenosine catabolic process",
+      "transmethylation",
+      "DNA replication",
       "haematopoiesis",
       "T cell differentiation in thymus",
       "adaptive immune response"
@@ -275094,6 +275371,11 @@ window.searchData = [
       "Dermatitis",
       "Hemolytic anemia",
       "Pulmonary alveolar proteinosis",
+      "Cognitive impairment",
+      "Hyperactivity",
+      "Sensorineural hearing loss",
+      "Costochondral abnormalities",
+      "Elevated hepatic transaminases",
       "Autoimmunity",
       "Bronchiectasis"
     ],
@@ -275107,11 +275389,14 @@ window.searchData = [
       "Cardiovascular",
       "Cellular",
       "Digestive",
+      "Ear",
       "Endocrine",
       "Growth",
       "Immune",
       "Integument",
       "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -275136,6 +275421,11 @@ window.searchData = [
       "HP:0011123",
       "HP:0001878",
       "HP:0006517",
+      "HP:0100543",
+      "HP:0000752",
+      "HP:0000407",
+      "HP:0000919",
+      "HP:0002910",
       "HP:0002960",
       "HP:0002110"
     ],
@@ -275165,11 +275455,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Severe_Combined_Immunodeficiency.yaml",
     "page_url": "../pages/disorders/Severe_Combined_Immunodeficiency.html",
-    "num_phenotypes": 23,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 28,
+    "num_pathophysiology": 7,
     "num_genes": 8,
     "num_treatments": 6,
-    "causal_graph_edges": "34",
+    "causal_graph_edges": "41",
     "causal_graph_longest_path": "4"
   },
   {
@@ -316740,17 +317030,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3040,
-  "total_subtypes": 3775,
-  "total_disorders_and_subtypes": 6815,
-  "total_unique_evidence_sources": 43330,
-  "total_unique_publications": 40920,
+  "total_disorder_pages": 3042,
+  "total_subtypes": 3780,
+  "total_disorders_and_subtypes": 6822,
+  "total_unique_evidence_sources": 43386,
+  "total_unique_publications": 40974,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3035,
-  "total_unique_pathological_events": 18518,
+  "total_pathographs": 3037,
+  "total_unique_pathological_events": 18554,
   "total_modules": 177,
-  "total_research_reports": 3154,
+  "total_research_reports": 3156,
   "total_classifications": 19,
   "total_comorbidities": 46,
   "total_groupings": 102
