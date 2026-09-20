@@ -193247,72 +193247,133 @@ window.searchData = [
   {
     "name": "Manganism",
     "disease_id": "MONDO:0017638",
-    "category": "Neurological Disorder",
+    "category": "Environmental",
     "parents": [
+      "heavy metal poisoning",
+      "toxic encephalopathy",
       "Secondary Parkinsonism",
       "Environmental Neurotoxicity"
     ],
     "creation_date": "2026-06-11T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Manganism is an acquired, environmentally caused extrapyramidal movement disorder produced by chronic excessive exposure to manganese (Mn), classically occupational (welding, mining, ferroalloy and battery manufacture, and contaminated water or total parenteral nutrition). Inhaled or ingested manganese accumulates preferentially in the basal ganglia \u2014 initially the globus pallidus \u2014 producing a parkinsonism-like syndrome with bradykinesia, rigidity, dystonia (the characteristic \"cock-walk\"), gait disturbance, and neuropsychiatric features. Manganism is clinically and pathophysiologically distinct from idiopathic Parkinson disease: the lesion is predominantly pallidal rather than nigrostriatal, and it characteristically responds poorly to levodopa. It is a paradigm environmental-neurotoxicity cause of secondary parkinsonism and converges on basal-ganglia motor-circuit dysfunction.",
+    "description": "Manganism, or manganese poisoning, is an acquired extrapyramidal disorder caused by chronic overexposure to manganese, most often by inhalation of welding fume or ore dust. Manganese is an essential trace element, so the disease is a dose problem rather than a foreign-substance problem: the routes that cause it are the ones that defeat normal homeostasis. Inhaled metal bypasses the gut and the hepatobiliary first-pass that would otherwise excrete the excess, and the metal concentrates in the basal ganglia, above all in the globus pallidus. The resulting syndrome looks like parkinsonism and is not Parkinson disease: the lesion sits in the pallidum rather than the substantia nigra, there are no Lewy bodies, and it responds poorly to levodopa. It is also frequently irreversible once established, which is why exposure control rather than treatment is the main lever.",
     "pathophysiology": [
-      "Manganese Overexposure and Failure of Hepatobiliary Clearance",
-      "Transporter-Mediated Manganese Uptake into the Central Nervous System",
-      "Chronic Manganese Accumulation in the Basal Ganglia",
-      "Mitochondrial Complex II-Dependent Reactive Oxygen Species Production",
-      "Basal Ganglia Circuit Dysfunction and Extrapyramidal Parkinsonism"
+      "Chronic Manganese Overexposure",
+      "Impaired Hepatobiliary Manganese Excretion",
+      "Systemic Manganese Overload",
+      "Manganese Transport Across the Blood-Brain Barrier",
+      "Pallidal Manganese Accumulation",
+      "Astrocytic Manganese Sequestration",
+      "Astrocytic Glutamate Transporter Downregulation",
+      "Glutamate Excitotoxicity",
+      "Mitochondrial Dysfunction and Oxidative Stress",
+      "Microglial Complex II-Dependent Reactive Oxygen Species Production",
+      "Neuroinflammation",
+      "Alpha-Synuclein Aggregation",
+      "Impaired Striatal Dopamine Release",
+      "Globus Pallidus Neuronal Injury",
+      "Basal Ganglia Output Failure",
+      "Cortical and White Matter Injury"
     ],
     "cell_types": [
+      "GABAergic neuron",
+      "astrocyte",
       "microglial cell",
-      "GABAergic neuron"
+      "dopaminergic neuron"
     ],
     "cell_type_ids": [
+      "CL:0000617",
+      "CL:0000127",
       "CL:0000129",
-      "CL:0000617"
+      "CL:0000700"
     ],
     "biological_processes": [
+      "manganese ion homeostasis",
+      "manganese ion transmembrane transport",
+      "L-glutamate import",
       "response to oxidative stress",
       "reactive oxygen species biosynthetic process",
-      "GABAergic synaptic transmission"
+      "neuroinflammatory response",
+      "protein destabilization"
     ],
     "phenotypes": [
-      "Extrapyramidal Parkinsonism",
+      "Parkinsonism",
+      "Bradykinesia",
+      "Rigidity",
       "Dystonia",
-      "Limb rigidity",
       "Gait disturbance",
-      "Cognitive and psychiatric disturbance"
+      "Postural instability",
+      "Weak voice",
+      "Micrographia",
+      "Cognitive impairment",
+      "Memory impairment",
+      "Compulsive behaviors",
+      "Delusion",
+      "Hallucinations",
+      "Emotional lability",
+      "Hypomimic face",
+      "Dysarthria",
+      "Tremor"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neurological",
+      "Cognitive",
+      "Behavioral",
+      "Psychiatric"
+    ],
     "phenotype_hpo_categories": [
+      "Head and Neck",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Voice"
     ],
     "phenotype_ids": [
       "HP:0001300",
-      "HP:0001332",
+      "HP:0002067",
       "HP:0002063",
+      "HP:0001332",
       "HP:0001288",
-      "HP:0100543"
+      "HP:0002172",
+      "HP:0001621",
+      "HP:0031908",
+      "HP:0100543",
+      "HP:0002354",
+      "HP:0000722",
+      "HP:0000746",
+      "HP:0000738",
+      "HP:0000712",
+      "HP:0000338",
+      "HP:0001260",
+      "HP:0001337"
     ],
     "frequencies": [],
-    "genes": [],
+    "genes": [
+      "SLC30A10"
+    ],
     "treatments": [
-      "Removal from Manganese Exposure",
-      "Levodopa"
+      "Removal from Exposure",
+      "Calcium Disodium Edetate Chelation",
+      "Sodium Para-Aminosalicylic Acid",
+      "Levodopa Trial",
+      "Iron Supplementation"
     ],
     "environmental": [
-      "Occupational and Environmental Manganese Exposure"
+      "Occupational inhalation of manganese-containing welding fume or ore dust",
+      "Intravenous methcathinone (ephedrone) prepared with potassium permanganate",
+      "Parenteral nutrition and chronic liver failure"
     ],
-    "biochemical": [],
+    "biochemical": [
+      "Whole-blood manganese"
+    ],
     "source_file": "Manganism.yaml",
     "page_url": "../pages/disorders/Manganism.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 5,
-    "num_genes": 0,
-    "num_treatments": 2,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "6"
+    "num_phenotypes": 17,
+    "num_pathophysiology": 16,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Mantle Cell Lymphoma",
@@ -317268,14 +317329,14 @@ window.searchMetrics = {
   "total_disorder_pages": 3044,
   "total_subtypes": 3782,
   "total_disorders_and_subtypes": 6826,
-  "total_unique_evidence_sources": 43433,
-  "total_unique_publications": 41020,
+  "total_unique_evidence_sources": 43449,
+  "total_unique_publications": 41036,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
   "total_pathographs": 3039,
-  "total_unique_pathological_events": 18569,
+  "total_unique_pathological_events": 18576,
   "total_modules": 177,
-  "total_research_reports": 3158,
+  "total_research_reports": 3159,
   "total_classifications": 19,
   "total_comorbidities": 46,
   "total_groupings": 102
