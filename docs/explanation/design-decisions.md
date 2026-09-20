@@ -377,6 +377,223 @@ gain lineage-specific transformed-cell terms, or `CellTypeTerm` gain `NCIT:C1291
 second source node, so an entry needing "H3 K27M-mutant glioma cell" stops binding the
 generic `CL:0001063`. See [cancer-cell-of-origin.md](../cancer-cell-of-origin.md).
 
+### 3e. Infectious disease granularity ladder (2026-09-16)
+
+**Status: ENACTED at maintainer direction (`@cmungall`, 2026-09-16 session).** Origin:
+[#10115](https://github.com/monarch-initiative/dismech/issues/10115) and the
+[microbial disease granularity review](../reports/microbial-disease-granularity-2026-08-29.md),
+which proposed this as "§3b"; that number was taken by the time it was ratified. The
+review's proposed ladder is adopted with the three corrections its discussion produced,
+each marked below. Day-to-day mechanics are in
+[`CLAUDE.md`](https://github.com/monarch-initiative/dismech/blob/main/CLAUDE.md)
+under *Infectious Disease Entry Granularity*.
+
+**Decision.** Infectious disease entries follow an explicit granularity ladder, the
+infection counterpart of §3a. The generic §3 rule was written for Mendelian disease and
+§3a for somatic neoplasms; neither says what to do when one organism causes two named
+syndromes, one syndrome is caused by four unrelated organisms, or a species has two
+thousand serovars. The KB was resolving those three situations along six axes at once
+(organism, organ syndrome, eponym, phase, transmission setting, neoplastic sequela) with
+no rule for which wins, so *Legionella* was split by syndrome while four meningitis
+organisms were lumped by syndrome, and two diseases were curated in full at two rungs at
+once.
+
+**The default rung is the named clinical entity**: the pathogen–syndrome pair the field
+names, diagnoses and treats as a unit (cholera, Legionnaires' disease, Pontiac fever,
+Buruli ulcer). Neither the organism alone nor the organ syndrome alone. Move off it only
+by meeting the stated test of another rung.
+
+| Rung | Represent as | Rule |
+|---|---|---|
+| **0 Abstraction** (*infectious disease*, *viral infectious disease*, *bacterial infectious disease*) | `stubs/` entry with `entry_type: OUT_OF_SCOPE` | Too abstract to carry a mechanism. Record the reason in `notes` so the concept is not re-nominated. `Infectious_Disease` (`MONDO:0005550`, one node called "Pathogen Invasion and Replication") is retired under this rung |
+| **1 Grouping** (the treponematoses, the enteric fevers, the viral hepatitides) | `kb/groupings/` | A union of diseases the field already names separately, or an organ syndrome spanning unrelated organisms. Explicit `members`, `grouping_basis`, a `grouping_rationale` that states **the axes on which the members were split** and not only what they share, `mondo_mappings` with an explicit predicate; no `pathophysiology` of its own. `Treponematoses` is the reference implementation. An organ syndrome with an organism-independent mechanism is a `kb/modules/` module plus `conforms_to` instead |
+| **2 Named clinical entity** — **the default** | `Disease` entry | `disease_term` bound at the entry's own scope (`skos:narrowMatch` to the nearest class where no exact one exists; never bare parent reuse); ≥1 NCBITaxon-bound `infectious_agent`; ≥1 `transmission` route; `agent_life_cycle` with `hosts` (and `vectors`) wherever a non-human reservoir or arthropod vector exists; `life_cycle_stages` for helminth and protozoan agents; `progression` phases where the disease has a recognised phase structure; ≥1 `pathophysiology` node specific to this entity. **Test for rung 2 over rung 1:** every pathophysiology node is true of every case the entry covers. A node written vaguely enough to span two organisms with different mechanisms means the entry is at the wrong rung |
+| **3 Organism stratum** (species → subspecies → serovar → serotype) | `has_subtypes` on the rung-2 entry | A stratum earns a subtype when it is **documented to differ** from its siblings on at least one of: presentation or organ involvement; diagnosis; first-line treatment or drug susceptibility; prognosis; transmission route, vector or reservoir; geography or at-risk population. The threshold is documented difference, **not nomenclatural availability, and the default is to lump**. Each subtype's `description` says *what differs* and its `evidence` cites it; `subtype_term` is bound where an honest term exists and omitted rather than bound to the parent |
+| **3a Non-phylogenetic stratum** (pathotype, biotype, lineage, viral genotype, clade) | `has_subtypes` on the rung-2 entry, with `classification: pathotype` (or `biotype`, `lineage`, `genotype`, `clade`) | Defined by gene content or phylogeny below any rank a taxonomy names, so carried **structurally, never by an identifier**: the `description` names the defining determinant (LT/ST enterotoxin; Shiga toxin; *mecA*/SCC*mec*), `subtype_term` is bound only at a genuine serotype-rank node (*E. coli* O157:H7 → `NCBITaxon:83334`) and **never to the parent species** (binding *E. coli* to ETEC is a false grounding), and a genome or assembly accession is never a stratum's identity. The same rung-3 evidence gate applies, and it bites correctly here: ETEC, EPEC, EAEC and EHEC clear it on toxin, syndrome and (for EHEC) management; a serotype with a name and no reported clinical distinction stays lumped |
+| **4 Promoted stratum** | Own `Disease` entry, a covering rung-1 Grouping, and a **pointer** subtype left on the parent | **The Treponematoses test:** promote only when the stratum differs from its siblings on **at least two** of: transmission route or vector; reservoir host; natural history or tempo; organ systems ultimately involved; first-line therapy. Name the satisfied axes in the entry or the grouping's `grouping_rationale`. Own `disease_term`, or `skos:narrowMatch` to the parent. The parent keeps the stratum's row as a pointer (below) and drops any divergent copy of its content: nothing is *curated* at two rungs at once |
+| **Never a rung** | see below | A phase of one infection; an organ syndrome across unrelated organisms (rung 1 or a module); a post-infectious immune sequela (its own entry, cross-linked to the index infection, because the mechanism is host-immune); an infection-attributed neoplasm (§3a — the pathogen is an annotation, never a granularity axis); a mechanism shared across diseases (`kb/modules/`) |
+
+**The rules, numbered so a review can cite one.** These restate the ladder as law and
+carry the numbering the issue discussion settled on; `just check-granularity` reports
+each of its finding classes against the rule it enforces.
+
+- **R1** The default rung is the named clinical entity. Move off it only by satisfying a
+  rule below. **R2** A concept too abstract to carry a mechanism is an `OUT_OF_SCOPE`
+  stub with the reason, never an entry. **R3** A union of diseases the field already
+  names separately is a Grouping, with no `pathophysiology` of its own. **R4** An organ
+  syndrome spanning unrelated organisms is a Grouping; if the syndrome has an
+  organism-independent mechanism, a module plus `conforms_to`. **R5** An entry's
+  pathophysiology nodes must be true of every case it covers.
+- **R6** Organism strata below an entry are `has_subtypes`. **R7** A stratum earns a
+  subtype on at least one documented differentiating axis (the six in rung 3). **R8**
+  The threshold is documented difference, not nomenclatural availability. **R9** The
+  default is to lump; a deliberate lump is recorded (see *Recording a deliberate lump*).
+  **R10** Splitting is progressive and additive: a subtype added later as evidence
+  accrues is the normal lifecycle of an entry, not a repair. **R11** Every subtype states
+  what differs in `description` and cites it in `evidence`. **R12** `subtype_term` is
+  bound where an honest term exists and omitted rather than bound to the parent — MONDO
+  on a disease-level subtype, NCBITaxon on an agent-level stratum (see *Where a stratum's
+  taxonomic identity lives*).
+- **R13** Pathotype, biotype, lineage, viral genotype and clade are carried
+  structurally, not by an identifier. **R14** The subtype `description` names the
+  defining determinant. **R15** A pathotype is never bound to its parent species; bind
+  only at a genuine serotype-rank node. **R16** A genome or assembly accession is never
+  a stratum's identity; a specific isolate belongs in a `datasets:` record or an evidence
+  snippet.
+- **R17** Promote only on at least two of the five Treponematoses axes, and name them.
+  **R18** A promoted stratum gets its own `disease_term`, or `skos:narrowMatch` to the
+  parent; never bare parent reuse. **R19** Promoted siblings are covered by a Grouping.
+  **R20** The parent keeps a pointer subtype marked `curated_in` and drops any divergent
+  copy; nothing is curated at two rungs at once. *(Corrected from the issue body, which
+  asked the parent to drop the row entirely — see below.)*
+- **R21** A phase of one infection is never an entry, **and** the entry lists its phases
+  in `progression:`. **R22** A post-infectious immune sequela is its own entry,
+  cross-linked to the index infection. **R23** An infection-attributed neoplasm follows
+  §3a. **R24** A mechanism shared across diseases is a module.
+- **R25** Every microbial entry declares at least one NCBITaxon-bound `infectious_agent`
+  and at least one `transmission` route. **R26** Where a non-human reservoir or arthropod
+  vector exists, `agent_life_cycle` with `hosts` (and `vectors`) is required — R17 cannot
+  be evaluated without them. **R27** NCBITaxon is the sole binding vocabulary for
+  organisms. **R28** `disease_term` is bound at the entry's own scope; broader is wrong
+  and narrower is wrong.
+
+**Pointer subtypes are marked, not described.** *(Correction 1.)* The issue reported
+`Spotted_Fever_Rickettsiosis` as "modelled twice", because Rocky Mountain spotted fever
+and boutonneuse fever are subtypes there and full entries elsewhere, and asked for the
+rows to be dropped. Reading the entry shows it is doing exactly what §3a L4 prescribes
+for a promoted stratum: the parent is deliberately thin, each of those subtypes is a
+20-line row with a bound term, cited evidence and the sentence "Curated in full in
+`Rocky_Mountain_Spotted_Fever.yaml`", and the two files anchor to different MONDO
+classes. Dropping the rows would delete a working instance of the pattern this ladder is
+establishing. What was actually missing is that the pointer existed only as an English
+sentence inside a `description`, so a consumer counting diseases still double-counted,
+and a checker could not tell the prescribed shape from the defect it resembles. `Subtype`
+therefore gains **`curated_in`**: the file stem of the entry where the stratum is curated
+in full, the same identifier a cross-file entity reference uses. A subtype carrying it is
+a pointer and is not a disease; one that names a disease with its own entry and does
+*not* carry it is the defect (`DOUBLE_MODELLED`). The slot serves §3a's L4 rule (d) as
+much as this one, and the KB-wide backfill of the umbrella-entry pattern it now makes
+visible (`Epilepsy` listing `Juvenile Myoclonic Epilepsy`, which has its own entry; some
+250 such rows) is tracked under #10116, not here. `Viral_Hemorrhagic_Fever` is the entry
+that genuinely has the defect — eight one-line subtypes across six virus families, three
+of which are full entries with no cross-link either way — and the rung-1 conversion is
+right for it.
+
+**Where a stratum's taxonomic identity lives.** *(Correction 2.)* The issue proposed a
+`pathotype:` slot on `InfectiousAgent`. There are already two places a stratum can live —
+the disease-level `has_subtypes`, and `InfectiousAgent.has_subtypes` — and a third would
+make the choice worse, because `subtype:` discriminators elsewhere in a file resolve only
+against the disease-level list (`SECTION_KEYS` in `entity_refs.py`): a pathotype put under
+the agent could not scope a phenotype, treatment or prevalence record. So **no `pathotype:`
+slot is added**. The two existing homes divide the work: a disease-level subtype is a
+*clinical* stratum, gated by R7 and bound to MONDO where a named disease variant exists,
+with `classification:` recording the axis (`etiologic_species`, `serovar`, `pathotype`,
+`biotype`, `lineage`, `genotype`, `clade` — free text today, as the existing
+`Spotted_Fever_Rickettsiosis` rows use it); an agent-level stratum is a *taxonomic* one,
+bound to NCBITaxon, carrying no R7 gate and no foreign-key role. A serovar that is
+clinically distinct appears in both, each binding its own kind of term. A pathotype has
+no NCBITaxon node and so appears only at the disease level. Binding an agent-level stratum
+to NCBITaxon is not possible on `main` today — `Subtype.subtype_term` ranges over the
+MONDO/NCIT disease enum, which is why all three entries using the slot carry name-only
+strata — and is enacted by PR #10353 (`AgentSubtype`); until it merges, R12's agent-level
+half is aspirational and the checker reports the strata as `UNBOUND_AGENT_STRATUM`,
+advisory.
+
+**Phases are listed, not split off.** The ladder wins over MONDO on phase, exactly as
+§3a wins over MONDO on stage: MONDO has classes for metastatic carcinomas and the ten
+`Metastatic_*` entries were still folded into their parents as `stages`. A phase of one
+infection (acute vs chronic, latent vs reactivated, colonisation vs invasive) is never a
+separate entry, **and** the entry it belongs to must enumerate its phases in
+`progression:` — `ProgressionInfo` already carries `phase`, `subtype`, `age_range`,
+incubation and duration fields, and `evidence`, so this is a curation gap and not a schema
+request. Dropping a phase distinction is as wrong as promoting it, and is the easier
+mistake once the first half of the rule is in place. Where MONDO has a separate class for
+the phase, the entry records it as a `mondo_mappings` row with `skos:narrowMatch`, which
+retires the concept from the curation queue under the existing MONDO coverage rule.
+Consequence: `Acute_Hepatitis_C_Virus_Infection` (1,528 lines, `MONDO:0100371`) merges
+into `Hepatitis_C` as content plus a `progression` phase, with the same care the
+`Metastatic_*` fold took — merged, not deleted, with a `history/` record carrying
+`superseded_by` — and the MONDO class survives as a `skos:narrowMatch` mapping. The
+review's counter-argument, that a rule requiring the deletion of a substantial entry with
+its own MONDO class will lose in review, is answered by not deleting anything: the content
+moves, the identifier is kept, and the KB stops having two entries for one disease
+distinguished by when you look at it.
+
+**Recording a deliberate lump.** R9 makes an undifferentiated lump the default state, not
+a defect, which means "nobody has looked" and "somebody looked and found no documented
+difference" must be distinguishable, or the rule becomes an excuse. The mechanism is the
+one `check-environmental-evidence` already uses for an exposure that cannot be cited: a
+paragraph of the entry-level `review_notes` that begins with the sentence
+`Deliberately lumped.` and is followed by at least twenty words saying which strata were
+kept together, what was searched, and why it came up empty. `notes` is disease content
+and cannot waive; prose that merely mentions the phrase does not trigger it. The
+`TAXON_LUMP` finding clears to `LUMP_RECORDED` on that paragraph and on nothing else. The
+issue's proposed curator-filled case catalog (one row per lump/split case with
+`axis_presentation`, `axis_therapy`, … columns) is **not** created: the decision it would
+record already has a home in the entry — a subtype with its evidence, or this paragraph —
+and a parallel file would drift from it. The computed half of that catalog is the
+checker's `--format tsv` output, regenerated on demand rather than committed.
+
+**Identifier policy: NCBITaxon only.** It is the sole vocabulary in use and reaches below
+species (*S. enterica* serovar Paratyphi A `NCBITaxon:54388` at serovar rank; *E. coli*
+O157:H7 `NCBITaxon:83334` at serotype rank), so the unbound agents in the KB are curation
+misses, not ontology limits. GTDB is not adopted: it has no pathotype concept either, and
+its species assignments diverge from clinical names — queried live, it classifies
+*Shigella dysenteriae* and *S. sonnei* as *Escherichia coli*, which would collapse the
+agent of `Shigellosis` into *E. coli* and erase exactly the distinction this ladder
+preserves. GTDB is right for microbial phylogenomics and wrong for naming what a patient
+has. Genome and assembly accessions are not agent identities (R16).
+
+**What is mechanically checked.** `scripts/check_granularity.py`
+(`just check-granularity`, report-only, inside `just qc`) walks the corpus once and reports
+each infectious entry against the rules above. Its **deterministic** classes are defects
+with no judgement in them and gate under `--strict`: `MISSING_AGENT`, `UNBOUND_AGENT`,
+`MISSING_TRANSMISSION` (R25), `ROOT_AS_ENTRY` (R2), `DOUBLE_MODELLED` and
+`DANGLING_POINTER` (R20), `DUPLICATE_ANCHOR` (R18/R28), `PATHOTYPE_COLLAPSE` (R15). Its
+**advisory** classes are questions the ladder asks a curator and never gate: `TAXON_LUMP`
+(R7–R9), `UNBOUND_SUBTYPE` and `UNBOUND_AGENT_STRATUM` (R12), `NO_PROGRESSION` (R21),
+`MISSING_LIFECYCLE` (R26, the one heuristic — transmission prose naming a vector or
+reservoir), `POINTER_TERM_MISMATCH`. Scope follows the ladder's own exclusions: a neoplasm
+with a viral agent is assessed under §3a (R23), a Mendelian susceptibility disorder under
+§3, a post-infectious sequela under R22, a mycotoxicosis not at all, and the summary prints
+how many pathogen-marked entries each exclusion removed. Over-broad anchoring (R28's
+"broader is wrong") needs a MONDO descendant count and stays a manual audit; grouping-shaped
+entries and phase-as-entry are judgement calls. The cross-entry classes are the mechanical
+half of #10113 and #10116 as much as of this decision, and `--scope all` runs them over the
+whole corpus.
+
+**Rationale.** The organism cannot be the primary axis (one *Legionella* species causes
+two diseases the field never confuses), the organ syndrome cannot be (four meningitis
+organisms differ in age distribution, vaccine, pathogenesis and empiric therapy — ampicillin
+is added specifically for *Listeria*), and neither can phase, eponym or setting. The named
+clinical entity is the level at which infectious-disease practice actually reasons, and it
+is stable: the organism-defined core the KB already has (cholera, measles, rabies, leprosy,
+tetanus, the hepatitides A–E) sits there. Lumping by default with an evidence-gated
+subtype rung tracks the literature as it develops and keeps the two thousand *Salmonella*
+serovars from burying the handful that behave differently; requiring two axes for
+promotion keeps the split entries to the cases where a merged entry would erase how the
+disease is transmitted, prevented or treated, which is the test `Treponematoses` already
+passes in prose. The corrections above all move in one direction — toward a rule that is
+checkable and toward not destroying curated work — which is the same direction §3a took
+when it deferred to WHO/ICC and folded rather than deleted the stage entries.
+
+**Enacted in the same PR.** This clause; `Subtype.curated_in`; `check_granularity.py`
+with `tests/test_granularity.py`; the two pointer rows on `Spotted_Fever_Rickettsiosis`
+marked; the review merged to `docs/reports/`. **Still open (work items on #10115):** the
+`infectious_agent` backfill on the 22 entries the checker names and the 10 unbound agents;
+`transmission` on 56 entries; the `Viral_Hemorrhagic_Fever` and `Acute_Hepatitis_C`
+conversions; `agent_life_cycle` on the ~23 vector-borne and zoonotic entries; the rung-3
+review of the 11 undecided lumps, one at a time; the rung-1 groupings (rickettsioses,
+viral hepatitides, soil-transmitted helminthiases, enteric fevers, arboviral haemorrhagic
+fevers); retiring `Infectious_Disease`; the `UNDECIDED` infectious stubs and the
+coverage gaps the review found (typhoid, herpes zoster, anthrax and UTI still have no
+entry; diphtheria and sepsis have since been curated). Two
+decisions this clause does *not* make: an ontology binding for `Transmission`, which is
+free text today so R25's second half is a required string that no query can use — R17
+turns on transmission route and vector, so a bound slot is a prerequisite for enforcing
+rung 4, tracked in §12; and whether `Subtype.classification` should become an enum now that
+it carries the rung-3a axis.
+
 ## 4. Ontology constraints
 
 **Decision.** Term validation is restricted to an explicit, curated set of ontologies.
@@ -1225,6 +1442,8 @@ This section details decisions we have **not yet made or formalized**.
 | Per-gene `case_fractions` backfill | New structured `Genetic.case_fractions` slot added (§8). `Bardet-Biedl_Syndrome` backfilled for five genes (BBS1, BBS10, ARL6/BBS3, MKKS/BBS6, BBS9) across European, metabolic, and Indian cohorts. **Method/caveat:** dominant-gene fractions (BBS1, BBS10) appear in citable abstracts; minor-gene fractions are recoverable only from **open-access full-text** cohort papers/reviews whose cache is `full_text_xml` (the Indian-cohort figures came from PMID:27853007), since abstracts and the GeneReviews table (NBK1363 T3) and the Niederlová meta-analysis abstract (PMID:31283077) do not carry them. Backfilling the remaining minor genes is gated on finding such full-text-cacheable sources — figures must **not** be filled from memory (anti-hallucination policy, §6). Whether to deprecate the overloaded `frequency` field is also outstanding; no automated extractor yet. | schema follow-up |
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
 | RadLex-grade imaging-finding granularity | `ImagingFinding` (§9) grounds findings in NCIT + HP, which is patchy for specific radiologic appearances (e.g. contrast enhancement, T2 hyperintensity resolve to procedures or CTCAE grades). Tightening `ImagingFindingTerm` to a RadLex `reachable_from` (and `finding_term` to REQUIRED) is deferred: RadLex is not on EBI OLS4, so it needs a `bioportal:` adapter + API key in `conf/oak_config.yaml`. | schema/ontology follow-up |
+| `Transmission` route binding | **Open.** `Transmission` is `name`/`description`/`evidence`/`notes`/`effect` with no ontology slot, so §3e R25's "at least one transmission route" is a required free-text string that no query can use and no validator can check beyond presence — and R17 (promotion to a separate entry) turns on transmission route and vector. A bound slot is the prerequisite for enforcing rung 4 mechanically. Candidate vocabularies are ECTO exposure routes (already used by `exposure_term`) or a small closed enum; undecided. | [#10115](https://github.com/monarch-initiative/dismech/issues/10115) |
+| Umbrella-entry pointer backfill (`Subtype.curated_in`) | **Open.** §3e added `curated_in` so a subtype that is curated in full elsewhere is a machine-readable pointer (§3a L4 rule d had asked for one in prose). Only the two `Spotted_Fever_Rickettsiosis` rows carry it. `just check-granularity --scope all` finds 206 further subtype rows KB-wide whose `subtype_term` or name is another entry's (`Epilepsy` → `Juvenile Myoclonic Epilepsy`, `Glomerulonephritis` → `IgA Nephropathy`); most are umbrella entries whose rows are pointers in spirit and need the slot, some are the §3a L1 pattern that should be a `Grouping`. Mechanical where the MONDO terms agree; a judgement where only the names do. | [#10116](https://github.com/monarch-initiative/dismech/issues/10116), [#10113](https://github.com/monarch-initiative/dismech/issues/10113) |
 | Non-imaging detection modalities | **Resolved for electrophysiology (§10)** via phenotype post-composition (an `electrophysiology:` sidecar carrying modality + `ictal_state` + `recording_state`), *not* a finding class — because EEG/EMG/EKG terms are already HP phenotypes. `Dravet_syndrome` is the worked example. **Still open:** functional/provocation tests (e.g. tensilon, tilt-table) remain free-text `diagnosis`. | schema follow-up |
 | Investigation-readout phenotype backfill (`reports_on`) | New lean `PhenotypeReadout` slot added (§10): investigation-result phenotypes (abnormal ERG/EEG, `Elevated circulating … concentration`) attach to the mechanism they measure via a dashed observational readout edge instead of floating as orphan nodes or being mis-wired as causal `downstream` edges. `Bardet-Biedl_Syndrome` (Abnormal electroretinogram → Photoreceptor outer-segment transport defect) is the worked exemplar. **First batch done** (`scripts/migrate_readout_phenotypes.py`): 69 mis-wired causal edges across 60 files migrated to `reports_on` — restricted to **pure lab/investigation readouts that are never themselves disease drivers** (tissue-leakage enzymes: transaminases/CK/LDH/aldolase/ALP; acute-phase reactants; tumor markers AFP/β-hCG; newborn-screening acylcarnitines; the electroretinogram), HP-verified via descendants of `HP:0032180`/`HP:0034684`/`HP:0010876`/`HP:0003111`/`HP:0030453`. **Deliberately NOT flipped:** ~179 causally-active analytes where the `downstream` edge is *correct* — ammonia (→ encephalopathy), lactate (→ acidosis), vitamins (deficiency → neuropathy/retinopathy), cholesterol, hormones, ions, immunoglobulins — plus any readout carrying its own `sequelae`. **Second batch done** (floating pure readouts): 55 `reports_on` links added across 47 files by a parallel curation pass, each choosing the best-fit existing mechanism node (liver enzymes → hepatocyte-injury node, CK/aldolase/LDH → myofiber-necrosis node, ERG/EOG → photoreceptor-degeneration node, CRP/acute-phase → inflammation node, AFP/β-hCG/tryptase → tumor/mast-cell node, bone ALP → osteoblast node). **~14 deliberately left unlinked** where the disease pathograph has no node the organ-injury lab measures (e.g. transaminases in Graves/Celiac/Stevens-Johnson, the Murine-typhus organ-injury labs) — these are genuine *modeling gaps* (the entry doesn't yet represent that organ's involvement), not readout-link gaps, and were skipped rather than invent a node. **Open:** the ~58 non-pure floating readouts (causally-active analytes) and the modeling-gap skips; causally-active analytes could also optionally gain a *second* `reports_on` link alongside their (correct) causal edge where the value is used diagnostically. | KB migration (batches 1–2 done) |
 | Wire the existing `PhenotypeCategoryEnum` to `phenotypes.category` | The renderer already **derives** each phenotype's organ-system category from its HPO ancestry (`HpoCategoryProvider` → the 22 top-levels, codified as `PhenotypeCategoryEnum` in `schema/classifications/phenotype_category.yaml`), so the hand-entered `category` (still `range: string`, ~200 inconsistent values, ~4k blank) is not what drives display. The cleanup is to bind that enum to the slot and/or deprecate the free-text field in favour of the derived value — not to invent new category values. (Note: category-gated *rules* are a non-goal — the category is derived from the term, so such a rule would be circular; see §10.) | schema follow-up / KB migration |
