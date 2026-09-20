@@ -4,7 +4,10 @@ import importlib.util
 import sqlite3
 from pathlib import Path
 
+import pytest
 import yaml
+
+pytestmark = pytest.mark.usefixtures("preserve_kb_cache_environment")
 
 SCRIPT = (
     Path(__file__).resolve().parents[1] / "analyses/boomer/scripts/build_analyses.py"
@@ -128,8 +131,6 @@ def test_mendelian_selection_and_zero_subtype_collection(tmp_path):
 
 
 def test_add_only_rejects_incomplete_existing_analysis(tmp_path, monkeypatch):
-    import pytest
-
     index = tmp_path / "index.tsv"
     index.write_text("slug\tname\nExisting\tExisting\n")
     with pytest.raises(SystemExit):

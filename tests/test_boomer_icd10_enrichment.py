@@ -11,6 +11,8 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
+pytestmark = pytest.mark.usefixtures("preserve_kb_cache_environment")
+
 SCRIPTS = Path(__file__).resolve().parents[1] / "analyses/boomer/scripts"
 sys.path.insert(0, str(SCRIPTS))
 from enrich_icd10_inputs import INDEX_FIELDNAMES, migrate, tsv
