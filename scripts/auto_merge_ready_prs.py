@@ -112,6 +112,12 @@ PASSING_CONCLUSIONS = frozenset({"SUCCESS", "SKIPPED", "NEUTRAL"})
 # Legacy commit-status states (StatusContext rollup entries).
 PASSING_STATES = frozenset({"SUCCESS", "EXPECTED", "NEUTRAL"})
 
+# Each successful enqueue creates a PR comment, and GitHub applies an
+# 80-content-creating-requests/minute secondary limit. Fifty leaves headroom
+# for other automation and keeps the controller comfortably inside its
+# 15-minute job timeout even though every candidate is re-read twice.
+DEFAULT_MAX_ENQUEUE_PER_RUN = 50
+
 # Merge failures that mean "the guards worked" rather than "something is
 # broken": the PR moved under us between verification and merge, or somebody
 # else got there first. The sweep runs hourly, so the right response
@@ -522,40 +528,85 @@ class QueueState:
 
 
 def read_queue_state(repo: str, branch: str) -> QueueState:
-    """Read the base branch's merge-queue state in a single GraphQL call."""
+    """Read the base branch's complete merge queue with GraphQL pagination."""
     owner, _, name = repo.partition("/")
     query = (
-        "query($owner:String!,$name:String!,$branch:String!){"
+        "query($owner:String!,$name:String!,$branch:String!,$endCursor:String){"
         "repository(owner:$owner,name:$name){mergeQueue(branch:$branch){id "
-        "entries(first:100){totalCount nodes{pullRequest{number}}}}}}"
+        "entries(first:100,after:$endCursor){totalCount "
+        "pageInfo{hasNextPage endCursor} nodes{pullRequest{number}}}}}}"
     )
     try:
-        payload = _gh([
-            "api", "graphql",
-            "-f", f"owner={owner}", "-f", f"name={name}",
-            "-f", f"branch={branch}", "-f", f"query={query}",
-        ])
+        payload = _gh(
+            [
+                "api",
+                "graphql",
+                "--paginate",
+                "--slurp",
+                "-f",
+                f"owner={owner}",
+                "-f",
+                f"name={name}",
+                "-f",
+                f"branch={branch}",
+                "-f",
+                f"query={query}",
+            ]
+        )
         data = json.loads(payload)
     except (subprocess.CalledProcessError, OSError, ValueError) as exc:
         print(f"WARN  could not read merge-queue state: {exc}", file=sys.stderr)
         return QueueState(False, frozenset(), readable=False)
-    if not isinstance(data, dict):
-        print("WARN  merge-queue read returned an unexpected shape",
-              file=sys.stderr)
+    # `gh api --paginate --slurp` returns a list. Accept one object as well so
+    # callers using an older gh and focused unit-test fixtures fail safely.
+    pages = data if isinstance(data, list) else [data]
+    if not pages or not all(isinstance(page, dict) for page in pages):
+        print("WARN  merge-queue read returned an unexpected shape", file=sys.stderr)
         return QueueState(False, frozenset(), readable=False)
-    repository = (data.get("data") or {}).get("repository") or {}
-    queue = repository.get("mergeQueue")
-    if not queue:
-        return QueueState(False, frozenset())
-    entries = queue.get("entries") or {}
-    nodes = entries.get("nodes") or []
-    numbers = {
-        int(entry["pullRequest"]["number"])
-        for entry in nodes
-        if isinstance(entry, dict) and (entry.get("pullRequest") or {}).get("number")
-    }
-    total = entries.get("totalCount")
-    truncated = total if isinstance(total, int) and total > len(nodes) else 0
+
+    numbers: set[int] = set()
+    total: int | None = None
+    nodes_read = 0
+    for index, page in enumerate(pages):
+        repository = (page.get("data") or {}).get("repository") or {}
+        if not isinstance(repository, dict):
+            print(
+                "WARN  merge-queue read returned an unexpected repository",
+                file=sys.stderr,
+            )
+            return QueueState(False, frozenset(), readable=False)
+        queue = repository.get("mergeQueue")
+        if not queue:
+            if index == 0:
+                return QueueState(False, frozenset())
+            print("WARN  merge queue disappeared during pagination", file=sys.stderr)
+            return QueueState(False, frozenset(), readable=False)
+        if not isinstance(queue, dict):
+            print(
+                "WARN  merge-queue read returned an unexpected queue", file=sys.stderr
+            )
+            return QueueState(False, frozenset(), readable=False)
+        entries = queue.get("entries") or {}
+        if not isinstance(entries, dict):
+            print("WARN  merge-queue read returned unexpected entries", file=sys.stderr)
+            return QueueState(False, frozenset(), readable=False)
+        nodes = entries.get("nodes") or []
+        if not isinstance(nodes, list):
+            print("WARN  merge-queue read returned unexpected nodes", file=sys.stderr)
+            return QueueState(False, frozenset(), readable=False)
+        nodes_read += len(nodes)
+        numbers.update(
+            int(entry["pullRequest"]["number"])
+            for entry in nodes
+            if isinstance(entry, dict)
+            and isinstance(entry.get("pullRequest"), dict)
+            and entry["pullRequest"].get("number")
+        )
+        page_total = entries.get("totalCount")
+        if isinstance(page_total, int):
+            total = page_total if total is None else max(total, page_total)
+
+    truncated = total if total is not None and total > nodes_read else 0
     if truncated:
         # Truncation is only a missed skip, never a bad merge -- but say so
         # rather than letting the page size silently bound correctness.
@@ -566,6 +617,135 @@ def read_queue_state(repo: str, branch: str) -> QueueState:
             file=sys.stderr,
         )
     return QueueState(True, frozenset(numbers), truncated=truncated)
+
+
+# A PR that fails the queue twice running, with no push in between, has had
+# the same build repeated on the same content. One failure is not evidence of
+# guilt (see EjectionMemory); two, unchanged, is enough to stop retrying.
+EJECTION_STRIKE_LIMIT = 2
+
+
+@dataclass(frozen=True)
+class EjectionMemory:
+    """Whether prior queue ejections should stop this PR re-entering now.
+
+    The merge queue ejects a PR when the group containing it fails, but that
+    ejection is invisible to eligibility: the PR stays open and approved, so
+    the next sweep re-enqueues it, it fails again, and the cycle repeats. PR
+    #9852 did exactly that three times in fifteen hours, and because the queue
+    builds speculatively each cycle also failed every stack behind it -- about
+    three hours of queue throughput and a dozen builds (#10988).
+
+    An ejection does NOT imply the PR is at fault, so this deliberately does
+    not judge a single one. Three causes were observed in one 24-hour window:
+    the PR's own content failing (#9852), a PR *ahead* of it poisoning the
+    speculative stack (#9996 and five others behind #10142), and a third-party
+    outage (#10677/#10700/#10727, EBI read timeouts the validator itself calls
+    "not a data error"). Blocking on one ejection would mostly block innocents.
+
+    What distinguishes them is repetition against unchanged content. Collateral
+    and infrastructure failures do not reproduce once the queue has moved on;
+    a defect in the PR itself does. So the rule counts ``failed_checks``
+    ejections that happened *after* the head commit was last written: reaching
+    ``strike_limit`` holds the PR back. The count is keyed on the head
+    commit's ``committedDate``: rewriting the head (a push, amend, rebase or
+    a merge of the base branch) moves that date past the earlier removals and
+    resets the count to zero, because the content under test has changed.
+
+    The reset therefore needs the date to move *forward*. Force-pushing a
+    branch back to an older commit leaves the head behind the removals, so the
+    hold persists even though the content changed; any new commit clears it.
+
+    Note ``RemovedFromMergeQueueEvent.beforeCommit`` is NOT the base-branch tip
+    -- it is the queue's own temporary merge commit, and compares as diverged
+    from ``main`` -- so it cannot be used to detect base movement. Verified
+    against the #9852 events on 2026-09-04.
+    """
+
+    blocked: bool
+    strikes: int = 0
+    reason: str = ""
+
+
+def ejection_memory(
+    repo: str, number: int, strike_limit: int = EJECTION_STRIKE_LIMIT
+) -> EjectionMemory:
+    """Count unchanged-content queue failures for one PR."""
+    owner, _, name = repo.partition("/")
+    query = (
+        "query($owner:String!,$name:String!,$number:Int!){"
+        "repository(owner:$owner,name:$name){"
+        "pullRequest(number:$number){"
+        "commits(last:1){nodes{commit{committedDate}}} "
+        "timelineItems(last:20,itemTypes:[REMOVED_FROM_MERGE_QUEUE_EVENT])"
+        "{nodes{... on RemovedFromMergeQueueEvent{createdAt reason}}}}}}"
+    )
+    try:
+        payload = _gh([
+            "api", "graphql",
+            "-f", f"owner={owner}", "-f", f"name={name}",
+            "-F", f"number={number}", "-f", f"query={query}",
+        ])
+        data = json.loads(payload)
+    except subprocess.CalledProcessError as exc:
+        # Fail open: a lookup failure must not hold back a ready PR.
+        print(f"WARN  #{number}: could not read ejection history: "
+              f"{_gh_error(exc)}", file=sys.stderr)
+        return EjectionMemory(False)
+    except (OSError, ValueError) as exc:
+        print(f"WARN  #{number}: could not read ejection history: {exc}",
+              file=sys.stderr)
+        return EjectionMemory(False)
+    if not isinstance(data, dict):
+        return EjectionMemory(False)
+    pr = ((data.get("data") or {}).get("repository") or {}).get("pullRequest") or {}
+    commits = ((pr.get("commits") or {}).get("nodes")) or []
+    head_written = ""
+    if commits and isinstance(commits[0], dict):
+        head_written = str((commits[0].get("commit") or {}).get("committedDate") or "")
+    if not head_written:
+        # Without the head's write time a strike cannot be attributed to the
+        # current content, so fail open rather than hold on a guess.
+        print(f"WARN  #{number}: no head commit date; not applying an "
+              "ejection hold", file=sys.stderr)
+        return EjectionMemory(False)
+    try:
+        head_at = _parse_ts(head_written)
+    except ValueError:
+        # An unparseable head date cannot attribute a strike to the current
+        # content, so fail open for the same reason an absent one does.
+        print(f"WARN  #{number}: unparseable head commit date "
+              f"{head_written!r}; not applying an ejection hold",
+              file=sys.stderr)
+        return EjectionMemory(False)
+    nodes = ((pr.get("timelineItems") or {}).get("nodes")) or []
+    strikes = 0
+    latest = ""
+    for node in nodes:
+        if not isinstance(node, dict) or node.get("reason") != "failed_checks":
+            continue
+        when = str(node.get("createdAt") or "")
+        # Compared as datetimes, not as text: lexicographic ordering is correct
+        # for GitHub's current `...Z` format but degrades silently rather than
+        # loudly if an offset or fractional seconds ever appear.
+        try:
+            when_at = _parse_ts(when)
+        except ValueError:
+            print(f"WARN  #{number}: skipping ejection event with "
+                  f"unparseable date {when!r}", file=sys.stderr)
+            continue
+        if when_at <= head_at:
+            continue  # predates the current content; a push has since reset it
+        strikes += 1
+        latest = max(latest, when)
+    if strike_limit <= 0 or strikes < strike_limit:
+        return EjectionMemory(False, strikes)
+    return EjectionMemory(
+        True,
+        strikes,
+        f"failed the merge queue {strikes} times since its head commit was "
+        f"last written (most recently {latest}); push a fix to retry",
+    )
 
 
 def merge_pr(
@@ -609,9 +789,14 @@ def merge_pr(
     if not writer:
         raise ValueError("refusing to merge without a dedicated write token")
     merge_cmd = [
-        "pr", "merge", str(number), "--repo", repo,
+        "pr",
+        "merge",
+        str(number),
+        "--repo",
+        repo,
         *([] if queued else ["--squash"]),
-        "--match-head-commit", verified_head,
+        "--match-head-commit",
+        verified_head,
     ]
     _gh(merge_cmd, token=writer)
 
@@ -662,6 +847,7 @@ def render_summary(
     merged: list[dict],
     skipped: list[dict],
     failed: list[dict],
+    unprocessed: list[dict] | None = None,
     *,
     dry_run: bool = False,
     queue_state: QueueState | None = None,
@@ -679,37 +865,42 @@ def render_summary(
     """
     title = "## 🐑 Deterministic auto-merge sweep"
     if dry_run:
-        title += " (dry run — nothing was merged)"
+        title += " (dry run — no changes made)"
     lines = [title, ""]
     if queue_state is not None:
         lines.extend([queue_state.summary_line(), ""])
-    if dry_run:
-        verb = "Would merge"
-    elif merged and all(row.get("queued") for row in merged):
-        # A queued PR is not a merged one -- the queue still tests it against
-        # current main and may reject it. Claiming "Merged" here would be the
-        # same permanent false audit trail this function avoids for dry runs.
-        verb = "Added to the merge queue"
-    elif merged and any(row.get("queued") for row in merged):
-        # Defensive: the loop breaks after one action, so `merged` holds at
-        # most one row today and this cannot be reached. Kept so the function
-        # stays correct if the one-action cap is ever lifted.
-        verb = "Merged or queued"
-    else:
-        verb = "Merged"
-    if merged:
-        lines.append(f"**{verb} {len(merged)}:**")
+    queued = [row for row in merged if row.get("queued")]
+    direct = [row for row in merged if not row.get("queued")]
+    sections = [
+        (
+            "Would add to the merge queue" if dry_run else "Added to the merge queue",
+            queued,
+        ),
+        ("Would merge" if dry_run else "Merged", direct),
+    ]
+    shown = False
+    for verb, rows in sections:
+        if not rows:
+            continue
+        shown = True
+        lines.append(f"**{verb} {len(rows)}:**")
         lines += [
             f"- #{row['number']} — {row['title']}"
             + (f" ({row['action']})" if row.get("action") else "")
-            for row in merged
+            for row in rows
         ]
-    else:
+        lines.append("")
+    if not shown:
+        verb = "Would merge" if dry_run else "Merged"
         lines.append(f"**{verb} 0** — nothing met every criterion.")
-    lines.append("")
+        lines.append("")
     if failed:
-        lines.append(f"**Failed to merge {len(failed)}:**")
+        lines.append(f"**Failed {len(failed)}:**")
         lines += [f"- #{r['number']} — {r['reason']}" for r in failed]
+        lines.append("")
+    if unprocessed:
+        lines.append(f"**Unprocessed candidates {len(unprocessed)}:**")
+        lines += [f"- #{r['number']} — {r['reason']}" for r in unprocessed]
         lines.append("")
     if skipped:
         lines.append(
@@ -746,6 +937,24 @@ def main(argv: list[str] | None = None) -> int:
         "--specific-pr",
         type=int,
         help="evaluate only this PR instead of scanning all open PRs",
+    )
+    parser.add_argument(
+        "--max-enqueue-per-run",
+        type=non_negative_int,
+        default=DEFAULT_MAX_ENQUEUE_PER_RUN,
+        help=(
+            "maximum enqueue attempts in one queue-mode run "
+            f"(default: {DEFAULT_MAX_ENQUEUE_PER_RUN}; ignored for dry runs)"
+        ),
+    )
+    parser.add_argument(
+        "--ejection-strike-limit",
+        type=non_negative_int,
+        default=EJECTION_STRIKE_LIMIT,
+        help=(
+            "hold a PR after this many merge-queue failures with no push in "
+            "between (0 disables the hold)"
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -833,7 +1042,9 @@ def main(argv: list[str] | None = None) -> int:
     # undocumented UNKNOWN reporting for queued PRs.
     queue_state = read_queue_state(args.repo, args.base_branch)
     if queue_state.active:
-        already = [pr for pr in candidates if pr["number"] in queue_state.queued_pr_numbers]
+        already = [
+            pr for pr in candidates if pr["number"] in queue_state.queued_pr_numbers
+        ]
         for pr in already:
             reason = "already in the merge queue"
             print(f"SKIP  #{pr['number']}: {reason}")
@@ -852,7 +1063,27 @@ def main(argv: list[str] | None = None) -> int:
 
     merged: list[dict] = []
     failed: list[dict] = []
-    for pr in candidates:
+    unprocessed: list[dict] = []
+    enqueue_attempts = 0
+    for index, pr in enumerate(candidates):
+        if (
+            queue_state.active
+            and not args.dry_run
+            and enqueue_attempts >= args.max_enqueue_per_run
+        ):
+            reason = (
+                "not re-verified: enqueue-attempt budget of "
+                f"{args.max_enqueue_per_run} reached"
+            )
+            unprocessed = [
+                {"number": remaining["number"], "reason": reason}
+                for remaining in candidates[index:]
+            ]
+            print(
+                f"STOP  enqueue-attempt budget reached; "
+                f"{len(unprocessed)} candidate(s) remain unprocessed"
+            )
+            break
         number = pr["number"]
         try:
             fresh = view_pr(args.repo, number)
@@ -871,6 +1102,19 @@ def main(argv: list[str] | None = None) -> int:
         if not decision.eligible:
             print(f"SKIP  #{number}: {decision.reason}")
             skipped.append({"number": number, "reason": decision.reason})
+            continue
+
+        # Before the draft transition, not after: a held PR that is a draft
+        # would otherwise be marked ready, skipped, and re-drafted on every
+        # run for as long as the hold lasts -- and a failing re-draft would
+        # turn the run red over a PR the sweep never intended to touch.
+        # One extra GraphQL read per candidate that clears the first
+        # evaluate() gate -- up to --max-enqueue-per-run in queue mode, and
+        # in direct mode once per candidate skipped before a merge succeeds.
+        memory = ejection_memory(args.repo, number, args.ejection_strike_limit)
+        if memory.blocked:
+            print(f"SKIP  #{number}: {memory.reason}")
+            skipped.append({"number": number, "reason": memory.reason})
             continue
 
         was_draft = bool(fresh.get("isDraft"))
@@ -929,21 +1173,34 @@ def main(argv: list[str] | None = None) -> int:
                 skipped.append({"number": number, "reason": reason})
                 continue
             if args.dry_run:
-                action = "mark ready and merge" if was_draft else "merge"
+                if queue_state.active:
+                    action = (
+                        "mark ready and add to the merge queue"
+                        if was_draft
+                        else "add to the merge queue"
+                    )
+                else:
+                    action = "mark ready and merge" if was_draft else "merge"
                 print(
                     f"DRY-RUN would {action} #{number}: {fresh['title']} — "
                     f"{decision.reason}"
                 )
                 merged.append(
-                    {"number": number, "title": fresh["title"], "action": action}
+                    {
+                        "number": number,
+                        "title": fresh["title"],
+                        "action": action,
+                        "queued": queue_state.active,
+                    }
                 )
-                print(
-                    "STOP  one-merge safety limit reached; remaining PRs would "
-                    "wait for the next run"
-                )
+                if queue_state.active:
+                    continue
+                print("STOP  one-merge safety limit reached")
                 break
 
             try:
+                if queue_state.active:
+                    enqueue_attempts += 1
                 enqueued = merge_pr(
                     args.repo,
                     number,
@@ -987,20 +1244,19 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"FAIL  #{number}: {reason}", file=sys.stderr)
                     failed.append({"number": number, "reason": reason})
         print(f"{'QUEUED' if enqueued else 'MERGED'} #{number}: {fresh['title']}")
-        merged.append(
-            {"number": number, "title": fresh["title"], "queued": enqueued}
-        )
-        # One merge per run is an explicit serialization boundary. It does not
-        # rely on the branch endpoint immediately reflecting the new main SHA.
-        print(
-            "STOP  one-merge safety limit reached; remaining PRs wait for the next run"
-        )
+        merged.append({"number": number, "title": fresh["title"], "queued": enqueued})
+        if queue_state.active:
+            continue
+        # Direct mode changes main immediately, so preserve its explicit
+        # serialization boundary. Queue mode delegates serialization to GitHub.
+        print("STOP  one-merge safety limit reached")
         break
 
     report = render_summary(
         merged,
         skipped,
         failed,
+        unprocessed,
         dry_run=args.dry_run,
         queue_state=queue_state,
     )
