@@ -204,29 +204,37 @@ SOP from `CLAUDE.md`, with these notes:
 - **`evidence_source: HUMAN_CLINICAL`** for review articles, neuroimaging
   meta-analyses, and clinical neurobiology reviews (this is the default for
   most circuit-level evidence).
-- **`supports: PARTIAL`** (with `evidence_source: HUMAN_CLINICAL`) when an
-  imaging meta-analysis supports circuit dysconnectivity broadly but the
-  abstract does not localize the exact tract the node names — this is common
-  for white-matter findings; do not overclaim. Example:
+- **`supports: SUPPORT` with `directness: INDIRECT`** (and
+  `evidence_source: HUMAN_CLINICAL`) when an imaging meta-analysis supports
+  circuit dysconnectivity broadly but the abstract does not localize the exact
+  tract the node names — this is common for white-matter findings; do not
+  overclaim. The quote does support the node, but through an inference step from
+  the broad finding to the specific tract, which is exactly what `directness`
+  records. Example:
 
   ```yaml
   evidence:
   - reference: PMID:XXXXXXXX
-    supports: PARTIAL
+    supports: SUPPORT
+    directness: INDIRECT
     evidence_source: HUMAN_CLINICAL
     snippet: "..."
     explanation: "Meta-analysis supports broad frontostriatal dysconnectivity but does not localize to the specific tract named in this node."
   ```
 
-  Note: `supports:` (`SUPPORT` / `PARTIAL` / `REFUTE` / `NO_EVIDENCE` /
-  `WRONG_STATEMENT`) and `evidence_source:` (`HUMAN_CLINICAL` /
-  `MODEL_ORGANISM` / `IN_VITRO` / `COMPUTATIONAL` / `OTHER`) are independent
-  fields — `PARTIAL` is only valid on `supports:`.
+  Note: `supports:` (`SUPPORT` / `REFUTE` / `NO_EVIDENCE`), `directness:`
+  (`DIRECT` / `INDIRECT` / `UNKNOWN`, optional) and `evidence_source:`
+  (`HUMAN_CLINICAL` / `MODEL_ORGANISM` / `IN_VITRO` / `COMPUTATIONAL` /
+  `OTHER`) are three independent fields. `supports` is direction only;
+  `directness` is how directly the quote bears on the claim, and is not a
+  strength grade. `PARTIAL` and `WRONG_STATEMENT` were retired in issue #7439.
 - **Pharmacological-efficacy evidence** (e.g. "dopamine-blocking agents are
   effective for tics") is *indirect* mechanistic evidence — mark it
-  `PARTIAL` or `SUPPORT` with `evidence_source: HUMAN_CLINICAL` and explain
-  the inference in the `explanation` field. Don't treat treatment-response
-  as direct circuit evidence.
+  `supports: SUPPORT` with `directness: INDIRECT` and
+  `evidence_source: HUMAN_CLINICAL`, and explain the inference in the
+  `explanation` field. Don't treat treatment-response as direct circuit
+  evidence. This is the canonical `INDIRECT` case: a therapeutic response cited
+  as validation of the mechanism the drug targets.
 - **Imaging-only evidence** is usually `HUMAN_CLINICAL`; **iPSC-derived
   neurons** and **patient-derived organoid** studies are `IN_VITRO`;
   **knockout mouse circuit findings** are `MODEL_ORGANISM`. Keep these on

@@ -131,8 +131,9 @@ Three mechanisms now close that gap:
    stale KB against its own matching stale pages, finds perfect agreement, and
    reports clean. Re-anchoring makes `kb/` current while keeping this build's
    rendered pages, which is exactly the mismatch the check is looking for. It
-   also puts the aggregates (`app/data.js`, dashboard, pathographs, schema docs —
-   all generated *after* this step, deliberately) on current data.
+   also puts the aggregates (`app/data.js`, `app/models/data.js`,
+   `app/hpo_category_cache.json`, dashboard, pathographs, `elements/`, schema
+   docs — all generated *after* this step, deliberately) on current data.
 
    And it stops the regen PR conflicting. A branch built at a stale checkout
    collides with any later regen that touched the same page; that is what left
@@ -208,6 +209,50 @@ than replacing. Two consequences are easy to get wrong:
   does not start until that one finishes, so its "close stale PRs" step can
   execute an hour after the run was triggered — long enough for a PR that was
   fresh at trigger time to look abandoned by the time it is judged.
+
+### Review and approval
+
+Regen PRs get **no agentic review** — an LLM review of thousands of regenerated
+HTML files is cost without signal. Two mechanisms enforce that, because these
+PRs reach the review workflow by two different routes:
+
+- The `claude-code-review` workflow's `pull_request` trigger skips its review
+  job for any PR whose head branch starts with `auto/generate-` (covering
+  `auto/generate-pages`, `auto/generate-grouping-pages`, and
+  `auto/generate-project-pages`) *and* whose author is either `ai4c-agent` or
+  the legacy `github-actions[bot]`. New regen PRs are App-authored so their
+  required `Build and test` run executes normally; only the expensive LLM
+  review job is skipped.
+- The reviews that *actually* ran historically came from `pr-shepherd`
+  dispatching the review workflow for PRs stuck in `REVIEW_REQUIRED`. The
+  shepherd is now instructed to leave regen PRs alone, and as a deterministic
+  backstop the review workflow's `dispatch-guard` job resolves any dispatched
+  PR's head branch and author and declines page-build PRs there too.
+
+Because branch protection still requires one approving review before the armed
+auto-merge can fire, **each regen workflow approves its own PR** as its final
+step (via the shared `.github/actions/approve-regen-pr` composite action, which
+carries the full rationale in its `description`), using the ai4c-reviewer app
+token. That identity is separate from the ai4c-agent author (and from the
+github-actions author of legacy open PRs), because GitHub forbids approving your
+own PR. The approval names the exact commit the run just pushed and is skipped
+if the branch tip has moved since, so nothing is vouched for sight-unseen; it
+re-arms after every force-push, since pushes dismiss stale approvals. Placing it
+in the regen workflow ties the approval to the build that produced the output.
+
+Human-authored PRs are unaffected — every skip requires the bot author — and a
+full agentic review of a regen PR can still be forced by commenting `/review`
+on it (the one escape hatch left open: it requires a collaborator author, so it
+is always an explicit human request).
+
+The credential is part of the lifecycle, not incidental plumbing. Checkout does
+not persist `GITHUB_TOKEN`; after generation finishes, the workflow mints a
+short-lived `ai4c-agent` token and uses it for the branch push, PR creation, and
+auto-merge request. App-authenticated push/create events run the required PR
+checks instead of leaving them at `action_required`, while an App-attributed
+merge fires `Build and test` on the resulting `main` commit. Existing requests
+are disabled and re-enabled so a request originally armed by
+`github-actions[bot]` cannot retain that actor through the transition.
 
 See issue [#5507](https://github.com/monarch-initiative/dismech/issues/5507) for
 the design rationale and [#5198](https://github.com/monarch-initiative/dismech/issues/5198)
