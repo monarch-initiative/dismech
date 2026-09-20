@@ -174,8 +174,17 @@ meningiomas) are anatomically restricted.
 
 A deliberately unqualified convergence point in the causal graph: a mechanism
 disrupts a system, and the system-level disruption is where several specific
-findings converge. It carries no clinical claim of its own, so it takes no
-`frequency`, and at least one causal edge in the same entry must target it.
+findings converge. At least one causal edge in the same entry must target it,
+and it takes no `frequency`.
+
+The reason for that second rule is narrower than "a hub makes no claim". A hub
+does assert that the system is involved, and carries evidence for that
+assertion like any other phenotype — the Noonan exemplar below has a `SUPPORT`
+item. What it cannot carry is a **rate**: an unqualified system-level node
+names no finding whose occurrence could be counted, so the frequency belongs
+to each specific finding beside it. A coarse node that does carry a
+`frequency` is describing something countable, which makes it a
+`VARIABLE_SPECTRUM`, not a hub.
 
 ```yaml
 pathophysiology:
