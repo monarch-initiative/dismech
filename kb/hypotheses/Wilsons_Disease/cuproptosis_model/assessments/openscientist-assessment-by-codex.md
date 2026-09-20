@@ -35,6 +35,35 @@ The report's more elaborate synthesis is not demonstrated:
 The report is right to retain two decisive gaps: no human Wilson liver evidence
 of lipoylated-protein aggregation and no neurological Wilson evidence.
 
+## Dataset and execution audit
+
+The report claims direct analyses of GSE197406 and GSE125637, but its bundle has
+no input manifest, sample table, code, environment, probe mapping, result table,
+or execution log. The structured assessment therefore records both computations
+as `REPORTED_ONLY` / `UNVERIFIABLE`, not successful analyses.
+
+A separate checksum-pinned reanalysis confirmed the deposited samples and
+platforms and exposed material discrepancies:
+
+- GSE125637 is an Affymetrix Mouse Genome 430 2.0 microarray (GPL1261), not the
+  “mouse RNA-seq” described by the report.
+- In GSE197406, both officially annotated DLD probes decrease and all three DLAT
+  probes increase. The report gives the opposite direction for each gene. Some
+  GLS and PDHA1 numbers resemble individual probes, but no selection rule is
+  documented.
+- In the four untreated Atp7b-null versus four wild-type mouse samples, Fdx1 is
+  lower (Welch p=0.0426). The report's p≈0.039 comes from an undisclosed
+  equal-variance test. Neither gene-level aggregation nor any annotated Gls
+  probe approaches the reported p=0.006. Dlst is positive at gene level, and
+  its highest-expression probe is strongly upregulated rather than downregulated.
+- Neither dataset is longitudinal, and GSE197406 has important clinical
+  confounding: the controls are resection specimens and differ substantially in
+  age from the Wilson explant cohort.
+
+These checks do not refute the cuproptosis hypothesis. They do mean the report's
+transcriptomic values and stage narrative cannot be treated as independently
+reproducible evidence.
+
 ## Additional curation guardrails
 
 The proposed GO mappings include errors. GO:0018169 is ribosomal

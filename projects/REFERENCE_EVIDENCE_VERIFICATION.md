@@ -173,7 +173,7 @@ modules, treatments) — that dilutes review and is a different goal.
 ### 5.6 Validate + provenance
 ```bash
 just validate kb/disorders/<Slug>.yaml
-just validate-references kb/disorders/<Slug>.yaml
+just validate-kb-references kb/disorders/<Slug>.yaml
 just validate-terms kb/disorders/<Slug>.yaml
 just check-reference-cache-frontmatter
 just new-history --kind disorder --slug <Slug> --event REVIEW --outcome changed \
@@ -205,8 +205,9 @@ project memory. This is the subagent's **own** branch, so rebase/force-push of
 *its* branch is fine — never touch anyone else's.
 
 **Done = green + approved + mergeable → STOP and report the PR URL.** Do **not**
-click merge; leave the final merge to the human / `auto-merge-compliance`. If the
-reviewer and agent reach an impasse, or a conflict can't be resolved cleanly:
+click merge; leave the final merge to a human or the common deterministic PR
+Shepherd controller. If the reviewer and agent reach an impasse, or a conflict
+can't be resolved cleanly:
 **assign @cmungall, comment with the specifics, and stop** — never a review
 back-and-forth (CLAUDE.md).
 
@@ -231,7 +232,7 @@ green-and-mergeable awaiting the human merge gate.
 ## 7. Definition of done (campaign)
 
 - `find_missing_reference_titles.py` reports **0** files missing titles.
-- Every touched file passes `just validate` / `validate-references` /
+- Every touched file passes `just validate` / `validate-kb-references` /
   `validate-terms`.
 - Every disease has a merged (or ready-to-merge, human-gated) PR with a
   `history/` record.

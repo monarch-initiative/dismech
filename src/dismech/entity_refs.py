@@ -67,6 +67,7 @@ from typing import Any, NamedTuple
 
 __all__ = [
     "DISEASE_KIND",
+    "KNOWN_KIND_SLOTS",
     "REFERENCE_ONLY_SLOTS",
     "REF_SLOTS",
     "SECTION_KEYS",
@@ -74,6 +75,7 @@ __all__ = [
     "EntityRef",
     "EntityRefSite",
     "canonical_kind",
+    "entity_ref_errors",
     "entity_ref_index",
     "iter_entity_refs",
     "parse_entity_ref",
@@ -211,6 +213,15 @@ REFERENCE_ONLY_SLOTS: dict[str, str] = {
     "would_support": "supporting_outcome",
     "would_refute": "refuting_outcome",
 }
+
+#: Slots where an unrecognised ``<kind>`` is an error rather than a gap in
+#: `SECTION_KEYS`. The resolver skips an unmapped prefix by design -- right for
+#: a section this repo genuinely has not mapped, but it also let a typo like
+#: `pathophys#Node A` through every check. `target` stays out: it carries plain
+#: node names in `ModelMechanismLink` and `target_mechanisms`, and its 8
+#: unknown-kind values in `kb/` (`gene#`, `biological_process#`) look like real
+#: missing `SECTION_KEYS` entries rather than typos.
+KNOWN_KIND_SLOTS = frozenset(REFERENCE_ONLY_SLOTS) | {"attaches_to"}
 
 
 def canonical_kind(kind: str) -> str:
@@ -362,3 +373,118 @@ def iter_entity_refs(node: Any, path: str = "") -> Iterator[EntityRefSite]:
     elif isinstance(node, list):
         for i, item in enumerate(node):
             yield from iter_entity_refs(item, f"{path}[{i}]")
+
+
+def _abbrev(value: str, limit: int = 60) -> str:
+    """Shorten a value for an error message, so a 40-word sentence stays one line."""
+    text = " ".join(str(value).split())
+    return text if len(text) <= limit else text[: limit - 1] + "\u2026"
+
+
+def _is_known_kind(kind: str) -> bool:
+    """Whether `<kind>` names something this repo can resolve a reference against.
+
+    `SECTION_KEYS` holds the singular aliases as keys in their own right, so
+    there is nothing to normalise here -- `canonical_kind` is what
+    `check_entity_ref_prefixes_are_schema_slot_names` uses to insist on the
+    canonical *spelling*, which is a different question from whether the
+    section is one we know at all.
+    """
+    return kind == DISEASE_KIND or kind in SECTION_KEYS or kind in SINGLETON_SECTIONS
+
+
+def downstream_self_loop_errors(data: dict) -> list[str]:
+    """A pathophysiology node's ``downstream`` list may not target itself.
+
+    ``downstream`` asserts causal progression from one mechanism node to
+    another; a node cannot progress to itself, so a self-referencing edge is
+    never meaningful. ``target`` is in ``REF_SLOTS``, but a bare value with no
+    ``#`` is not parsed as an entity reference (``parse_entity_ref`` returns
+    ``None`` for it), so it never reaches the resolution logic in
+    ``entity_ref_errors`` -- a self-loop resolves fine as a plain node name
+    and was invisible to every other check (#9896).
+
+    In practice this is rarely a literal self-causation claim: both cases
+    found on ``main`` were a pathophysiology node and a same-named phenotype,
+    which the flat node graph namespace (``dismech.graph.collect_graph_nodes``)
+    collapses into one node, turning an intended mechanism-to-phenotype edge
+    into an apparent self-loop.
+    """
+    if not isinstance(data, dict):
+        return []
+    errors: list[str] = []
+    for i, item in enumerate(data.get("pathophysiology", []) or []):
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        if not name:
+            continue
+        for j, edge in enumerate(item.get("downstream", []) or []):
+            if isinstance(edge, dict) and edge.get("target") == name:
+                errors.append(
+                    f"pathophysiology[{i}].downstream[{j}] targets itself "
+                    f"({name!r}); a node cannot cause itself -- if a "
+                    "phenotype of the same name was intended, merge this "
+                    "edge onto the real upstream edge instead (#9896)"
+                )
+    return errors
+
+
+def entity_ref_errors(data: dict) -> list[str]:
+    """Every entity-reference problem in one loaded entry.
+
+    The single implementation of the rules, so the pytest sweep
+    (``check_entity_ref_foreign_keys``) and the ungated CI check
+    (``scripts/check_entity_refs.py``) cannot drift apart -- two copies of a
+    rule eventually disagree, which is the argument this module was created
+    on (#9193). Also includes ``downstream_self_loop_errors``, a related but
+    distinct rule: a causal edge that resolves fine but targets its own
+    source node.
+
+    Messages name the dotted path within the document rather than a file, so a
+    caller can prefix whatever locator it has. Returns an empty list for an
+    entry with no problems; a non-dict is not an entry and yields nothing.
+    """
+    if not isinstance(data, dict):
+        return []
+    errors: list[str] = list(downstream_self_loop_errors(data))
+    item_names = {ref.split("#", 1)[1] for ref in entity_ref_index(data)}
+    for site in iter_entity_refs(data):
+        parsed = parse_entity_ref(site.ref)
+        if parsed is None:
+            if site.slot not in KNOWN_KIND_SLOTS:
+                # `target` carries plain node names in its other homes, so a
+                # value without a `#` there is simply not a reference.
+                continue
+            if site.slot == "attaches_to" or site.ref in item_names:
+                # A value naming a real item is a reference missing its
+                # prefix, not a misfiled outcome -- telling a curator to move
+                # it into the prose slot would undo a working pointer.
+                errors.append(
+                    f"{site.path}={_abbrev(site.ref)!r} is a bare name, not a "
+                    f"<kind>#<name> entity reference"
+                )
+            else:
+                errors.append(
+                    f"{site.path}={_abbrev(site.ref)!r} is prose, not a "
+                    f"<kind>#<name> entity reference; a statement of what "
+                    f"would be observed belongs in "
+                    f"`{REFERENCE_ONLY_SLOTS[site.slot]}`"
+                )
+            continue
+        if site.slot in KNOWN_KIND_SLOTS and not _is_known_kind(parsed.kind):
+            fix = (
+                f", or put a prose outcome in `{REFERENCE_ONLY_SLOTS[site.slot]}`"
+                if site.slot in REFERENCE_ONLY_SLOTS
+                else ""
+            )
+            errors.append(
+                f"{site.path}={_abbrev(site.ref)!r} uses the unknown section "
+                f"{parsed.kind + '#'!r}; use a section in `SECTION_KEYS`{fix}"
+            )
+            continue
+        if resolve_entity_ref(data, site.ref) is False:
+            errors.append(
+                f"{site.path}={site.ref!r} does not resolve to a {parsed.kind}"
+            )
+    return errors

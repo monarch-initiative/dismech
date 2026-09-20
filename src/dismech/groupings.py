@@ -32,9 +32,25 @@ This module provides two tiers of tooling:
    resolving it may mean annotating the entry, loosening the criteria, or
    dropping the member. The tooling surfaces it; the curator decides which.
 
+   ``CONFORMS_TO_MODULE`` is deliberately matched on the module **stem** only,
+   even though most criteria name a ``#Node`` anchor. Honouring the anchor as a
+   verdict would flip live results, and some of those flips are criteria bugs
+   rather than curation gaps, so the anchor is reported as an **advisory**
+   instead: :attr:`MemberEvaluation.anchor_misses` lists the criteria whose
+   member conforms to the named module but not at the named node. Advisories
+   never change ``result`` and never gate. See issue #9403.
+
 3. **Overlap reporting** (:func:`compute_grouping_overlaps`) — all-vs-all
    comparison of grouping disease-member sets, expanding nested ``GROUPING``
    members to concrete disease entries.
+
+4. **Nesting reporting** (:func:`compute_nesting_report`) — the declared
+   grouping-of-grouping forest (``member_type: GROUPING`` members) next to the
+   *undeclared* containments: pairs where every expanded disease member of one
+   grouping is also a member of another that does not list it as nested. A
+   containment is a lead, not a ruling — two groupings can deliberately cut the
+   same diseases along different axes (a shared organelle versus a shared
+   malformation), and the report says so rather than gating.
 """
 
 from __future__ import annotations
@@ -361,6 +377,11 @@ class DiseaseFacts:
     gene_ids: set[str] = field(default_factory=set)
     go_ids: set[str] = field(default_factory=set)
     module_stems: set[str] = field(default_factory=set)
+    # Whole `conforms_to` strings, anchor included, normalized by
+    # _normalize_module_ref(). `module_stems` drives the CONFORMS_TO_MODULE
+    # verdict; this set only powers the anchor advisory, so the two must not be
+    # collapsed into one.
+    module_refs: set[str] = field(default_factory=set)
     # HP mode-of-inheritance ids from curated `inheritance_term` blocks. Kept
     # separate from `phenotype_freq` because an inheritance term is a statement
     # about the entry's genetic architecture, not a phenotype it manifests.
@@ -388,6 +409,21 @@ def _walk(obj: Any) -> Iterable[Any]:
 def _norm_tag(value: str) -> str:
     """Normalize a classification tag for comparison (case/whitespace-insensitive)."""
     return " ".join(value.lower().split())
+
+
+def _normalize_module_ref(ref: str) -> str:
+    """Normalize a ``module_stem#Node Name`` reference for comparison.
+
+    Whitespace around the stem and the anchor is stripped; an empty anchor
+    collapses to the bare stem, so ``"fibrotic_response#"`` and
+    ``"fibrotic_response"`` compare equal. Case is preserved — module stems and
+    node names are both case-sensitive elsewhere (``conforms_to`` foreign keys
+    are checked verbatim by ``test_conforms_to_module_node_references``), and
+    folding here would let the advisory disagree with the FK check.
+    """
+    stem, _, node = ref.partition("#")
+    stem, node = stem.strip(), node.strip()
+    return f"{stem}#{node}" if node else stem
 
 
 def _classification_tags(data: dict) -> set[str]:
@@ -447,6 +483,7 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
         conforms = node.get("conforms_to")
         if isinstance(conforms, str) and conforms:
             facts.module_stems.add(conforms.split("#", 1)[0].strip())
+            facts.module_refs.add(_normalize_module_ref(conforms))
 
         # Any term with an id contributes to the appropriate id set.
         term = node.get("term")
@@ -466,8 +503,12 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
         # reasonable place to make one and must not be silently ignored.
         it = node.get("inheritance_term")
         if isinstance(it, dict):
-            iterm = it.get("term") or {}
-            ihp = iterm.get("id") if isinstance(iterm, dict) else None
+            inheritance_term = it.get("term") or {}
+            ihp = (
+                inheritance_term.get("id")
+                if isinstance(inheritance_term, dict)
+                else None
+            )
             if isinstance(ihp, str) and ihp.startswith("HP:"):
                 facts.inheritance_ids.add(ihp)
 
@@ -512,7 +553,16 @@ def load_disease_index(
 # --------------------------------------------------------------------------- #
 
 
-def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
+def _eval_leaf(
+    node: dict, facts: DiseaseFacts, *, anchor_exact: bool = False
+) -> Satisfaction:
+    """Evaluate one leaf.
+
+    ``anchor_exact`` switches ``CONFORMS_TO_MODULE`` from stem matching to
+    matching the whole ``module#Node`` reference. It exists to answer "what
+    would the verdict be if the anchor were honoured?" for the advisory and the
+    audit script; it is **not** the live semantics and defaults off.
+    """
     predicate = node.get("criterion_predicate")
     result = Satisfaction.UNKNOWN
 
@@ -538,12 +588,16 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
     elif predicate == "CONFORMS_TO_MODULE":
         ref = node.get("module")
         if ref:
-            stem = ref.split("#", 1)[0].strip()
-            result = (
-                Satisfaction.SATISFIED
-                if stem in facts.module_stems
-                else Satisfaction.NOT_SATISFIED
-            )
+            # Stem-only on purpose; the `#Node` anchor is reported by
+            # leaf_anchor_miss() rather than enforced here. See module docstring.
+            normalized = _normalize_module_ref(ref)
+            if anchor_exact and "#" in normalized:
+                # An anchor-free criterion keeps stem semantics even here:
+                # there is no node named, so there is nothing to tighten.
+                matched = normalized in facts.module_refs
+            else:
+                matched = normalized.split("#", 1)[0] in facts.module_stems
+            result = Satisfaction.SATISFIED if matched else Satisfaction.NOT_SATISFIED
     elif predicate == "HAS_INHERITANCE":
         # Optional payload: only a leaf that names a term can be checked.
         hp = _term_id(node.get("inheritance_term"))
@@ -599,15 +653,20 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
     return result
 
 
-def _eval_node(node: dict, facts: DiseaseFacts) -> Satisfaction:
+def _eval_node(
+    node: dict, facts: DiseaseFacts, *, anchor_exact: bool = False
+) -> Satisfaction:
     kind = classify_node(node)
     if kind is NodeKind.LEAF:
-        return _eval_leaf(node, facts)
+        return _eval_leaf(node, facts, anchor_exact=anchor_exact)
     if kind is NodeKind.INVALID:
         return Satisfaction.UNKNOWN
 
     operator = node["operator"]
-    child_results = [_eval_node(c, facts) for c in node.get("operands", []) or []]
+    child_results = [
+        _eval_node(c, facts, anchor_exact=anchor_exact)
+        for c in node.get("operands", []) or []
+    ]
 
     if operator == "NOT":
         # NOT over the conjunction of its operands.
@@ -657,6 +716,43 @@ def _term_ids(descriptors: Any) -> set[str]:
     return ids
 
 
+def leaf_anchor_miss(node: dict, facts: DiseaseFacts) -> str | None:
+    """Return the criterion's module ref when it is satisfied only on the stem.
+
+    A ``CONFORMS_TO_MODULE`` leaf that names ``module#Node`` is satisfied today
+    by any ``conforms_to`` on that module, at any node. When the member has no
+    ``conforms_to`` at the *named* node, this returns the criterion's ref so
+    callers can report it; otherwise ``None``.
+
+    This is strictly advisory. In particular a miss under an ``OR`` usually just
+    says which arm of a disjunction the member is on, which is the disjunction
+    working as designed — not a pending contradiction. Callers must keep it
+    visually distinct from ``NOT_SATISFIED``.
+
+    Negated leaves are skipped: under ``negated: true`` a stem match already
+    produces NOT_SATISFIED, so "satisfied, but not at the named node" is not a
+    coherent thing to say about them.
+    """
+    if node.get("criterion_predicate") != "CONFORMS_TO_MODULE":
+        return None
+    if node.get("negated"):
+        return None
+    ref = node.get("module")
+    if not isinstance(ref, str):
+        return None
+    normalized = _normalize_module_ref(ref)
+    if "#" not in normalized:
+        # No anchor named (including the empty `"module#"` form), so there is
+        # nothing the criterion could be missing.
+        return None
+    stem = normalized.split("#", 1)[0]
+    if stem not in facts.module_stems:
+        return None  # already NOT_SATISFIED on the stem; nothing to advise
+    if normalized in facts.module_refs:
+        return None
+    return normalized
+
+
 @dataclass
 class MemberEvaluation:
     member: str
@@ -665,18 +761,95 @@ class MemberEvaluation:
     semantics: str | None
     result: Satisfaction
     leaves: list[tuple[str, Satisfaction]]  # (leaf description, result)
+    # Criteria refs this member satisfies on the module stem but not at the
+    # `#Node` the criterion names. Advisory: never folded into `result`.
+    anchor_misses: list[str] = field(default_factory=list)
+    # The verdict this block would get if every `#Node` anchor were honoured,
+    # set only when it differs from `result`. This is the actionable subset of
+    # `anchor_misses`: a miss on one arm of an OR whose sibling is satisfied
+    # leaves the block verdict alone and is not a pending contradiction.
+    anchor_exact_result: Satisfaction | None = None
+    #: Name of the nested ``member_type: GROUPING`` member through which this
+    #: disease belongs to the grouping; ``None`` for a directly listed member.
+    via: str | None = None
+
+
+def _default_groupings_by_name() -> dict[str, dict]:
+    return load_groupings_by_name(sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml"))))
+
+
+def iter_disease_targets(
+    grouping: dict,
+    groupings_by_name: dict[str, dict] | None = None,
+    *,
+    _stack: tuple[str, ...] = (),
+) -> Iterable[tuple[str, str, str | None]]:
+    """Yield ``(disease_name, member_type, via)`` for every disease a grouping
+    holds, directly or through nested ``GROUPING`` members.
+
+    ``via`` names the *immediate* nested grouping the disease is reached
+    through (``None`` for a direct member), so a parent page can say "member
+    via Mucopolysaccharidoses" rather than "not listed". A disease reachable
+    more than once is yielded once, direct membership winning. Nesting cycles
+    are cut rather than raised: the tree renderer flags them.
+    """
+    name = str(grouping.get("name") or "<anonymous>")
+    members = grouping.get("members", []) or []
+    nested_refs = [
+        str(m.get("member"))
+        for m in members
+        if m.get("member") and m.get("member_type") == "GROUPING"
+    ]
+    if nested_refs and groupings_by_name is None:
+        groupings_by_name = _default_groupings_by_name()
+
+    seen: set[str] = set()
+    for member in members:
+        ref = member.get("member")
+        mtype = member.get("member_type", "DISEASE")
+        if ref and mtype in ("DISEASE", "SUBTYPE") and ref not in seen:
+            seen.add(ref)
+            yield ref, mtype, None
+    for ref in nested_refs:
+        nested = (groupings_by_name or {}).get(ref)
+        if nested is None or ref in _stack or ref == name:
+            continue
+        for disease, mtype, _via in iter_disease_targets(
+            nested, groupings_by_name, _stack=(*_stack, name)
+        ):
+            if disease not in seen:
+                seen.add(disease)
+                yield disease, mtype, ref
+
+
+def nested_disease_members(
+    grouping: dict, groupings_by_name: dict[str, dict] | None = None
+) -> dict[str, str]:
+    """Map each disease reached only through a nested grouping to that
+    grouping's name (the ``via`` of :func:`iter_disease_targets`)."""
+    return {
+        disease: via
+        for disease, _mtype, via in iter_disease_targets(grouping, groupings_by_name)
+        if via is not None
+    }
 
 
 def evaluate_grouping(
-    grouping: dict, index: dict[str, DiseaseFacts]
+    grouping: dict,
+    index: dict[str, DiseaseFacts],
+    groupings_by_name: dict[str, dict] | None = None,
 ) -> list[MemberEvaluation]:
     """Evaluate each NECESSARY / N&S criteria block against each member.
 
     Returns one MemberEvaluation per (member, criteria block). SUFFICIENT-only
-    blocks are skipped here (they constrain non-members, not members).
+    blocks are skipped here (they constrain non-members, not members). A
+    disease held through a nested ``GROUPING`` member is a member too — "every
+    member of G satisfies C" binds it just as much — so it is evaluated with
+    ``via`` set to the nested grouping it arrived through.
     """
     evaluations: list[MemberEvaluation] = []
     criteria_blocks = grouping.get("membership_criteria", []) or []
+    targets = list(iter_disease_targets(grouping, groupings_by_name))
     for ci, criteria in enumerate(criteria_blocks):
         semantics = criteria.get("criteria_semantics")
         if semantics == "SUFFICIENT":
@@ -684,28 +857,44 @@ def evaluate_grouping(
         logic = criteria.get("logic")
         if logic is None:
             continue
-        for member in grouping.get("members", []) or []:
-            mtype = member.get("member_type", "DISEASE")
-            ref = member.get("member")
-            if mtype not in ("DISEASE", "SUBTYPE") or ref not in index:
+        for ref, mtype, via in targets:
+            if ref not in index:
                 continue
             facts = index[ref]
+            leaf_nodes = [
+                leaf
+                for leaf in iter_nodes(logic)
+                if classify_node(leaf) is NodeKind.LEAF
+            ]
             leaves = [
                 (
                     leaf.get("description") or leaf.get("criterion_predicate", "?"),
                     _eval_leaf(leaf, facts),
                 )
-                for leaf in iter_nodes(logic)
-                if classify_node(leaf) is NodeKind.LEAF
+                for leaf in leaf_nodes
             ]
+            anchor_misses = [
+                miss
+                for leaf in leaf_nodes
+                if (miss := leaf_anchor_miss(leaf, facts)) is not None
+            ]
+            result = _eval_node(logic, facts)
+            anchor_exact_result: Satisfaction | None = None
+            if anchor_misses:
+                strict = _eval_node(logic, facts, anchor_exact=True)
+                if strict is not result:
+                    anchor_exact_result = strict
             evaluations.append(
                 MemberEvaluation(
                     member=ref,
                     member_type=mtype,
                     criteria_index=ci,
                     semantics=semantics,
-                    result=_eval_node(logic, facts),
+                    result=result,
                     leaves=leaves,
+                    anchor_misses=anchor_misses,
+                    anchor_exact_result=anchor_exact_result,
+                    via=via,
                 )
             )
     return evaluations
@@ -800,7 +989,7 @@ def grouping_disease_members(
 
     Nested `member_type: GROUPING` references are expanded by default so the
     result is the set of concrete DisMech disease entries represented by the
-    grouping. `MODULE` members are not disease entries and are omitted.
+    grouping.
     """
     if isinstance(grouping, str):
         name = grouping
@@ -871,6 +1060,217 @@ def compute_grouping_overlaps(
 
 
 # --------------------------------------------------------------------------- #
+# Grouping nesting (grouping-of-grouping) reporting
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class NestingCandidate:
+    """A ``child`` grouping whose expanded disease members (mostly) sit inside
+    ``parent``'s, without ``parent`` listing ``child`` as a nested grouping."""
+
+    parent: str
+    child: str
+    parent_count: int
+    child_count: int
+    shared_members: tuple[str, ...]
+    missing_members: tuple[str, ...]  # child members the parent does not hold
+    equal_sets: bool = False
+
+    @property
+    def fraction(self) -> float:
+        return len(self.shared_members) / self.child_count if self.child_count else 0.0
+
+    @property
+    def is_containment(self) -> bool:
+        return not self.missing_members
+
+
+@dataclass(frozen=True)
+class NestingReport:
+    """Declared nesting forest plus undeclared containment candidates."""
+
+    children_by_parent: dict[str, tuple[str, ...]]
+    parents_by_child: dict[str, tuple[str, ...]]
+    containments: tuple[NestingCandidate, ...]
+    near_containments: tuple[NestingCandidate, ...]
+    standalone: tuple[str, ...]
+    unresolved: tuple[tuple[str, str], ...]  # (parent, dangling GROUPING ref)
+
+    @property
+    def edge_count(self) -> int:
+        return sum(len(c) for c in self.children_by_parent.values())
+
+
+def expanded_disease_members(name: str, groupings_by_name: dict[str, dict]) -> set[str]:
+    """Disease members of a grouping expanded through nesting, cycle-tolerant.
+
+    :func:`grouping_disease_members` raises on a nesting cycle; a report that
+    exists to show curators the nesting must survive one and let the tree flag
+    it, so this walks :func:`iter_disease_targets`, which cuts cycles instead.
+    """
+    return {
+        disease
+        for disease, _mtype, _via in iter_disease_targets(
+            groupings_by_name[name], groupings_by_name
+        )
+    }
+
+
+def declared_nestings(
+    groupings_by_name: dict[str, dict],
+) -> tuple[dict[str, tuple[str, ...]], tuple[tuple[str, str], ...]]:
+    """Return ``{parent: (child, ...)}`` for every ``member_type: GROUPING``
+    member that resolves, plus the ``(parent, ref)`` pairs that do not."""
+    children: dict[str, tuple[str, ...]] = {}
+    unresolved: list[tuple[str, str]] = []
+    for parent in sorted(groupings_by_name, key=str.casefold):
+        refs: list[str] = []
+        for member in groupings_by_name[parent].get("members", []) or []:
+            if member.get("member_type") != "GROUPING" or not member.get("member"):
+                continue
+            ref = str(member["member"])
+            if ref in groupings_by_name:
+                refs.append(ref)
+            else:
+                unresolved.append((parent, ref))
+        if refs:
+            children[parent] = tuple(sorted(refs, key=str.casefold))
+    return children, tuple(unresolved)
+
+
+def compute_nesting_report(
+    groupings_by_name: dict[str, dict],
+    *,
+    threshold: float = 0.5,
+) -> NestingReport:
+    """Compare every grouping's expanded disease-member set with every other.
+
+    A pair ``(parent, child)`` is a **containment** when every disease the
+    child holds is also held by the parent and the parent does not already
+    declare the child as a nested grouping; a **near-containment** when at
+    least ``threshold`` of them are. Two groupings with identical member sets
+    are reported once, as ``equal_sets``, in name order — neither is obviously
+    the parent. Member sets are expanded through declared nesting, so a
+    grouping already reached via a nested member is not re-reported against
+    its grandparent unless the grandparent lists it directly.
+    """
+    children_by_parent, unresolved = declared_nestings(groupings_by_name)
+    declared = {
+        (parent, child) for parent, kids in children_by_parent.items() for child in kids
+    }
+    parents_by_child: dict[str, list[str]] = {}
+    for parent, kids in children_by_parent.items():
+        for child in kids:
+            parents_by_child.setdefault(child, []).append(parent)
+
+    names = sorted(groupings_by_name, key=str.casefold)
+    member_sets = {
+        name: expanded_disease_members(name, groupings_by_name) for name in names
+    }
+
+    containments: list[NestingCandidate] = []
+    near: list[NestingCandidate] = []
+    for parent in names:
+        parent_set = member_sets[parent]
+        for child in names:
+            if child == parent or (parent, child) in declared:
+                continue
+            child_set = member_sets[child]
+            if not child_set or not parent_set:
+                continue
+            shared = child_set & parent_set
+            if not shared:
+                continue
+            equal = child_set == parent_set
+            if equal and child.casefold() < parent.casefold():
+                continue  # reported once, from the other direction
+            if len(parent_set) < len(child_set):
+                continue  # the smaller set cannot be the parent
+            candidate = NestingCandidate(
+                parent=parent,
+                child=child,
+                parent_count=len(parent_set),
+                child_count=len(child_set),
+                shared_members=tuple(sorted(shared)),
+                missing_members=tuple(sorted(child_set - parent_set)),
+                equal_sets=equal,
+            )
+            if candidate.is_containment:
+                containments.append(candidate)
+            elif candidate.fraction >= threshold:
+                near.append(candidate)
+
+    connected = set(children_by_parent) | set(parents_by_child)
+    return NestingReport(
+        children_by_parent=children_by_parent,
+        parents_by_child={
+            child: tuple(sorted(parents, key=str.casefold))
+            for child, parents in sorted(parents_by_child.items())
+        },
+        containments=tuple(containments),
+        near_containments=tuple(
+            sorted(
+                near,
+                key=lambda c: (-c.fraction, c.parent.casefold(), c.child.casefold()),
+            )
+        ),
+        standalone=tuple(name for name in names if name not in connected),
+        unresolved=unresolved,
+    )
+
+
+def _report_nesting(paths: list[str], threshold: float) -> int:
+    groupings_by_name, selected_names = _load_groupings_for_report(paths)
+    report = compute_nesting_report(groupings_by_name, threshold=threshold)
+    selected = set(selected_names)
+
+    def wanted(*names: str) -> bool:
+        return not paths or any(n in selected for n in names)
+
+    print(
+        f"Declared nesting: {len(report.children_by_parent)} parent grouping(s), "
+        f"{report.edge_count} nested relation(s), "
+        f"{len(report.parents_by_child)} nested grouping(s)"
+    )
+    for parent, kids in report.children_by_parent.items():
+        if not wanted(parent, *kids):
+            continue
+        print(f"  {parent}")
+        for child in kids:
+            size = len(expanded_disease_members(child, groupings_by_name))
+            print(f"    - {child} ({size})")
+    for parent, ref in report.unresolved:
+        if wanted(parent):
+            print(f"  ! {parent}: GROUPING member {ref!r} does not resolve")
+
+    shown = [c for c in report.containments if wanted(c.parent, c.child)]
+    print(
+        f"\nUndeclared containment ({len(shown)}): every expanded disease member of "
+        "the first grouping is also a member of the second, which does not list "
+        "it as a nested grouping. A lead, not a ruling — read both rationales."
+    )
+    for c in shown:
+        rel = "=" if c.equal_sets else "⊆"
+        print(f"  {c.child} ({c.child_count}) {rel} {c.parent} ({c.parent_count})")
+
+    shown = [c for c in report.near_containments if wanted(c.parent, c.child)]
+    print(f"\nNear-containment (>= {threshold:.0%} of the smaller set): {len(shown)}")
+    for c in shown:
+        missing = ", ".join(c.missing_members)
+        print(
+            f"  {c.fraction:.0%} {c.child} ({c.child_count}) in {c.parent} "
+            f"({c.parent_count}); not in parent: {missing}"
+        )
+
+    standalone = [n for n in report.standalone if wanted(n)]
+    print(f"\nStandalone (neither a parent nor nested): {len(standalone)}")
+    for name in standalone:
+        print(f"  {name}")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
 
@@ -933,6 +1333,7 @@ def _report_overlaps(paths: list[str], show_zero_overlaps: bool) -> int:
 
 def _report(paths: list[str], strict: bool) -> int:
     index = load_disease_index()
+    groupings_by_name, _selected = _load_groupings_for_report(paths)
     exit_code = 0
     for path in paths:
         with open(path) as f:
@@ -971,18 +1372,29 @@ def _report(paths: list[str], strict: bool) -> int:
                 print(f"    ~ {a}")
 
         # Tier 2: advisory membership audit.
-        for ev in evaluate_grouping(grouping, index):
+        for ev in evaluate_grouping(grouping, index, groupings_by_name):
+            via = f" (via {ev.via})" if ev.via else ""
             print(
                 f"  [criteria {ev.criteria_index} {ev.semantics or '-'}] "
-                f"{ev.member}: {ev.result.value}"
+                f"{ev.member}{via}: {ev.result.value}"
             )
             for desc, res in ev.leaves:
                 if res is not Satisfaction.SATISFIED:
                     print(f"      - {res.value}: {desc}")
+            for miss in ev.anchor_misses:
+                # Never gating, including under --strict: an OR-sibling miss is
+                # the disjunction working as designed, not a contradiction.
+                print(f"      ~ SATISFIED_ELSEWHERE_IN_MODULE: {miss}")
+            if ev.anchor_exact_result is not None:
+                print(
+                    f"      ~ block verdict would be "
+                    f"{ev.anchor_exact_result.value} if the #Node anchors were "
+                    f"honoured (see #9403)"
+                )
             if strict and ev.result is Satisfaction.NOT_SATISFIED:
                 exit_code = 1
 
-        candidates = find_candidate_members(grouping, index)
+        candidates = find_candidate_members(grouping, index, groupings_by_name)
         if candidates:
             print("  candidate members (satisfy sufficient criteria, not listed):")
             for c in candidates:
@@ -1018,6 +1430,23 @@ def main(argv: list[str] | None = None) -> int:
         help="With --overlaps, include disjoint pairs in the report.",
     )
     parser.add_argument(
+        "--nesting",
+        action="store_true",
+        help=(
+            "Report the declared grouping-of-grouping forest and the undeclared "
+            "containments between grouping disease-member sets (advisory)."
+        ),
+    )
+    parser.add_argument(
+        "--nesting-threshold",
+        type=float,
+        default=0.5,
+        help=(
+            "With --nesting, also list pairs where at least this fraction of the "
+            "smaller grouping's members sit inside the larger one (default 0.5)."
+        ),
+    )
+    parser.add_argument(
         "--no-closure",
         action="store_true",
         help=(
@@ -1029,6 +1458,8 @@ def main(argv: list[str] | None = None) -> int:
     set_closure_enabled(not args.no_closure)
     if args.overlaps:
         return _report_overlaps(args.paths, args.show_zero_overlaps)
+    if args.nesting:
+        return _report_nesting(args.paths, args.nesting_threshold)
 
     paths = args.paths or sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml")))
     if not paths:

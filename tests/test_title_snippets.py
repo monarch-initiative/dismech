@@ -39,7 +39,9 @@ REFERENCE_FIELDS = frozenset({"reference"})
 TITLE = "Risk factors for multiple sclerosis: decreased vitamin D level."
 
 
-def _cache(tmp_path: Path, reference_id: str, title: str, body: str = "abstract text") -> Path:
+def _cache(
+    tmp_path: Path, reference_id: str, title: str, body: str = "abstract text"
+) -> Path:
     """A minimal reference cache file with frontmatter, as the fetcher writes it."""
     # `/` is legal in a DOI but not in a filename; the real cache sanitises too.
     path = tmp_path / f"{reference_id.replace(':', '_').replace('/', '_')}.md"
@@ -89,7 +91,8 @@ def test_no_new_title_snippets(repo_findings):
     """The gate itself: nothing outside the grandfathered backlog."""
     new = new_findings(repo_findings, resolve_baseline())
     assert not new, "\n".join(
-        f"{rel}:{location}: {kind}: {snippet!r}" for rel, location, kind, snippet in new[:10]
+        f"{rel}:{location}: {kind}: {snippet!r}"
+        for rel, location, kind, snippet in new[:10]
     )
 
 
@@ -99,15 +102,17 @@ def test_no_new_title_snippets(repo_findings):
 def test_flags_a_snippet_that_is_the_title(tmp_path):
     index = _Index({"PMID:1": _cache(tmp_path, "PMID:1", TITLE)})
     data = {"evidence": [{"reference": "PMID:1", "snippet": TITLE}]}
-    (location, kind, _snippet), = _violations(data, index)
+    ((location, kind, _snippet),) = _violations(data, index)
     assert kind == "title"
     assert location.endswith("snippet")
 
 
 def test_flags_a_snippet_that_is_a_fragment_of_the_title(tmp_path):
     index = _Index({"PMID:1": _cache(tmp_path, "PMID:1", TITLE)})
-    data = {"evidence": [{"reference": "PMID:1", "snippet": "decreased vitamin D level"}]}
-    (_location, kind, _snippet), = _violations(data, index)
+    data = {
+        "evidence": [{"reference": "PMID:1", "snippet": "decreased vitamin D level"}]
+    }
+    ((_location, kind, _snippet),) = _violations(data, index)
     assert kind == "fragment"
 
 
@@ -132,7 +137,13 @@ def test_a_sentence_that_merely_restates_the_title_is_not_flagged(tmp_path):
     """Near-matches are deliberately out of scope -- they are usually the
     abstract's own conclusion sentence, which is exactly what we want quoted."""
     index = _Index(
-        {"PMID:1": _cache(tmp_path, "PMID:1", "Expression of ROS1 predicts ROS1 gene rearrangement.")}
+        {
+            "PMID:1": _cache(
+                tmp_path,
+                "PMID:1",
+                "Expression of ROS1 predicts ROS1 gene rearrangement.",
+            )
+        }
     )
     data = {
         "evidence": [
@@ -185,15 +196,28 @@ def test_structured_source_row_is_exempt(tmp_path):
 
 def test_dataset_accession_is_exempt(tmp_path):
     """A dataset record's cached body is often its title verbatim, so the
-    remedy this guard advises -- quote the abstract sentence -- cannot be done."""
-    index = _Index({"GEO:GSE1": _cache(tmp_path, "GEO:GSE1", TITLE)})
-    data = {"evidence": [{"reference": "GEO:GSE1", "snippet": TITLE}]}
+    remedy this guard advises -- quote the abstract sentence -- cannot be done.
+
+    Keyed on a prefix the validator still skips. `geo` used to stand here and
+    deliberately no longer does: once GEO records are fetched into
+    references_cache/ their titles *are* comparable, so a GEO snippet quoting
+    its own title is a real finding rather than an artefact of having nothing
+    to compare against.
+    """
+    index = _Index({"EGA:EGAS1": _cache(tmp_path, "EGA:EGAS1", TITLE)})
+    data = {"evidence": [{"reference": "EGA:EGAS1", "snippet": TITLE}]}
     assert _violations(data, index) == []
 
 
+def test_geo_is_no_longer_exempt(tmp_path):
+    """The counterpart of the test above: GEO is fetched, so it is checked."""
+    index = _Index({"GEO:GSE1": _cache(tmp_path, "GEO:GSE1", TITLE)})
+    data = {"evidence": [{"reference": "GEO:GSE1", "snippet": TITLE}]}
+    assert len(_violations(data, index)) == 1
+
+
 def test_doi_is_still_checked(tmp_path):
-    """DOI is in the validator's skip_prefixes because it cannot be *fetched*,
-    not because it is not literature -- a DOI record is a real paper."""
+    """A DOI record is literature, so title snippets must stay checked."""
     index = _Index({"DOI:10.1/x": _cache(tmp_path, "DOI:10.1/x", TITLE)})
     data = {"evidence": [{"reference": "DOI:10.1/x", "snippet": TITLE}]}
     assert len(_violations(data, index)) == 1
@@ -201,8 +225,12 @@ def test_doi_is_still_checked(tmp_path):
 
 def test_dataset_prefixes_come_from_the_validator_config():
     prefixes = cts.dataset_prefixes()
-    assert "geo" in prefixes and "morphic" in prefixes
+    assert "ega" in prefixes and "morphic" in prefixes
     assert "doi" not in prefixes, "a DOI names a paper; its title must stay checked"
+    assert "geo" not in prefixes, (
+        "geo left skip_prefixes when GEO records became fetchable, so its "
+        "cached title is comparable and its snippets are checked like any other"
+    )
 
 
 def test_doi_stays_checked_however_the_config_spells_it(tmp_path):
@@ -246,7 +274,9 @@ def test_uncached_reference_is_skipped(tmp_path):
 
 def test_cache_without_a_title_is_skipped(tmp_path):
     path = tmp_path / "PMID_2.md"
-    path.write_text('---\nreference_id: "PMID:2"\n---\n\n## Content\nbody\n', encoding="utf-8")
+    path.write_text(
+        '---\nreference_id: "PMID:2"\n---\n\n## Content\nbody\n', encoding="utf-8"
+    )
     index = _Index({"PMID:2": path})
     data = {"evidence": [{"reference": "PMID:2", "snippet": "anything at all here"}]}
     assert _violations(data, index) == []
@@ -283,14 +313,18 @@ def test_normalize_folds_the_things_that_vary():
 
 
 def test_baseline_key_is_location_independent():
-    assert _baseline_key("kb/x.yaml", "the  title") == _baseline_key("kb/x.yaml", "the title")
+    assert _baseline_key("kb/x.yaml", "the  title") == _baseline_key(
+        "kb/x.yaml", "the title"
+    )
 
 
 def test_baseline_roundtrips_a_snippet_containing_a_newline(tmp_path):
     findings = [("kb/x.yaml", "a.b", "title", "wrapped\ntitle text")]
     path = tmp_path / "baseline.txt"
     write_baseline(findings, path)
-    assert load_baseline(path) == Counter({_baseline_key("kb/x.yaml", "wrapped title text"): 1})
+    assert load_baseline(path) == Counter(
+        {_baseline_key("kb/x.yaml", "wrapped title text"): 1}
+    )
 
 
 def test_baseline_records_occurrence_counts(tmp_path):
@@ -324,7 +358,9 @@ def test_baseline_does_not_grandfather_an_unrelated_snippet(tmp_path):
 
 def test_baseline_tolerates_the_pre_count_line_format(tmp_path):
     path = tmp_path / "baseline.txt"
-    path.write_text(f"# header\n{_baseline_key('kb/x.yaml', TITLE)}\n", encoding="utf-8")
+    path.write_text(
+        f"# header\n{_baseline_key('kb/x.yaml', TITLE)}\n", encoding="utf-8"
+    )
     assert load_baseline(path)[_baseline_key("kb/x.yaml", TITLE)] == 1
 
 
@@ -370,7 +406,9 @@ def _baseline_drift(repo_findings):
     ``missing`` -- violations in the tree that the baseline does not grandfather.
     """
     committed = load_baseline()
-    current = Counter(_baseline_key(rel, snippet) for rel, _, _, snippet in repo_findings)
+    current = Counter(
+        _baseline_key(rel, snippet) for rel, _, _, snippet in repo_findings
+    )
     stale = {k: committed[k] for k in committed if current.get(k, 0) < committed[k]}
     missing = {k: current[k] for k in current if committed.get(k, 0) < current[k]}
     return stale, missing
@@ -390,7 +428,14 @@ def test_baseline_drift_separates_a_new_violation_from_a_fixed_one(monkeypatch):
     )
 
     # A violation in the tree that the baseline does not cover -> `missing`.
-    findings = [("kb/disorders/New.yaml", "evidence[0].snippet", "title", "A brand new title snippet.")]
+    findings = [
+        (
+            "kb/disorders/New.yaml",
+            "evidence[0].snippet",
+            "title",
+            "A brand new title snippet.",
+        )
+    ]
     stale, missing = _baseline_drift(findings)
     assert list(missing) == ["kb/disorders/New.yaml\tA brand new title snippet."]
     assert list(stale) == [fixed]  # and the baselined one is simultaneously gone
