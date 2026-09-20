@@ -210,7 +210,7 @@ window.searchData = [
       "Growth delay",
       "Constipation",
       "Gastroesophageal reflux",
-      "Abnormality of the face"
+      "Subtle facial dysmorphism"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -239,7 +239,7 @@ window.searchData = [
       "HP:0001510",
       "HP:0002019",
       "HP:0002020",
-      "HP:0000271"
+      "HP:0001999"
     ],
     "frequencies": [
       "FREQUENT",
@@ -3895,7 +3895,9 @@ window.searchData = [
       "Hypertension",
       "Diabetes Mellitus",
       "Osteoporosis",
-      "Associated Extra-Adrenal Neoplasia"
+      "Adrenal Myelolipoma",
+      "Monoclonal Gammopathy of Undetermined Significance",
+      "Multiple Myeloma"
     ],
     "phenotype_categories": [
       "Endocrine",
@@ -3905,6 +3907,7 @@ window.searchData = [
       "Neoplastic"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Endocrine",
       "Growth",
@@ -3922,7 +3925,8 @@ window.searchData = [
       "HP:0000822",
       "HP:0000819",
       "HP:0000939",
-      "HP:0002664"
+      "HP:0002664",
+      "HP:0006775"
     ],
     "frequencies": [
       "OBLIGATE"
@@ -3942,7 +3946,7 @@ window.searchData = [
     ],
     "source_file": "ACTH-independent_Macronodular_Adrenal_Hyperplasia_3.yaml",
     "page_url": "../pages/disorders/ACTH-Independent_Macronodular_Adrenal_Hyperplasia_3.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 12,
     "num_pathophysiology": 9,
     "num_genes": 2,
     "num_treatments": 3,
@@ -5697,6 +5701,8 @@ window.searchData = [
       "Decreased circulating immunoglobulin concentration",
       "Abnormality of coagulation",
       "Hypoplastic male external genitalia",
+      "Short long bone",
+      "Talipes equinovarus",
       "Skeletal-dysplasia-like abnormalities",
       "Multicystic kidney dysplasia",
       "Ventricular septal defect",
@@ -5721,6 +5727,7 @@ window.searchData = [
       "Growth",
       "Head and Neck",
       "Immune",
+      "Limbs",
       "Metabolism",
       "Musculoskeletal",
       "Nervous System"
@@ -5736,6 +5743,8 @@ window.searchData = [
       "HP:0004313",
       "HP:0001928",
       "HP:0000050",
+      "HP:0003026",
+      "HP:0001762",
       "HP:0000924",
       "HP:0000003",
       "HP:0001629",
@@ -5756,7 +5765,7 @@ window.searchData = [
     ],
     "source_file": "ALG12_Congenital_Disorder_of_Glycosylation.yaml",
     "page_url": "../pages/disorders/ALG12-congenital_disorder_of_glycosylation.html",
-    "num_phenotypes": 14,
+    "num_phenotypes": 16,
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 1,
@@ -59799,8 +59808,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Carbamoyl Phosphate Synthetase I Deficiency",
@@ -61878,8 +61887,7 @@ window.searchData = [
       "FREQUENT"
     ],
     "genes": [
-      "CPT2 gene variants",
-      "CPT2"
+      "CPT2 gene variants"
     ],
     "treatments": [
       "Avoidance of metabolic triggers",
@@ -61907,9 +61915,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Carnitine_Palmitoyltransferase_II_Deficiency.html",
     "num_phenotypes": 14,
     "num_pathophysiology": 5,
-    "num_genes": 2,
+    "num_genes": 1,
     "num_treatments": 8,
-    "causal_graph_edges": "63",
+    "causal_graph_edges": "62",
     "causal_graph_longest_path": "5"
   },
   {
@@ -63851,6 +63859,8 @@ window.searchData = [
       "MTM1 myotubularin phosphatase deficiency",
       "DNM2 dynamin-2 dysfunction",
       "BIN1 amphiphysin-2 membrane-tubulation deficiency",
+      "SPEG deficiency and impaired triad maturation",
+      "Titin truncation and sarcomeric backbone disruption",
       "Disrupted triad organization and T-tubule remodeling",
       "Impaired excitation-contraction coupling",
       "Muscle weakness and central nuclei phenotype"
@@ -63919,7 +63929,9 @@ window.searchData = [
       "MTM1 loss-of-function variants",
       "DNM2 missense variants",
       "BIN1 biallelic variants",
-      "RYR1 variants"
+      "RYR1 variants",
+      "SPEG biallelic loss-of-function variants",
+      "TTN biallelic truncating variants"
     ],
     "treatments": [
       "Supportive and multidisciplinary care",
@@ -63931,10 +63943,10 @@ window.searchData = [
     "source_file": "Centronuclear_Myopathy.yaml",
     "page_url": "../pages/disorders/Centronuclear_Myopathy.html",
     "num_phenotypes": 15,
-    "num_pathophysiology": 6,
-    "num_genes": 4,
+    "num_pathophysiology": 8,
+    "num_genes": 6,
     "num_treatments": 3,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "5"
   },
   {
@@ -64158,8 +64170,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 3,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Cerebral Amyloid Angiopathy",
@@ -69416,7 +69428,17 @@ window.searchData = [
     "frequencies": [
       "FREQUENT"
     ],
-    "genes": [],
+    "genes": [
+      "IDH1",
+      "IDH2",
+      "COL2A1",
+      "TP53",
+      "CDKN2A",
+      "HEY1",
+      "NCOA2",
+      "EXT1",
+      "EXT2"
+    ],
     "treatments": [
       "Definitive Surgical Resection",
       "En Bloc Resection",
@@ -69429,10 +69451,10 @@ window.searchData = [
     "page_url": "../pages/disorders/Chondrosarcoma.html",
     "num_phenotypes": 1,
     "num_pathophysiology": 9,
-    "num_genes": 0,
+    "num_genes": 9,
     "num_treatments": 4,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Chordoma",
@@ -71578,13 +71600,16 @@ window.searchData = [
       "Dosage- and Architecture-Dependent Severity Gradient",
       "SOX3 Overdosage",
       "Increased STAG2 Dosage and Cohesin Dysregulation",
+      "Increased PLP1 Dosage and Central Dysmyelination",
       "Increased IRAK1 Dosage"
     ],
     "cell_types": [
-      "neuron"
+      "neuron",
+      "oligodendrocyte"
     ],
     "cell_type_ids": [
-      "CL:0000540"
+      "CL:0000540",
+      "CL:0000128"
     ],
     "biological_processes": [
       "X-chromosome inactivation",
@@ -71592,6 +71617,7 @@ window.searchData = [
       "neuron maturation",
       "adenohypophysis development",
       "sister chromatid cohesion",
+      "myelination",
       "toll-like receptor signaling pathway"
     ],
     "phenotypes": [
@@ -71715,10 +71741,10 @@ window.searchData = [
     "source_file": "Chromosome_Xq_Duplication.yaml",
     "page_url": "../pages/disorders/Chromosome_Xq_Duplication.html",
     "num_phenotypes": 32,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 6,
     "num_treatments": 4,
-    "causal_graph_edges": "42",
+    "causal_graph_edges": "46",
     "causal_graph_longest_path": "5"
   },
   {
@@ -71960,7 +71986,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 6,
     "num_treatments": 8,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "3"
   },
   {
@@ -94504,6 +94530,147 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Dent Disease",
+    "disease_id": "MONDO:0015612",
+    "category": "Mendelian",
+    "parents": [
+      "X-linked genetic disorders",
+      "Renal tubular transport disease",
+      "Inherited renal tubular disease"
+    ],
+    "creation_date": "2026-09-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "DD1",
+      "DD2"
+    ],
+    "description": "Dent disease is a rare X-linked proximal tubulopathy defined by low-molecular-weight proteinuria together with hypercalciuria, and complicated in a large fraction of affected males by nephrocalcinosis, nephrolithiasis, rickets or osteomalacia, and progressive chronic kidney disease reaching kidney failure between the third and fifth decades. Two genetic forms are recognised: Dent disease 1, caused by inactivating CLCN5 variants that remove the electrogenic 2Cl-/H+ exchanger ClC-5 from proximal tubular subapical endosomes, and Dent disease 2, caused by OCRL variants that reduce phosphatidylinositol 4,5-bisphosphate 5-phosphatase activity on the same endosomal compartment. Both converge on failure of the megalin/cubilin receptor-mediated endocytic apparatus of the proximal tubule, which is why the renal phenotypes overlap. A quarter to a third of clinically typical patients carry neither a CLCN5 nor an OCRL variant. Because total urinary protein excretion can reach the nephrotic range, the disease is frequently misinterpreted as a glomerular disease and diagnosis is delayed.\n",
+    "pathophysiology": [
+      "ClC-5 Chloride-Proton Exchanger Loss of Function",
+      "Defective Endosomal Acidification",
+      "OCRL Phosphoinositide 5-Phosphatase Deficiency",
+      "Endosomal PI(4,5)P2 Accumulation and Actin Dysregulation",
+      "Megalin and Cubilin Trafficking Failure",
+      "Failure of Proximal Tubular Protein Reabsorption",
+      "Urinary Loss of Vitamin D-Binding Protein and Parathyroid Hormone",
+      "Generalized Proximal Tubular Solute Wasting",
+      "Urinary Calcium Supersaturation",
+      "Calcium Crystal Nucleation and Retention",
+      "Tubulointerstitial Fibrosis and Progressive Nephron Loss"
+    ],
+    "cell_types": [
+      "kidney proximal convoluted tubule epithelial cell",
+      "renal tubular epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000838",
+      "CL:0002518"
+    ],
+    "biological_processes": [
+      "endosomal lumen acidification",
+      "phosphatidylinositol dephosphorylation",
+      "actin filament organization",
+      "receptor-mediated endocytosis",
+      "endocytic recycling",
+      "protein transport",
+      "renal excretion of vitamin D metabolites and PTH",
+      "phosphate ion transport",
+      "renal solute excretion",
+      "renal calcium excretion",
+      "calcium ion transport",
+      "crystal-epithelial cell adhesion",
+      "extracellular matrix organization",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Low-molecular-weight proteinuria",
+      "Hypercalciuria",
+      "Nephrocalcinosis",
+      "Nephrolithiasis",
+      "Chronic kidney disease",
+      "Focal segmental glomerulosclerosis",
+      "Hypophosphatemia",
+      "Aminoaciduria",
+      "Glycosuria",
+      "Hypokalemia",
+      "Rickets",
+      "Osteomalacia",
+      "Hematuria",
+      "Growth delay",
+      "Elevated circulating creatine kinase concentration",
+      "Intellectual disability",
+      "Cataract"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Metabolic",
+      "Skeletal",
+      "Growth",
+      "Laboratory",
+      "Neurologic",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003126",
+      "HP:0002150",
+      "HP:0000121",
+      "HP:0000787",
+      "HP:0012622",
+      "HP:0000097",
+      "HP:0002148",
+      "HP:0003355",
+      "HP:0003076",
+      "HP:0002900",
+      "HP:0002748",
+      "HP:0002749",
+      "HP:0000790",
+      "HP:0001510",
+      "HP:0003236",
+      "HP:0001249",
+      "HP:0007648"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CLCN5",
+      "OCRL",
+      "Genetically unexplained Dent disease"
+    ],
+    "treatments": [
+      "Potassium Citrate",
+      "Thiazide Diuretics",
+      "Phosphate Supplementation for Rickets and Osteomalacia",
+      "Vitamin A Supplementation",
+      "Growth Hormone for Short Stature",
+      "Kidney Transplantation",
+      "Renin-Angiotensin Blockade",
+      "Genetic Testing and Counselling",
+      "Avoidance of Nephrotoxic Agents"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dent_Disease.yaml",
+    "page_url": "../pages/disorders/Dent_Disease.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 11,
+    "num_genes": 3,
+    "num_treatments": 9,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Dental Caries",
@@ -201673,6 +201840,120 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Mitochondrial Complex I Deficiency, Nuclear Type 11",
+    "disease_id": "MONDO:0032617",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial complex I deficiency",
+      "Mitochondrial disease"
+    ],
+    "creation_date": "2026-09-20T18:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MC1DN11 is the isolated complex I deficiency caused by biallelic variants in NDUFAF1, the gene encoding CIA30. The distinction that organises this entry is that NDUFAF1 is an assembly factor and not a structural subunit: it is absent from the finished enzyme, and its job is to get an early intermediate of complex I built. So the lesion is a failure to construct the enzyme rather than a failure of catalysis at a preserved active site, and the cell is left holding stalled intermediates rather than a complete but sluggish complex.\nThat distinction is not merely descriptive. Work across 29 patient fibroblast lines representing most complex I diseases found that a glycolytic switch is a feature of assembly defects specifically, not of complex I deficiency in general, and traced it to reactive oxygen species produced by the assembly intermediates themselves. The NDUFAF1 patient in whom assembly intermediates were directly visualised is therefore in the class that paper says should show the switch. This entry models that arm, and keeps it separate from the generic bioenergetic-decline arm, because the two make different predictions.\nFour patients have been reported, and the clinical range across them is wide for so small a series. The first, in 2007, had cardioencephalomyopathy presenting as cardiac failure with a viral illness at fifteen months, and is the most completely described: that paper's full text carries a twenty-year history including Wolff-Parkinson-White syndrome, pigmentary retinopathy, kyphoscoliosis and osteoporosis, and records him alive and medically stable at twenty. The second, in 2011, had fatal infantile hypertrophic cardiomyopathy. The third, in 2016, reports no cardiomyopathy: a leukodystrophy with developmental regression, white matter lesions, peripheral neuropathy and hyperreflexia, which its authors flagged as the first NDUFAF1 leukodystrophy. That report is abstract-only in the cache, so what can be said is that it reports no cardiomyopathy, not that the patient had none. The fourth, in 2025, had apparently isolated hypertrophic cardiomyopathy - the authors' own hedge - and was described as clinically simpler than the earlier cases.\nOne patient died in infancy and one was alive and stable at twenty, so this is not a uniformly infantile-lethal disease, and the entry does not describe it as one.\nIt is tempting to call hypertrophic cardiomyopathy the thread running through this disease, and three of the four cases would support it, but the leukodystrophy case does not and this entry does not assert it. What the four have in common is complex I deficiency; which organ declares itself is the part nobody has explained, and four cases is not enough to try.",
+    "pathophysiology": [
+      "NDUFAF1 Loss of Function",
+      "MCIA Complex Dysfunction",
+      "Failure of Early Complex I Assembly",
+      "Accumulation of Stalled Assembly Intermediates",
+      "Degradation of Unassembled Complex I Subunits",
+      "Complex I Deficiency",
+      "Reactive Oxygen Species Overproduction by Assembly Intermediates",
+      "AMPK-Dependent Pyruvate Dehydrogenase Inactivation",
+      "Glycolytic Shift",
+      "Cardiomyocyte Bioenergetic Failure",
+      "Neural Bioenergetic Failure"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex I assembly",
+      "protein-containing complex assembly",
+      "mitochondrial electron transport, NADH to ubiquinone",
+      "oxidative phosphorylation",
+      "reactive oxygen species biosynthetic process",
+      "glycolytic process"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Encephalopathy",
+      "Failure to thrive",
+      "Global developmental delay",
+      "Hypotonia",
+      "Wolff-Parkinson-White syndrome",
+      "Cerebral visual impairment",
+      "Pigmentary retinopathy",
+      "Kyphoscoliosis",
+      "Osteoporosis",
+      "Intellectual disability",
+      "Myopathy",
+      "Leukodystrophy",
+      "Developmental regression",
+      "Peripheral neuropathy",
+      "Hyperreflexia",
+      "Elevated circulating creatine kinase activity",
+      "Increased circulating lactate concentration"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Neurologic",
+      "Growth",
+      "Ophthalmologic",
+      "Skeletal",
+      "Musculoskeletal",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0001298",
+      "HP:0001508",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001716",
+      "HP:0100704",
+      "HP:0000580",
+      "HP:0002751",
+      "HP:0000939",
+      "HP:0001249",
+      "HP:0003198",
+      "HP:0002415",
+      "HP:0002376",
+      "HP:0009830",
+      "HP:0001347",
+      "HP:0003236",
+      "HP:0002151"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NDUFAF1"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Intercurrent infection"
+    ],
+    "biochemical": [],
+    "source_file": "Mitochondrial_Complex_I_Deficiency_Nuclear_Type_11.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_11.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Mitochondrial Complex I Deficiency, Nuclear Type 12",
     "disease_id": "MONDO:0026720",
     "category": "Mendelian",
@@ -227020,6 +227301,8 @@ window.searchData = [
       "Cartilage-Canal Ischemic Chondronecrosis",
       "Delayed Endochondral Ossification and Necrotic Fragmentation",
       "Revascularization and Remodeling under Mechanical Load",
+      "Heritable Type II Collagen Defect in Familial Perthes Disease",
+      "Aggrecan G3-Domain Defect in Familial Osteochondritis Dissecans",
       "Repetitive Traction Apophysitis",
       "Apophyseal Pain, Prominence, and Fragmentation",
       "Compressive Vertebral Endplate Growth Failure",
@@ -227027,7 +227310,8 @@ window.searchData = [
     ],
     "cell_types": [
       "Chondrocyte",
-      "Growth plate cartilage chondrocyte"
+      "Growth plate cartilage chondrocyte",
+      "chondrocyte"
     ],
     "cell_type_ids": [
       "CL:0000138",
@@ -227040,6 +227324,8 @@ window.searchData = [
       "Bone resorption",
       "Sprouting angiogenesis",
       "Bone remodeling",
+      "collagen fibril organization",
+      "extracellular matrix organization",
       "Response to mechanical stimulus (tendon traction)",
       "Endochondral ossification (secondary ossification center)",
       "Growth plate cartilage development (vertebral endplate)",
@@ -227097,10 +227383,10 @@ window.searchData = [
     "source_file": "Osteochondrosis.yaml",
     "page_url": "../pages/disorders/Osteochondrosis.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 9,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "3"
   },
   {
@@ -227198,8 +227484,8 @@ window.searchData = [
     "num_pathophysiology": 1,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Osteogenesis Imperfecta Type II",
@@ -227720,8 +228006,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Osteogenesis Imperfecta Type VI",
@@ -227894,8 +228180,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Osteogenesis Imperfecta Type VIII",
@@ -231168,8 +231454,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "PCDH19 Clustering Epilepsy",
@@ -234683,8 +234969,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 3,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Pallister-Hall Syndrome",
@@ -240470,6 +240756,148 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Peroxisome Biogenesis Disorder 12A (Zellweger)",
+    "disease_id": "MONDO:0013951",
+    "category": "Mendelian",
+    "parents": [
+      "Peroxisome Biogenesis Disorder"
+    ],
+    "creation_date": "2026-09-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Peroxisome biogenesis disorder 12A is the severe, Zellweger-end presentation of PEX19 deficiency, historically complementation group J (also numbered group 14) of the peroxisome biogenesis disorders.\nPEX19 is not part of the matrix-import machinery. It is a soluble, predominantly cytosolic chaperone and import receptor for peroxisomal membrane proteins (PMPs): it binds newly made PMPs in the cytosol, recognises the targeting regions within them, and delivers them to the peroxisomal membrane, with farnesylation of its C-terminal CaaX motif reshaping the cargo-binding surface and strengthening that interaction. That places PEX19 one step earlier than every other PEX gene this KB curates as its own entry. PEX1, PEX6, PEX12 and PEX26 fail at receptor recycling and PEX13 at receptor docking; in those the peroxisomal membrane is still built and the cells retain the import-incompetent membrane remnants called \"peroxisomal ghosts\". In PEX19 disease there are no ghosts: with the membrane receptor gone, PMPs are degraded or mislocalise to mitochondria and no peroxisomal membrane compartment is assembled at all. PEX3 and PEX16 are the other two genes that behave this way.\nThe downstream consequence nevertheless converges on the same clinical picture, because a cell with no peroxisomal membrane also has no peroxisomal matrix. Very-long-chain fatty acid beta-oxidation and ether-lipid (plasmalogen) synthesis both fail, and the developing brain, liver and skeleton are injured, producing the cerebro-hepato-renal presentation Zellweger described.\nTwo things are specific to this locus and are curated here rather than inherited from the spectrum. First, PEX19 is among the rarest causes of Zellweger spectrum disease - the 2025 review that assembled its mutation spectrum found only eight published studies, against PEX1 and PEX26 which alone account for about 70% and 10% of Zellweger spectrum cases - so the phenotype here is described from case reports rather than from a series, and this entry carries no frequency bands. Second, the reported PEX19 phenotype is unusually wide for a gene labelled by its severe end: two missense alleles gave late-onset disease with long-term survival, one reported insertion allele allowed survival to 16 months with liver and renal tubular disease emerging over that time, and the most recently reported patient had an unremarkable plasma very-long-chain fatty acid profile despite a homozygous nonsense allele. A normal metabolic screen therefore does not exclude this diagnosis.",
+    "pathophysiology": [
+      "Biallelic PEX19 Loss of Function",
+      "Failure of Cytosolic Membrane-Protein Targeting",
+      "Absence of Peroxisomal Membrane Compartments",
+      "Collapse of Peroxisomal Matrix Protein Import",
+      "Accumulation of Very-Long-Chain Fatty Acids",
+      "Plasmalogen Deficiency",
+      "Impaired Neuronal Migration and Neurogenesis",
+      "Progressive Hepatic Injury",
+      "Craniofacial and Skeletal Dysmorphogenesis",
+      "Congenital Structural Malformation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "peroxisomal membrane protein targeting",
+      "peroxisome organization",
+      "protein import into peroxisome matrix",
+      "very long-chain fatty acid catabolism",
+      "ether lipid biosynthesis",
+      "neuron migration"
+    ],
+    "phenotypes": [
+      "Generalized Hypotonia",
+      "Hyporeflexia",
+      "Global Developmental Delay",
+      "Neonatal Seizures",
+      "Ventriculomegaly",
+      "Hydrocephalus",
+      "Abnormal Facial Shape",
+      "Hypertelorism",
+      "Low-Set Ears",
+      "Depressed Nasal Bridge",
+      "Wide Anterior Fontanel",
+      "Increased Bone Density",
+      "Patent Ductus Arteriosus",
+      "Abnormal Cardiac Septum",
+      "Unilateral Renal Agenesis",
+      "Renal Cysts",
+      "Polyhydramnios",
+      "Chondrodysplasia Punctata",
+      "Feeding Difficulties",
+      "Micrognathia",
+      "Corneal Opacity",
+      "Hypospadias",
+      "Cryptorchidism",
+      "Talipes Equinovarus",
+      "Cerebellar Vermis Hypoplasia",
+      "Ventricular Septal Defect",
+      "Renal Tubular Dysfunction",
+      "Cholelithiasis",
+      "Liver Dysfunction"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Craniofacial",
+      "Skeletal",
+      "Cardiovascular",
+      "Renal",
+      "Prenatal",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Genitourinary",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001290",
+      "HP:0001265",
+      "HP:0001263",
+      "HP:0032807",
+      "HP:0002119",
+      "HP:0000238",
+      "HP:0001999",
+      "HP:0000316",
+      "HP:0000369",
+      "HP:0005280",
+      "HP:0000260",
+      "HP:0011001",
+      "HP:0001643",
+      "HP:0001671",
+      "HP:0000122",
+      "HP:0000107",
+      "HP:0001561",
+      "HP:0005841",
+      "HP:0011968",
+      "HP:0000347",
+      "HP:0007957",
+      "HP:0000047",
+      "HP:0000028",
+      "HP:0001762",
+      "HP:0001320",
+      "HP:0001629",
+      "HP:0000124",
+      "HP:0001081",
+      "HP:0001410"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PEX19"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Management",
+      "Cholic Acid Supplementation",
+      "Adrenal Replacement Therapy",
+      "Anti-Seizure Medication"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Very-long-chain fatty acids"
+    ],
+    "source_file": "Peroxisome_Biogenesis_Disorder_12A_Zellweger.yaml",
+    "page_url": "../pages/disorders/Peroxisome_Biogenesis_Disorder_12A_Zellweger.html",
+    "num_phenotypes": 29,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Peroxisome Biogenesis Disorder 1B",
@@ -272006,6 +272434,9 @@ window.searchData = [
       "Neonatal Respiratory Distress",
       "Excessive Weight Gain and Obesity",
       "Eye Abnormalities",
+      "Strabismus",
+      "Esotropia",
+      "Myopia",
       "Scoliosis",
       "Decreased Bone Mineral Density",
       "Hypogonadotropic hypogonadism",
@@ -272060,6 +272491,9 @@ window.searchData = [
       "HP:0002643",
       "HP:0001513",
       "HP:0000478",
+      "HP:0000486",
+      "HP:0000565",
+      "HP:0000545",
       "HP:0002650",
       "HP:0004349",
       "HP:0000044",
@@ -272101,7 +272535,7 @@ window.searchData = [
     ],
     "source_file": "Schaaf-Yang_Syndrome.yaml",
     "page_url": "../pages/disorders/Schaaf-Yang_Syndrome.html",
-    "num_phenotypes": 25,
+    "num_phenotypes": 28,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 5,
@@ -317326,18 +317760,18 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3044,
-  "total_subtypes": 3782,
-  "total_disorders_and_subtypes": 6826,
-  "total_unique_evidence_sources": 43449,
-  "total_unique_publications": 41036,
+  "total_disorder_pages": 3047,
+  "total_subtypes": 3784,
+  "total_disorders_and_subtypes": 6831,
+  "total_unique_evidence_sources": 43491,
+  "total_unique_publications": 41077,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3039,
-  "total_unique_pathological_events": 18576,
+  "total_pathographs": 3042,
+  "total_unique_pathological_events": 18607,
   "total_modules": 177,
-  "total_research_reports": 3159,
-  "total_classifications": 19,
+  "total_research_reports": 3162,
+  "total_classifications": 20,
   "total_comorbidities": 46,
   "total_groupings": 102
 };
