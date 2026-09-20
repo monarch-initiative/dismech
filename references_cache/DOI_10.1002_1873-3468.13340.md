@@ -9,6 +9,7 @@ year: '2019'
 doi: 10.1002/1873-3468.13340
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The peroxisome biogenesis factors Pex3 and Pex19: multitasking proteins with disputed functions

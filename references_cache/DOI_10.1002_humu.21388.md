@@ -13,6 +13,7 @@ year: '2011'
 doi: 10.1002/humu.21388
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic classification and mutational spectrum of more than 600 patients with a Zellweger syndrome spectrum disorder
