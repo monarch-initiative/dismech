@@ -143434,6 +143434,133 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Hereditary Multiple Osteochondromas",
+    "disease_id": "MONDO:0005508",
+    "category": "Mendelian",
+    "parents": [
+      "Genetic Skeletal Disorders",
+      "Hereditary Tumor Predisposition Syndromes"
+    ],
+    "creation_date": "2026-09-04T23:23:40Z",
+    "updated_date": null,
+    "subtypes": [
+      "EXT1",
+      "EXT2"
+    ],
+    "description": "Hereditary multiple osteochondromas (HMO), long known as hereditary multiple exostoses, is an autosomal dominant skeletal disorder in which multiple cartilage-capped bony outgrowths, osteochondromas, form at the metaphyses of the growing skeleton. A germline loss-of-function variant in EXT1 or EXT2 halves the activity of the Golgi copolymerase that elongates heparan sulfate chains on proteoglycans. Heparan sulfate is what holds morphogens in place in the growth plate: it binds Indian hedgehog and constrains its range, it restrains bone morphogenetic proteins, and it presents fibroblast growth factors to their receptors. When it is deficient, and especially when a somatic second hit removes the remaining EXT allele from a clone of growth-plate chondrocytes, the perichondrium loses its border function, chondrocytes escape sideways from the physis, and the ectopic cartilage ossifies by the same endochondral programme as the bone it grew from, producing an outgrowth with cortex and marrow continuous with the parent bone.\nThe clinical picture follows from where and when the lesions grow. They are rarely present at birth, appear in early childhood with a median age at diagnosis of three years, multiply and enlarge while the growth plates are open, and stop growing at skeletal maturity. Because they sit next to the physes, they tether and distort longitudinal growth: short stature, the characteristic forearm deformity with a short bowed ulna, limb-length inequality, and valgus at the knee and ankle. Because they are masses, they impinge: pain, restricted joint motion, bursitis, peripheral nerve and vessel compression, and, rarely, spinal cord compression. And because each carries a cartilage cap, a small fraction, on the order of a few per cent over a lifetime and higher with EXT1 than EXT2, transform to secondary peripheral chondrosarcoma, usually in adulthood; a cap thicker than about 2 cm in an adult is the warning sign.\nThe entry is organised around that chain, from germline lesion through enzyme, heparan sulfate, second hit and morphogen gradients to the lesion and its three consequences: growth disturbance, mechanical impingement, and malignant transformation. The malignant branch is curated only to its threshold; the biology of the chondrosarcoma itself belongs to the Chondrosarcoma entry.",
+    "pathophysiology": [
+      "Germline Heterozygous Loss-of-Function Variant in EXT1 or EXT2",
+      "Reduced EXT1-EXT2 Heparan Sulfate Copolymerase Activity",
+      "Systemic Heparan Sulfate Insufficiency",
+      "Somatic Second Hit in Growth-Plate Chondrocytes",
+      "Disrupted Heparan-Sulfate-Dependent Morphogen Signaling",
+      "Loss of Perichondrial Border Function and Ectopic Chondrogenesis",
+      "Osteochondroma Formation by Ectopic Endochondral Ossification",
+      "Growth-Plate Tethering and Disturbed Longitudinal Bone Growth",
+      "Mechanical Impingement by Osteochondromas",
+      "Malignant Transformation of the Cartilage Cap"
+    ],
+    "cell_types": [
+      "proliferating growth-plate chondrocyte",
+      "perichondrial progenitor cell",
+      "chondrocyte",
+      "cartilage cap chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:1000217",
+      "CL:4033025",
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "heparan sulfate proteoglycan biosynthesis",
+      "Indian hedgehog signaling range in the growth plate",
+      "BMP signaling in perichondrial and growth-plate cells",
+      "FGF receptor signaling in chondrocytes",
+      "ectopic chondrocyte differentiation",
+      "ectopic endochondral ossification",
+      "longitudinal endochondral bone growth"
+    ],
+    "phenotypes": [
+      "Multiple osteochondromas",
+      "Cranial base osteochondroma-like outgrowths",
+      "Short stature",
+      "Forearm deformity",
+      "Limb length discrepancy",
+      "Genu valgum",
+      "Ankle valgus deformity",
+      "Limitation of joint mobility",
+      "Premature osteoarthritis",
+      "Peripheral nerve compression",
+      "Spinal cord compression",
+      "Pain",
+      "Fatigue",
+      "Secondary peripheral chondrosarcoma"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Growth",
+      "Musculoskeletal",
+      "Neurological",
+      "Symptom",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002762",
+      "HP:0002693",
+      "HP:0004322",
+      "HP:0002973",
+      "HP:0100559",
+      "HP:0002857",
+      "HP:0001376",
+      "HP:0002758",
+      "HP:0003406",
+      "HP:0002176",
+      "HP:0012531",
+      "HP:0012378",
+      "HP:0006765"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "EXT1",
+      "EXT2"
+    ],
+    "treatments": [
+      "Surgical Excision of Symptomatic Osteochondromas",
+      "Corrective Osteotomy, Guided Growth and Limb Lengthening",
+      "Clinical and Imaging Surveillance for Malignant Transformation",
+      "En Bloc Resection of Secondary Peripheral Chondrosarcoma",
+      "Palovarotene (investigational; MO-Ped trial terminated)",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Blood heparan sulfate to chondroitin sulfate ratio"
+    ],
+    "source_file": "Hereditary_Multiple_Osteochondromas.yaml",
+    "page_url": "../pages/disorders/Hereditary_Multiple_Osteochondromas.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 10,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Hereditary Neuropathy with Liability to Pressure Palsies",
     "disease_id": "MONDO:0008087",
     "category": "Mendelian",
@@ -317030,17 +317157,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3042,
-  "total_subtypes": 3780,
-  "total_disorders_and_subtypes": 6822,
-  "total_unique_evidence_sources": 43386,
-  "total_unique_publications": 40974,
+  "total_disorder_pages": 3043,
+  "total_subtypes": 3782,
+  "total_disorders_and_subtypes": 6825,
+  "total_unique_evidence_sources": 43416,
+  "total_unique_publications": 41003,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3037,
-  "total_unique_pathological_events": 18554,
+  "total_pathographs": 3038,
+  "total_unique_pathological_events": 18564,
   "total_modules": 177,
-  "total_research_reports": 3156,
+  "total_research_reports": 3157,
   "total_classifications": 19,
   "total_comorbidities": 46,
   "total_groupings": 102
