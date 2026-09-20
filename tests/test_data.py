@@ -262,6 +262,40 @@ def validator():
     )
 
 
+@pytest.mark.parametrize(
+    ("fixture_name", "target_class"),
+    [
+        ("validator", "Disease"),
+        ("synthesis_validator", "ResearchSynthesis"),
+        ("hypothesis_assessment_validator", "HypothesisAssessment"),
+        ("hypothesis_reconciliation_validator", "HypothesisReconciliation"),
+    ],
+)
+def test_validator_fixtures_are_not_inert(request, fixture_name, target_class):
+    """Guard: every shared validator fixture must actually validate.
+
+    ``Validator.iter_results_from_source`` short-circuits with ``return []``
+    when no plugins are configured, so a ``Validator(SCHEMA_PATH)`` built
+    without ``validation_plugins`` yields an empty report for *any* instance
+    and every assertion built on it passes vacuously. That is how the #8217
+    ``AnimalModel`` regression invalidated 224 entries while the whole-KB
+    conformance sweep reported all-green (dismech#8320).
+
+    A document missing its required ``name`` must produce an ERROR. Each
+    fixture is covered, not just ``validator``, because any one of them can
+    regress the same way independently.
+    """
+    validator = request.getfixturevalue(fixture_name)
+    report = validator.validate({"description": "no name"}, target_class=target_class)
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert errors, (
+        f"{fixture_name} produced no errors for a {target_class} missing its "
+        "required `name` — it has no validation plugins and every test using "
+        "it is vacuous"
+    )
+
+
 def check_valid_disorder_files(filepath, validator, data=None):
     """Test that all disorder files validate against the schema."""
     data = _document(filepath, data)
@@ -270,6 +304,24 @@ def check_valid_disorder_files(filepath, validator, data=None):
 
     # ValidationReport has a results list with ValidationResult objects
     # Only errors are issues, not informational messages
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+def check_valid_module_files(filepath, validator, data=None):
+    """Mechanism modules validate against the same ``Disease`` class as disorders.
+
+    A schema tightening invalidates a module exactly as it invalidates a
+    disorder entry, but the whole-KB conformance sweep covered disorders,
+    comorbidities and groupings and left ``kb/modules/`` out (dismech#8320).
+    ``just validate-modules`` catches this locally and is in ``just qc``, but
+    CI only ever runs it over *changed* files — which is the blind spot #8320
+    was filed about.
+    """
+    data = _document(filepath, data)
+
+    report = validator.validate(data, target_class="Disease")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
 
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
@@ -2361,10 +2413,15 @@ def test_disorder_file(filepath, validator):
 
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", MODULE_FILES, ids=_file_id)
-def test_module_file(filepath):
-    """Model-link and conforms_to checks for one mechanism module."""
+def test_module_file(filepath, validator):
+    """Schema conformance plus model-link and conforms_to checks for one module."""
     data = _document(filepath)
-    failures = _failures(filepath, data, (*MODEL_BEARING_CHECKS, *CONFORMS_TO_CHECKS))
+    failures = _failures(
+        filepath,
+        data,
+        (check_valid_module_files, *MODEL_BEARING_CHECKS, *CONFORMS_TO_CHECKS),
+        validator=validator,
+    )
     _assert_all_passed(filepath, failures)
 
 
