@@ -429,6 +429,96 @@ of fake identifiers.
 validation. **Known gap:** prefixes *not* listed there are silently skipped during
 validation (only a warning), so an unconstrained prefix can pass unchecked — see *Gaps* below.
 
+### 4b. Coarse phenotype bindings state a basis; specificity is never scored (2026-09-05)
+
+**Decision.** A phenotype bound to a **coarse HPO term** must declare
+`coarse_binding_basis` on its descriptor: `VARIABLE_SPECTRUM`, `SOURCE_UNSPECIFIED`,
+`NO_HPO_TERM`, or `PATHOGRAPH_HUB`. Two are bare declarations; the other two carry a
+checkable requirement. The coarse set is 56 terms across two hand-reviewed schema
+enums — the 23 direct children of `HP:0000118` (`PhenotypeCategoryEnum`, which is also
+the browser's *Phenotype Systems* facet vocabulary) and 33 curated terms below those
+roots (`CoarsePhenotypeTermEnum`) that still name a system, organ or region. All are
+enforced offline and whole-KB by `just check-coarse-phenotypes`; the bindings predating
+the slot are grandfathered in a shrink-only baseline.
+
+**A coarse binding states a reason; it never lists what it left out.** The first
+implementation gave `VARIABLE_SPECTRUM` (then named `SPECTRUM_SUMMARY`) a companion
+`spectrum_terms` slot holding the constituent findings, term-bound but without frequency
+or evidence, so that a curator could keep the specifics cheaply. That was wrong twice
+over, and the slot was removed before the design shipped. First, it inverted the value's
+meaning: a spectrum is precisely the case where the findings *cannot* be pinned down, so
+requiring a list demands what is by definition unavailable. Second, where the findings
+*are* known and evidenced — as in the worked example, whose cited sentence names
+strabismus, esotropia and myopia — they are ordinary `phenotypes` entries and should be
+curated as such. The slot's version of them was strictly worse: invisible to the
+phenotype table, the browser facets, the KGX/CX2 exports, `phenotypes#` entity
+references and the pathograph. A cheap way to record a finding badly is not worth
+having when recording it properly costs one more block.
+
+**What was rejected, and why it stays rejected.** Three approaches to the same problem
+were considered and are recorded here so they are not re-proposed:
+
+1. **Information content or term depth.** Depth is a property of how HPO happens to be
+   built, not of the claim. `HP:0004322` *Short stature* is the most-used HP term in the
+   knowledge base and is exactly as specific as the literature ever gets; `HP:0001627`
+   *Abnormal heart morphology* carries "Congenital heart defect" as an EXACT synonym and
+   is the correct binding for a paper that names no lesion. Any metric ranking those as
+   vague would flag the terms most often exactly right.
+2. **Rewarding specificity in compliance scoring.** A score gradient towards narrower
+   terms is precisely the pressure that manufactures bindings the source does not
+   support, which §4's term contract forbids outright. Coverage is scored; grain is not.
+3. **Category-gated rules.** §10 already records why *category = X ⇒ term under X* is
+   circular — the category is derived from the term's HPO ancestry. Nothing about the
+   derived facet can say whether a coarse binding was deliberate.
+
+What remains is a **closed, hand-reviewed list**: membership is the whole specificity
+model, and widening it is a schema pull request with an argument attached. Tier 0 is read
+from `PhenotypeCategoryEnum`'s `meaning:` values rather than restated, so the coarse set
+and the facet set cannot drift apart.
+
+**Rationale.** The three legitimate reasons for a coarse binding were already present in
+the knowledge base as prose nothing could read — `PAICS_Deficiency` ("the specific ocular
+finding is not characterized in the available abstract"), the paragraph in
+`PUS3-Related_Neurodevelopmental_Disorder` arguing that `HP:0001627` is "the right binding
+rather than a mere fallback parent", and the `Li-Fraumeni_Syndrome` note recording that
+HPO has no term for neoplasm multiplicity. Making the reason structured leaves the
+*unexplained* coarse binding as the only thing a guard can fail, which is the one the
+maintainer objected to.
+
+**A hub is defined by incoming edges, not outgoing ones.** The `PATHOGRAPH_HUB` value
+covers a coarse term used deliberately as a convergence node inside the causal graph. An
+earlier draft required outgoing `sequelae` into the specific findings; that was wrong and
+was corrected before enactment. `sequelae` is a `CausalEdge`, and a coloboma is not
+*caused by* an eye abnormality — it *is* one, so the requirement would have had curators
+drawing an is-a hierarchy as a causal chain to satisfy a guard. A hub is instead required
+to be *targeted* by at least one causal edge in its entry, and to carry no `frequency`
+(frequency is a claim about patients; a hub makes none). Its constituent findings, where
+known, are ordinary phenotype entries beside it. A hub is also distinct from a
+pathophysiology node such as "disrupted eye development", which binds GO and asserts a
+process: no HP slot is being added to `Pathophysiology`.
+
+**The coarse set is two enums and was curated by hand.** Tier 0 is
+`PhenotypeCategoryEnum`'s meanings. Tier 1 is `CoarsePhenotypeTermEnum`, 33 terms below
+those roots naming a body system, whole organ or gross body region, curated in one pass
+over all 360 distinct `Abnormal*` HP terms bound in the KB. That pass is the argument for
+the list-not-rule design rather than an illustration of it: it admits `HP:0000077`
+*Abnormality of the kidney* and `HP:0000924` *Abnormality of the skeletal system* while
+excluding `HP:0001627` *Abnormal heart morphology* (149 uses, EXACT synonym "Congenital
+heart defect") and `HP:0001999` *Abnormal facial shape* (177 uses, dysmorphic facies) —
+decisions one step below the same roots that no depth, subsumption or naming-pattern rule
+separates. Four terms were left out as undecided rather than judged; the enum's
+description records them, the excluded findings, and the inclusion rule, so the reasoning
+is inherited rather than redone. Widening the set is a schema pull request.
+
+**Scope.** HP only. The same design would extend to GO and `biological_processes`, whose
+`goslim_*` subsets are the natural starting list, but that is not enacted. Companion rules
+are checked wherever a basis is declared, including on terms outside both tiers, so a
+curator may annotate a term they judge coarse before anyone agrees to add it.
+
+**Reference.** [`docs/coarse-phenotype-bindings.md`](../coarse-phenotype-bindings.md);
+brainstorm in
+[`docs/superpowers/specs/2026-09-05-coarse-hpo-bindings-brainstorm.md`](../superpowers/specs/2026-09-05-coarse-hpo-bindings-brainstorm.md).
+
 ### 4a. MAXO removed in favour of NCIT (2026-07-31)
 
 **Decision.** The Medical Action Ontology (MAXO) was removed from dismech entirely. All
