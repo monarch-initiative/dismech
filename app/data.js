@@ -110794,8 +110794,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 5,
     "num_treatments": 3,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Episodic Ataxia",
@@ -317268,8 +317268,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3044,
   "total_subtypes": 3782,
   "total_disorders_and_subtypes": 6826,
-  "total_unique_evidence_sources": 43432,
-  "total_unique_publications": 41019,
+  "total_unique_evidence_sources": 43433,
+  "total_unique_publications": 41020,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
   "total_pathographs": 3039,
