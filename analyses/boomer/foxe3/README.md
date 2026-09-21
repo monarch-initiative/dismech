@@ -14,8 +14,12 @@ explains the grounding choice; it does not make every anterior segment dysgenesi
 FOXE3-related.
 
 This investigation checks the saved input against current source context on
-2026-09-20. All proposed changes below remain proposals. Production KB records,
-Boomer inputs, and saved solutions are unchanged.
+2026-09-20. The dismech KB now explicitly qualifies its existing MONDO grounding
+as `skos:broadMatch`; the combined FOXE3 clinical scope is retained. A
+[proxy MONDO request](https://github.com/monarch-initiative/dismech/issues/12404)
+tracks the proposed gene-specific grouping. The ICD correction remains a
+proposal. Saved Boomer inputs and solutions are retained as the historical
+baseline analyzed below; they predate the KB mapping qualification.
 
 ## Entities in play
 
@@ -80,7 +84,7 @@ is not an equivalence between the grouping and one gene's disease spectrum.
 The current generator nevertheless gives an unqualified `disease_term` mapping
 an identity prior of 0.9.
 
-**Recommended dismech follow-up:** retain the broad term as a grounding, but
+**Applied dismech correction:** retain the broad term as a grounding and
 record explicitly that the MONDO target is broader (`skos:broadMatch`, from the
 entry to MONDO), with the ClinGen scope rationale. Consider binding the two
 named subtypes to the checked aphakia and cataract terms after reviewing their
