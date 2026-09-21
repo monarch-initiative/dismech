@@ -45,6 +45,13 @@ def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
     cx2 = disorder_to_cx2(
         load_disorder(disorder_path),
         source_path=disorder_path,
+        release_metadata={
+            "version": "2026-09-test",
+            "author": "DisMech contributors",
+            "rights": "BSD-3-Clause",
+            "rightsHolder": "Example rights holder",
+        },
+        source_revision="abc123",
     )
     aspects = _aspect_map(cx2)
     nodes, _ = _nodes_by_name(aspects)
@@ -56,6 +63,9 @@ def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
 
     network_attributes = aspects["networkAttributes"][0]
     assert network_attributes["name"] == "Stargardt Disease"
+    assert network_attributes["version"] == "2026-09-test"
+    assert network_attributes["author"] == "DisMech contributors"
+    assert network_attributes["source_revision"] == "abc123"
     assert "Stargardt disease" in network_attributes["disease"]
     assert network_attributes["disease_term_id"] == "MONDO:0019353"
     assert network_attributes["node_count"] == len(aspects["nodes"])
@@ -67,7 +77,7 @@ def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
     assert "photoreceptor cell" in network_attributes["tissue"]
     assert "retinal pigment epithelial cell" in network_attributes["tissue"]
     assert (
-        "github.com/monarch-initiative/dismech/blob/main/kb/disorders/Stargardt_Disease.yaml"
+        "github.com/monarch-initiative/dismech/blob/abc123/kb/disorders/Stargardt_Disease.yaml"
         in network_attributes["prov:wasDerivedFrom"]
     )
 
@@ -181,7 +191,9 @@ def test_disorder_to_cx2_exports_animal_model_edges() -> None:
     nodes or `models` edges, so edge detail had nothing to attach to.
     """
     repo_root = Path(__file__).resolve().parents[1]
-    disorder_path = repo_root / "kb" / "disorders" / "Amyotrophic_Lateral_Sclerosis.yaml"
+    disorder_path = (
+        repo_root / "kb" / "disorders" / "Amyotrophic_Lateral_Sclerosis.yaml"
+    )
 
     cx2 = disorder_to_cx2(
         load_disorder(disorder_path),
