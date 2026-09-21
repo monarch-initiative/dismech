@@ -243,6 +243,113 @@ def _wrap_fulltext_method(original):
 _MAX_TABLE_ROWS = 200
 
 
+def _pmc_html_url(pmcid: str) -> str:
+    """Use the modern PMC article view, which also serves non-OA XML records."""
+    return f"https://pmc.ncbi.nlm.nih.gov/articles/PMC{pmcid.removeprefix('PMC')}/"
+
+
+def _fetch_modern_pmc_html(self, pmcid, config):
+    """Keep article paragraphs, captions and table rows in PMC's HTML fallback.
+
+    PMC3060324 supplies frontmatter without a body through efetch, but its
+    public HTML contains the complete article. Upstream searches only legacy
+    div classes and therefore misses the modern article element entirely.
+    Navigation pages and CAPTCHA responses have no article container and are
+    not full text, regardless of their length.
+    """
+    import requests
+
+    time.sleep(config.rate_limit_delay)
+    response = requests.get(_pmc_html_url(pmcid), timeout=30)
+    if response.status_code != 200:
+        return None
+    soup = BeautifulSoup(response.content, "html.parser")
+    article = (
+        soup.select_one(".main-article-body")
+        or soup.find("article")
+        or soup.find("div", class_="article-body")
+        or soup.find("div", class_="tsec")
+    )
+    if article is None:
+        return None
+    for tag in article(["script", "style"]):
+        tag.decompose()
+    for table in article.find_all("table"):
+        if len(table.find_all("tr")) > _MAX_TABLE_ROWS:
+            table.decompose()
+    # Abstracts, reference lists and article metadata can themselves exceed the
+    # provider's length threshold. Require substantive body text before accepting
+    # the response, while retaining the abstract in the cached article.
+    body_probe = BeautifulSoup(str(article), "html.parser")
+    for nonbody in body_probe.select(
+        ".abstract, .front-matter, .ref-list, .pmc-layout__citation, "
+        ".kwd-group, .associated-data, .supplementary-materials"
+    ):
+        nonbody.decompose()
+    from linkml_reference_validator.etl.fulltext.pmc import _MIN_PMC_FULLTEXT_CHARS
+
+    if len(body_probe.get_text(" ", strip=True)) <= _MIN_PMC_FULLTEXT_CHARS:
+        return None
+    pieces = []
+    for element in article.find_all(["h2", "h3", "h4", "p", "tr", "caption"]):
+        if element.name == "tr":
+            cells = []
+            for cell in element.find_all(["th", "td"]):
+                # Preserve within-word inline markup while separating explicit
+                # line breaks and adjacent block paragraphs inside a cell.
+                for br in cell.find_all("br"):
+                    br.replace_with(" ")
+                for block in cell.find_all(["p", "div", "li"]):
+                    block.insert_before(" ")
+                    block.insert_after(" ")
+                cells.append(" ".join(cell.get_text().split()))
+            if any(cells):
+                pieces.append(" | ".join(cells).rstrip())
+        elif element.name == "caption" or not element.find_parent("table"):
+            # Preserve source whitespace inside inline markup, including Ca2+
+            # and within-word emphasis; strip only the whole paragraph.
+            text = element.get_text().strip()
+            if text:
+                pieces.append(text)
+    return "\n\n".join(pieces) or None
+
+
+def _locate_pmc_fulltext(self, ids, config):
+    """Prefer XML, but recover public HTML after missing or failed XML."""
+    from Bio import Entrez
+    from linkml_reference_validator.etl.extract.xml import XMLExtractor
+    from linkml_reference_validator.etl.fulltext.pmc import _MIN_PMC_FULLTEXT_CHARS
+    from linkml_reference_validator.models import FullTextLocation
+
+    pmcid = ids.pmcid or self._resolve_pmcid(ids.pmid, config)
+    if not pmcid:
+        return None
+    pmcid = pmcid.removeprefix("PMC")
+    Entrez.email = config.email
+    try:
+        xml = self._fetch_pmc_xml_bytes(pmcid, config)
+        text = (
+            XMLExtractor().extract(xml, content_type="application/xml") if xml else None
+        )
+        if text and len(text) > _MIN_PMC_FULLTEXT_CHARS:
+            return FullTextLocation(
+                text=text, format_hint="xml", oa_status="green", provider="pmc"
+            )
+    except Exception as exc:  # external XML service/parser boundary
+        logger.warning("PMC XML unavailable for %s; trying HTML: %s", pmcid, exc)
+
+    text = self._fetch_pmc_html(pmcid, config)
+    if text and len(text) > _MIN_PMC_FULLTEXT_CHARS:
+        return FullTextLocation(
+            text=text,
+            format_hint="html",
+            oa_status="green",
+            provider="pmc",
+            url=_pmc_html_url(pmcid),
+        )
+    return None
+
+
 def _wrap_html_extractor(original):
     """Keep the source's whitespace when flattening inline HTML markup.
 
@@ -517,6 +624,7 @@ def apply_patch():
     try:
         from linkml_reference_validator.etl.extract.html import HTMLExtractor
         from linkml_reference_validator.etl.extract.xml import XMLExtractor
+        from linkml_reference_validator.etl.fulltext.pmc import PMCFullTextProvider
         from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
         from linkml_reference_validator.etl.sources.pmid import PMIDSource
     except ImportError:
@@ -576,6 +684,12 @@ def apply_patch():
         XMLExtractor.extract = _wrap_xml_extractor(XMLExtractor.extract)
         XMLExtractor._restricted_by_patch_applied = True  # type: ignore[attr-defined]
         logger.debug("Applied restricted-by metadata patch to XMLExtractor")
+
+    if not getattr(PMCFullTextProvider, "_modern_html_patch_applied", False):
+        PMCFullTextProvider._fetch_pmc_html = _fetch_modern_pmc_html
+        PMCFullTextProvider.locate = _locate_pmc_fulltext
+        PMCFullTextProvider._modern_html_patch_applied = True
+        logger.debug("Applied modern PMC article HTML fallback patch")
 
     if not getattr(HTMLExtractor, "_paragraph_whitespace_patch_applied", False):
         HTMLExtractor.extract = _wrap_html_extractor(HTMLExtractor.extract)
