@@ -3818,6 +3818,29 @@
     {% endif %}
     {% endmacro %}
 
+    {# A phenotype bound to a top-level HPO organ-system term ("Abnormality of the
+       eye") looks, on the page, exactly like a specific finding -- which is how a
+       curator stopping early became invisible. The badge tells a reader the
+       coarseness was a decision and which decision it was. It shows nothing the
+       curator did not state: specific findings, where they are known, are
+       ordinary phenotype entries in the same list. #}
+    {% macro render_coarse_binding(descriptor) %}
+    {% if descriptor and descriptor.coarse_binding_basis %}
+    <div class="item-meta">
+        {% set basis_titles = {
+            "VARIABLE_SPECTRUM": "Bound at organ-system level deliberately: involvement of this system is recurrent but its form varies between patients, with no characteristic finding to bind.",
+            "SOURCE_UNSPECIFIED": "Bound at organ-system level deliberately: the cited source characterizes the finding no further, so a narrower term would assert more than the evidence.",
+            "NO_HPO_TERM": "Bound at organ-system level deliberately: the claim is narrower than any available HPO term, and the display name carries the specificity.",
+            "PATHOGRAPH_HUB": "A convergence point in the causal graph rather than a clinical claim: a mechanism reaches this system-level node, which is where several specific findings converge."
+        } %}
+        <span class="tag tag-classification" title="{{ basis_titles.get(descriptor.coarse_binding_basis, '') }}">Coarse binding: {{ descriptor.coarse_binding_basis | replace('_', ' ') | lower }}</span>
+        {% if descriptor.term_gap %}
+        <div class="mapping-notes">Ontology gap: {{ descriptor.term_gap }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endmacro %}
+
     {% macro render_genetic_context(gc) %}
     {% if gc %}
     <div class="item-meta">
@@ -3918,19 +3941,32 @@
     {% endmacro %}
 
 
-    {# Treatment platform rows: therapeutic modality, and for a treatment that acts
-       by base-pairing with a target RNA, the oligonucleotide_details block.
-       delivery_platform and conjugation are shown as separate chips on purpose --
+    {# Treatment platform rows: therapeutic modality, the delivery_system block, and
+       for a treatment that acts by base-pairing with a target RNA, the
+       oligonucleotide_details block.
+
+       The carrier facts (delivery platform, targeting ligand) have two homes. The
+       Treatment-level delivery_system block is the current one and is read first;
+       the copy nested in oligonucleotide_details predates it, still holds most of
+       the KB's oligonucleotide formulations, and is read as the fallback. A
+       treatment carrying both is a curation defect, not a rendering case --
+       `just check-delivery-system` is what reports it -- so the page shows one
+       chip per fact rather than trying to display a disagreement.
+
+       delivery_platform and the targeting ligand are separate chips on purpose:
        they are orthogonal, and collapsing them would hide the distinction that
        matters most here (patisiran is Unconjugated AND Lipid nanoparticle, while
        vutrisiran is GalNAc AND Ligand conjugate). aso_details / aso_mechanism /
-       aso_chemistry are the deprecated spellings and are read as fallbacks so
-       entries authored before the slot was generalized still render. #}
+       aso_chemistry / conjugation are the deprecated spellings and are read as
+       fallbacks so entries authored before the slots were generalized render. #}
     {% macro render_treatment_platform(tx) %}
     {% set oligo = tx.oligonucleotide_details or tx.aso_details %}
+    {% set ds = tx.delivery_system %}
     {% set oligo_mechanism = (oligo.oligonucleotide_mechanism or oligo.aso_mechanism) if oligo else none %}
     {% set oligo_chemistry = (oligo.oligonucleotide_chemistry or oligo.aso_chemistry) if oligo else none %}
-    {% if tx.therapeutic_modality or oligo_mechanism or oligo_chemistry or (oligo and (oligo.delivery_platform or oligo.conjugation)) %}
+    {% set delivery_platform = (ds.delivery_platform if ds else none) or (oligo.delivery_platform if oligo else none) %}
+    {% set targeting_ligand = (ds.targeting_ligand if ds else none) or ((oligo.targeting_ligand or oligo.conjugation) if oligo else none) %}
+    {% if tx.therapeutic_modality or oligo_mechanism or oligo_chemistry or delivery_platform or targeting_ligand %}
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         {% if tx.therapeutic_modality %}
@@ -3939,16 +3975,33 @@
         {% if oligo_mechanism %}
         <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ treatment_platform_label(oligo_mechanism) }}</span>
         {% endif %}
-        {% if oligo and oligo.delivery_platform %}
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: {{ treatment_platform_label(oligo.delivery_platform) }}</span>
+        {% if delivery_platform %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: {{ treatment_platform_label(delivery_platform) }}</span>
         {% endif %}
-        {% if oligo and oligo.conjugation %}
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: {{ treatment_platform_label(oligo.conjugation) }}</span>
+        {% if targeting_ligand %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: {{ treatment_platform_label(targeting_ligand) }}</span>
         {% endif %}
         {% if oligo_chemistry %}
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: {{ treatment_platform_label(oligo_chemistry) }}</span>
         {% endif %}
     </div>
+    {% endif %}
+    {# What a targeted carrier is aimed at. Absent for an untargeted formulation
+       (a PEGylated liposome has no receptor and no target cell), which is why
+       this row is separate from the platform chips above rather than folded in. #}
+    {% if ds and (ds.targeting_receptor or ds.target_cell_types) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Delivery target:</strong>
+        {% if ds.targeting_receptor %}
+        {{ render_descriptor_tag(ds.targeting_receptor, "tag-gene", false, "treatment.targeting_receptor") }}
+        {% endif %}
+        {% for cell_type in ds.target_cell_types or [] %}
+        {{ render_descriptor_tag(cell_type, "tag-cell", false, "treatment.target_cell_types") }}
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if ds and ds.description %}
+    <div class="item-meta" style="font-size: 0.8rem; color: #4b5563;">{{ ds.description }}</div>
     {% endif %}
     {% if oligo and (oligo.target_gene or oligo.target_transcript or oligo.target_exon) %}
     <div class="item-meta">
@@ -5861,6 +5914,7 @@
                         {{ render_descriptor_qualifiers(pheno.phenotype_term) }}
                     </div>
                     {% endif %}
+                    {{ render_coarse_binding(pheno.phenotype_term) }}
                     {% if pheno.notes %}
                     <div class="item-desc">{{ pheno.notes }}</div>
                     {% endif %}
@@ -5928,6 +5982,7 @@
                     {{ render_descriptor_qualifiers(pheno.phenotype_term) }}
                 </div>
                 {% endif %}
+                {{ render_coarse_binding(pheno.phenotype_term) }}
                 {% if pheno.notes %}
                 <div class="item-desc">{{ pheno.notes }}</div>
                 {% endif %}

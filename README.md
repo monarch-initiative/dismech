@@ -20,6 +20,11 @@ Each disorder page includes:
 - Treatment options with NCIT term links
 - All claims backed by PubMed evidence
 
+Related browsers:
+
+- [Curation history dashboard](https://monarch-initiative.github.io/dismech-history/) — explore curation, review, and audit activity by date, agent tool, model, and section.
+- [Monarch NAMs browser](https://monarch-initiative.github.io/monarch-nams/) — explore New Approach Methodologies (NAMs) and research datasets represented in DisMech.
+
 ## How It Works
 
 ### Project Overview Slides
