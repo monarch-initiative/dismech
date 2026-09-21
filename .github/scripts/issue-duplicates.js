@@ -5,6 +5,7 @@ const { createHash } = require('node:crypto');
 const MARKER = 'dismech-duplicate:v1';
 const PENDING_LABEL = 'duplicate-pending';
 const GRACE_MS = 3 * 24 * 60 * 60 * 1000;
+// Native duplicate linkage (duplicate_issue_id) requires this API version.
 const API_HEADERS = { 'X-GitHub-Api-Version': '2026-03-10' };
 
 function fingerprint(issue) {
@@ -81,15 +82,18 @@ function validateCandidates(result, number) {
   if (!Number.isSafeInteger(number) || number < 1 || !Array.isArray(result?.duplicates) ||
       result.duplicates.length > 3) throw new Error('Invalid duplicate results');
   const seen = new Set();
+  const valid = [];
   for (const item of result.duplicates) {
-    if (!Number.isSafeInteger(item.number) || item.number < 1 || item.number >= number ||
+    if (!Number.isSafeInteger(item?.number) || item.number < 1 || item.number >= number ||
         seen.has(item.number) || typeof item.reason !== 'string' ||
         !item.reason.trim() || item.reason.length > 1000) {
-      throw new Error('Candidates must be distinct older issues with explanations');
+      // Plausible model mistakes should not discard other usable matches.
+      continue;
     }
     seen.add(item.number);
+    valid.push(item);
   }
-  return [...result.duplicates].sort((a, b) => a.number - b.number);
+  return valid.sort((a, b) => a.number - b.number);
 }
 
 function plainReason(reason) {
@@ -128,64 +132,112 @@ async function proposeDuplicates(github, repo, { number, fingerprint: original, 
     `<!-- ${MARKER} ${JSON.stringify({ canonical, fingerprint: original })} -->`,
   ].join('\n');
   await ensurePendingLabel(github, repo);
-  // Add, never replace, the labels managed by the existing triage workflow.
-  await github.rest.issues.addLabels({ ...repo, issue_number: number, labels: [PENDING_LABEL] });
-  await github.rest.issues.createComment({ ...repo, issue_number: number, body });
+  const notice = await github.rest.issues.createComment({ ...repo, issue_number: number, body });
+  try {
+    // Add, never replace, the labels managed by the existing triage workflow.
+    await github.rest.issues.addLabels({ ...repo, issue_number: number, labels: [PENDING_LABEL] });
+  } catch (error) {
+    // A notice without its queue label would promise closure that cannot run.
+    // Remove it so a retry can publish a complete proposal.
+    await github.rest.issues.deleteComment({ ...repo, comment_id: notice.data.id });
+    throw error;
+  }
   return true;
 }
 
-async function eligibleDuplicate(github, repo, issue, now) {
-  if (issue.state !== 'open' || issue.pull_request || issue.locked || !isPending(issue)) return null;
+async function assessDuplicate(github, repo, issue, now) {
+  if (!isPending(issue) || issue.pull_request) return { status: 'skip' };
+  if (issue.state !== 'open') return { status: 'cancelled', reason: 'issue is closed' };
   const comments = await commentsFor(github, repo, issue.number);
   const proposals = comments.map(proposal).filter(Boolean);
   // Ambiguous/multiple notices require human review, not a guessed deadline.
-  if (proposals.length !== 1) return null;
+  if (proposals.length !== 1) return { status: 'cancelled', reason: 'missing or ambiguous notice' };
   const pending = proposals[0];
   const since = Date.parse(pending.comment.created_at);
-  if (!Number.isFinite(since) || now - since < GRACE_MS ||
-      pending.canonical >= issue.number || fingerprint(issue) !== pending.fingerprint) return null;
-  if (comments.some(comment => comment.id > pending.comment.id && isHuman(comment.user))) return null;
+  if (!Number.isFinite(since) || pending.canonical >= issue.number) {
+    return { status: 'cancelled', reason: 'invalid notice' };
+  }
+  if (fingerprint(issue) !== pending.fingerprint) return { status: 'cancelled', reason: 'issue was edited' };
+  if (comments.some(comment => comment.id > pending.comment.id && isHuman(comment.user))) {
+    return { status: 'cancelled', reason: 'human reply' };
+  }
   const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
     ...repo, comment_id: pending.comment.id, per_page: 100,
   });
-  if (reactions.some(reaction => reaction.content === '-1' && isHuman(reaction.user))) return null;
+  if (reactions.some(reaction => reaction.content === '-1' && isHuman(reaction.user))) {
+    return { status: 'cancelled', reason: 'human thumbs-down' };
+  }
   const events = await github.paginate(github.rest.issues.listEventsForTimeline, {
     ...repo, issue_number: issue.number, per_page: 100,
   });
-  if (events.some(event => event.event === 'reopened' && Date.parse(event.created_at) >= since)) return null;
+  if (events.some(event => event.event === 'reopened' && Date.parse(event.created_at) >= since)) {
+    return { status: 'cancelled', reason: 'issue was reopened' };
+  }
+  // Objections are cleaned up even while the three-day window is still open.
+  if (issue.locked || now - since < GRACE_MS) return { status: 'waiting' };
   const target = await getIssue(github, repo, pending.canonical);
-  if (target.state !== 'open' || target.pull_request) return null;
-  return target;
+  if (target.state !== 'open' || target.pull_request) {
+    return { status: 'cancelled', reason: 'canonical issue is no longer open' };
+  }
+  return { status: 'eligible', target };
 }
 
-async function closeDuplicates(github, repo, { dryRun = true, now = Date.now(), log = console.log } = {}) {
+async function removePendingLabel(github, repo, number) {
+  try {
+    await github.rest.issues.removeLabel({ ...repo, issue_number: number, name: PENDING_LABEL });
+  } catch (error) {
+    // Another actor may have removed it since our last read.
+    if (error.status !== 404) throw error;
+  }
+}
+
+async function closeDuplicates(github, repo, {
+  dryRun = true, maxClosures = 5, now = Date.now(), log = console.log, warn = console.warn,
+} = {}) {
+  if (!Number.isSafeInteger(maxClosures) || maxClosures < 1 || maxClosures > 50) {
+    throw new Error('maxClosures must be an integer between 1 and 50');
+  }
   const issues = await github.paginate(github.rest.issues.listForRepo, {
     ...repo, state: 'open', labels: PENDING_LABEL, per_page: 100,
   });
   let count = 0;
+  let attempts = 0;
   for (const listed of issues) {
-    if (listed.pull_request || listed.comments === 0 ||
-        now - Date.parse(listed.created_at) < GRACE_MS) continue;
-    const target = await eligibleDuplicate(github, repo, listed, now);
-    if (!target) continue;
-    // Re-read the issue and all vetoes immediately before acting, not from the
-    // potentially old repository listing. Bots may still be researching it.
-    const current = await getIssue(github, repo, listed.number);
-    const confirmed = await eligibleDuplicate(github, repo, current, now);
-    if (!confirmed || confirmed.id !== target.id) continue;
-    log(`${dryRun ? 'Would close' : 'Closing'} #${current.number} as duplicate of #${target.number}`);
-    if (!dryRun) {
-      await github.rest.issues.update({
-        ...repo, issue_number: current.number, state: 'closed',
-        state_reason: 'duplicate', duplicate_issue_id: confirmed.id,
-        headers: API_HEADERS,
-      });
-      await github.rest.issues.removeLabel({ ...repo, issue_number: current.number, name: PENDING_LABEL });
+    try {
+      const decision = await assessDuplicate(github, repo, listed, now);
+      if (decision.status === 'skip' || decision.status === 'waiting') continue;
+      // Re-read the issue and vetoes before either closure or queue cleanup.
+      const current = await getIssue(github, repo, listed.number);
+      const confirmed = await assessDuplicate(github, repo, current, now);
+      if (confirmed.status === 'cancelled') {
+        log(`${dryRun ? 'Would remove' : 'Removing'} ${PENDING_LABEL} from #${current.number}: ${confirmed.reason}`);
+        if (!dryRun) await removePendingLabel(github, repo, current.number);
+        continue;
+      }
+      if (decision.status !== 'eligible' || confirmed.status !== 'eligible' ||
+          confirmed.target.id !== decision.target.id) continue;
+      if (attempts >= maxClosures) {
+        log(`Deferring #${current.number}: closure budget of ${maxClosures} reached`);
+        continue;
+      }
+      // Count attempts, including uncertain API failures, to bound mutations.
+      attempts += 1;
+      log(`${dryRun ? 'Would close' : 'Closing'} #${current.number} as duplicate of #${confirmed.target.number}`);
+      if (!dryRun) {
+        await github.rest.issues.update({
+          ...repo, issue_number: current.number, state: 'closed',
+          state_reason: 'duplicate', duplicate_issue_id: confirmed.target.id,
+          headers: API_HEADERS,
+        });
+      }
+      count += 1;
+      if (!dryRun) await removePendingLabel(github, repo, current.number);
+    } catch (error) {
+      warn(`Duplicate sweep failed for #${listed.number}: ${error.message}`);
     }
-    count += 1;
   }
-  log(`${dryRun ? 'Eligible' : 'Closed'} duplicates: ${count}`);
+  log(`${dryRun ? 'Would close' : 'Closed'} duplicates: ${count}`);
   return count;
 }
 
-module.exports = { fingerprint, prepareSearch, proposeDuplicates, eligibleDuplicate, closeDuplicates };
+module.exports = { fingerprint, prepareSearch, proposeDuplicates, assessDuplicate, closeDuplicates };

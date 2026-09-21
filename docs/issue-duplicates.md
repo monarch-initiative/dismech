@@ -14,8 +14,11 @@ papers, and follow-up ideas are not automatically duplicates.
 
 The agent has a read-only GitHub token and returns structured candidates. A
 separate job checks that the issues are older and still open, and that no human
-has added context while the search ran, then adds `duplicate-pending` and posts
-up to three links with explanations. It records the oldest match as the canonical
+has added context while the search ran, then posts up to three links with
+explanations and adds `duplicate-pending`. Unusable or repeated candidates are
+discarded; valid remaining matches can still be posted. If the notice fails,
+no label is added; if labeling fails, the notice is rolled back for a retry.
+It records the oldest match as the canonical
 issue. The model is selected through `.github/agent-config.yaml` (Sonnet by
 default); manual dispatch accepts an issue number and optional model override.
 
@@ -25,6 +28,9 @@ is implemented by `.github/scripts/issue-duplicates.js` using GitHub's REST API:
 - The bot's duplicate notice starts a three-day objection window.
 - Any subsequent human comment, or any human 👎 on the notice, prevents closure.
   Bot comments, including the normal research response, do not cancel it.
+- On the next sweep, objections, edits, and reopening also remove
+  `duplicate-pending`, even before the three days expire. Missing or invalid
+  notices are removed from the queue too. Dry runs only report this cleanup.
 - Removing `duplicate-pending` also prevents closure. A rerun does not restore
   a removed label or reopen the objection window.
 - Edited, locked, or reopened issues are left open. The canonical issue must
@@ -32,6 +38,10 @@ is implemented by `.github/scripts/issue-duplicates.js` using GitHub's REST API:
 - A daily sweep closes eligible issues with GitHub's native duplicate reason
   and canonical issue ID. This happens on the first sweep after the full three
   days, not at an exact wall-clock deadline.
+- Each sweep attempts at most five closures by default. Manual dispatch accepts
+  `max_closures` from 1 to 50; failed closure requests also consume that budget.
+  Excess candidates stay queued, while cancellation cleanup continues. An API
+  failure on one issue is logged as a warning and does not stop the other issues.
 - Only notices carrying our marker and posted by `github-actions[bot]` count.
   Rerunning detection does not create another notice or restart the clock.
   Existing `duplicate` labels or comments from other workflows cannot trigger
@@ -45,10 +55,11 @@ list of recent issues. There is no local embedding index or hosted database.
 
 The sweep's daily schedule is managed by `.github/cron-profiles.yaml`; the `off`
 profile disables it. Manual dispatch defaults to a **dry run**, logging which
-issues would close. To preview, run:
+issues would close and which labels would be cleared. After merging, run a
+preview over the first real proposals before their three-day windows expire:
 
 ```bash
-gh workflow run auto-close-duplicates.yml -f dry_run=true
+gh workflow run auto-close-duplicates.yml -f dry_run=true -f max_closures=5
 ```
 
 Tests run offline with `node --test tests/js/issue_duplicates.test.mjs` and are

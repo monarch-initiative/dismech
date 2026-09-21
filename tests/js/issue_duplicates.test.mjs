@@ -3,8 +3,13 @@ import { describe, it } from 'node:test';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { fingerprint, prepareSearch, proposeDuplicates, eligibleDuplicate, closeDuplicates } =
+const { fingerprint, prepareSearch, proposeDuplicates, assessDuplicate, closeDuplicates } =
   require('../../.github/scripts/issue-duplicates.js');
+
+async function eligibleDuplicate(...args) {
+  const decision = await assessDuplicate(...args);
+  return decision.status === 'eligible' ? decision.target : null;
+}
 
 const repo = { owner: 'example', repo: 'kb' };
 const bot = { login: 'github-actions[bot]', type: 'Bot' };
@@ -18,7 +23,7 @@ function fixture() {
     state: 'open', comments: 1, labels: ['curation'], created_at: '2026-09-01T00:00:00Z',
   };
   const target = { ...issue, number: 10, id: 1010, comments: 0 };
-  const state = { issues: [issue, target], comments: [], reactions: [], events: [], writes: [], reads: [] };
+  const state = { issues: [issue, target], comments: [], reactions: [], events: [], writes: [], reads: [], deletions: [] };
   const github = {
     rest: {
       issues: {
@@ -35,9 +40,18 @@ function fixture() {
         },
         createComment: async data => {
           state.writes.push(data);
-          state.comments.push({ ...data, id: 1000, user: bot, created_at: warningTime });
+          const comment = { ...data, id: 1000 + state.comments.length, user: bot, created_at: warningTime };
+          state.comments.push(comment);
+          return { data: comment };
         },
-        update: async data => { state.writes.push(data); },
+        deleteComment: async ({ comment_id }) => {
+          state.deletions.push(comment_id);
+          state.comments = state.comments.filter(comment => comment.id !== comment_id);
+        },
+        update: async data => {
+          state.writes.push(data);
+          Object.assign(state.issues.find(issue => issue.number === data.issue_number), { state: data.state });
+        },
       },
       reactions: { listForIssueComment: 'reactions' },
     },
@@ -46,8 +60,10 @@ function fixture() {
       state.reads.push(method);
       if (method === 'issues') {
         assert.equal(args.labels, 'duplicate-pending');
-        return state.issues.filter(issue => issue.labels.includes(args.labels));
+        return state.issues.filter(issue => issue.state === 'open' && issue.labels.includes(args.labels));
       }
+      if (method === 'comments') return state.comments.filter(comment =>
+        comment.issue_number === undefined || comment.issue_number === args.issue_number);
       return [...state[method]];
     },
   };
@@ -96,14 +112,42 @@ describe('duplicate proposals', () => {
     }
   });
 
-  it('rejects self, newer, malformed, repeated and excessive candidates', async () => {
-    const { propose } = fixture();
+  it('drops unusable candidates and duplicate suggestions while keeping valid matches', async () => {
+    const { state, propose } = fixture();
     for (const number of [100, 101, -1, 0, '10', 1.5]) {
-      await assert.rejects(propose([{ number, reason: 'same' }]));
+      assert.equal(await propose([{ number, reason: 'same' }]), false);
     }
-    await assert.rejects(propose([{ number: 10, reason: '' }]));
-    await assert.rejects(propose([{ number: 10, reason: 'same' }, { number: 10, reason: 'same' }]));
+    assert.equal(await propose([{ number: 10, reason: '' }, null]), false);
+    assert.equal(await propose([
+      { number: 10, reason: 'same' }, { number: 10, reason: 'repeated' }, { number: 101, reason: 'newer' },
+    ]), true);
+    assert.equal(state.writes[0].body.match(/^- #10:/gm).length, 1);
+    assert.doesNotMatch(state.writes[0].body, /repeated|newer/);
+  });
+
+  it('rejects a malformed result envelope or too many candidates', async () => {
+    const { propose } = fixture();
+    await assert.rejects(propose({ number: 10, reason: 'not an array' }));
     await assert.rejects(propose([1, 2, 3, 4].map(number => ({ number, reason: 'same' }))));
+  });
+
+  it('does not queue an issue when posting its notice fails', async () => {
+    const { github, issue, propose } = fixture();
+    github.rest.issues.createComment = async () => { throw new Error('Posting failed'); };
+    await assert.rejects(propose(), /Posting failed/);
+    assert.deepEqual(issue.labels, ['curation']);
+  });
+
+  it('rolls back the notice if adding its label fails, allowing a complete retry', async () => {
+    const { github, state, issue, propose } = fixture();
+    const addLabels = github.rest.issues.addLabels;
+    github.rest.issues.addLabels = async () => { throw new Error('Labeling failed'); };
+    await assert.rejects(propose(), /Labeling failed/);
+    assert.deepEqual(state.deletions, [1000]);
+    assert.equal(state.comments.length, 0);
+    assert.deepEqual(issue.labels, ['curation']);
+    github.rest.issues.addLabels = addLabels;
+    assert.equal(await propose(), true);
   });
 
   it('will not post if the issue was edited during the search', async () => {
@@ -205,6 +249,56 @@ describe('duplicate closure', () => {
     assert.deepEqual(state.writes, []);
   });
 
+  for (const objection of ['edit', 'reply', 'thumbs-down', 'reopen', 'missing notice']) {
+    it(`removes the pending label on ${objection}, even before the deadline`, async () => {
+      const { github, state, issue, propose } = fixture();
+      await propose();
+      state.writes = [];
+      issue.created_at = warningTime;
+      if (objection === 'edit') issue.body = 'Different scope';
+      if (objection === 'reply') state.comments.push({ id: 1001, user: human, body: 'Different scope' });
+      if (objection === 'thumbs-down') state.reactions.push({ content: '-1', user: human });
+      if (objection === 'reopen') state.events.push({ event: 'reopened', created_at: warningTime });
+      if (objection === 'missing notice') { state.comments = []; issue.comments = 0; }
+      assert.equal((await assessDuplicate(github, repo, issue, due - 1)).status, 'cancelled');
+      assert.equal(await closeDuplicates(github, repo, { dryRun: false, now: due - 1, log: () => {} }), 0);
+      assert.deepEqual(issue.labels, ['curation']);
+      assert.equal(issue.state, 'open');
+      assert.deepEqual(state.writes, []);
+    });
+  }
+
+  it('previews cancellation without clearing labels in a dry run', async () => {
+    const { github, issue, propose } = fixture();
+    await propose();
+    issue.body = 'Different scope';
+    const logs = [];
+    await closeDuplicates(github, repo, { now: due, log: line => logs.push(line) });
+    assert.match(logs[0], /Would remove duplicate-pending/);
+    assert.deepEqual(issue.labels, ['curation', 'duplicate-pending']);
+  });
+
+  it('does not requeue a cancelled proposal if the thumbs-down is later removed', async () => {
+    const { github, state, issue, propose } = fixture();
+    await propose();
+    state.reactions.push({ content: '-1', user: human });
+    await closeDuplicates(github, repo, { dryRun: false, now: due, log: () => {} });
+    state.reactions = [];
+    assert.equal(await propose(), false);
+    assert.equal(await prepareSearch(github, repo, '100'), null);
+    assert.deepEqual(issue.labels, ['curation']);
+  });
+
+  it('keeps waiting issues queued and distinguishes locking from cancellation', async () => {
+    const { github, issue, propose } = fixture();
+    await propose();
+    assert.equal((await assessDuplicate(github, repo, issue, due - 1)).status, 'waiting');
+    issue.locked = true;
+    assert.equal((await assessDuplicate(github, repo, issue, due)).status, 'waiting');
+    await closeDuplicates(github, repo, { dryRun: false, now: due, log: () => {} });
+    assert.deepEqual(issue.labels, ['curation', 'duplicate-pending']);
+  });
+
   it('rechecks replies arriving between the initial scan and closure', async () => {
     const { github, state, propose } = fixture();
     await propose();
@@ -215,6 +309,91 @@ describe('duplicate closure', () => {
       return get(args);
     };
     assert.equal(await closeDuplicates(github, repo, { dryRun: false, now: due, log: () => {} }), 0);
+    assert.deepEqual(state.writes, []);
+  });
+});
+
+async function batchFixture(size = 2) {
+  const fixtureData = fixture();
+  const { state, issue, propose } = fixtureData;
+  await propose();
+  for (let offset = 1; offset < size; offset++) {
+    const number = issue.number + offset;
+    state.issues.push({ ...issue, number, id: 1100 + offset, labels: [...issue.labels] });
+    state.comments.push({ ...state.comments[0], issue_number: number, id: 1000 + offset });
+  }
+  state.writes = [];
+  return fixtureData;
+}
+
+describe('duplicate sweep limits and errors', () => {
+  it('defaults to five closures and leaves the remainder queued', async () => {
+    const { github, state } = await batchFixture(7);
+    assert.equal(await closeDuplicates(github, repo, { dryRun: false, now: due, log: () => {} }), 5);
+    assert.equal(state.writes.length, 5);
+    assert.equal(state.issues.filter(issue => issue.state === 'open' && issue.labels.includes('duplicate-pending')).length, 2);
+  });
+
+  it('validates the closure budget before reading or writing issues', async () => {
+    const { github, state } = fixture();
+    for (const maxClosures of [0, -1, 51, 1.5, NaN]) {
+      await assert.rejects(closeDuplicates(github, repo, { maxClosures }), /maxClosures/);
+    }
+    assert.deepEqual(state.reads, []);
+    assert.deepEqual(state.writes, []);
+  });
+
+  it('continues cancellation cleanup after reaching the closure budget', async () => {
+    const { github, state } = await batchFixture(3);
+    state.comments.push({ issue_number: 102, id: 1010, user: human, body: 'Different scope' });
+    assert.equal(await closeDuplicates(github, repo, {
+      dryRun: false, maxClosures: 1, now: due, log: () => {},
+    }), 1);
+    assert.deepEqual(state.issues.find(issue => issue.number === 102).labels, ['curation']);
+    assert.equal(state.issues.find(issue => issue.number === 102).state, 'open');
+    assert.ok(state.issues.find(issue => issue.number === 101).labels.includes('duplicate-pending'));
+  });
+
+  it('honors the budget in dry runs without modifying issues', async () => {
+    const { github, state } = await batchFixture(3);
+    assert.equal(await closeDuplicates(github, repo, { maxClosures: 1, now: due, log: () => {} }), 1);
+    assert.deepEqual(state.writes, []);
+    assert.ok(state.issues.every(issue => issue.state === 'open'));
+  });
+
+  it('continues with later issues after an individual API failure', async () => {
+    const { github, state } = await batchFixture();
+    const get = github.rest.issues.get;
+    github.rest.issues.get = async args => {
+      if (args.issue_number === 100) throw new Error('Temporary API failure');
+      return get(args);
+    };
+    const warnings = [];
+    assert.equal(await closeDuplicates(github, repo, {
+      dryRun: false, now: due, log: () => {}, warn: message => warnings.push(message),
+    }), 1);
+    assert.equal(state.writes[0].issue_number, 101);
+    assert.match(warnings[0], /#100: Temporary API failure/);
+  });
+
+  it('tolerates a label removed concurrently with closure', async () => {
+    const { github } = await batchFixture();
+    const remove = github.rest.issues.removeLabel;
+    github.rest.issues.removeLabel = async args => {
+      await remove(args);
+      if (args.issue_number === 100) throw Object.assign(new Error('Already removed'), { status: 404 });
+    };
+    assert.equal(await closeDuplicates(github, repo, { dryRun: false, now: due, log: () => {} }), 2);
+  });
+
+  it('counts uncertain failed closure requests against the budget', async () => {
+    const { github, state } = await batchFixture();
+    let attempts = 0;
+    github.rest.issues.update = async () => { attempts += 1; throw new Error('Response lost'); };
+    assert.equal(await closeDuplicates(github, repo, {
+      dryRun: false, maxClosures: 1, now: due, log: () => {}, warn: () => {},
+    }), 0);
+    assert.equal(attempts, 1);
     assert.deepEqual(state.writes, []);
   });
 });
