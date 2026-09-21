@@ -1,10 +1,16 @@
 """A hypothesis exploration must resolve to the entry whose hypothesis it explores.
 
-``render.collect_hypothesis_research_links`` performs two verbatim name matches
-and has no fallback for either: the directory under ``kb/hypotheses/`` must be
-named for the entry's filename stem, and each subdirectory must be named for a
-``hypothesis_group_id`` that entry declares. A mismatch is silent to every other
-check in the repo, and its only symptom is an absence on the rendered page.
+``render.collect_hypothesis_research_links`` performs two verbatim name matches:
+the directory under ``kb/hypotheses/`` must be named for the entry's filename
+stem, and each subdirectory must be named for a ``hypothesis_group_id`` that
+entry declares. ``render_disorder`` softens the first with one retry on
+``slugify(name)``, fired whenever the primary lookup yields no sections -- which
+happens both when the directory is missing and when it holds no report.
+
+So a directory reached only by that retry does render, and the checker reports
+it as advisory rather than failing it; only a directory reached by neither name
+is unreachable. A mismatch that survives both is silent to every other check in
+the repo, and its only symptom is an absence on the rendered page.
 """
 
 from __future__ import annotations
@@ -207,5 +213,5 @@ def test_report_mode_never_fails(repo: Path, monkeypatch: pytest.MonkeyPatch) ->
 def test_committed_kb_has_no_disconnected_hypothesis_directories() -> None:
     """The real tree must stay clean; this is the regression guard."""
     root = Path(__file__).resolve().parents[1]
-    findings = collect(root)
-    assert findings == [], "\n".join(f"{f.directory}: {f.detail}" for f in findings)
+    blocking = [f for f in collect(root) if f.kind in BLOCKING_KINDS]
+    assert blocking == [], "\n".join(f"{f.directory}: {f.detail}" for f in blocking)
