@@ -748,11 +748,12 @@ No claim is made to have read that entire primary paper. The review's full
 bibliography was read, but its dozens of underlying studies were not all
 independently verified.
 
-The supplied PDF remains unchanged. No source PDF, extracted full text, or
-tool-generated full-text reference cache is committed by this exploration.
-The quoted evidence verified against local tool-generated caches. Reproducing
-those checks from a checkout requires the `fetch-reference` command above while
-full-text cache publication remains outside the authorized scope.
+The supplied PDF remains unchanged. The uploaded PDF and its local text
+extraction are excluded from the commit. Chris explicitly authorized including
+the four standard, tool-generated reference caches in the PR, including their
+public full-article content where available. The quoted evidence can therefore
+be checked against the committed caches; `fetch-reference` above regenerates
+these records when needed.
 The initial exploration was entirely local, with no commit, push, PR, publication
 or external message. In a subsequent, explicitly authorized follow-up, Chris
 requested [issue #12355](https://github.com/monarch-initiative/dismech/issues/12355)
