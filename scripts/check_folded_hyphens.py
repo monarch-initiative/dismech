@@ -23,11 +23,16 @@ continuation line begins with a coordinating word (``and``/``or``/``to``/
 
 No baseline
 -----------
-This check gates on *every* finding. It did not always: a backlog of 330 splits
-predating the guard was grandfathered in ``tests/folded_hyphen_baseline.txt``,
-so that new occurrences could be gated without first repairing the backlog. The
-backlog was repaired in dismech #11760 (293 splits across 181 files) and the
-baseline mechanism removed in #12372, which was #4800's stated endpoint.
+This check gates on *every* finding. It did not always: the backlog predating
+the guard was grandfathered in ``tests/folded_hyphen_baseline.txt`` (dismech
+#4802), so that new occurrences could be gated without first repairing it.
+dismech #11760 repaired that backlog -- 293 splits across 181 files -- and took
+the file from 330 rows to 0, and the baseline mechanism was removed in #12372,
+which was #4800's stated endpoint.
+
+Rows and splits are not the same count, so do not read 330 and 293 as a
+discrepancy: a row recorded a finding as of the last baseline regeneration, and
+the two drifted apart over the months between (#6702 is one such edit).
 
 So there is no longer a way to grandfather a finding, deliberately. If the
 detector flags a line that is genuinely correct, the fix is to teach the
@@ -69,7 +74,7 @@ COORD_RE = re.compile(r"^(and|or|to|vs|nor|&)\b", re.IGNORECASE)
 # compound -- ``ER+/HER2- metastatic``, ``gsp+ and gsp- patients``,
 # ``T-B-NK- immunophenotype``. There the following space is real text, so
 # "repairing" it destroys the clinical meaning (and, in a snippet, the quote).
-# Four such lines were flagged as bugs and joined by the #4800 sweep before
+# Four such lines were flagged as bugs and joined by the #11760 sweep before
 # review caught them; these rules stop the next sweep reintroducing them.
 #
 # The trade-off runs the other way from COORD_RE: an exemption here means a
