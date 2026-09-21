@@ -1573,6 +1573,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#inactive-pr-assignments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inactive PR assignments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tending-abandoned-prs-and-repairing-cache-conflicts" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -24911,6 +24922,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#inactive-pr-assignments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inactive PR assignments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tending-abandoned-prs-and-repairing-cache-conflicts" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -25343,6 +25365,55 @@ is repetition against unchanged content. The count is keyed on the head commit's
 <p>Draft state is metadata, not a hold. An otherwise eligible draft is marked
 ready immediately before a complete re-read of the merge guards. If the attempt
 does not merge, its original draft state is restored.</p>
+<h3 id="inactive-pr-assignments">Inactive PR assignments</h3>
+<p>The independent <code>assignment-inactivity</code> job releases abandoned assignment holds
+without asking a model to judge whether a PR is active. It runs on every shepherd
+schedule, including controller-only hours, and covers every open assigned PR,
+including human-authored PRs and drafts.</p>
+<ol>
+<li>After <strong>seven days</strong> without a comment or commit from a current assignee,
+   post one reminder tagging both the author and the assignees.</li>
+<li>At <strong>fourteen days since the last assignee activity</strong>, remove the assignment
+   if the reminder is still unanswered. The reminder does not start a new clock.</li>
+<li>Any current assignee's comment or commit resets the clock. A later week of
+   inactivity starts a new reminder cycle, and unassignment becomes due fourteen
+   days after that new activity.</li>
+</ol>
+<p>PR comments (including edits), inline review comments, submitted reviews, and
+commits whose author or committer GitHub identity matches a current assignee
+count as activity. Commit activity uses the timestamp of the matching identity:
+a bot rebasing an old assignee-authored commit does not refresh the owner's clock.
+Comments from other people, CI, and the reminder itself do not extend a hold.
+For several assignees, activity from any one keeps the joint assignment alive.
+Adding, removing, or re-adding an assignee starts a new ownership period, so an
+old reminder cannot remove a new assignment.</p>
+<p>The reminder is recorded in a machine-readable footer on the bot's comment;
+only reminders posted by the verified <code>ai4c-agent[bot]</code> identity are accepted.
+This avoids duplicate reminders on repeated sweeps. A PR that was already
+inactive for fourteen days receives a reminder first and can be unassigned on
+the next sweep if no assignee responds. The current schedule is hourly, so the
+existing overdue backlog may get only about an hour's notice; there is no extra
+grace period measured from the reminder. A copied marker in someone else's
+comment cannot authorize unassignment.</p>
+<p>The job reads all pages of assignment events, comments, reviews, and PR commits,
+then rereads them immediately before either write. Closed PRs, new activity,
+changed assignment or head, and incomplete or unavailable history prevent the
+write. GitHub's PR-commit endpoint is capped at 250 commits; larger PRs are
+deferred rather than being judged inactive from partial history. The job uses
+trusted default-branch Python with no PR checkout or dependencies. Its separate
+App token has only pull-request write permission and is used only to post the
+reminder or remove the inspected assignees. Runs serialize with one another.</p>
+<p><code>max_assignment_actions</code> is a shared budget of 10 reminders and releases per run;
+<code>0</code> disables the job's actions. <code>dry_run</code> and <code>pr_number</code> also apply. To preview
+locally:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/expire_pr_assignments.py<span class="w"> </span>--repo<span class="w"> </span>monarch-initiative/dismech<span class="w"> </span>--dry-run
+</code></pre></div>
+<p>The summary distinguishes assigned PRs found, PRs inspected, actions, deferrals,
+and errors. Changed or incomplete histories are reported as deferrals without
+failing the job. API and other unexpected failures fail the job; CLI errors
+include the exit code without exposing command arguments or response bodies.
+Releasing an assignment does not close or merge the PR, change reviews, or
+override the repair jobs' separate author restrictions.</p>
 <h3 id="tending-abandoned-prs-and-repairing-cache-conflicts">Tending abandoned PRs and repairing cache conflicts</h3>
 <p>The shepherd owns eligible abandoned code and documentation PRs as well as
 curation PRs. Python changes in <code>src/</code>, <code>scripts/</code>, and <code>tests/</code> are ordinary
