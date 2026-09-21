@@ -13,6 +13,7 @@ year: '2015'
 doi: 10.1002/jbmr.2438
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # MicroRNA-140 Provides Robustness to the Regulation of Hypertrophic Chondrocyte Differentiation by the PTHrP-HDAC4 Pathway

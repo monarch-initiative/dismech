@@ -9,6 +9,7 @@ year: '2020'
 doi: 10.3233/trd-200049
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Disorders of phenylalanine and tyrosine metabolism

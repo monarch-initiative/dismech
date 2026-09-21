@@ -15,6 +15,7 @@ year: '2024'
 doi: 10.1093/eurheartj/ehae417
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Sex differences in treatment of familial hypercholesterolaemia: a meta-analysis

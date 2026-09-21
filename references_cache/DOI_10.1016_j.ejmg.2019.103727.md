@@ -22,6 +22,7 @@ year: '2019'
 doi: 10.1016/j.ejmg.2019.103727
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel pathogenic TGFBR1 and SMAD3 variants identified after cerebrovascular events in adult patients with Loeys-dietz syndrome

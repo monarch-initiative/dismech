@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3389/fimmu.2024.1403798
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Therapeutic strategies focusing on immune dysregulation and neuroinflammation in rosacea

@@ -9,6 +9,7 @@ year: '2016'
 doi: 10.1007/s12016-015-8506-7
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hypereosinophilic Syndrome

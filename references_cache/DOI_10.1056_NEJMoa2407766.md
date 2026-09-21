@@ -35,6 +35,7 @@ year: '2025'
 doi: 10.1056/NEJMoa2407766
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # AAV9-Mediated Gene Therapy for Infantile-Onset Pompe’s Disease

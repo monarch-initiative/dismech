@@ -22,6 +22,7 @@ year: '2024'
 doi: 10.7759/cureus.62592
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Management of Long QT Syndrome: A Systematic Review

@@ -19,6 +19,7 @@ year: '2022'
 doi: 10.3390/ijms232315133
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Functional Effects of Epilepsy Associated KCNT1 Mutations Suggest Pathogenesis via Aberrant Inhibitory Neuronal Activity

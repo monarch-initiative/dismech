@@ -14,6 +14,7 @@ year: '2026'
 doi: 10.3390/cells15090821
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Latrophilin-1-Mediated Gαq Signaling, Store-Operated Ca2+ Entry, and CaV2.1 Activation Control Spontaneous Exocytosis at the Mouse Neuromuscular Junction

@@ -12,6 +12,7 @@ year: '2023'
 doi: 10.1002/jdn.10290
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # X‐linked neuronal migration disorders: Gender differences and insights for genetic screening

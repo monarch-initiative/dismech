@@ -11,6 +11,7 @@ year: '2020'
 doi: 10.3390/genes11060672
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A Deletion in GDF7 is Associated with a Heritable Forebrain Commissural Malformation Concurrent with Ventriculomegaly and Interhemispheric Cysts in Cats

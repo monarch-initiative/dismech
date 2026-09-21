@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1097/MS9.0000000000002462
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Griscelli syndrome: a diagnostic challenge of a rare disease: a case report

@@ -10,6 +10,7 @@ year: '2023'
 doi: 10.3390/ijms241411734
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Understanding the Molecular Basis of the Multiple Mitochondrial Dysfunctions Syndrome 2: The Disease-Causing His96Arg Mutation of BOLA3

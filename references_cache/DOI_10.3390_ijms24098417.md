@@ -10,6 +10,7 @@ year: '2023'
 doi: 10.3390/ijms24098417
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Presenilin-1 (PSEN1) Mutations: Clinical Phenotypes beyond Alzheimer’s Disease

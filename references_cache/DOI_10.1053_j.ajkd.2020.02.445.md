@@ -34,6 +34,7 @@ year: '2020'
 doi: 10.1053/j.ajkd.2020.02.445
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Organ Transplantation in Hereditary Fibrinogen A α-Chain Amyloidosis: A Case Series of French Patients

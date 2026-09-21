@@ -13,6 +13,7 @@ year: '2021'
 doi: 10.1002/ccr3.4036
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Familiar del3p syndrome: The uncertainty of the prognosis. A case report

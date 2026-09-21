@@ -37,6 +37,7 @@ year: '2023'
 doi: 10.1073/pnas.2214997120
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pleiotropic role of TRAF7 in skull-base meningiomas and congenital heart disease

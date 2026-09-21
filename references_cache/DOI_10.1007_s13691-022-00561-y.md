@@ -19,6 +19,7 @@ year: '2022'
 doi: 10.1007/s13691-022-00561-y
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Two case reports of immune checkpoint therapy on chromophobe renal cell carcinoma with sarcomatoid differentiation

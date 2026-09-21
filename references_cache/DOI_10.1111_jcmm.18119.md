@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.1111/jcmm.18119
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Autosomal recessive non‐syndromic hearing loss genes in Pakistan during the previous three decades

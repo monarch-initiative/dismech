@@ -14,6 +14,7 @@ year: '2025'
 doi: 10.1111/jns.70048
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mitochondrial Trifunctional Protein Deficiency due to <scp><i>HADHA</i></scp> Variants Masquerading as Charcot–Marie–Tooth Disease

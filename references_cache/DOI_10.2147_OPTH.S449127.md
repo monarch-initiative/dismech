@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.2147/OPTH.S449127
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Retrospective Analysis of Factors Related to the Long-Term Recovery of Third, Fourth, and Sixth Cranial Nerve Palsy with Etiologies and Clinical Course in a Tertiary Hospital

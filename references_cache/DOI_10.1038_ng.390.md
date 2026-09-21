@@ -18,6 +18,7 @@ year: '2009'
 doi: 10.1038/ng.390
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutation in TACO1, encoding a translational activator of COX I, results in cytochrome c oxidase deficiency and late-onset Leigh syndrome

@@ -10,6 +10,7 @@ year: '2025'
 doi: 10.1111/jvim.70139
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Changes in Serum Proteomic Profiles at Different Stages of Pregnancy Toxemia in Goats

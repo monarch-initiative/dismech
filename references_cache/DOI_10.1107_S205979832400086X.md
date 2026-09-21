@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1107/S205979832400086X
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Using cryo-EM to understand the assembly pathway of respiratory complex I

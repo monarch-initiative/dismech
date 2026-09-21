@@ -20,6 +20,7 @@ year: '2024'
 doi: 10.1161/CIRCGEN.123.004416
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical Guideline for Preimplantation Genetic Testing in Inherited Cardiac Diseases

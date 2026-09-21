@@ -11,6 +11,7 @@ year: '2012'
 doi: 10.1093/brain/awr261
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Assembly factors as a new class of disease genes for mitochondrial complex I deficiency: cause, pathology and treatment options

@@ -35,6 +35,7 @@ year: '2022'
 doi: 10.1016/j.ajhg.2021.11.016
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Monoallelic IFT140 pathogenic variants are an important cause of the autosomal dominant polycystic kidney-spectrum phenotype

@@ -12,6 +12,7 @@ year: '2004'
 doi: 10.1073/pnas.0402490101
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic evidence that the human CYP2R1 enzyme is a key vitamin D 25-hydroxylase

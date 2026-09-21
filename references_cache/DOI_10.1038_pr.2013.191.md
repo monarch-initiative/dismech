@@ -9,6 +9,7 @@ year: '2014'
 doi: 10.1038/pr.2013.191
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pathophysiology of childhood polycystic kidney diseases: new insights into disease-specific therapy

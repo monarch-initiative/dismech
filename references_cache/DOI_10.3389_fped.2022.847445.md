@@ -15,6 +15,7 @@ year: '2022'
 doi: 10.3389/fped.2022.847445
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Case Report: Advanced Skeletal Muscle Imaging in S-Adenosylhomocysteine Hydrolase Deficiency and Further Insight Into Muscle Pathology

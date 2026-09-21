@@ -22,6 +22,7 @@ year: '2016'
 doi: 10.1074/jbc.m116.749424
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Exercise Inducible Lactate Dehydrogenase B Regulates Mitochondrial Function in Skeletal Muscle

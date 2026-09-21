@@ -13,6 +13,7 @@ year: '2023'
 doi: 10.3390/genes14030552
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pathogenicity Analysis of a Novel Variant in GTPBP3 Causing Mitochondrial Disease and Systematic Literature Review

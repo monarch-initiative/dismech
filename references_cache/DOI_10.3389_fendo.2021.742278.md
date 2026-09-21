@@ -14,6 +14,7 @@ year: '2021'
 doi: 10.3389/fendo.2021.742278
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Case Report: Homozygous DNAJC3 Mutation Causes Monogenic Diabetes Mellitus Associated With Pancreatic Atrophy

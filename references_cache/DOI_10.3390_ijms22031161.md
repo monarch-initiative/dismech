@@ -11,6 +11,7 @@ year: '2021'
 doi: 10.3390/ijms22031161
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Cardiomyocytes Derived from Induced Pluripotent Stem Cells as a Disease Model for Propionic Acidemia

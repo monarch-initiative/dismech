@@ -8,6 +8,7 @@ year: '2002'
 doi: 10.1002/0471141755.ph0529s18
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Electrocardiographic Toxicity in the Guinea Pig

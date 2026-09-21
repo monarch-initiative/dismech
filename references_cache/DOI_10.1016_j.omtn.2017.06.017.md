@@ -18,6 +18,7 @@ year: '2017'
 doi: 10.1016/j.omtn.2017.06.017
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Antisense Oligonucleotides Reduce RNA Foci in Spinocerebellar Ataxia 36 Patient iPSCs

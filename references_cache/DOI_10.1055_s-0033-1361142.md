@@ -15,6 +15,7 @@ year: '2014'
 doi: 10.1055/s-0033-1361142
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Successful Haploidentical Hematopoietic Stem Cell Transplantation in a Patient with SCID due to CD3ε Deficiency: Need for IgG-Substitution 6 Years Later

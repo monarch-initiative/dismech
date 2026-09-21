@@ -23,6 +23,7 @@ year: '2010'
 doi: 10.1016/j.ajhg.2010.02.003
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in TPRN Cause a Progressive Form of Autosomal-Recessive Nonsyndromic Hearing Loss

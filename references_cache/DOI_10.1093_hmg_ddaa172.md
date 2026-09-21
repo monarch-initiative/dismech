@@ -11,6 +11,7 @@ year: '2020'
 doi: 10.1093/hmg/ddaa172
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Assembly of the [4Fe–4S] cluster of NFU1 requires the coordinated donation of two [2Fe–2S] clusters from the scaffold proteins, ISCU2 and ISCA1

@@ -8,6 +8,7 @@ year: '2016'
 doi: 10.1152/physrev.00031.2015
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Parathyroid Hormone-Related Protein, Its Regulation of Cartilage and Bone Development, and Role in Treating Bone Diseases

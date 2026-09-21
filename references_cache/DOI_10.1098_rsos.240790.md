@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1098/rsos.240790
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The roles of TAF1 in neuroscience and beyond

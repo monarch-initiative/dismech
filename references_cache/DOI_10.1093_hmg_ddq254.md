@@ -18,6 +18,7 @@ year: '2010'
 doi: 10.1093/hmg/ddq254
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mitochondrial ATP synthase deficiency due to a mutation in the ATP5E gene for the F1   subunit

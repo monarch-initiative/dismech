@@ -19,6 +19,7 @@ year: '2008'
 doi: 10.1016/j.ajhg.2008.05.007
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # NDUFA2 Complex I Mutation Leads to Leigh Disease

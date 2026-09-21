@@ -47,6 +47,7 @@ year: '2014'
 doi: 10.1016/j.ajhg.2014.10.002
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Truncating and Missense Mutations in IGHMBP2 Cause Charcot-Marie Tooth Disease Type 2

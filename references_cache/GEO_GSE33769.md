@@ -2,6 +2,7 @@
 reference_id: GEO:GSE33769
 title: Common gene expression profile in the mitochondrial syndrome of coenzyme Q deficiency
 content_type: summary
+full_text_attempted: true
 ---
 
 # Common gene expression profile in the mitochondrial syndrome of coenzyme Q deficiency

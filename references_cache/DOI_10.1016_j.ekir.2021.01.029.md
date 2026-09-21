@@ -13,6 +13,7 @@ year: '2021'
 doi: 10.1016/j.ekir.2021.01.029
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hepatic Lactate Dehydrogenase A: An RNA Interference Target for the Treatment of All Known Types of Primary Hyperoxaluria

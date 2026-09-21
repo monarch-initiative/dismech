@@ -14,6 +14,7 @@ year: '2011'
 doi: 10.1002/ajmg.a.34071
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A loss of function mutation in the <i>COL9A2</i> gene causes autosomal recessive Stickler syndrome

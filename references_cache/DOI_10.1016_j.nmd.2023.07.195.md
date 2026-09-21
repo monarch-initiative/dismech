@@ -23,6 +23,7 @@ year: '2023'
 doi: 10.1016/j.nmd.2023.07.195
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # P285 Bi-allelic variants in HMGCR cause limb girdle muscular dystrophy and further implicate the mevalonate pathway in muscle disease

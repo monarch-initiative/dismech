@@ -15,6 +15,7 @@ year: '1999'
 doi: 10.1046/j.1365-3156.1999.00397.x
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Epidemic of self‐poisoning with seeds of the yellow oleander tree (Thevetia peruviana) in northern Sri Lanka

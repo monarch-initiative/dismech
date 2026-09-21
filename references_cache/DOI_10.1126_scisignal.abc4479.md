@@ -11,6 +11,7 @@ year: '2021'
 doi: 10.1126/scisignal.abc4479
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A disease-associated mutation that weakens ZAP70 autoinhibition enhances responses to weak and self-ligands

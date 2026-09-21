@@ -16,6 +16,7 @@ year: '2024'
 doi: 10.1002/acn3.51980
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biallelic variants in <i>GTPBP3</i>: New patients, phenotypic spectrum, and outcome

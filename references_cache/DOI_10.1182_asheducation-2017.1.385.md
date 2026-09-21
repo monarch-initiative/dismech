@@ -9,6 +9,7 @@ year: '2017'
 doi: 10.1182/asheducation-2017.1.385
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hereditary thrombocytopenias: a growing list of disorders

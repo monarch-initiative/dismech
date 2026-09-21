@@ -27,6 +27,7 @@ year: '2018'
 doi: 10.1182/blood-2017-12-824433
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Syndromic congenital myelofibrosis associated with a loss-of-function variant in RBSN

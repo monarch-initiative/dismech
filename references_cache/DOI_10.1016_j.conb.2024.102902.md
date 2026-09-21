@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.1016/j.conb.2024.102902
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Emerging X-linked genes associated with neurodevelopmental disorders in females

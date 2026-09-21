@@ -12,6 +12,7 @@ year: '2023'
 doi: 10.1177/11795565231162839
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Positive Newborn Screening for Severe Combined Immunodeficiency: What Should the Pediatrician Do?

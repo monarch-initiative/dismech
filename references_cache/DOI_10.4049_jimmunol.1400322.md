@@ -17,6 +17,7 @@ year: '2014'
 doi: 10.4049/jimmunol.1400322
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Membrane Association of the CD3ε Signaling Domain Is Required for Optimal T Cell Development and Function

@@ -19,6 +19,7 @@ year: '2023'
 doi: 10.1099/jmm.0.001721
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Evaluation and validation of a commercial ELISA versus the in vitro toxin neutralization assay for determination of diphtheria anti-toxin in human serum

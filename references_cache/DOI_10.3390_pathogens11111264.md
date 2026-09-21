@@ -13,6 +13,7 @@ year: '2022'
 doi: 10.3390/pathogens11111264
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # New Corynebacterium Species with the Potential to Produce Diphtheria Toxin

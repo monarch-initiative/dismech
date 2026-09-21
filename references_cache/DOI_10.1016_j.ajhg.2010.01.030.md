@@ -18,6 +18,7 @@ year: '2010'
 doi: 10.1016/j.ajhg.2010.01.030
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Targeted Capture and Next-Generation Sequencing Identifies C9orf75, Encoding Taperin, as the Mutated Gene in Nonsyndromic Deafness DFNB79

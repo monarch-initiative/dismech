@@ -14,6 +14,7 @@ year: '2006'
 doi: 10.1242/dev.02308
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Regulation of procollagen amino-propeptide processing during mouse embryogenesis by specialization of homologous ADAMTS proteases: insights on collagen biosynthesis and dermatosparaxis

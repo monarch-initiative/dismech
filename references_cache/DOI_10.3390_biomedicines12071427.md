@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3390/biomedicines12071427
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical Genetic Testing for Hearing Loss: Implications for Genetic Counseling and Gene-Based Therapies

@@ -20,6 +20,7 @@ year: '2000'
 doi: 10.1161/01.CIR.101.15.1812
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Dilated Cardiomyopathy and Sensorineural Hearing Loss

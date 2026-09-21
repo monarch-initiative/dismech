@@ -23,6 +23,7 @@ year: '2008'
 doi: 10.1016/j.ajhg.2008.03.014
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Alopecia, Neurological Defects, and Endocrinopathy Syndrome Caused by Decreased Expression of RBM28, a Nucleolar Protein Associated with Ribosome Biogenesis

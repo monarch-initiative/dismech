@@ -14,6 +14,7 @@ year: '2023'
 doi: 10.1093/hmg/ddac283
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinically relevant mouse models of Charcot–Marie–Tooth type 2S

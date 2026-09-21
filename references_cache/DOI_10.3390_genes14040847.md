@@ -10,6 +10,7 @@ year: '2023'
 doi: 10.3390/genes14040847
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Characteristics of a Three-Generation Family with Stickler Syndrome Type I Carrying Two Different COL2A1 Mutations

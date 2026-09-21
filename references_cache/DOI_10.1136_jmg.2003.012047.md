@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1136/jmg.2003.012047
-title: "Respiratory chain complex V deficiency due to a mutation in the assembly gene
-                    <i>ATP12</i>"
+title: "Respiratory chain complex V deficiency due to a mutation in the assembly gene <i>ATP12</i>"
 authors:
 - L De Meirleir
 - S Seneca
@@ -16,10 +15,10 @@ year: '2004'
 doi: 10.1136/jmg.2003.012047
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Respiratory chain complex V deficiency due to a mutation in the assembly gene
-                    <i>ATP12</i>
+# Respiratory chain complex V deficiency due to a mutation in the assembly gene <i>ATP12</i>
 **Authors:** L De Meirleir, S Seneca, W Lissens, I De Clercq, F Eyskens, E Gerlo, J Smet, R Van Coster
 **Journal:** Journal of Medical Genetics (2004)
 **DOI:** [10.1136/jmg.2003.012047](https://doi.org/10.1136/jmg.2003.012047)

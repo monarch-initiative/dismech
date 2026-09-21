@@ -28,6 +28,7 @@ year: '2022'
 doi: 10.1093/hmg/ddac120
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # RABENOSYN separation-of-function mutations uncouple endosomal recycling from lysosomal degradation, causing a distinct Mendelian disorder

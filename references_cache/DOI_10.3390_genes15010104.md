@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.3390/genes15010104
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Germline POT1 Variants: A Critical Perspective on POT1 Tumor Predisposition Syndrome

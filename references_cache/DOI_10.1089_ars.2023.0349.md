@@ -11,6 +11,7 @@ year: '2023'
 doi: 10.1089/ars.2023.0349
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Nicotinamide Adenine Dinucleotide Deficiency and Its Impact on Mammalian Development

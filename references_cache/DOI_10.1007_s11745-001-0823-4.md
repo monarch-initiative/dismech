@@ -13,6 +13,7 @@ year: '2001'
 doi: 10.1007/s11745-001-0823-4
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Absorption and effects of 3‐(<i>N</i>‐phenylamino)‐1,2‐propanediol esters in relation to toxic oil syndrome

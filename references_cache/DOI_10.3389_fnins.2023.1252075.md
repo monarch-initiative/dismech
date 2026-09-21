@@ -11,6 +11,7 @@ year: '2023'
 doi: 10.3389/fnins.2023.1252075
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Exploring the relationship between IGHMBP2 gene mutations and spinal muscular atrophy with respiratory distress type 1 and Charcot-Marie-Tooth disease type 2S: a systematic review

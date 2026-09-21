@@ -20,6 +20,7 @@ year: '2023'
 doi: 10.3390/jcm12247715
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Extrapulmonary Neuroendocrine Carcinomas: Current Management and Future Perspectives

@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1161/CIRCGEN.119.002648
-title: "<i>MRAS</i>
-            Variants Cause Cardiomyocyte Hypertrophy in Patient-Specific Induced Pluripotent Stem Cell-Derived Cardiomyocytes"
+title: "<i>MRAS</i> Variants Cause Cardiomyocyte Hypertrophy in Patient-Specific Induced Pluripotent Stem Cell-Derived Cardiomyocytes"
 authors:
 - Erin M. Higgins
 - J. Martijn Bos
@@ -13,10 +12,10 @@ year: '2019'
 doi: 10.1161/CIRCGEN.119.002648
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <i>MRAS</i>
-            Variants Cause Cardiomyocyte Hypertrophy in Patient-Specific Induced Pluripotent Stem Cell-Derived Cardiomyocytes
+# <i>MRAS</i> Variants Cause Cardiomyocyte Hypertrophy in Patient-Specific Induced Pluripotent Stem Cell-Derived Cardiomyocytes
 **Authors:** Erin M. Higgins, J. Martijn Bos, Steven M. Dotzler, CS John Kim, Michael J. Ackerman
 **Journal:** Circulation: Genomic and Precision Medicine (2019)
 **DOI:** [10.1161/CIRCGEN.119.002648](https://doi.org/10.1161/CIRCGEN.119.002648)

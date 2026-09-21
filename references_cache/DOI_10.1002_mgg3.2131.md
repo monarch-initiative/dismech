@@ -16,6 +16,7 @@ year: '2023'
 doi: 10.1002/mgg3.2131
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Bi‐allelic loss of function variant in the <i>NRCAM</i> gene is associated with motor‐predominant axonal polyneuropathy; the second report

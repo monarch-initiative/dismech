@@ -92,6 +92,7 @@ year: '2015'
 doi: 10.1016/j.ajhg.2015.07.004
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in DDX3X Are a Common Cause of Unexplained Intellectual Disability with Gender-Specific Effects on Wnt Signaling

@@ -8,6 +8,7 @@ year: '1985'
 doi: 10.1016/S0735-1097(85)80460-5
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Cellular electrophysiology of digitalis toxicity

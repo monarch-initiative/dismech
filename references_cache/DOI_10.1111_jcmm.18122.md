@@ -20,6 +20,7 @@ year: '2024'
 doi: 10.1111/jcmm.18122
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Proteomic studies in <i>VWA1</i>‐related neuromyopathy allowed new pathophysiological insights and the definition of blood biomarkers

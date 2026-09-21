@@ -11,6 +11,7 @@ year: '2011'
 doi: 10.1111/j.1365-2133.2010.10122.x
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Dermatological findings in 61 mutation-positive individuals with cardiofaciocutaneous syndrome

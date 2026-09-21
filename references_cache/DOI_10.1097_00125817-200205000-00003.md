@@ -14,6 +14,7 @@ year: '2002'
 doi: 10.1097/00125817-200205000-00003
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Prevalence of aortic root dilation in the Ehlers-Danlos syndrome

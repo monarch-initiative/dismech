@@ -18,6 +18,7 @@ year: '2020'
 doi: 10.1002/bdr2.1711
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Sinus pericranii, skull defects, and structural brain anomalies in<scp>TRAF7</scp>‐related disorder

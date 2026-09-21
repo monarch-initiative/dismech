@@ -16,6 +16,7 @@ year: '2022'
 doi: 10.3389/fnmol.2022.793001
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Expansion of Clinical and Genetic Spectrum of DDX3X Neurodevelopmental Disorder in 23 Chinese Patients

@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.3389/fimmu.2024.1360369
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # An updated management approach of Pompe disease patients with high-sustained anti-rhGAA IgG antibody titers: experience with bortezomib-based immunomodulation

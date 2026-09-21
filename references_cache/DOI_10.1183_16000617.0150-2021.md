@@ -10,6 +10,7 @@ year: '2022'
 doi: 10.1183/16000617.0150-2021
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Eosinophils and eosinophilic immune dysfunction in health and disease

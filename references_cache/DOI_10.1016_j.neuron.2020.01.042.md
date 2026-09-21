@@ -61,6 +61,7 @@ year: '2020'
 doi: 10.1016/j.neuron.2020.01.042
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pathogenic DDX3X Mutations Impair RNA Metabolism and Neurogenesis during Fetal Cortical Development

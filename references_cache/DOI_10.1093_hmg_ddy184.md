@@ -19,6 +19,7 @@ year: '2018'
 doi: 10.1093/hmg/ddy184
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Assessment of rosacea symptom severity by genome-wide association study and expression analysis highlights immuno-inflammatory and skin pigmentation genes

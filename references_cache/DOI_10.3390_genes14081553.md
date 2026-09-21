@@ -18,6 +18,7 @@ year: '2023'
 doi: 10.3390/genes14081553
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Rare IFT140-Associated Phenotype of Cranioectodermal Dysplasia and Features of Diagnostic Journey in Patients with Suspected Ciliopathies

@@ -34,6 +34,7 @@ year: '2012'
 doi: 10.1007/s10545-012-9461-6
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Study of <i>LPIN1</i>, <i>LPIN2</i> and <i>LPIN3</i> in rhabdomyolysis and exercise‐induced myalgia

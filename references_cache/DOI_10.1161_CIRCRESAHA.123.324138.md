@@ -26,6 +26,7 @@ year: '2024'
 doi: 10.1161/CIRCRESAHA.123.324138
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Ferroptosis-Mediated Inflammation Promotes Pulmonary Hypertension

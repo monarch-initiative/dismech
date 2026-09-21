@@ -8,6 +8,7 @@ year: '1984'
 doi: 10.1007/BF00506240
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Alpha-adrenoceptors, 5-hydroxytryptamine receptors and the action of dihydroergotamine in human venous preparations obtained during saphenectomy procedures for varicose veins

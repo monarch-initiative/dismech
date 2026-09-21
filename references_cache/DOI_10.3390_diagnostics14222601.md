@@ -18,6 +18,7 @@ year: '2024'
 doi: 10.3390/diagnostics14222601
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Compound Heterozygous Variants in the IFT140 Gene Associated with Skeletal Ciliopathies

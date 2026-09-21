@@ -19,6 +19,7 @@ year: '2018'
 doi: 10.1097/PAS.0000000000001064
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Immunohistochemical Detection and Molecular Characterization of IDH-mutant Sinonasal Undifferentiated Carcinomas

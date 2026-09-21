@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1161/circgenetics.115.001134
-title: "Eya4 Induces Hypertrophy via Regulation of p27
-            <sup>kip1</sup>"
+title: "Eya4 Induces Hypertrophy via Regulation of p27 <sup>kip1</sup>"
 authors:
 - Tatjana Williams
 - Moritz Hundertmark
@@ -25,10 +24,10 @@ year: '2015'
 doi: 10.1161/circgenetics.115.001134
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Eya4 Induces Hypertrophy via Regulation of p27
-            <sup>kip1</sup>
+# Eya4 Induces Hypertrophy via Regulation of p27 <sup>kip1</sup>
 **Authors:** Tatjana Williams, Moritz Hundertmark, Peter Nordbeck, Sabine Voll, Paula Anahi Arias-Loza, Daniel Oppelt, Melanie Mühlfelder, Susanna Schraut, Ines Elsner, Martin Czolbe, Lea Seidlmayer, Britta Heinze, Stefanie Hahner, Katrin Heinze, Jost Schönberger, Peter Jakob, Oliver Ritter
 **Journal:** Circulation: Cardiovascular Genetics (2015)
 **DOI:** [10.1161/circgenetics.115.001134](https://doi.org/10.1161/circgenetics.115.001134)

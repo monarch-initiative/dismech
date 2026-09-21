@@ -13,6 +13,7 @@ year: '1998'
 doi: 10.1093/intimm/10.12.1777
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Expression of a CD3 epsilon transgene in CD3 epsilon(null) mice does not restore CD3 gamma and delta expression but efficiently rescues T cell development from a subpopulation of prothymocytes.

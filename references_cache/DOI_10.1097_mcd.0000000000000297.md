@@ -9,6 +9,7 @@ year: '2020'
 doi: 10.1097/mcd.0000000000000297
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel HOXA2 variant presenting with microtia and variable hearing impairment in four-generation pedigree

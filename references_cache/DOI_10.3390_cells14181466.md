@@ -12,6 +12,7 @@ year: '2025'
 doi: 10.3390/cells14181466
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Wings of Discovery: Using Drosophila to Decode Hereditary Spastic Paraplegia and Ataxias

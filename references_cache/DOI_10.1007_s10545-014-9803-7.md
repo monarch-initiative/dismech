@@ -34,6 +34,7 @@ year: '2015'
 doi: 10.1007/s10545-014-9803-7
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical onset and course, response to treatment and outcome in 24 patients with the cblE or cblG remethylation defect complemented by genetic and in vitro enzyme study data

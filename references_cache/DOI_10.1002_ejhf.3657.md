@@ -25,6 +25,7 @@ year: '2025'
 doi: 10.1002/ejhf.3657
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Prediction and Prognostic Role of Left Ventricular Systolic Dysfunction in Family Screening for Dilated Cardiomyopathy and Non-Dilated Left Ventricular Cardiomyopathy

@@ -22,6 +22,7 @@ doi: 10.1101/2021.01.22.427482
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # Developmental and behavioral phenotypes in a new mouse model of DDX3X syndrome

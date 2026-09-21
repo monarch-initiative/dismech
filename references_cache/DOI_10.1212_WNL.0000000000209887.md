@@ -37,6 +37,7 @@ year: '2024'
 doi: 10.1212/WNL.0000000000209887
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Patient-Relevant Digital-Motor Outcomes for Clinical Trials in Hereditary Spastic Paraplegia Type 7

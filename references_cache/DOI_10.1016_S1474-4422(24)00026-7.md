@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.1016/S1474-4422(24)00026-7
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetics of migraine: complexity, implications, and potential clinical applications

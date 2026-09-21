@@ -18,6 +18,7 @@ year: '2019'
 doi: 10.1093/hmg/ddy412
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Dominant Noonan syndrome-causing <i>LZTR1</i> mutations specifically affect the Kelch domain substrate-recognition surface and enhance RAS-MAPK signaling

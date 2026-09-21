@@ -2,6 +2,7 @@
 reference_id: GEO:GSE23113
 title: "Transcriptome Signatures of Sezary Cells from Patients and Cultured Hut 78, Hut 102 and Jurkat Cells"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Transcriptome Signatures of Sezary Cells from Patients and Cultured Hut 78, Hut 102 and Jurkat Cells

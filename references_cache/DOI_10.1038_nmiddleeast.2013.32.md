@@ -8,6 +8,7 @@ year: '2013'
 doi: 10.1038/nmiddleeast.2013.32
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Scientists identify genes mutations behind muscle weakness

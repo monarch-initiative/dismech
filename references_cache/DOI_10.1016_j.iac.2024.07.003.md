@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1016/j.iac.2024.07.003
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biologics in Hypereosinophilic Syndrome and Eosinophilic Granulomatosis with Polyangiitis

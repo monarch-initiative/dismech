@@ -38,6 +38,7 @@ year: '2024'
 doi: 10.1002/acn3.52062
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Primary mitochondrial disorders and mimics: Insights from a large French cohort

@@ -13,6 +13,7 @@ year: '1982'
 doi: 10.1007/BF00542453
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Nitroglycerin for ergotism. Experimental studies in vitro and in migraine patients and treatment of an overt case

@@ -43,6 +43,7 @@ year: '2018'
 doi: 10.1016/j.ajhg.2018.06.005
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # De Novo Missense Variants in TRAF7 Cause Developmental Delay, Congenital Anomalies, and Dysmorphic Features

@@ -1,9 +1,6 @@
 ---
 reference_id: DOI:10.1111/gbb.70039
-title: "<scp>
-                      <i>Cul3</i>
-                    </scp>
-                    Postnatal Homozygous Deletion in Forebrain Results in Behavioral Differences"
+title: "<scp> <i>Cul3</i> </scp> Postnatal Homozygous Deletion in Forebrain Results in Behavioral Differences"
 authors:
 - Prathibha Sekar
 - Qiang‐qiang Xia
@@ -16,12 +13,10 @@ year: '2025'
 doi: 10.1111/gbb.70039
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <scp>
-                      <i>Cul3</i>
-                    </scp>
-                    Postnatal Homozygous Deletion in Forebrain Results in Behavioral Differences
+# <scp> <i>Cul3</i> </scp> Postnatal Homozygous Deletion in Forebrain Results in Behavioral Differences
 **Authors:** Prathibha Sekar, Qiang‐qiang Xia, Alex C. Stokes, Feiyu Quan, Jeffrey D. Singer, Craig M. Powell
 **Journal:** Genes, Brain and Behavior (2025)
 **DOI:** [10.1111/gbb.70039](https://doi.org/10.1111/gbb.70039)

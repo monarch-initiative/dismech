@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3390/ijms25073701
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The First Korean Case with Cardiac, Facial, and Digital Anomalies with Developmental Delay Caused by De Novo TRAF7 p.Arg655Gln Variant

@@ -10,6 +10,7 @@ year: '2023'
 doi: 10.3390/medicina59081424
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hypertrophic Cardiomyopathy: Genetic Foundations, Outcomes, Interconnections, and Their Modifiers

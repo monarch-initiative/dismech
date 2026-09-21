@@ -11,6 +11,7 @@ year: '1987'
 doi: 10.1007/BF02343220
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Digoxin-like immunoreactive substance in serum of preterm and full-term neonates

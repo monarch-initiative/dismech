@@ -8,6 +8,7 @@ year: '2024'
 doi: 10.3390/ijms25052903
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Animals in Respiratory Research

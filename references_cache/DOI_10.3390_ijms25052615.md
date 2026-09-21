@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.3390/ijms25052615
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pluripotent Stem Cells as a Preclinical Cellular Model for Studying Hereditary Spastic Paraplegias

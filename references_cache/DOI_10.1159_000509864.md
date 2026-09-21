@@ -15,6 +15,7 @@ year: '2021'
 doi: 10.1159/000509864
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Models of Gastroenteropancreatic Neuroendocrine Neoplasms: Current Status and Future Directions

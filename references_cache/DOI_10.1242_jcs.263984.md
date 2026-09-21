@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.1242/jcs.263984
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Vinculin Y822 phosphorylation regulates adhesion remodeling during cardiomyocyte maturation

@@ -9,6 +9,7 @@ year: '2014'
 doi: 10.1007/978-94-007-7893-1_9
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Ehlers-Danlos Syndrome

@@ -14,6 +14,7 @@ year: '2023'
 doi: 10.1097/wco.0000000000001187
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Current avenues of gene therapy in Pompe disease

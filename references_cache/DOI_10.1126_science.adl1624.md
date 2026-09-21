@@ -104,6 +104,7 @@ year: '2024'
 doi: 10.1126/science.adl1624
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Risk of meningomyelocele mediated by the common 22q11.2 deletion

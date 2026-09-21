@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.3390/toxins16020103
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Long-Term Pulmonary Damage in Surviving Antitoxin-Treated Mice following a Lethal Ricin Intoxication

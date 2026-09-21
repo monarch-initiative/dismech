@@ -9,6 +9,7 @@ year: '2005'
 doi: 10.1080/15476910590960143
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Review Article Toxic Oil Syndrome: Review of Immune Aspects of the Disease

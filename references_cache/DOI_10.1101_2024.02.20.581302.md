@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1101/2024.02.20.581302
-title: "Chromatin regulator
-                  <i>Kdm6b</i>
-                  is required for the establishment and maintenance of neural stem cells in mouse hippocampus"
+title: "Chromatin regulator <i>Kdm6b</i> is required for the establishment and maintenance of neural stem cells in mouse hippocampus"
 authors:
 - Eugene Gil
 - Sung Jun Hong
@@ -19,11 +17,10 @@ doi: 10.1101/2024.02.20.581302
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
-# Chromatin regulator
-                  <i>Kdm6b</i>
-                  is required for the establishment and maintenance of neural stem cells in mouse hippocampus
+# Chromatin regulator <i>Kdm6b</i> is required for the establishment and maintenance of neural stem cells in mouse hippocampus
 **Authors:** Eugene Gil, Sung Jun Hong, David Wu, Dae Hwi Park, Ryan N. Delgado, Martina Malatesta, Sajad Hamid Ahanger, Karin Lin, Saul Villeda, Daniel A. Lim
 **DOI:** [10.1101/2024.02.20.581302](https://doi.org/10.1101/2024.02.20.581302)
 

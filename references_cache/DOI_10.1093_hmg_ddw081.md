@@ -15,6 +15,7 @@ year: '2016'
 doi: 10.1093/hmg/ddw081
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Intermediate filament aggregates cause mitochondrial dysmotility and increase energy demands in giant axonal neuropathy

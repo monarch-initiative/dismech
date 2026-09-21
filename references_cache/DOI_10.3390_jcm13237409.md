@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3390/jcm13237409
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Advanced Management of Hearing Loss: A Comprehensive Review of the Special Issue

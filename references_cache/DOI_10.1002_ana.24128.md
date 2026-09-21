@@ -23,6 +23,7 @@ year: '2014'
 doi: 10.1002/ana.24128
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # <i>KCNT1</i>gain of function in 2 epilepsy phenotypes is reversed by quinidine

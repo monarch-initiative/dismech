@@ -21,6 +21,7 @@ year: '2009'
 doi: 10.1038/ng.369
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # An ENU-induced mutation of miR-96 associated with progressive hearing loss in mice

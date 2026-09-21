@@ -22,6 +22,7 @@ year: '2022'
 doi: 10.3390/biomedicines10020276
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic Complementation of ATP Synthase Deficiency Due to Dysfunction of TMEM70 Assembly Factor in Rat

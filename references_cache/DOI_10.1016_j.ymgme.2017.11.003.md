@@ -40,6 +40,7 @@ year: '2018'
 doi: 10.1016/j.ymgme.2017.11.003
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The genotypic and phenotypic spectrum of MTO1 deficiency

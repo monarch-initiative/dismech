@@ -15,6 +15,7 @@ year: '2022'
 doi: 10.3390/cells11213351
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Autologous iPSC-Derived Human Neuromuscular Junction to Model the Pathophysiology of Hereditary Spastic Paraplegia

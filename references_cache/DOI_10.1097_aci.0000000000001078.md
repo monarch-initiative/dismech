@@ -11,6 +11,7 @@ year: '2025'
 doi: 10.1097/aci.0000000000001078
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hypereosinophilia: clinical and therapeutic approach in 2025

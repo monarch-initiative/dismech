@@ -12,6 +12,7 @@ year: '2022'
 doi: 10.1016/j.jdcr.2022.05.008
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Ulerythema ophryogenes in association with MAP3K1-mutated Swyer syndrome

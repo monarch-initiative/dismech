@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.1002/rth2.12637
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hemostatic phenotypes and genetic disorders

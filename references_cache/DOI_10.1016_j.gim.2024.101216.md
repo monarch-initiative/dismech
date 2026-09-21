@@ -156,6 +156,7 @@ year: '2025'
 doi: 10.1016/j.gim.2024.101216
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Expanding the genetics and phenotypes of ocular congenital cranial dysinnervation disorders

@@ -15,6 +15,7 @@ year: '2023'
 doi: 10.3390/cimb45040177
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Long-Term Administration of LL-37 Can Induce Irreversible Rosacea-like Lesion

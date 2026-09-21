@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.1002/jimd.12804
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Disease models of Leigh syndrome: From yeast to organoids

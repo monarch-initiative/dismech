@@ -15,6 +15,7 @@ year: '2025'
 doi: 10.1242/jcs.263657
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The P4-phospholipid flippase Atp11a is required for maintenance of eye and ear structure in zebrafish

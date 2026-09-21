@@ -11,6 +11,7 @@ year: '2019'
 doi: 10.1007/s00424-019-02257-4
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hereditary heart disease: pathophysiology, clinical presentation, and animal models of HCM, RCM, and DCM associated with mutations in cardiac myosin light chains

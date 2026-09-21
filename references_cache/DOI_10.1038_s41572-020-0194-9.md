@@ -13,6 +13,7 @@ year: '2020'
 doi: 10.1038/s41572-020-0194-9
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Ehlers–Danlos syndromes

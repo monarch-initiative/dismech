@@ -12,6 +12,7 @@ year: '2021'
 doi: 10.1159/000510525
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Role of Trichoscopy in Keratosis Follicularis Spinulosa Decalvans: Case Report and Review of the Literature

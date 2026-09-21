@@ -10,6 +10,7 @@ year: '2022'
 doi: 10.1093/hmg/ddac119
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Generation of a mouse model of the neurodevelopmental disorder with dysmorphic facies and distal limb anomalies syndrome

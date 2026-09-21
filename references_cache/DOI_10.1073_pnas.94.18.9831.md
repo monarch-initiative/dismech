@@ -14,6 +14,7 @@ year: '1997'
 doi: 10.1073/pnas.94.18.9831
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Targeted ablation of the vitamin D receptor: An animal model of vitamin D-dependent rickets type II with alopecia

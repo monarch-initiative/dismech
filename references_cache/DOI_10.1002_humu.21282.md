@@ -29,6 +29,7 @@ year: '2010'
 doi: 10.1002/humu.21282
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # LPIN1 gene mutations: a major cause of severe rhabdomyolysis in early childhood

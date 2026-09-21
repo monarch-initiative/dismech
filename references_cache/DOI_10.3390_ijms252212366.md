@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3390/ijms252212366
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # NMDA Receptors in Neurodevelopmental Disorders: Pathophysiology and Disease Models

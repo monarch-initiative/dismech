@@ -12,6 +12,7 @@ year: '2011'
 doi: 10.1007/s11940-011-0115-z
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Inherited Neuropathies

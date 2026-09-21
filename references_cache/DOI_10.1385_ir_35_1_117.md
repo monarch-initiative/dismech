@@ -10,6 +10,7 @@ year: '2006'
 doi: 10.1385/ir:35:1:117
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Human T Cell Immunodeficiency: When Signal Transduction Goes Wrong

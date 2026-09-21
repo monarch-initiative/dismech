@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1002/epi4.12975
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Efficacy of anti‐seizure medications and alternative therapies (ketogenic diet, CBD, and quinidine) in <i>KCNT1</i>‐related epilepsy: A systematic review

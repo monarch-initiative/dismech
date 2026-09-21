@@ -11,6 +11,7 @@ year: '1999'
 doi: 10.1007/s002040050641
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The acute pathology of fatty acid anilides and linoleic diester of 3-phenylamino-1,2-propanediol in mice: possible implication as aetiologic agents for the toxic oil syndrome

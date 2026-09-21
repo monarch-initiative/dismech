@@ -18,6 +18,7 @@ year: '2022'
 doi: 10.1001/jamanetworkopen.2022.2687
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Association of the Interaction Between Familial Hypercholesterolemia Variants and Adherence to a Healthy Lifestyle With Risk of Coronary Artery Disease

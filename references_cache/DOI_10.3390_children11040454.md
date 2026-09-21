@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.3390/children11040454
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Exploring the Genetic Landscape of Childhood Glaucoma

@@ -21,6 +21,7 @@ year: '2022'
 doi: 10.1016/j.xhgg.2022.100115
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Stx4 is required to regulate cardiomyocyte Ca2+ handling during vertebrate cardiac development

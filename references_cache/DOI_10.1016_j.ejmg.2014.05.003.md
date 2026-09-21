@@ -12,6 +12,7 @@ year: '2014'
 doi: 10.1016/j.ejmg.2014.05.003
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The genetics of auricular development and malformation: New findings in model systems driving future directions for microtia research

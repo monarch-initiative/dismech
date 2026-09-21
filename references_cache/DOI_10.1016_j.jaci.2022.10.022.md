@@ -26,6 +26,7 @@ year: '2023'
 doi: 10.1016/j.jaci.2022.10.022
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The diagnosis of severe combined immunodeficiency (SCID): The Primary Immune Deficiency Treatment Consortium (PIDTC) 2022 Definitions

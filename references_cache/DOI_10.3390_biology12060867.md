@@ -16,6 +16,7 @@ year: '2023'
 doi: 10.3390/biology12060867
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # In Vitro Modeling as a Tool for Testing Therapeutics for Spinal Muscular Atrophy and IGHMBP2-Related Disorders

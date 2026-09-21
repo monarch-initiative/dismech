@@ -14,6 +14,7 @@ year: '2026'
 doi: 10.1002/ajmg.a.70140
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Atypical Clinical Course of Griscelli Syndrome Type 2 With Primarily Neurologic Presentation and Adult‐Onset in a 46‐Year‐Old Male

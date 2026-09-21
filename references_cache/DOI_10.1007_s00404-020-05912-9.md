@@ -21,6 +21,7 @@ year: '2021'
 doi: 10.1007/s00404-020-05912-9
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Effect of types of placenta previa on maternal and neonatal outcomes: a 10-year retrospective cohort study

@@ -14,6 +14,7 @@ doi: 10.1101/2024.04.03.587922
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # Molecular characterization of Rft1, an ER membrane protein associated with congenital disorder of glycosylation RFT1-CDG

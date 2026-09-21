@@ -18,6 +18,7 @@ year: '2017'
 doi: 10.1007/s00251-017-1005-7
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A novel pathogenic frameshift variant of CD3E gene in two T-B+ NK+ SCID patients from Turkey

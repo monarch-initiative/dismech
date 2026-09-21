@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1111/cge.70143
-title: "Expanding the Phenotypic Spectrum Associated With Loss‐of‐Function
-                    <i>SMARCA4</i>
-                    Variants to Eye Developmental Anomalies"
+title: "Expanding the Phenotypic Spectrum Associated With Loss‐of‐Function <i>SMARCA4</i> Variants to Eye Developmental Anomalies"
 authors:
 - Bertrand Chesneau
 - Marjolaine Willems
@@ -17,11 +15,10 @@ year: '2026'
 doi: 10.1111/cge.70143
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Expanding the Phenotypic Spectrum Associated With Loss‐of‐Function
-                    <i>SMARCA4</i>
-                    Variants to Eye Developmental Anomalies
+# Expanding the Phenotypic Spectrum Associated With Loss‐of‐Function <i>SMARCA4</i> Variants to Eye Developmental Anomalies
 **Authors:** Bertrand Chesneau, Marjolaine Willems, Abdelhakim Bouazzaoui, Léopoldine Lequeux, Julie Plaisancié, Salima El Chehadeh, Hélène Dollfus, Nicolas Chassaing
 **Journal:** Clinical Genetics (2026)
 **DOI:** [10.1111/cge.70143](https://doi.org/10.1111/cge.70143)

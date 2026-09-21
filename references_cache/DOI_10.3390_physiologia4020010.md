@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.3390/physiologia4020010
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Understanding and Modeling the Pathophysiology of Hydrocephalus: In Search of Better Treatment Options

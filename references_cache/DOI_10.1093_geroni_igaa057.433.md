@@ -9,6 +9,7 @@ year: '2020'
 doi: 10.1093/geroni/igaa057.433
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Elevated Growth Differentiation Factor-15 Is a Biomarker of Sarcopenia in Older Adults

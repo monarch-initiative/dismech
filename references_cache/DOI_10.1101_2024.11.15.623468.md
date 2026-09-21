@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1101/2024.11.15.623468
-title: "Brain-region-specific changes and dysregulation of activity regulated genes in
-                  <i>Gria3</i>
-                  mutant mice, a genetic animal model of schizophrenia"
+title: "Brain-region-specific changes and dysregulation of activity regulated genes in <i>Gria3</i> mutant mice, a genetic animal model of schizophrenia"
 authors:
 - Wei-Chao Huang
 - Ryan Kast
@@ -23,11 +21,10 @@ doi: 10.1101/2024.11.15.623468
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
-# Brain-region-specific changes and dysregulation of activity regulated genes in
-                  <i>Gria3</i>
-                  mutant mice, a genetic animal model of schizophrenia
+# Brain-region-specific changes and dysregulation of activity regulated genes in <i>Gria3</i> mutant mice, a genetic animal model of schizophrenia
 **Authors:** Wei-Chao Huang, Ryan Kast, Kira Perzel Mandell, Borislav Dejanovic, Kevin Bonanno, Sameer Aryal, Zohreh Farsi, Jonathan Wilde, Dongqing Wang, Xian Gao, Hasmik Keshishian, Steven A. Carr, Guoping Feng, Morgan Sheng
 **DOI:** [10.1101/2024.11.15.623468](https://doi.org/10.1101/2024.11.15.623468)
 

@@ -8,6 +8,7 @@ year: '2022'
 doi: 10.1182/hematology.2022000394
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Dyskeratosis congenita and telomere biology disorders

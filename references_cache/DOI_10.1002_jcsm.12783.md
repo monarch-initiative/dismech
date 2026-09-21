@@ -14,6 +14,7 @@ year: '2022'
 doi: 10.1002/jcsm.12783
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Global prevalence of sarcopenia and severe sarcopenia: a systematic review and meta‐analysis

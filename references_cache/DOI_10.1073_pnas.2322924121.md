@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1073/pnas.2322924121
-title: "Posttranscriptional regulation of
-                    <i>FAN1</i>
-                    by miR-124-3p at rs3512 underlies onset-delaying genetic modification in Huntington’s disease"
+title: "Posttranscriptional regulation of <i>FAN1</i> by miR-124-3p at rs3512 underlies onset-delaying genetic modification in Huntington’s disease"
 authors:
 - Kyung-Hee Kim
 - Eun Pyo Hong
@@ -29,11 +27,10 @@ year: '2024'
 doi: 10.1073/pnas.2322924121
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Posttranscriptional regulation of
-                    <i>FAN1</i>
-                    by miR-124-3p at rs3512 underlies onset-delaying genetic modification in Huntington’s disease
+# Posttranscriptional regulation of <i>FAN1</i> by miR-124-3p at rs3512 underlies onset-delaying genetic modification in Huntington’s disease
 **Authors:** Kyung-Hee Kim, Eun Pyo Hong, Yukyeong Lee, Zachariah L. McLean, Emanuela Elezi, Ramee Lee, Seung Kwak, Branduff McAllister, Thomas H. Massey, Sergey Lobanov, Peter Holmans, Michael Orth, Marc Ciosi, Darren G. Monckton, Jeffrey D. Long, Diane Lucente, Vanessa C. Wheeler, Marcy E. MacDonald, James F. Gusella, Jong-Min Lee
 **Journal:** Proceedings of the National Academy of Sciences (2024)
 **DOI:** [10.1073/pnas.2322924121](https://doi.org/10.1073/pnas.2322924121)

@@ -16,6 +16,7 @@ year: '2013'
 doi: 10.1038/jhg.2013.101
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel mutation in AAA domain of BCS1L causing Bjornstad syndrome

@@ -11,6 +11,7 @@ year: '2019'
 doi: 10.1080/15569543.2018.1435553
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Venomous bites during pregnancy: the black widow spider (<i>Latrodectus mactans</i>)

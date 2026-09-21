@@ -73,6 +73,7 @@ year: '2026'
 doi: 10.1016/j.medj.2025.100886
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # International expert consensus on gene therapy for hereditary hearing loss: Based on clinical trials

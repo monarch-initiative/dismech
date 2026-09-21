@@ -13,6 +13,7 @@ year: '2025'
 doi: 10.1007/s11899-025-00767-w
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Targeting RUNX1 Germline Variants: Agents Under Investigation

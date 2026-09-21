@@ -1,9 +1,6 @@
 ---
 reference_id: DOI:10.1002/ajmg.a.63451
-title: "45,X/46,
-                    <scp>XY</scp>
-                    mosaicism: Clinical manifestations and long term
-                    <scp>follow‐up</scp>"
+title: "45,X/46, <scp>XY</scp> mosaicism: Clinical manifestations and long term <scp>follow‐up</scp>"
 authors:
 - Ebba Alkhunaizi
 - Jenna Plamondon Albrecht
@@ -24,12 +21,10 @@ year: '2024'
 doi: 10.1002/ajmg.a.63451
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# 45,X/46,
-                    <scp>XY</scp>
-                    mosaicism: Clinical manifestations and long term
-                    <scp>follow‐up</scp>
+# 45,X/46, <scp>XY</scp> mosaicism: Clinical manifestations and long term <scp>follow‐up</scp>
 **Authors:** Ebba Alkhunaizi, Jenna Plamondon Albrecht, Mahmoud Aarabi, Selma F. Witchel, Diane Wherrett, Riyana Babul‐Hirji, Annie Dupuis, Lyne Chiniara, Eric Chater‐Diehl, Mary Shago, Cheryl Shuman, Aleksandar Rajkovic, Svetlana A. Yatsenko, David Chitayat
 **Journal:** American Journal of Medical Genetics Part A (2024)
 **DOI:** [10.1002/ajmg.a.63451](https://doi.org/10.1002/ajmg.a.63451)

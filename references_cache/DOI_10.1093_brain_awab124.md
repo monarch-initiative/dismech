@@ -42,6 +42,7 @@ year: '2021'
 doi: 10.1093/brain/awab124
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biallelic<i>PI4KA</i>variants cause a novel neurodevelopmental syndrome with hypomyelinating leukodystrophy

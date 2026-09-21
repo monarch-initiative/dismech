@@ -10,6 +10,7 @@ year: '2020'
 doi: 10.3390/life10110304
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Human Mitochondrial Pathologies of the Respiratory Chain and ATP Synthase: Contributions from Studies of Saccharomyces cerevisiae

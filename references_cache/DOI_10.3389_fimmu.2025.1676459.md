@@ -12,6 +12,7 @@ year: '2026'
 doi: 10.3389/fimmu.2025.1676459
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Upadacitinib successfully treats Hailey-Hailey disease: a cases report and literature review

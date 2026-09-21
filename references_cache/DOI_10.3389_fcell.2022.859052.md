@@ -18,6 +18,7 @@ year: '2022'
 doi: 10.3389/fcell.2022.859052
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # PEX19 Coordinates Neutral Lipid Storage in Cells in a Peroxisome-Independent Fashion

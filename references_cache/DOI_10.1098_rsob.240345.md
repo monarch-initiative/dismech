@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1098/rsob.240345
-title: "<i>PIEZO1</i>
-                    variant implications for biological understanding and human health"
+title: "<i>PIEZO1</i> variant implications for biological understanding and human health"
 authors:
 - Chew W. Cheng
 - Sophie L. Earle
@@ -26,10 +25,10 @@ year: '2025'
 doi: 10.1098/rsob.240345
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <i>PIEZO1</i>
-                    variant implications for biological understanding and human health
+# <i>PIEZO1</i> variant implications for biological understanding and human health
 **Authors:** Chew W. Cheng, Sophie L. Earle, Oleksandr V. Povstyan, Chloe Randall, Katie A. Smith, Marjolaine Debant, Fraser L. Macrae, Daniel G. Beech, Anna McGrane, Fiona Bartoli, Eulashini Chuntharpursat-Bon, Richard M. Cubbon, Kathryn J. Griffin, Marc A. Bailey, Antreas C. Kalli, Lara C. Morley, Klaus K. Witte, David J. Beech
 **Journal:** Open Biology (2025)
 **DOI:** [10.1098/rsob.240345](https://doi.org/10.1098/rsob.240345)

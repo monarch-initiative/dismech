@@ -13,6 +13,7 @@ year: '1977'
 doi: 10.1148/124.1.73
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Sodium Nitroprusside in the Treatment of Ergotism

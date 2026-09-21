@@ -13,6 +13,7 @@ year: '2010'
 doi: 10.1007/s00415-010-5618-0
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Abnormalities of cerebral arteries are frequent in patients with late-onset Pompe disease

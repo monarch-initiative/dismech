@@ -10,6 +10,7 @@ year: '2007'
 doi: 10.1177/104063870701900317
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Diagnosis of

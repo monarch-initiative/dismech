@@ -14,6 +14,7 @@ year: '2019'
 doi: 10.1111/bjd.17590
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Interventions for rosacea based on the phenotype approach: an updated systematic review including<scp>GRADE</scp>assessments

@@ -23,6 +23,7 @@ year: '2019'
 doi: 10.1093/hmg/ddy370
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The epilepsy-associated protein TBC1D24 is required for normal development, survival and vesicle trafficking in mammalian neurons

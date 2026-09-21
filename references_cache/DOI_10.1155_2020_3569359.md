@@ -21,6 +21,7 @@ year: '2020'
 doi: 10.1155/2020/3569359
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Jervell and Lange-Nielsen Syndrome due to a Novel Compound Heterozygous <i>KCNQ1</i> Mutation in a Chinese Family

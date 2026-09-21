@@ -20,6 +20,7 @@ year: '2020'
 doi: 10.1097/MPH.0000000000001804
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Primary Renal Ewing Sarcoma in Children and Young Adults

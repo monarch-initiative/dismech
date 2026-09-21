@@ -18,6 +18,7 @@ year: '2025'
 doi: 10.3390/jcdd12030101
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Exploring the Current Status of Risk Stratification in Hypertrophic Cardiomyopathy: From Risk Models to Promising Techniques

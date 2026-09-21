@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.25040/lkv2024.03.084
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Thrombotic Microangiopathy in the Postpartum Period (Literature Review, Clinical Case Report)

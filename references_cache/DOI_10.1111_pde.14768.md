@@ -13,6 +13,7 @@ year: '2021'
 doi: 10.1111/pde.14768
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Alopecia and hearing loss in a boy

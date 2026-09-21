@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.1183/13993003.01370-2024
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetics and precision genomics approaches to pulmonary hypertension

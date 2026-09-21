@@ -23,6 +23,7 @@ year: '2005'
 doi: 10.1007/s10545-005-0192-9
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # <i>S</i>‐Adenosylhomocysteine hydrolase deficiency: A second patient, the younger brother of the index patient, and outcomes during therapy

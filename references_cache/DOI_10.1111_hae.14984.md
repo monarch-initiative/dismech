@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1111/hae.14984
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Current and emerging gene therapies for haemophilia A and B

@@ -16,6 +16,7 @@ year: '1982'
 doi: 10.1007/BF00496569
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pathology of a new Toxic Syndrome caused by ingestion of adulterated oil in Spain

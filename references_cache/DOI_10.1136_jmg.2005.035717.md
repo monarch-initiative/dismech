@@ -26,6 +26,7 @@ year: '2006'
 doi: 10.1136/jmg.2005.035717
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The phenotypic spectrum in patients with arginine to cysteine mutations in the COL2A1 gene

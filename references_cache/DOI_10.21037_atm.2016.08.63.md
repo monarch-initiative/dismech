@@ -9,6 +9,7 @@ year: '2016'
 doi: 10.21037/atm.2016.08.63
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The role of genetics and antibodies in sepsis

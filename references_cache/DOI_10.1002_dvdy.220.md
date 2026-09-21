@@ -13,6 +13,7 @@ year: '2021'
 doi: 10.1002/dvdy.220
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hypermobile <scp>Ehlers‐Danlos</scp> syndromes: Complex phenotypes, challenging diagnoses, and poorly understood causes

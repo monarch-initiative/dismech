@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1111/ene.13360
-title: "Clinical and mutational spectrum of Charcot–Marie–Tooth disease type 2Z caused by
-                    <i>MORC2</i>
-                    variants in Japan"
+title: "Clinical and mutational spectrum of Charcot–Marie–Tooth disease type 2Z caused by <i>MORC2</i> variants in Japan"
 authors:
 - M. Ando
 - Y. Okamoto
@@ -25,11 +23,10 @@ year: '2017'
 doi: 10.1111/ene.13360
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Clinical and mutational spectrum of Charcot–Marie–Tooth disease type 2Z caused by
-                    <i>MORC2</i>
-                    variants in Japan
+# Clinical and mutational spectrum of Charcot–Marie–Tooth disease type 2Z caused by <i>MORC2</i> variants in Japan
 **Authors:** M. Ando, Y. Okamoto, A. Yoshimura, J.‐H. Yuan, Y. Hiramatsu, Y. Higuchi, A. Hashiguchi, J. Mitsui, H. Ishiura, S. Fukumura, M. Matsushima, N. Ochi, J. Tsugawa, S. Morishita, S. Tsuji, H. Takashima
 **Journal:** European Journal of Neurology (2017)
 **DOI:** [10.1111/ene.13360](https://doi.org/10.1111/ene.13360)

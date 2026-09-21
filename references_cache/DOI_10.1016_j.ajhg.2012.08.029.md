@@ -25,6 +25,7 @@ year: '2012'
 doi: 10.1016/j.ajhg.2012.08.029
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Loss-of-Function Mutations in HOXC13 Cause Pure Hair and Nail Ectodermal Dysplasia

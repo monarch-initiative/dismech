@@ -9,6 +9,7 @@ year: '2021'
 doi: 10.3390/endocrines3010001
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic Etiology of Idiopathic Hypogonadotropic Hypogonadism

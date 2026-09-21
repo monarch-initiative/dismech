@@ -20,6 +20,7 @@ year: '2005'
 doi: 10.1038/ng1527
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutation in the transcriptional coactivator EYA4 causes dilated cardiomyopathy and sensorineural hearing loss

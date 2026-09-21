@@ -25,6 +25,7 @@ year: '2024'
 doi: 10.21147/j.issn.1000-9604.2024.01.09
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Molecular features of gastroenteropancreatic neuroendocrine carcinoma: A comparative analysis with lung neuroendocrine carcinoma and digestive adenocarcinomas

@@ -19,6 +19,7 @@ year: '2016'
 doi: 10.1182/blood-2016-01-695692
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Germ line mutations in shelterin complex genes are associated with familial chronic lymphocytic leukemia

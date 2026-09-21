@@ -11,6 +11,7 @@ year: '2018'
 doi: 10.1111/bjd.16815
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Applying the phenotype approach for rosacea to practice and research

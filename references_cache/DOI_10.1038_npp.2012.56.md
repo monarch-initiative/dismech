@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/npp.2012.56"
+reference_id: DOI:10.1038/npp.2012.56
 title: "Behavioral, Pharmacological, and Immunological Abnormalities after Streptococcal Exposure: A Novel Rat Model of Sydenham Chorea and Related Neuropsychiatric Disorders"
 authors:
 - Lior Brimberg
@@ -19,6 +19,7 @@ journal: Neuropsychopharmacology
 year: '2012'
 doi: 10.1038/npp.2012.56
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Behavioral, Pharmacological, and Immunological Abnormalities after Streptococcal Exposure: A Novel Rat Model of Sydenham Chorea and Related Neuropsychiatric Disorders

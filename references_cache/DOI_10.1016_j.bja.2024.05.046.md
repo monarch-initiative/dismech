@@ -16,6 +16,7 @@ year: '2024'
 doi: 10.1016/j.bja.2024.05.046
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Myopathic manifestations across the adult lifespan of patients with malignant hyperthermia susceptibility: a narrative review

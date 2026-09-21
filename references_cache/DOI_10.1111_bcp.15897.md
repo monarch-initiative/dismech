@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.1111/bcp.15897
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Considerations on implementation of the newest treatment for symptomatic uterine fibroids: Oral GnRH antagonists

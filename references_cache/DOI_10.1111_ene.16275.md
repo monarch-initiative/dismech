@@ -32,6 +32,7 @@ year: '2024'
 doi: 10.1111/ene.16275
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Management of seizures in patients with primary mitochondrial diseases: consensus statement from the <scp>InterERNs</scp> Mitochondrial Working Group

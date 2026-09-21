@@ -19,6 +19,7 @@ year: '2025'
 doi: 10.1016/j.ymthe.2024.12.004
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Critical role of TPRN rings in the stereocilia for hearing

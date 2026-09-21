@@ -13,6 +13,7 @@ year: '2023'
 doi: 10.3390/ijms242015284
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel Mouse Cell Lines and In Vivo Models for Human High-Grade Neuroendocrine Lung Carcinoma, Small Cell Lung Carcinoma (SCLC), and Large Cell Neuroendocrine Carcinoma (LCNEC)

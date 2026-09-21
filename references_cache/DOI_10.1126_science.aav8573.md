@@ -22,6 +22,7 @@ year: '2019'
 doi: 10.1126/science.aav8573
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Structural basis of α-scorpion toxin action on Na

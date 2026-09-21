@@ -10,6 +10,7 @@ year: '2019'
 doi: 10.1097/wco.0000000000000687
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Advance in genetics of migraine

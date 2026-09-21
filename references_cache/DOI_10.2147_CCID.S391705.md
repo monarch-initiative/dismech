@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.2147/CCID.S391705
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Rosacea: Practical Guidance and Challenges for Clinical Management

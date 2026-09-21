@@ -7,6 +7,7 @@ year: '2020'
 doi: 10.14711/thesis-991012753255603412
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Localization and function of TMC1, LHFPL5 and FLRT3 in mammalian auditory hair cells

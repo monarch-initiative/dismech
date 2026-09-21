@@ -12,6 +12,7 @@ year: '2023'
 doi: 10.1093/eurheartj/ehad637
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mavacamten: a first-in-class myosin inhibitor for obstructive hypertrophic cardiomyopathy

@@ -12,6 +12,7 @@ year: '2018'
 doi: 10.1016/j.celrep.2018.09.063
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # GRXCR2 Regulates Taperin Localization Critical for Stereocilia Morphology and Hearing

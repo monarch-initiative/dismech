@@ -15,6 +15,7 @@ year: '2022'
 doi: 10.1002/mgg3.1825
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Expanding the mutational spectrum of Rahman syndrome: A rare disorder with severe intellectual disability and particular facial features in two Chinese patients

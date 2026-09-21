@@ -12,6 +12,7 @@ year: '2008'
 doi: 10.1002/ajmg.a.32213
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The arthrochalasia type of Ehlers–Danlos syndrome (EDS VIIA and VIIB): The diagnostic value of collagen fibril ultrastructure

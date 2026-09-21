@@ -16,6 +16,7 @@ year: '1991'
 doi: 10.1056/NEJM199101313240507
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # An Aromatase-Producing Sex-Cord Tumor Resulting in Prepubertal Gynecomastia

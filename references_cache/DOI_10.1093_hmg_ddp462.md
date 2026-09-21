@@ -19,6 +19,7 @@ year: '2010'
 doi: 10.1093/hmg/ddp462
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A murine model of Denys–Drash syndrome reveals novel transcriptional targets of WT1 in podocytes

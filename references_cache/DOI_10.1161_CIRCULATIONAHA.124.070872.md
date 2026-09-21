@@ -19,6 +19,7 @@ year: '2025'
 doi: 10.1161/CIRCULATIONAHA.124.070872
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Systematic Review, Meta-Analysis, and Population Study to Determine the Biologic Sex Ratio in Dilated Cardiomyopathy

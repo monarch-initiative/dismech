@@ -13,6 +13,7 @@ year: '2015'
 doi: 10.1002/ajmg.a.37341
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Homozygous deletion of <i>TRMT10A</i> as part of a contiguous gene deletion in a syndrome of failure to thrive, delayed puberty, intellectual disability and diabetes mellitus

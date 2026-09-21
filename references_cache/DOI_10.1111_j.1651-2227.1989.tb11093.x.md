@@ -12,6 +12,7 @@ year: '1989'
 doi: 10.1111/j.1651-2227.1989.tb11093.x
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Endogenous Digoxin-Like Factor in Neonates: Effect of Age and Relation to Serum Bilirubin Levels

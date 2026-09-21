@@ -23,6 +23,7 @@ year: '2022'
 doi: 10.1111/cge.14195
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # <scp><i>PSMC1</i></scp> variant causes a novel neurological syndrome

@@ -22,6 +22,7 @@ year: '2020'
 doi: 10.1182/blood.2020005394
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Enhancer-gene rewiring in the pathogenesis of Quebec Platelet Disorder

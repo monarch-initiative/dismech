@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2147/NDT.S362202"
+reference_id: DOI:10.2147/NDT.S362202
 title: "Pediatric Acute-Onset Neuropsychiatric Syndrome: Current Perspectives"
 authors:
 - Antonella Gagliano
@@ -10,6 +10,7 @@ journal: Neuropsychiatric Disease and Treatment
 year: '2023'
 doi: 10.2147/NDT.S362202
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pediatric Acute-Onset Neuropsychiatric Syndrome: Current Perspectives

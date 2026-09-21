@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.4049/jimmunol.2001233
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pathway-Specific Defects in T, B, and NK Cells and Age-Dependent Development of High IgE in Mice Heterozygous for a CADINS-Associated Dominant Negative CARD11 Allele
