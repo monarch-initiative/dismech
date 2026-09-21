@@ -73633,10 +73633,13 @@ window.searchData = [
       "Oxidative Stress and Mitochondrial Dysfunction",
       "Mucus Hypersecretion",
       "NLRP3 Inflammasome Activation",
+      "Pulmonary Copper Dyshomeostasis",
+      "Cuproptosis of Alveolar Structural Cells",
+      "Cuproptotic DAMP Release",
+      "Pro-Inflammatory Macrophage Polarization",
       "Cellular Senescence",
       "SIRT1-Mediated NAD+ Signaling and Protective Deacetylation",
-      "Protease-Antiprotease Imbalance (MMP-2/TIMP-2 Axis)",
-      "Cuproptosis-Driven Cell Death"
+      "Protease-Antiprotease Imbalance (MMP-2/TIMP-2 Axis)"
     ],
     "cell_types": [
       "Epithelial Cell",
@@ -73648,10 +73651,11 @@ window.searchData = [
       "airway epithelial cell",
       "goblet cell",
       "club cell",
+      "Alveolar Type II Epithelial Cell",
+      "anti-inflammatory M2 macrophage",
+      "pro-inflammatory M1 macrophage",
       "fibroblast",
-      "Airway Epithelial Cell",
-      "alveolar type II cell",
-      "anti-inflammatory M2 macrophage"
+      "Airway Epithelial Cell"
     ],
     "cell_type_ids": [
       "CL:0000066",
@@ -73663,9 +73667,10 @@ window.searchData = [
       "CL:0002368",
       "CL:0000160",
       "CL:0000158",
-      "CL:0000057",
       "CL:0002063",
-      "CL:0000890"
+      "CL:0000890",
+      "CL:0000863",
+      "CL:0000057"
     ],
     "biological_processes": [
       "inflammatory response",
@@ -73679,18 +73684,20 @@ window.searchData = [
       "mitophagy",
       "mucus secretion",
       "cilium movement",
+      "Copper Ion Homeostasis",
+      "stress response to copper ion",
+      "Cuproptosis",
+      "mitochondrial proteotoxic stress",
+      "oxidative phosphorylation",
+      "Damage-Associated Molecular Pattern Release",
+      "Macrophage Activation",
       "cellular senescence",
       "protein deacetylation",
       "transcriptional regulation",
       "negative regulation of inflammatory response",
       "Proteolysis",
       "Extracellular Matrix Disassembly",
-      "Response to Oxidative Stress",
-      "copper homeostasis",
-      "stress response to copper ion",
-      "cuproptosis",
-      "mitochondrial proteotoxic stress",
-      "oxidative phosphorylation"
+      "Response to Oxidative Stress"
     ],
     "phenotypes": [
       "Dyspnea",
@@ -73769,10 +73776,10 @@ window.searchData = [
     "source_file": "Chronic_Obstructive_Pulmonary_Disease.yaml",
     "page_url": "../pages/disorders/Chronic_Obstructive_Pulmonary_Disease.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 14,
     "num_genes": 7,
     "num_treatments": 11,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "25",
     "causal_graph_longest_path": "4"
   },
   {
@@ -294594,6 +294601,73 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "TMLHE Deficiency",
+    "disease_id": "MONDO:0010469",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-07-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TMLHE deficiency (epsilon-trimethyllysine hydroxylase deficiency) is an X-linked inborn error of carnitine biosynthesis caused by loss-of-function variants \u2014 most commonly a recurrent deletion of exon 2 \u2014 in TMLHE, which encodes 6-N-trimethyllysine dioxygenase (TMLD), the first enzyme of the four-step endogenous carnitine biosynthesis pathway. Enzyme deficiency produces a characteristic biochemical signature: accumulation of the substrate 6-N-trimethyllysine (TML) with reduced levels of the downstream products 3-hydroxy-6-N-trimethyllysine and gamma-butyrobetaine (BB), giving a markedly decreased BB/TML ratio in plasma and urine.\nTMLHE deficiency is unusual among inborn errors of metabolism in two respects. First, it is common \u2014 roughly 1 in 366 control males \u2014 because most body carnitine is obtained from the diet rather than synthesized de novo, so hemizygous loss of the biosynthetic pathway is largely compensated and the great majority of affected males are healthy. Second, its disease status is therefore a low-penetrance risk relationship rather than a deterministic Mendelian one: TMLHE deficiency is enriched in probands from male-male multiplex autism families (an estimated 2-4% penetrance for autism), and individual case reports document autism with intellectual disability and regressive episodes in deficient males, but most deficient males never develop a neurodevelopmental phenotype. MONDO reflects this by classifying the entity in its `predisposition` / `omim_susceptibility` subsets under \"autism, susceptibility to\" rather than as a fully penetrant metabolic disease.\nThe proposed mechanism links the biosynthetic block to neurodevelopment through long-chain fatty acid oxidation: carnitine is required to shuttle long-chain fatty acids into mitochondria, and neural-stem-cell-autonomous reduction of TMLHE activity in the mouse embryonic neocortex shifts progenitors from self-renewing to symmetric differentiating divisions, depleting the neural stem cell pool. Whether this translates to human disease remains open: a constitutive Tmlhe knockout mouse with >90% carnitine reduction showed no ASD-like behavioral or motor phenotype, which is curated here as an explicit human/model mismatch.\nThis entry is curated as a distinct disorder \u2014 rather than folded into the carnitine-transport (SLC22A5) or carnitine-cycle (CPT1A/CPT2/SLC25A20) entries \u2014 because the lesion is in carnitine *biosynthesis* rather than uptake or mitochondrial transport, and because the clinical consequence is a low-penetrance neurodevelopmental risk rather than the fasting-intolerance/cardiomyopathy phenotype of those disorders.",
+    "pathophysiology": [
+      "TMLHE Loss of Function",
+      "Block at the First Step of Carnitine Biosynthesis",
+      "Reduced Endogenous Carnitine Supply",
+      "Impaired Long-Chain Fatty Acid Oxidation in Neural Progenitors",
+      "Shift from Neural Stem Cell Self-Renewal to Differentiating Division",
+      "Low-Penetrance Neurodevelopmental Susceptibility"
+    ],
+    "cell_types": [
+      "neural stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000047"
+    ],
+    "biological_processes": [
+      "carnitine biosynthetic process",
+      "fatty acid beta-oxidation",
+      "long-chain fatty acid metabolic process",
+      "stem cell population maintenance",
+      "neural precursor cell proliferation"
+    ],
+    "phenotypes": [
+      "Autism",
+      "Intellectual disability",
+      "Developmental regression"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000717",
+      "HP:0001249",
+      "HP:0002376"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TMLHE loss-of-function variant"
+    ],
+    "treatments": [
+      "Levocarnitine supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "6-N-trimethyllysine (TML)",
+      "Gamma-butyrobetaine (BB) and the BB/TML ratio"
+    ],
+    "source_file": "TMLHE_Deficiency.yaml",
+    "page_url": "../pages/disorders/TMLHE_Deficiency.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "TNF Receptor-Associated Periodic Syndrome",
     "disease_id": "MONDO:0007727",
     "category": "Mendelian",
@@ -319254,17 +319328,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3055,
+  "total_disorder_pages": 3056,
   "total_subtypes": 3824,
-  "total_disorders_and_subtypes": 6879,
-  "total_unique_evidence_sources": 43867,
-  "total_unique_publications": 41382,
+  "total_disorders_and_subtypes": 6880,
+  "total_unique_evidence_sources": 43876,
+  "total_unique_publications": 41391,
   "total_unique_disease_categories": 59,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3050,
-  "total_unique_pathological_events": 18781,
+  "total_pathographs": 3051,
+  "total_unique_pathological_events": 18790,
   "total_modules": 177,
-  "total_research_reports": 3168,
+  "total_research_reports": 3169,
   "total_classifications": 20,
   "total_comorbidities": 46,
   "total_groupings": 103
