@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from dismech.export.cx2_export import disorder_to_cx2
 from dismech.export.browser_export import BrowserExporter
+from dismech.export.cx2_export import disorder_to_cx2
 from dismech.export.tabular_export import TabularExporter
 from dismech.graph import build_causal_graph, graph_to_json
 from dismech.render import render_disorder, render_module

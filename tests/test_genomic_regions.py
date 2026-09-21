@@ -7,7 +7,6 @@ import pytest
 from linkml.validator import Validator
 from linkml.validator.plugins import JsonschemaValidationPlugin
 
-
 SCHEMA = Path(__file__).parents[1] / "src/dismech/schema/dismech.yaml"
 EPHA4 = {"preferred_term": "EPHA4", "term": {"id": "hgnc:3388", "label": "EPHA4"}}
 PAX3 = {"preferred_term": "PAX3", "term": {"id": "hgnc:8617", "label": "PAX3"}}
