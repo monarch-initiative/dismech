@@ -1,0 +1,11 @@
+| Domain | Key finding/statistic | Evidence type and year |
+|---|---|---|
+| Clinical phenotype | Among 93 mutation-positive individuals: early-onset periodontitis 99%, gingival recession 98%, absent/thin attached gingiva 93%, easy bruising 96%, skin fragility 83%, pretibial hyperpigmentation 83%, and joint hypermobility 44%; first tooth loss occurred at ages 2–30 years and complete tooth loss at 14–48 years. | International human cohort, 2016 |
+| Pediatric phenotype | All 12 children who inherited the familial pathogenic variant had generalized absence of attached gingiva; all 7 non-carriers lacked it. Easy bruising occurred in 8/12 carriers and 0/7 non-carriers; only 2/12 carriers met full clinical criteria at ages 8 and 13. | Prospective family study, 2021 |
+| Adult systemic phenotype | In 21 molecularly confirmed adults from 12 families: easy bruising 90%, pretibial plaques 81%, skin fragility 71%, vocal changes 38%, joint hypermobility 24%, and leukodystrophy in 89% of those imaged; molecular diagnosis occurred at ages 21–73 years. | Multicenter human cohort, 2023 |
+| Complement mechanism | Functional analysis of 16 C1R variants showed abnormal intracellular processing, failure to integrate into the C1 complex, extracellular catalytic C1r/C1s activity, activated C1s in patient-fibroblast supernatants, and cleavage of added C4 without microbial stimulation. | Patient fibroblast and transfected-cell experiments, 2019 |
+| Molecular profiling | RNA sequencing of monocytes and gingival fibroblasts from two patients found differential expression only in monocytes, enriched for neutrophil-mediated immunity, bacterial response, TNF-α and IL-17 pathways; MMP9, VEGFA, IL10, IL1A, IL1B, IL2RA and IL6 findings were validated by qPCR/ELISA. | Exploratory human transcriptomics, 2022 |
+| Extracellular-matrix injury | Activated C1s directly degraded collagen I in cell culture and in vitro; patient fibroblasts showed rapid, extensive collagen remodeling, and activated C1s completely degraded collagen I at 40°C. | Patient-fibroblast and biochemical experiments, 2023 |
+
+
+*Table: Compact synthesis of the principal clinical, pediatric, molecular and mechanistic evidence for periodontal Ehlers-Danlos syndrome. Sources: (pqac-00000001, pqac-00000004, pqac-00000012, pqac-00000014, pqac-00000011, pqac-00000013)*
