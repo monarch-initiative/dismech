@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coarse Phenotype Terms - dismech</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font);
+            background: #fff;
+            color: var(--gray-800);
+            line-height: 1.7;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Sticky nav */
+        nav.site-nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+        .nav-links a { color: var(--gray-600); text-decoration: none; }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .container {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .breadcrumb {
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb a {
+            color: var(--primary);
+        }
+
+        .breadcrumb span {
+            color: var(--text-muted);
+        }
+
+        .page-header {
+            background: var(--teal-50);
+            border: 1px solid var(--gray-200);
+            padding: 2.5rem 2rem 2rem;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .page-header::before { display: none; }
+
+        .page-header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--teal);
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+        }
+
+        .page-header p {
+            position: relative;
+            max-width: 820px;
+            color: var(--gray-700);
+        }
+
+        .header-meta {
+            margin-top: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            background: rgba(0, 131, 143, 0.1);
+            color: var(--teal);
+            border: 1px solid var(--teal-light);
+        }
+
+        .summary-card {
+            background: var(--card);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .section-copy {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .tree {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+        }
+
+        .node {
+            margin: 12px 0;
+            padding: 18px 20px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .node-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .node-name {
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .node-key {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: #ecfeff;
+            border-radius: 999px;
+            padding: 3px 9px;
+        }
+
+        .node-body {
+            margin-top: 12px;
+        }
+
+        .node-desc {
+            margin-top: 8px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .linkout {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 9px;
+            border-radius: 999px;
+            background: var(--chip-bg);
+            color: var(--chip-text);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .dismech-link {
+            background: #ecfccb;
+            color: #3f6212;
+        }
+
+        .children {
+            list-style: none;
+            padding-left: 18px;
+            margin: 12px 0 0;
+            border-left: 2px solid var(--tree-border);
+        }
+
+        .disorders {
+            list-style: none;
+            padding-left: 0;
+            margin: 12px 0 0;
+            display: grid;
+            gap: 8px;
+        }
+
+        .disorders li {
+            font-size: 0.95rem;
+        }
+
+        .disorder-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            background: #f0fdfa;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+
+        .disorder-link:hover {
+            text-decoration: none;
+            border-color: var(--primary-light);
+        }
+
+        @media (max-width: 720px) {
+            .container {
+                padding: 16px;
+            }
+
+            .page-header {
+                padding: 32px 24px;
+            }
+
+            .page-header h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    
+
+    <nav class="site-nav">
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="index.html" class="active">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../../app/index.html">Browse All</a>
+            <span> / </span>
+            <a href="index.html">Classifications</a>
+            <span> / </span>
+            <span>Coarse Phenotype Terms</span>
+        </div>
+
+        <header class="page-header">
+            <h1>Coarse Phenotype Terms</h1>
+            
+            <p>Hand-curated HPO terms below the organ-system top level that still name a bucket rather than a finding. Used by `just check-coarse-phenotypes`, which requires any phenotype bound to one of these to declare a `coarse_binding_basis`.</p>
+            
+            <div class="header-meta">
+                <span class="chip">Schema enum: CoarsePhenotypeTermEnum</span>
+                
+                <span class="chip">Schema source: https://w3id.org/monarch-initiative/dismech/classifications/coarse_phenotype_terms</span>
+                
+            </div>
+        </header>
+
+        
+        <section class="summary-card">
+            <div class="section-title">Schema Enum Description</div>
+            <div class="section-copy">The second tier of coarse phenotype terms: HPO terms below the 23 organ-system roots (PhenotypeCategoryEnum) that still name a body system, a whole organ, or a gross body region rather than a clinical finding. The guard treats this set and PhenotypeCategoryEnum&#39;s meanings as one list.
+
+THIS IS A HAND-CURATED LIST AND MUST NEVER BECOME A RULE. The tier is not uniform, and a depth, subsumption or naming-pattern rule over it would be wrong in both directions. HPO names 360 distinct &#34;Abnormal*&#34; terms used in this knowledge base, and the most-used ones are the ones a pattern would most confidently mis-flag.
+
+Inclusion rule: the term names (a) a body system, (b) a whole organ, or (c) a gross body region, and asserts nothing about what is wrong with it. The morphology/physiology split terms directly under such a root are included with it, since they divide the bucket without narrowing it.
+
+Deliberately EXCLUDED, with the reason, because each doubles as an established clinical finding at exactly that grain:
+
+- HP:0001627 Abnormal heart morphology (149 uses) carries &#34;Congenital
+  heart defect&#34; as an EXACT synonym and is the correct binding for a paper
+  that reports CHD without naming a lesion.
+
+- HP:0001999 Abnormal facial shape (177) is dysmorphic facies, a real
+  summary finding in dysmorphology.
+
+- HP:0012443 Abnormal brain morphology (26) and HP:0002500 Abnormal
+  cerebral white matter morphology (48) are what a radiologist reports off
+  an MRI.
+
+- HP:0012332 Abnormal autonomic nervous system physiology (30) is
+  dysautonomia.
+
+- HP:0000164 Abnormality of the dentition (36) is &#34;dental anomalies&#34;, a
+  reported syndromic feature.
+
+
+Left out as genuinely undecided rather than judged: HP:0000504 Abnormality of vision, HP:0000925 Abnormality of the vertebral column, HP:0002926 Abnormality of thyroid physiology, HP:0002270 Abnormality of the autonomic nervous system. Each is arguably a bucket and arguably a finding; a wrong entry here costs a curator a false positive, so they wait for someone with an argument.
+
+Adding a value is a schema pull request with that argument attached. Each value&#39;s `description` must be the term&#39;s exact canonical HPO label, so `just validate-terms-schema` verifies the whole list against the ontology.</div>
+        </section>
+        
+
+        <ul class="tree">
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Kidney</span>
+                
+                <span class="node-key">KIDNEY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the kidney</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Renal morphology</span>
+                
+                <span class="node-key">RENAL_MORPHOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0012210" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal renal morphology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Renal physiology</span>
+                
+                <span class="node-key">RENAL_PHYSIOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0012211" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal renal physiology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Urinary system</span>
+                
+                <span class="node-key">URINARY_SYSTEM</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0000079" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the urinary system</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Genital system</span>
+                
+                <span class="node-key">GENITAL_SYSTEM</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0000078" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the genital system</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Reproductive system physiology</span>
+                
+                <span class="node-key">REPRODUCTIVE_SYSTEM_PHYSIOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0000080" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of reproductive system physiology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Female genitalia</span>
+                
+                <span class="node-key">FEMALE_GENITALIA</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0010460" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the female genitalia</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Male genitalia</span>
+                
+                <span class="node-key">MALE_GENITALIA</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0010461" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the male genitalia</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Gastrointestinal tract</span>
+                
+                <span class="node-key">GASTROINTESTINAL_TRACT</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the gastrointestinal tract</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Gastrointestinal tract morphology</span>
+                
+                <span class="node-key">GASTROINTESTINAL_TRACT_MORPHOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0012718" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal gastrointestinal tract morphology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Liver</span>
+                
+                <span class="node-key">LIVER</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the liver</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Liver physiology</span>
+                
+                <span class="node-key">LIVER_PHYSIOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0031865" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal liver physiology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Pancreas</span>
+                
+                <span class="node-key">PANCREAS</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0001732" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the pancreas</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Skeletal system</span>
+                
+                <span class="node-key">SKELETAL_SYSTEM</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0000924" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the skeletal system</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Skeletal morphology</span>
+                
+                <span class="node-key">SKELETAL_MORPHOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0011842" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal skeletal morphology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Musculoskeletal physiology</span>
+                
+                <span class="node-key">MUSCULOSKELETAL_PHYSIOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0011843" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal musculoskeletal physiology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Eye morphology</span>
+                
+                <span class="node-key">EYE_MORPHOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0012372" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal eye morphology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Eye physiology</span>
+                
+                <span class="node-key">EYE_PHYSIOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0012373" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal eye physiology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Nervous system morphology</span>
+                
+                <span class="node-key">NERVOUS_SYSTEM_MORPHOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0012639" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal nervous system morphology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Nervous system physiology</span>
+                
+                <span class="node-key">NERVOUS_SYSTEM_PHYSIOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0012638" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal nervous system physiology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Central nervous system morphology</span>
+                
+                <span class="node-key">CENTRAL_NERVOUS_SYSTEM_MORPHOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0002011" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Morphological central nervous system abnormality</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Skin</span>
+                
+                <span class="node-key">SKIN</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0000951" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the skin</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Skin morphology</span>
+                
+                <span class="node-key">SKIN_MORPHOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0011121" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal skin morphology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Ear morphology</span>
+                
+                <span class="node-key">EAR_MORPHOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0031703" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal ear morphology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Ear physiology</span>
+                
+                <span class="node-key">EAR_PHYSIOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0031704" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal ear physiology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Cardiovascular system morphology</span>
+                
+                <span class="node-key">CARDIOVASCULAR_SYSTEM_MORPHOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0030680" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal cardiovascular system morphology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Respiratory system physiology</span>
+                
+                <span class="node-key">RESPIRATORY_SYSTEM_PHYSIOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0002795" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormal respiratory system physiology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Immune system physiology</span>
+                
+                <span class="node-key">IMMUNE_SYSTEM_PHYSIOLOGY</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0010978" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of immune system physiology</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Connective tissue</span>
+                
+                <span class="node-key">CONNECTIVE_TISSUE</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0003549" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of connective tissue</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Face</span>
+                
+                <span class="node-key">FACE</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0000271" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the face</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Upper limb</span>
+                
+                <span class="node-key">UPPER_LIMB</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0002817" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the upper limb</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Lower limb</span>
+                
+                <span class="node-key">LOWER_LIMB</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0002814" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the lower limb</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">Hand</span>
+                
+                <span class="node-key">HAND</span>
+                
+                
+                <a class="linkout" href="http://purl.obolibrary.org/obo/HP_0001155" target="_blank">term</a>
+                
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Abnormality of the hand</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+        </ul>
+    </div>
+</body>
+</html>
