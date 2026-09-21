@@ -903,7 +903,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1339,6 +1339,25 @@ check-causal-targets *files:
 [group('QC')]
 list-causal-targets *files:
     uv run python scripts/check_causal_targets.py --report "$@"
+
+# Resolve every hypothesis exploration directory to its kb entry. A directory
+# under kb/hypotheses/ reaches the disease page through two verbatim name
+# matches in render.collect_hypothesis_research_links -- <slug> against the
+# entry's filename stem, and <hypothesis_id> against a declared
+# mechanistic_hypotheses[].hypothesis_group_id. Neither has a fallback, and a
+# mismatch is silent everywhere else: reports, sidecars, entry and page all
+# validate. A slug miss makes every report under it INVISIBLE; an id miss
+# renders it detached with no status. Ungated and whole-KB because the PR that
+# breaks it -- renaming an entry, folding it into a parent per design decisions
+# section 3a, renaming a hypothesis id -- never opens kb/hypotheses/ at all.
+[group('QC')]
+check-hypothesis-links:
+    uv run python scripts/check_hypothesis_links.py
+
+# Census of disconnected hypothesis directories, exit 0.
+[group('QC')]
+list-hypothesis-links:
+    uv run python scripts/check_hypothesis_links.py --report
 
 # Census of AOP-derivable causal chains: how many entries hold a run of nodes
 # that is measured at every node, cited at every edge, or both. Backs
