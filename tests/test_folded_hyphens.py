@@ -5,7 +5,7 @@ folded into 'word- next', silently breaking a hyphenated compound (e.g.
 'relapsing-remitting' -> 'relapsing- remitting').
 
 This gated only NEW splits until dismech #11760 repaired the 293-split backlog
-and #4800 removed the baseline that grandfathered it. Every finding now fails.
+and #12372 removed the baseline that grandfathered it. Every finding now fails.
 
 See scripts/check_folded_hyphens.py and dismech PR #4799.
 """

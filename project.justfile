@@ -1517,7 +1517,7 @@ check-snippet-boundaries *files:
 
 # A '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting',
 # silently breaking the compound. The baseline that grandfathered the
-# pre-existing backlog was removed in #4800 once #11760 had repaired it, so
+# pre-existing backlog was removed once #11760 had repaired it (#12372), so
 # there is no way to grandfather a finding and every one fails.
 # Gate YAML folded-scalar compound-word splits in kb/ and src/
 [group('QC')]

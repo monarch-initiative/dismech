@@ -27,7 +27,7 @@ This check gates on *every* finding. It did not always: a backlog of 330 splits
 predating the guard was grandfathered in ``tests/folded_hyphen_baseline.txt``,
 so that new occurrences could be gated without first repairing the backlog. The
 backlog was repaired in dismech #11760 (293 splits across 181 files) and the
-baseline mechanism removed in #4800, its stated endpoint.
+baseline mechanism removed in #12372, which was #4800's stated endpoint.
 
 So there is no longer a way to grandfather a finding, deliberately. If the
 detector flags a line that is genuinely correct, the fix is to teach the
