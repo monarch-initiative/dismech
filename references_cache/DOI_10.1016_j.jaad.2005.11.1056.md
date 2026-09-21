@@ -13,6 +13,7 @@ year: '2006'
 doi: 10.1016/j.jaad.2005.11.1056
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Griscelli syndrome

@@ -13,6 +13,7 @@ year: '2022'
 doi: 10.1083/jcb.202107070
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Reconstitution of human atlastin fusion activity reveals autoinhibition by the C terminus

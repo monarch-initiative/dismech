@@ -12,6 +12,7 @@ year: '2000'
 doi: 10.1016/s0889-8561(05)70130-2
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # CD3 IMMUNODEFICIENCIES

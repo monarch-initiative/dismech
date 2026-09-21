@@ -17,6 +17,7 @@ year: '1990'
 doi: 10.1056/NEJM199008093230601
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # An Investigation of the Cause of the Eosinophilia–Myalgia Syndrome Associated with Tryptophan Use

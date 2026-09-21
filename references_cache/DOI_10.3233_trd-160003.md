@@ -10,6 +10,7 @@ year: '2016'
 doi: 10.3233/trd-160003
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Peroxisome biogenesis disorders

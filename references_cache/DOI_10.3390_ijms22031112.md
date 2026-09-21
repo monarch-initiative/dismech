@@ -14,6 +14,7 @@ year: '2021'
 doi: 10.3390/ijms22031112
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Molecular Mechanism of Autosomal Recessive Long QT-Syndrome 1 without Deafness

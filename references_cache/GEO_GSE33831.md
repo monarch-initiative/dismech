@@ -2,6 +2,7 @@
 reference_id: GEO:GSE33831
 title: Mesenchymal Stem Cells Transfer Mitochondria to the Cells with Virtually Absent Mitochondrial Function but Not to the Cells Harboring Pathogenic Mitochondrial DNA Mutations
 content_type: summary
+full_text_attempted: true
 ---
 
 # Mesenchymal Stem Cells Transfer Mitochondria to the Cells with Virtually Absent Mitochondrial Function but Not to the Cells Harboring Pathogenic Mitochondrial DNA Mutations

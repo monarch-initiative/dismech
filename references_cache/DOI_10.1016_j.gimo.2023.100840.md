@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.1016/j.gimo.2023.100840
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Prevalence estimate of sphingosine phosphate lyase insufficiency syndrome in worldwide and select populations

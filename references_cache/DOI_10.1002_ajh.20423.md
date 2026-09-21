@@ -11,6 +11,7 @@ year: '2005'
 doi: 10.1002/ajh.20423
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hypereosinophilic syndrome: An update

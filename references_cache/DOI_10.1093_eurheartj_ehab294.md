@@ -27,6 +27,7 @@ year: '2021'
 doi: 10.1093/eurheartj/ehab294
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Prediction of ventricular arrhythmia in phospholamban p.Arg14del mutation carriers–reaching the frontiers of individual risk prediction

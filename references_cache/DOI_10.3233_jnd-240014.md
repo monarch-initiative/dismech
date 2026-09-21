@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3233/jnd-240014
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Serine Palmitoyltransferase (SPT)-related Neurodegenerative and Neurodevelopmental Disorders

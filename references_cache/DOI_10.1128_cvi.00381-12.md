@@ -10,6 +10,7 @@ year: '2012'
 doi: 10.1128/cvi.00381-12
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pilot Phase IB Clinical Trial of an Alhydrogel-Adsorbed Recombinant Ricin Vaccine

@@ -15,6 +15,7 @@ year: '2011'
 doi: 10.4081/cardiogenetics.2011.e10
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Familial Dilated Cardiomyopathy Associated with Congenital Defects in the Setting of a Novel VCL Mutation (Lys815Arg) in Conjunction with a Known MYPBC3 Variant

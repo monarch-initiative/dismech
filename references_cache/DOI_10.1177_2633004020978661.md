@@ -15,6 +15,7 @@ year: '2020'
 doi: 10.1177/2633004020978661
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Therapeutic and diagnostic advances in Stickler syndrome

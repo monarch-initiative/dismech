@@ -10,6 +10,7 @@ year: '1983'
 doi: 10.7326/0003-4819-99-5-604
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # An Endogenous Digoxin-Like Substance in Patients with Renal Impairment

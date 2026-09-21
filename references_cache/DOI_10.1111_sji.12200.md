@@ -1,9 +1,6 @@
 ---
 reference_id: DOI:10.1111/sji.12200
-title: "<scp>
-                      <i>CD3G</i>
-                    </scp>
-                    Gene Defects in Familial Autoimmune Thyroiditis"
+title: "<scp> <i>CD3G</i> </scp> Gene Defects in Familial Autoimmune Thyroiditis"
 authors:
 - B. Gokturk
 - S. Keles
@@ -22,12 +19,10 @@ year: '2014'
 doi: 10.1111/sji.12200
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <scp>
-                      <i>CD3G</i>
-                    </scp>
-                    Gene Defects in Familial Autoimmune Thyroiditis
+# <scp> <i>CD3G</i> </scp> Gene Defects in Familial Autoimmune Thyroiditis
 **Authors:** B. Gokturk, S. Keles, M. Kirac, H. Artac, H. Tokgoz, S. N. Guner, U. Caliskan, Z. Caliskaner, M. van der Burg, J. van Dongen, N. V. Morgan, I. Reisli
 **Journal:** Scandinavian Journal of Immunology (2014)
 **DOI:** [10.1111/sji.12200](https://doi.org/10.1111/sji.12200)

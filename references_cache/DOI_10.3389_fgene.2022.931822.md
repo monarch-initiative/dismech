@@ -21,6 +21,7 @@ year: '2022'
 doi: 10.3389/fgene.2022.931822
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Identical IFT140 Variants Cause Variable Skeletal Ciliopathy Phenotypes—Challenges for the Accurate Diagnosis

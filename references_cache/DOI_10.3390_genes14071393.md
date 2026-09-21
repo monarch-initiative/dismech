@@ -26,6 +26,7 @@ year: '2023'
 doi: 10.3390/genes14071393
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # NGS-Based Genetic Analysis in a Cohort of Italian Patients with Suspected Inherited Myopathies and/or HyperCKemia

@@ -18,6 +18,7 @@ year: '2024'
 doi: 10.1016/j.jbc.2024.107725
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Interaction between the TBC1D24 TLDc domain and the KIBRA C2 domain is disrupted by two epilepsy-associated TBC1D24 missense variants

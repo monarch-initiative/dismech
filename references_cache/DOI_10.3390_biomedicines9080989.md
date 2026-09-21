@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.3390/biomedicines9080989
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A Review of Multiple Mitochondrial Dysfunction Syndromes, Syndromes Associated with Defective Fe-S Protein Maturation

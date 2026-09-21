@@ -12,6 +12,7 @@ year: '2019'
 doi: 10.1111/febs.14702
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Phosphomimetic‐mediated <i>in vitro</i> rescue of hypertrophic cardiomyopathy linked to R58Q mutation in myosin regulatory light chain

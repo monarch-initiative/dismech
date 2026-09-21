@@ -23,6 +23,7 @@ year: '1999'
 doi: 10.1056/NEJM199912023412302
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Missense Mutations in the Rod Domain of the Lamin A/C Gene as Causes of Dilated Cardiomyopathy and Conduction-System Disease

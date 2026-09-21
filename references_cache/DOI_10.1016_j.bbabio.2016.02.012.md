@@ -8,6 +8,7 @@ year: '2016'
 doi: 10.1016/j.bbabio.2016.02.012
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mitochondrial complex I-linked disease

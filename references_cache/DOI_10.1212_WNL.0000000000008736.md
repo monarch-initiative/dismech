@@ -15,6 +15,7 @@ year: '2020'
 doi: 10.1212/WNL.0000000000008736
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical phenotypes and classification algorithm for complex regional pain syndrome

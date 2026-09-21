@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1161/CIRCGENETICS.116.001603
-title: "Gene-Based Risk Stratification for Cardiac Disorders in
-            <i>LMNA</i>
-            Mutation Carriers"
+title: "Gene-Based Risk Stratification for Cardiac Disorders in <i>LMNA</i> Mutation Carriers"
 authors:
 - Suguru Nishiuchi
 - Takeru Makiyama
@@ -41,11 +39,10 @@ year: '2017'
 doi: 10.1161/CIRCGENETICS.116.001603
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Gene-Based Risk Stratification for Cardiac Disorders in
-            <i>LMNA</i>
-            Mutation Carriers
+# Gene-Based Risk Stratification for Cardiac Disorders in <i>LMNA</i> Mutation Carriers
 **Authors:** Suguru Nishiuchi, Takeru Makiyama, Takeshi Aiba, Kenzaburo Nakajima, Sayako Hirose, Hirohiko Kohjitani, Yuta Yamamoto, Takeshi Harita, Mamoru Hayano, Yimin Wuriyanghai, Jiarong Chen, Kenichi Sasaki, Nobue Yagihara, Taisuke Ishikawa, Kenji Onoue, Nobuyuki Murakoshi, Ichiro Watanabe, Kimie Ohkubo, Hiroshi Watanabe, Seiko Ohno, Takahiro Doi, Satoshi Shizuta, Tohru Minamino, Yoshihiko Saito, Yasushi Oginosawa, Akihiko Nogami, Kazutaka Aonuma, Kengo Kusano, Naomasa Makita, Wataru Shimizu, Minoru Horie, Takeshi Kimura
 **Journal:** Circulation: Cardiovascular Genetics (2017)
 **DOI:** [10.1161/CIRCGENETICS.116.001603](https://doi.org/10.1161/CIRCGENETICS.116.001603)

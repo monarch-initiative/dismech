@@ -16,6 +16,7 @@ year: '2025'
 doi: 10.3390/biomedicines13092245
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Unraveling the Functional Impact of Splicing Variants in Inherited Hearing Disorders Through Minigene Splicing Assays

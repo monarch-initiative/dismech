@@ -16,6 +16,7 @@ year: '2018'
 doi: 10.1128/mcb.00025-18
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The C-Terminal Extension Unique to the Long Isoform of the Shelterin Component TIN2 Enhances Its Interaction with TRF2 in a Phosphorylation- and Dyskeratosis Congenita Cluster-Dependent Fashion

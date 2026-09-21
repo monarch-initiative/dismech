@@ -13,6 +13,7 @@ year: '2021'
 doi: 10.1093/mtomcs/mfab010
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biochemical impact of a disease-causing Ile67Asn substitution on BOLA3 protein

@@ -9,6 +9,7 @@ year: '2023'
 doi: 10.1038/s41588-023-01339-5
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Thymidine nucleotide metabolism controls human telomere length

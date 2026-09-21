@@ -12,6 +12,7 @@ year: '2025'
 doi: 10.1080/14737175.2025.2470980
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Charcot-Marie-Tooth disease: a review of clinical developments and its management - What’s new in 2025?

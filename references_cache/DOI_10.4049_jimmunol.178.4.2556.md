@@ -18,6 +18,7 @@ year: '2007'
 doi: 10.4049/jimmunol.178.4.2556
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Differential Biological Role of CD3 Chains Revealed by Human Immunodeficiencies

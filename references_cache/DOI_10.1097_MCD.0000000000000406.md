@@ -13,6 +13,7 @@ year: '2022'
 doi: 10.1097/MCD.0000000000000406
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Autosomal recessive EXT2 syndrome - extending the phenotypic spectrum of an emerging condition, a further case?

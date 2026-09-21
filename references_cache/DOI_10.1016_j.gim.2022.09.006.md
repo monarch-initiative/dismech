@@ -66,6 +66,7 @@ year: '2023'
 doi: 10.1016/j.gim.2022.09.006
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Delineation of a KDM2B-related neurodevelopmental disorder and its associated DNA methylation signature

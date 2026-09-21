@@ -11,6 +11,7 @@ year: '2023'
 doi: 10.3390/ijms24119578
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Advances in Rodent Experimental Models of Sepsis

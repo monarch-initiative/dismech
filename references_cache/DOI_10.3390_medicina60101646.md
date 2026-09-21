@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.3390/medicina60101646
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Efficacy and Safety of Evolocumab and Alirocumab as PCSK9 Inhibitors in Pediatric Patients with Familial Hypercholesterolemia: A Systematic Review and Meta-Analysis

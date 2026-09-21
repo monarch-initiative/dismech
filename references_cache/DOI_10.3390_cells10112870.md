@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.3390/cells10112870
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # ER Morphology in the Pathogenesis of Hereditary Spastic Paraplegia

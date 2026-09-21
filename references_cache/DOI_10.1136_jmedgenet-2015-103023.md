@@ -13,6 +13,7 @@ year: '2015'
 doi: 10.1136/jmedgenet-2015-103023
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A mutation of <i>MET</i>, encoding hepatocyte growth factor receptor, is associated with human <i>DFNB97</i> hearing loss

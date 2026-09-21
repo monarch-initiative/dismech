@@ -9,6 +9,7 @@ year: '2025'
 doi: 10.3390/nu17040659
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A Comprehensive Review of the Genetics of Dyslipidemias and Risk of Atherosclerotic Cardiovascular Disease

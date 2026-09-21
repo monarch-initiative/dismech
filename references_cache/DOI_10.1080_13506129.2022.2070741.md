@@ -23,6 +23,7 @@ year: '2022'
 doi: 10.1080/13506129.2022.2070741
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The experience of hereditary apolipoprotein A-I amyloidosis at the UK National Amyloidosis Centre

@@ -15,6 +15,7 @@ year: '1995'
 doi: 10.1002/j.1460-2075.1995.tb00146.x
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Altered T cell development in mice with a targeted mutation of the CD3‐epsilon gene.

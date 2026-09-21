@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.29303/jbt.v24i4.7682
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Diagnosis and Treatment of Aspergillosis

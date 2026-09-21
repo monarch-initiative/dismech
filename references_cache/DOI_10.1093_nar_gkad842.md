@@ -13,6 +13,7 @@ year: '2023'
 doi: 10.1093/nar/gkad842
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # BOLA3 and NFU1 link mitoribosome iron–sulfur cluster assembly to multiple mitochondrial dysfunctions syndrome

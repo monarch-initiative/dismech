@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3390/audiolres14020022
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Autosomal Recessive Non-Syndromic Deafness: Is AAV Gene Therapy a Real Chance?

@@ -29,6 +29,7 @@ year: '2004'
 doi: 10.1073/pnas.0308475101
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # SIX1 mutations cause branchio-oto-renal syndrome by disruption of EYA1–SIX1–DNA complexes

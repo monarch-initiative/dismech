@@ -19,6 +19,7 @@ year: '2012'
 doi: 10.1194/jlr.M021204
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Defective lipid remodeling of GPI anchors in peroxisomal disorders, Zellweger syndrome, and rhizomelic chondrodysplasia punctata

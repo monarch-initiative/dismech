@@ -17,6 +17,7 @@ year: '2019'
 doi: 10.2147/JPR.S205467
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # &lt;p&gt;Botulinum Toxin Type A for refractory trigeminal neuralgia in older patients: a better therapeutic effect&lt;/p&gt;

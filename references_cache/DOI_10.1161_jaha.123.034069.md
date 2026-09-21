@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.1161/jaha.123.034069
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Eighteen‐Month Real‐World Experience Using Mavacamten for Treatment of Obstructive Hypertrophic Cardiomyopathy in a Racially Diverse Population

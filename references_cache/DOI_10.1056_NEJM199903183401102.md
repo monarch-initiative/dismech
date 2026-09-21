@@ -14,6 +14,7 @@ year: '1999'
 doi: 10.1056/NEJM199903183401102
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Fomepizole for the Treatment of Ethylene Glycol Poisoning

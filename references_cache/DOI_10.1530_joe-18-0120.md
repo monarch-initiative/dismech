@@ -9,6 +9,7 @@ year: '2018'
 doi: 10.1530/joe-18-0120
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biochemical and clinical aspects of glycogen storage diseases

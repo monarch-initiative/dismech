@@ -8,6 +8,7 @@ year: '2023'
 doi: 10.1016/j.jacc.2023.07.028
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Childhood Screening for Familial Hypercholesterolemia

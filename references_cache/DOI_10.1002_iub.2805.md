@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.1002/iub.2805
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # <scp>MRAS</scp>in coronary artery disease—Unchartered territory

@@ -19,6 +19,7 @@ year: '2024'
 doi: 10.1016/j.cell.2024.03.002
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The SPATA5-SPATA5L1 ATPase complex directs replisome proteostasis to ensure genome integrity

@@ -9,6 +9,7 @@ year: '2023'
 doi: 10.1242/jcs.260999
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Import and quality control of peroxisomal proteins

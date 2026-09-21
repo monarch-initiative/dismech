@@ -67,6 +67,7 @@ year: '2021'
 doi: 10.1007/s00134-021-06506-y
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Surviving sepsis campaign: international guidelines for management of sepsis and septic shock 2021

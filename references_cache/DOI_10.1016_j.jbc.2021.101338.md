@@ -15,6 +15,7 @@ year: '2021'
 doi: 10.1016/j.jbc.2021.101338
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Intellectual-disability-associated mutations in the ceramide transport protein gene CERT1 lead to aberrant function and subcellular distribution

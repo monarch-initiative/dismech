@@ -27,6 +27,7 @@ doi: 10.64898/2026.08.20.746108
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # Severe Myocardial Inflammation and Necrosis in Juvenile Mice Compared with Adult Mice with Coxsackievirus B3 Myocarditis

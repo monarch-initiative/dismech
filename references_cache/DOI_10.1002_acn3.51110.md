@@ -13,6 +13,7 @@ year: '2020'
 doi: 10.1002/acn3.51110
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Demyelination in hereditary sensory neuropathy type‐1C

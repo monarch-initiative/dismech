@@ -17,6 +17,7 @@ year: '2022'
 doi: 10.1111/exd.14469
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Naked (N) mutant mice carry a nonsense mutation in the homeobox of <i>Hoxc13</i>

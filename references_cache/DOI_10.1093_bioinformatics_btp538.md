@@ -11,6 +11,7 @@ year: '2009'
 doi: 10.1093/bioinformatics/btp538
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Phenotypic categorization of genetic skin diseases reveals new relations between phenotypes, genes and pathways

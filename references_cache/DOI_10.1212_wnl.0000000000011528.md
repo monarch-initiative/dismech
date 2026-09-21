@@ -58,6 +58,7 @@ year: '2021'
 doi: 10.1212/wnl.0000000000011528
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Natural History, Phenotypic Spectrum, and Discriminative Features of Multisystemic RFC1 Disease

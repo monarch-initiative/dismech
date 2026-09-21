@@ -16,6 +16,7 @@ year: '2022'
 doi: 10.1093/hmg/ddac105
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Developmental disruption to the cortical transcriptome and synaptosome in a model of <i>SETD1A</i> loss-of-function

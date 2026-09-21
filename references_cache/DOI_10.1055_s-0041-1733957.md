@@ -11,6 +11,7 @@ year: '2023'
 doi: 10.1055/s-0041-1733957
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Early Neonatal Mortality among Babies Born with Spina Bifida in Finland (2000–2014)

@@ -13,6 +13,7 @@ year: '2018'
 doi: 10.3390/ijms19072125
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # TGF-β Signaling-Related Genes and Thoracic Aortic Aneurysms and Dissections

@@ -81,6 +81,7 @@ year: '2023'
 doi: 10.1126/scitranslmed.abo3189
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # PSMC3 proteasome subunit variants are associated with neurodevelopmental delay and type I interferon production

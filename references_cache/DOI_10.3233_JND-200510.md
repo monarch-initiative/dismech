@@ -28,6 +28,7 @@ year: '2020'
 doi: 10.3233/JND-200510
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Confirmation of TACO1 as a Leigh Syndrome Disease Gene in Two Additional Families

@@ -9,6 +9,7 @@ year: '2025'
 doi: 10.1056/NEJMicm2503203
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Subcutaneous Panniculitis-like T-Cell Lymphoma

@@ -21,6 +21,7 @@ year: '2019'
 doi: 10.1093/hmg/ddz240
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Elmod3 knockout leads to progressive hearing loss and abnormalities in cochlear hair cell stereocilia

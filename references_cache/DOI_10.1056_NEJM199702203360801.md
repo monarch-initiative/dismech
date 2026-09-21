@@ -6,6 +6,7 @@ year: '1997'
 doi: 10.1056/NEJM199702203360801
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Effect of Digoxin on Mortality and Morbidity in Patients with Heart Failure

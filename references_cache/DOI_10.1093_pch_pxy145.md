@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/pch/pxy145"
+reference_id: DOI:10.1093/pch/pxy145
 title: "PANDAS/PANS in childhood: Controversies and evidence"
 authors:
 - Colin Wilbur
@@ -14,6 +14,7 @@ journal: "Paediatrics &amp; Child Health"
 year: '2019'
 doi: 10.1093/pch/pxy145
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # PANDAS/PANS in childhood: Controversies and evidence

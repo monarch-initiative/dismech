@@ -20,6 +20,7 @@ year: '2016'
 doi: 10.1093/hmg/ddw295
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Knockout of Tmem70 alters biogenesis of ATP synthase and leads to embryonal lethality in mice

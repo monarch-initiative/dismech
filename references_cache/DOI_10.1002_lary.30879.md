@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1002/lary.30879
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # American Cochlear Implant Alliance Task Force: Recommendations for Determining Cochlear Implant Candidacy in Adults

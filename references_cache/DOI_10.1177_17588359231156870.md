@@ -12,6 +12,7 @@ year: '2023'
 doi: 10.1177/17588359231156870
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Future therapeutic strategies in the treatment of extrapulmonary neuroendocrine carcinoma: a review

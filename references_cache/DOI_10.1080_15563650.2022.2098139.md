@@ -13,6 +13,7 @@ year: '2022'
 doi: 10.1080/15563650.2022.2098139
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Amanitin intoxication: effects of therapies on clinical outcomes – a review of 40 years of reported cases

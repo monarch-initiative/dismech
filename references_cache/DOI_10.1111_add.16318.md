@@ -9,6 +9,7 @@ year: '2023'
 doi: 10.1111/add.16318
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Charting the fourth wave: Geographic, temporal, race/ethnicity and demographic trends in polysubstance fentanyl overdose deaths in the United States, 2010–2021

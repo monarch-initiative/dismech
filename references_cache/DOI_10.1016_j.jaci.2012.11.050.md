@@ -22,6 +22,7 @@ year: '2013'
 doi: 10.1016/j.jaci.2012.11.050
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Deficiency of caspase recruitment domain family, member 11 (CARD11), causes profound combined immunodeficiency in human subjects

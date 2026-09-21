@@ -13,6 +13,7 @@ year: '2016'
 doi: 10.1038/nrdp.2016.45
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Sepsis and septic shock

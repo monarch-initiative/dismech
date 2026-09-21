@@ -14,6 +14,7 @@ year: '2021'
 doi: 10.3390/ijms22126497
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Inner Ear and Muscle Developmental Defects in Smpx-Deficient Zebrafish Embryos

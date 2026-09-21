@@ -12,6 +12,7 @@ year: '2021'
 doi: 10.3390/ijms22094848
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Molecular Basis of Multiple Mitochondrial Dysfunctions Syndrome 2 Caused by CYS59TYR BOLA3 Mutation

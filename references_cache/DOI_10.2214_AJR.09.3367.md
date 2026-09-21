@@ -14,6 +14,7 @@ year: '2010'
 doi: 10.2214/AJR.09.3367
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Imaging of Primary and Secondary Inflammatory Diseases Involving Large and Medium-Sized Vessels and Their Potential Mimics: A Multitechnique Approach

@@ -11,6 +11,7 @@ year: '2025'
 doi: 10.1080/19768354.2025.2533821
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Troponin I – a comprehensive review of its function, structure, evolution, and role in muscle diseases

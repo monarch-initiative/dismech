@@ -9,6 +9,7 @@ year: '2023'
 doi: 10.1523/JNEUROSCI.1959-22.2023
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A New Mouse Model of Giant Axonal Neuropathy with Overt Phenotypes and Neurodegeneration Driven by Neurofilament Disorganization

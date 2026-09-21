@@ -13,6 +13,7 @@ year: '2026'
 doi: 10.1002/mus.70102
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # <scp>HMNR7</scp>

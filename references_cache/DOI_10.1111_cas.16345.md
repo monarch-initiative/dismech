@@ -26,6 +26,7 @@ year: '2024'
 doi: 10.1111/cas.16345
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic profiles and clinical features in subcutaneous panniculitis‐like T‐cell lymphomas

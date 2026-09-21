@@ -19,6 +19,7 @@ year: '2022'
 doi: 10.3390/genes13112158
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel Homozygous ADAMTS2 Variants and Associated Disease Phenotypes in Dogs with Dermatosparactic Ehlers–Danlos Syndrome

@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.3390/genes15121534
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hotspots for Disease-Causing Mutations in the Mitochondrial TIM23 Import Complex

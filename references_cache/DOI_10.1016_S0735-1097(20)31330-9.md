@@ -19,6 +19,7 @@ year: '2020'
 doi: 10.1016/S0735-1097(20)31330-9
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # DISRUPTION OF LAMIN A LEADS TO EARLY-ONSET CARDIAC CONDUCTION DYSFUNCTION IN ZEBRAFISH MODELS OF LAMINOPATHY

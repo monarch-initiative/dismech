@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.1042/BST20231547
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Bone morphogenetic protein signalling in pulmonary arterial hypertension: revisiting the BMPRII connection

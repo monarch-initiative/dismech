@@ -17,6 +17,7 @@ year: '2018'
 doi: 10.1111/dmcn.13740
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Classic infantile Pompe patients approaching adulthood: a cohort study on consequences for the brain

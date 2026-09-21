@@ -12,6 +12,7 @@ year: '2016'
 doi: 10.3109/15563650.2016.1162312
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Diglycolic acid, the toxic metabolite of diethylene glycol, chelates calcium and produces renal mitochondrial dysfunction <i>in vitro</i>

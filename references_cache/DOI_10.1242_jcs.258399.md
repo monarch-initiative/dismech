@@ -19,6 +19,7 @@ year: '2021'
 doi: 10.1242/jcs.258399
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Maintenance of complex I and its supercomplexes by NDUF-11 is essential for mitochondrial structure, function and health

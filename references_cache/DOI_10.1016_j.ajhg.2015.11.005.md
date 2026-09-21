@@ -55,6 +55,7 @@ year: '2015'
 doi: 10.1016/j.ajhg.2015.11.005
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # TAF1 Variants Are Associated with Dysmorphic Features, Intellectual Disability, and Neurological Manifestations

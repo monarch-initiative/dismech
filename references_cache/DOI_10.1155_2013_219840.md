@@ -8,6 +8,7 @@ year: '2013'
 doi: 10.1155/2013/219840
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Chelation: Harnessing and Enhancing Heavy Metal Detoxification—A Review

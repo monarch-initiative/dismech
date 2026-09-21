@@ -18,6 +18,7 @@ year: '2021'
 doi: 10.1002/mgg3.1569
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Early truncation of the N‐terminal variable region of <i>EYA4</i> gene causes dominant hearing loss without cardiac phenotype

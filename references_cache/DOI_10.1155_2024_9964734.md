@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.1155/2024/9964734
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Functional Analysis of <a:math xmlns:a="http://www.w3.org/1998/Math/MathML" id="M1"><a:msup><a:mrow><a:mn>3</a:mn></a:mrow><a:mrow><a:mo>′</a:mo></a:mrow></a:msup></a:math>UTR Variants at the LDLR and PCSK9 Genes in Patients with Familial Hypercholesterolemia

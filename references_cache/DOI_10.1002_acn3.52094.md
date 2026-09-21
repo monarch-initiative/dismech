@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1002/acn3.52094
-title: "<scp>SCAR32</scp>
-                    : Functional characterization and expansion of the clinical‐genetic spectrum"
+title: "<scp>SCAR32</scp> : Functional characterization and expansion of the clinical‐genetic spectrum"
 authors:
 - Valentina Naef
 - Maria Lieto
@@ -19,10 +18,10 @@ year: '2024'
 doi: 10.1002/acn3.52094
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <scp>SCAR32</scp>
-                    : Functional characterization and expansion of the clinical‐genetic spectrum
+# <scp>SCAR32</scp> : Functional characterization and expansion of the clinical‐genetic spectrum
 **Authors:** Valentina Naef, Maria Lieto, Sara Satolli, Rosa De Micco, Martina Troisi, Rosa Pasquariello, Stefano Doccini, Flavia Privitera, Alessandro Filla, Alessandro Tessitore, Filippo Maria Santorelli
 **Journal:** Annals of Clinical and Translational Neurology (2024)
 **DOI:** [10.1002/acn3.52094](https://doi.org/10.1002/acn3.52094)

@@ -12,6 +12,7 @@ year: '2025'
 doi: 10.3390/ijms26062571
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Recent Evidences of Epigenetic Alterations in Chronic Obstructive Pulmonary Disease (COPD): A Systematic Review

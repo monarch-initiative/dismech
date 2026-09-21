@@ -11,6 +11,7 @@ year: '2011'
 doi: 10.1055/s-0031-1291382
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Quebec Platelet Disorder: Update on Pathogenesis, Diagnosis, and Treatment

@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.1111/evj.13982
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Survival of formalin intoxication in a 13‐year‐old Thoroughbred gelding

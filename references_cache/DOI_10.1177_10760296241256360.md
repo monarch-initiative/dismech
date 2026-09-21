@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.1177/10760296241256360
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Efficacy and Safety of Direct Oral Anticoagulants in Cerebral Venous Thrombosis: Meta-Analysis of Randomized Clinical Trials

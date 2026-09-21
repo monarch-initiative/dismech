@@ -29,6 +29,7 @@ year: '2020'
 doi: 10.1002/humu.24061
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # An assessment of the role of vinculin loss of function variants in inherited cardiomyopathy

@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.1210/endrev/bnae003
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mini-Puberty, Physiological and Disordered: Consequences, and Potential for Therapeutic Replacement

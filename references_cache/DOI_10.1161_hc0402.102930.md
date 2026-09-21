@@ -13,6 +13,7 @@ year: '2002'
 doi: 10.1161/hc0402.102930
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Metavinculin Mutations Alter Actin Interaction in Dilated Cardiomyopathy

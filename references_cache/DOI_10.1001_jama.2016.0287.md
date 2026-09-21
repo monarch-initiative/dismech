@@ -26,6 +26,7 @@ year: '2016'
 doi: 10.1001/jama.2016.0287
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3)

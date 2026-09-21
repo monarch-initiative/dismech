@@ -19,6 +19,7 @@ year: '2018'
 doi: 10.1182/bloodadvances.2018016501
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # MECOM-associated syndrome: a heterogeneous inherited bone marrow failure syndrome with amegakaryocytic thrombocytopenia

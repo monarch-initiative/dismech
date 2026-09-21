@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.3390/ijms25021270
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Congenital Hyperinsulinism in Humans and Insulin Secretory Dysfunction in Mice Caused by Biallelic DNAJC3 Variants

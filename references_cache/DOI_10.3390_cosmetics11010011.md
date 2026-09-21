@@ -15,6 +15,7 @@ year: '2024'
 doi: 10.3390/cosmetics11010011
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Advances in the Pathogenesis and Treatment of Rosacea: A Phenotype-Based Therapeutic Approach

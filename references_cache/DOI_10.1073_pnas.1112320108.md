@@ -14,6 +14,7 @@ year: '2011'
 doi: 10.1073/pnas.1112320108
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mapping the receptor site for α-scorpion toxins on a Na

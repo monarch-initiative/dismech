@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.3238/arztebl.m2024.0196
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The diagnosis and treatment of hypertrophic cardiomyopathy

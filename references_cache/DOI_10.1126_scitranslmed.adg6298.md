@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1126/scitranslmed.adg6298
-title: "Bioengineered vascular grafts with a pathogenic
-            <i>TGFBR1</i>
-            variant model aneurysm formation in vivo and reveal underlying collagen defects"
+title: "Bioengineered vascular grafts with a pathogenic <i>TGFBR1</i> variant model aneurysm formation in vivo and reveal underlying collagen defects"
 authors:
 - Ying Yang
 - Hao Feng
@@ -20,11 +18,10 @@ year: '2024'
 doi: 10.1126/scitranslmed.adg6298
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Bioengineered vascular grafts with a pathogenic
-            <i>TGFBR1</i>
-            variant model aneurysm formation in vivo and reveal underlying collagen defects
+# Bioengineered vascular grafts with a pathogenic <i>TGFBR1</i> variant model aneurysm formation in vivo and reveal underlying collagen defects
 **Authors:** Ying Yang, Hao Feng, Ying Tang, Zhenguo Wang, Ping Qiu, Xihua Huang, Lin Chang, Jifeng Zhang, Yuqing Eugene Chen, Dogukan Mizrak, Bo Yang
 **Journal:** Science Translational Medicine (2024)
 **DOI:** [10.1126/scitranslmed.adg6298](https://doi.org/10.1126/scitranslmed.adg6298)

@@ -11,6 +11,7 @@ year: '2021'
 doi: 10.1002/ajmg.c.31958
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Orthopedic considerations and surgical outcomes in Ehlers–Danlos syndromes

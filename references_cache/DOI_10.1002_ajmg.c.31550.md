@@ -23,6 +23,7 @@ year: '2017'
 doi: 10.1002/ajmg.c.31550
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Ehlers–Danlos syndromes, rare types

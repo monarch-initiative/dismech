@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3390/cancers16071383
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical and Therapeutic Intervention of Hypereosinophilia in the Era of Molecular Diagnosis

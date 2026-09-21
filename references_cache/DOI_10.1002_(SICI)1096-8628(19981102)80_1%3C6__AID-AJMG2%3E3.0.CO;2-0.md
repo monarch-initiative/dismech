@@ -10,6 +10,7 @@ year: '1998'
 doi: 10.1002/(SICI)1096-8628(19981102)80:1%3C6::AID-AJMG2%3E3.0.CO;2-0
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Stickler-like syndrome due to a dominant negative mutation in the COL2A1 gene

@@ -8,6 +8,7 @@ year: '2024'
 doi: 10.2500/aap.2024.45.240028
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetically-determined defects of T cell development

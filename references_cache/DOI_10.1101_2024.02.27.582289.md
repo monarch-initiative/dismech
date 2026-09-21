@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1101/2024.02.27.582289
-title: "Absence seizures and sleep-wake abnormalities in a rat model of
-                  <i>GRIN2B</i>
-                  neurodevelopmental disorder"
+title: "Absence seizures and sleep-wake abnormalities in a rat model of <i>GRIN2B</i> neurodevelopmental disorder"
 authors:
 - Katerina Hristova
 - Melissa C. M. Fasol
@@ -20,11 +18,10 @@ doi: 10.1101/2024.02.27.582289
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
-# Absence seizures and sleep-wake abnormalities in a rat model of
-                  <i>GRIN2B</i>
-                  neurodevelopmental disorder
+# Absence seizures and sleep-wake abnormalities in a rat model of <i>GRIN2B</i> neurodevelopmental disorder
 **Authors:** Katerina Hristova, Melissa C. M. Fasol, Niamh McLaughlin, Sarfaraz Nawaz, Mehmet Taskiran, Ingrid Buller-Peralta, Alejandro Bassi, Adrian Ocampo-Garces, Javier Escudero, Peter C. Kind, Alfredo Gonzalez-Sulser
 **DOI:** [10.1101/2024.02.27.582289](https://doi.org/10.1101/2024.02.27.582289)
 

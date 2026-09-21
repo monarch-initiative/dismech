@@ -22,6 +22,7 @@ year: '2018'
 doi: 10.1111/cge.13126
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Recessive mutations in <i><scp>NDUFA2</scp></i> cause mitochondrial leukoencephalopathy

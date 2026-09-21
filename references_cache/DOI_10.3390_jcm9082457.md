@@ -17,6 +17,7 @@ year: '2020'
 doi: 10.3390/jcm9082457
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Danon Disease-Associated LAMP-2 Deficiency Drives Metabolic Signature Indicative of Mitochondrial Aging and Fibrosis in Cardiac Tissue and hiPSC-Derived Cardiomyocytes

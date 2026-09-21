@@ -9,6 +9,7 @@ year: '2019'
 doi: 10.1016/j.conb.2019.02.009
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Histone demethylases in neuronal differentiation, plasticity, and disease

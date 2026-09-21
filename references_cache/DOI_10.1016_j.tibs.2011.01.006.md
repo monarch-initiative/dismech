@@ -12,6 +12,7 @@ year: '2011'
 doi: 10.1016/j.tibs.2011.01.006
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Tidying up loose ends: the role of polynucleotide kinase/phosphatase in DNA strand break repair

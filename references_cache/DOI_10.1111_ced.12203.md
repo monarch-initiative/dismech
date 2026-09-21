@@ -13,6 +13,7 @@ year: '2014'
 doi: 10.1111/ced.12203
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Efficacy of the melanocortin analogue Nle4‐D‐Phe7‐α‐melanocyte‐stimulating hormone in the treatment of patients with Hailey–Hailey disease

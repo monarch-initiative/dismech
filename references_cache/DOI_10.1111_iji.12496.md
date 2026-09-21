@@ -30,6 +30,7 @@ year: '2020'
 doi: 10.1111/iji.12496
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutational landscape of severe combined immunodeficiency patients from Turkey

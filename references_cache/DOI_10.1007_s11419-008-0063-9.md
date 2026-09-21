@@ -9,6 +9,7 @@ year: '2009'
 doi: 10.1007/s11419-008-0063-9
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Roles of polymorphic enzymes CYP2D6 and CYP2C19 for in vitro metabolism of amitriptyline at therapeutic and toxic levels

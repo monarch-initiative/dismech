@@ -2,6 +2,7 @@
 reference_id: GEO:GSE3586
 title: Dilated Cardiomyopathy and Non Failing Septal Biopsies
 content_type: summary
+full_text_attempted: true
 ---
 
 # Dilated Cardiomyopathy and Non Failing Septal Biopsies

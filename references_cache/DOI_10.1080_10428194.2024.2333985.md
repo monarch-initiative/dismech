@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.1080/10428194.2024.2333985
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Bruton’s tyrosine kinase (BTK) inhibitors for the treatment of primary central nervous system lymphoma (PCNSL): current progress and latest advances

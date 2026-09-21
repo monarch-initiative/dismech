@@ -24,6 +24,7 @@ year: '2023'
 doi: 10.1002/jimd.12669
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Maleic acid is a biomarker for maleylacetoacetate isomerase deficiency; implications for newborn screening of tyrosinemia type 1

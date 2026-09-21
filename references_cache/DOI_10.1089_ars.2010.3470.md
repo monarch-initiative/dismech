@@ -14,6 +14,7 @@ year: '2011'
 doi: 10.1089/ars.2010.3470
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Succinic Semialdehyde Dehydrogenase: Biochemical–Molecular–Clinical Disease Mechanisms, Redox Regulation, and Functional Significance

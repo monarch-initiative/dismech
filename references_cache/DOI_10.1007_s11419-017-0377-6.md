@@ -17,6 +17,7 @@ year: '2018'
 doi: 10.1007/s11419-017-0377-6
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Determination of ricin intoxication in biological samples by monitoring depurinated 28S rRNA in a unique reverse transcription-ligase-polymerase chain reaction assay

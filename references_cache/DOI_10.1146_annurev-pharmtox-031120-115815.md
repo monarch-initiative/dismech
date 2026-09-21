@@ -14,6 +14,7 @@ year: '2021'
 doi: 10.1146/annurev-pharmtox-031120-115815
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pharmacologic Approach to Sinoatrial Node Dysfunction

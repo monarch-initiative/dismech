@@ -41,6 +41,7 @@ year: '2023'
 doi: 10.1056/nejmoa2208449
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Intravenous Doxycycline, Azithromycin, or Both for Severe Scrub Typhus

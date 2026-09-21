@@ -1,9 +1,6 @@
 ---
 reference_id: DOI:10.1111/cge.14085
-title: "<scp>
-                      <i>TAB2</i>
-                    </scp>
-                    variants cause cardiovascular heart disease, connective tissue disorder, and developmental delay"
+title: "<scp> <i>TAB2</i> </scp> variants cause cardiovascular heart disease, connective tissue disorder, and developmental delay"
 authors:
 - Jennifer Hanson
 - Daniel Brezavar
@@ -18,12 +15,10 @@ year: '2022'
 doi: 10.1111/cge.14085
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <scp>
-                      <i>TAB2</i>
-                    </scp>
-                    variants cause cardiovascular heart disease, connective tissue disorder, and developmental delay
+# <scp> <i>TAB2</i> </scp> variants cause cardiovascular heart disease, connective tissue disorder, and developmental delay
 **Authors:** Jennifer Hanson, Daniel Brezavar, Susan Hughes, Shivarajan Amudhavalli, Emily Fleming, Dihong Zhou, Joseph T. Alaimo, Penelope E. Bonnen
 **Journal:** Clinical Genetics (2022)
 **DOI:** [10.1111/cge.14085](https://doi.org/10.1111/cge.14085)

@@ -10,6 +10,7 @@ year: '2019'
 doi: 10.1515/jpm-2019-0116
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Placenta previa and the risk of intrauterine growth restriction (IUGR): a systematic review and meta-analysis

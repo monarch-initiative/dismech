@@ -10,6 +10,7 @@ year: '2018'
 doi: 10.1038/gim.2017.138
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Vascular phenotypes in nonvascular subtypes of the Ehlers-Danlos syndrome: a systematic review

@@ -28,6 +28,7 @@ year: '2022'
 doi: 10.1126/sciadv.abm5386
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Comprehensive genetic diagnosis of tandem repeat expansion disorders with programmable targeted nanopore sequencing

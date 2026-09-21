@@ -31,6 +31,7 @@ year: '2015'
 doi: 10.1016/j.ymgme.2015.04.007
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Expanding the clinical and molecular characteristics of PIGT-CDG, a disorder of glycosylphosphatidylinositol anchors

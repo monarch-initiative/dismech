@@ -11,6 +11,7 @@ year: '2015'
 doi: 10.1517/21678707.2015.1083853
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # New therapeutic targets in rare genetic skeletal diseases

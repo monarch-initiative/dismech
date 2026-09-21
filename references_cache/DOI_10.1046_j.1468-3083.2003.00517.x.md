@@ -10,6 +10,7 @@ year: '2003'
 doi: 10.1046/j.1468-3083.2003.00517.x
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Atrophodermia vermiculata: case report and review of the literature

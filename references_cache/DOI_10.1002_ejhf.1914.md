@@ -25,6 +25,7 @@ year: '2020'
 doi: 10.1002/ejhf.1914
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Contemporary Survival Trends and Aetiological Characterization in Non-Ischaemic Dilated Cardiomyopathy

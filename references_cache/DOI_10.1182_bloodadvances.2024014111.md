@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.1182/bloodadvances.2024014111
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Adeno-associated virus–based gene therapy for hemophilia A and B: a systematic review and meta-analysis

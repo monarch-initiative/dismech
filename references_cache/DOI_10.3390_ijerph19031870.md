@@ -13,6 +13,7 @@ year: '2022'
 doi: 10.3390/ijerph19031870
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Ehlers–Danlos Syndrome Type Arthrochalasia: A Systematic Review

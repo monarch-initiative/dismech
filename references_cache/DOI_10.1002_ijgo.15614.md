@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1002/ijgo.15614
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Literature review, surgical decision making algorithm, and AGREE II‐S comparison of national and international recommendations and guidelines in pelvic organ prolapse surgery

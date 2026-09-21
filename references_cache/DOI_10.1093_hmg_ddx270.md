@@ -34,6 +34,7 @@ year: '2017'
 doi: 10.1093/hmg/ddx270
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A point mutation in the ion conduction pore of AMPA receptor GRIA3 causes dramatically perturbed sleep patterns as well as intellectual disability

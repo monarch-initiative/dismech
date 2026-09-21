@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3390/ijms25158149
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genomic Landscape of Branchio-Oto-Renal Syndrome through Whole-Genome Sequencing: A Single Rare Disease Center Experience in South Korea

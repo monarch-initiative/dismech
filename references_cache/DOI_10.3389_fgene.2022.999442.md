@@ -17,6 +17,7 @@ year: '2022'
 doi: 10.3389/fgene.2022.999442
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Case Report: De novo DDX3X mutation caused intellectual disability in a female with skewed X-chromosome inactivation on the mutant allele

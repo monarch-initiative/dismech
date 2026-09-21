@@ -16,6 +16,7 @@ year: '2004'
 doi: 10.1182/blood-2003-11-4077
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Bleeding risks associated with inheritance of the Quebec platelet disorder

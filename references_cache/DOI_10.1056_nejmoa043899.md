@@ -19,6 +19,7 @@ year: '2005'
 doi: 10.1056/nejmoa043899
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Modification of Human Hearing Loss by Plasma-Membrane Calcium Pump PMCA2

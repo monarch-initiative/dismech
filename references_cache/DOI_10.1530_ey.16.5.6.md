@@ -27,6 +27,7 @@ year: '2019'
 doi: 10.1530/ey.16.5.6
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Gain-of-function mutation of microRNA-140 in human skeletal dysplasia

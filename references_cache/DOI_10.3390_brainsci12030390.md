@@ -11,6 +11,7 @@ year: '2022'
 doi: 10.3390/brainsci12030390
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Autistic-like Behaviors Associated with a Novel Non-Canonical Splice-Site DDX3X Variant: A Case Report of a Rare Clinical Syndrome

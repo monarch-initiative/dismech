@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.1016/j.jtauto.2020.100077
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Ehlers-Danlos Syndrome: Immunologic contrasts and connective tissue comparisons

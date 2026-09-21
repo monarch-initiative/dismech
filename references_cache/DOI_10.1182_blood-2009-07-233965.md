@@ -16,6 +16,7 @@ year: '2010'
 doi: 10.1182/blood-2009-07-233965
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Persons with Quebec platelet disorder have a tandem duplication of PLAU, the urokinase plasminogen activator gene

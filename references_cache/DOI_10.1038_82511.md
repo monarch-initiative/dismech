@@ -9,6 +9,7 @@ year: '2000'
 doi: 10.1038/82511
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Amegakaryocytic thrombocytopenia and radio-ulnar synostosis are associated with HOXA11 mutation

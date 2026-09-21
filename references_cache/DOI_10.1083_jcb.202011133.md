@@ -20,6 +20,7 @@ year: '2021'
 doi: 10.1083/jcb.202011133
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A ciliopathy complex builds distal appendages to initiate ciliogenesis

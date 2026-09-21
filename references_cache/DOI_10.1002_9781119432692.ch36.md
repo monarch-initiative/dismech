@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.1002/9781119432692.ch36
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # LOEYS–DIETZ SYNDROME

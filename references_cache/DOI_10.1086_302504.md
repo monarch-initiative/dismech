@@ -21,6 +21,7 @@ year: '1999'
 doi: 10.1086/302504
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Human Ehlers-Danlos Syndrome Type VII C and Bovine Dermatosparaxis Are Caused by Mutations in the Procollagen I N-Proteinase Gene

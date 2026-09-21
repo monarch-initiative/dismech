@@ -37,6 +37,7 @@ year: '2023'
 doi: 10.1007/s00018-023-04991-6
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical and functional consequences of GRIA variants in patients with neurological diseases

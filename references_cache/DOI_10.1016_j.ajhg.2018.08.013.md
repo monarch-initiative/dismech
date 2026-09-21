@@ -38,6 +38,7 @@ year: '2018'
 doi: 10.1016/j.ajhg.2018.08.013
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Bi-allelic Mutations in NDUFA6 Establish Its Role in Early-Onset Isolated Mitochondrial Complex I Deficiency

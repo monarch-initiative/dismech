@@ -11,6 +11,7 @@ year: '2018'
 doi: 10.21037/atm.2018.10.59
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Glycogen metabolism and glycogen storage disorders

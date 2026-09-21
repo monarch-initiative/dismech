@@ -8,6 +8,7 @@ year: '2018'
 doi: 10.1002/j.2617-1619.2018.tb00006.x
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Cachexia and Sarcopenia in Companion Animals: An Under‐Utilized Natural Animal Model of Human Disease

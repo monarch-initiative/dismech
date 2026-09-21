@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.2147/btt.s252580
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Recent Advances in the Treatment of Hemophilia: A Review

@@ -13,6 +13,7 @@ year: '2023'
 doi: 10.1007/s00253-023-12578-1
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Production of recombinant scorpion antivenoms in E. coli: current state and perspectives

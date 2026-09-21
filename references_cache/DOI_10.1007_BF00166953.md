@@ -9,6 +9,7 @@ year: '1990'
 doi: 10.1007/BF00166953
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Actions of non-peptide ergot alkaloids at 5-HT1-like and 5-HT2 receptors mediating vascular smooth muscle contraction

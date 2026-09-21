@@ -53,6 +53,7 @@ year: '2022'
 doi: 10.1002/acn3.51679
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Phenotypic continuum of <scp><i>NFU1</i></scp>‐related disorders

@@ -11,6 +11,7 @@ year: '2021'
 doi: 10.3390/brainsci11010088
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Congenital Disorders of Glycosylation from a Neurological Perspective

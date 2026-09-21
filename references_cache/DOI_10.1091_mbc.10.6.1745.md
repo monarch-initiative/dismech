@@ -15,6 +15,7 @@ year: '1999'
 doi: 10.1091/mbc.10.6.1745
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pex19p Interacts with Pex3p and Pex10p and Is Essential for Peroxisome Biogenesis in<i>Pichia pastoris</i>

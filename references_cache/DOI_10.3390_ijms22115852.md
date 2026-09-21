@@ -16,6 +16,7 @@ year: '2021'
 doi: 10.3390/ijms22115852
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic Predisposition to the Mortality in Septic Shock Patients: From GWAS to the Identification of a Regulatory Variant Modulating the Activity of a CISH Enhancer

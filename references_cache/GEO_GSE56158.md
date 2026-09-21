@@ -2,6 +2,7 @@
 reference_id: GEO:GSE56158
 title: "Transcriptomic analysis of human cybrid cell lines harboring increasing levels of the mitochondrial DNA (mtDNA) 3243A>G mutation"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Transcriptomic analysis of human cybrid cell lines harboring increasing levels of the mitochondrial DNA (mtDNA) 3243A>G mutation

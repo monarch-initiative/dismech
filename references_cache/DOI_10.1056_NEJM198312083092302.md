@@ -14,6 +14,7 @@ year: '1983'
 doi: 10.1056/NEJM198312083092302
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical Epidemiology of Toxic-Oil Syndrome

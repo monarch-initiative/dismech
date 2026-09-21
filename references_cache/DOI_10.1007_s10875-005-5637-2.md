@@ -16,6 +16,7 @@ year: '2005'
 doi: 10.1007/s10875-005-5637-2
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutational Analysis of Human BAFF Receptor TNFRSF13C (BAFF-R) in Patients with Common Variable Immunodeficiency

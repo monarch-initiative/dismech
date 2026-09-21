@@ -14,6 +14,7 @@ year: '2017'
 doi: 10.1007/s00415-017-8601-1
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Late-onset Pompe disease: a genetic-radiological correlation on cerebral vascular anomalies

@@ -15,6 +15,7 @@ year: '2019'
 doi: 10.1056/NEJMoa1816454
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # 20-Year Follow-up of Statins in Children with Familial Hypercholesterolemia

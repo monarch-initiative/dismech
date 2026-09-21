@@ -15,6 +15,7 @@ year: '2023'
 doi: 10.1242/dmm.049594
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Patient-specific variants of NFU1/NFU-1 disrupt cholinergic signaling in a model of multiple mitochondrial dysfunctions syndrome 1

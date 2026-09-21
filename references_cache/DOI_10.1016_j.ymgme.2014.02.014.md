@@ -15,6 +15,7 @@ year: '2014'
 doi: 10.1016/j.ymgme.2014.02.014
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Complex changes in the liver mitochondrial proteome of short chain acyl-CoA dehydrogenase deficient mice

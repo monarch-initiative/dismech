@@ -2,6 +2,7 @@
 reference_id: GEO:GSE48824
 title: "Caste-specific expression patterns of olfactory related genes in the leaf-cutting ant, Atta vollenweideri"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Caste-specific expression patterns of olfactory related genes in the leaf-cutting ant, Atta vollenweideri

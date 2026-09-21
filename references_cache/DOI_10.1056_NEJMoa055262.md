@@ -26,6 +26,7 @@ year: '2007'
 doi: 10.1056/NEJMoa055262
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Missense Mutations in the<i>BCS1L</i>Gene as a Cause of the Björnstad Syndrome

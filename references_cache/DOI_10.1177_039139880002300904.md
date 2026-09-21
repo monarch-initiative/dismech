@@ -9,6 +9,7 @@ year: '2000'
 doi: 10.1177/039139880002300904
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Is there a Role for Hemoperfusion/Hemodialysis as a Treatment Option in Severe Tricyclic Antidepressant Intoxication?

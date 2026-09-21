@@ -19,6 +19,7 @@ year: '2024'
 doi: 10.1016/j.critrevonc.2024.104524
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # DLL3 as a potential diagnostic and therapeutic target in neuroendocrine neoplasms: A narrative review

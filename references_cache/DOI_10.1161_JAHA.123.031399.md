@@ -19,6 +19,7 @@ year: '2023'
 doi: 10.1161/JAHA.123.031399
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Randomized Controlled Trial of Moderate‐ and High‐Intensity Exercise Training in Patients With Hypertrophic Cardiomyopathy: Effects on Fitness and Cardiovascular Response to Exercise

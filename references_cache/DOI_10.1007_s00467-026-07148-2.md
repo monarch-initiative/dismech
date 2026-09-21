@@ -11,6 +11,7 @@ year: '2026'
 doi: 10.1007/s00467-026-07148-2
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical phenotypes and severity stratification in pediatric diethylene glycol poisoning: a latent class analysis of the Gambia acute kidney injury outbreak

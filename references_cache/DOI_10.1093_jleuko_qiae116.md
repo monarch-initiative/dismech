@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.1093/jleuko/qiae116
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # TIGIT stimulation suppresses autoimmune uveitis by inhibiting Th17 cell infiltration

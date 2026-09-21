@@ -26,6 +26,7 @@ year: '2018'
 doi: 10.1016/j.ajhg.2018.02.018
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Bi-allelic Alterations in AEBP1 Lead to Defective Collagen Assembly and Connective Tissue Structure Resulting in a Variant of Ehlers-Danlos Syndrome

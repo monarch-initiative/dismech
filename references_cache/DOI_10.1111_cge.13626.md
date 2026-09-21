@@ -16,6 +16,7 @@ year: '2019'
 doi: 10.1111/cge.13626
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel variant p.E269K confirms causative role of <i>PLS1</i> mutations in autosomal dominant hearing loss

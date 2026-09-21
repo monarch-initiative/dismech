@@ -21,6 +21,7 @@ year: '2022'
 doi: 10.1093/hmg/ddac146
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Protein misfolding and clearance in the pathogenesis of a new infantile onset ataxia caused by mutations in <i>PRDX3</i>

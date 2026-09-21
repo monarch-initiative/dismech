@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3390/children11111276
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Otoacoustic Emissions in the Universal Neonatal Hearing Screening: An Update on the European Data (2004 to 2024)

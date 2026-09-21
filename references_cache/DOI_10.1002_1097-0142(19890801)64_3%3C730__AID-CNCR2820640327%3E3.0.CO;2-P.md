@@ -11,6 +11,7 @@ year: '1989'
 doi: 10.1002/1097-0142(19890801)64:3%3C730::AID-CNCR2820640327%3E3.0.CO;2-P
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Adamantinoma of long bones. A clinicopathologic study of 85 cases

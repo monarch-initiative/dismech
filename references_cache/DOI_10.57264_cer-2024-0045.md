@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.57264/cer-2024-0045
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Comparing the efficacy of cipaglucosidase alfa plus miglustat with other enzyme replacement therapies for late-onset Pompe disease: a network meta-analysis utilizing patient-level and aggregate data

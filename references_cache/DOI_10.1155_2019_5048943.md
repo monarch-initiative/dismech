@@ -12,6 +12,7 @@ year: '2019'
 doi: 10.1155/2019/5048943
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Research and Discussion on the Relationships between Noise-Induced Hearing Loss and ATP2B2 Gene Polymorphism

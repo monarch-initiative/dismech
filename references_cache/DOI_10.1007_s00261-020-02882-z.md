@@ -12,6 +12,7 @@ year: '2021'
 doi: 10.1007/s00261-020-02882-z
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # MRI-based pictorial review of the FIGO classification system for uterine fibroids

@@ -19,6 +19,7 @@ year: '2022'
 doi: 10.1007/s00192-021-05018-z
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # International urogynecology consultation chapter 1 committee 2: Epidemiology of pelvic organ prolapse: prevalence, incidence, natural history, and service needs

@@ -11,6 +11,7 @@ year: '2025'
 doi: 10.1053/j.jvca.2025.02.009
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Advances in Cardiovascular Pharmacotherapy. I. Cardiac Myosin Inhibitors

@@ -26,6 +26,7 @@ year: '2019'
 doi: 10.15252/embj.201899576
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Lipin1 deficiency causes sarcoplasmic reticulum stress and chaperone‐responsive myopathy

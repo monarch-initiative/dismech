@@ -18,6 +18,7 @@ year: '2022'
 doi: 10.3389/fimmu.2022.900755
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Csf2ra deletion attenuates acute lung injuries induced by intratracheal inoculation of aerosolized ricin in mice

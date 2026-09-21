@@ -13,6 +13,7 @@ year: '2022'
 doi: 10.1016/j.scr.2022.102812
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Establishment of a human iPSC (ZZUNEUi026-A) from a dilated cardiomyopathy patient carrying heterozygous Vinculin (c. 625A &gt; T) mutant

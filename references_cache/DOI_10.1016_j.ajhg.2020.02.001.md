@@ -30,6 +30,7 @@ year: '2020'
 doi: 10.1016/j.ajhg.2020.02.001
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # De Novo Variants in SPOP Cause Two Clinically Distinct Neurodevelopmental Disorders

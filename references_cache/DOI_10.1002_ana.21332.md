@@ -13,6 +13,7 @@ year: '2008'
 doi: 10.1002/ana.21332
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mitochondrial complex I deficiency caused by a deleterious NDUFA11 mutation

@@ -11,6 +11,7 @@ year: '2021'
 doi: 10.3390/jcm10050921
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Diagnosis and Risk Prediction of Dilated Cardiomyopathy in the Era of Big Data and Genomics

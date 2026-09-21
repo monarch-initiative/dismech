@@ -11,6 +11,7 @@ year: '2023'
 doi: 10.1080/01677063.2023.2187792
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A conserved function of Pkhd1l1, a mammalian hair cell stereociliary coat protein, in regulating hearing in zebrafish

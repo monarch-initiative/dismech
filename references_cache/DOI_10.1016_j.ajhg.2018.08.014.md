@@ -26,6 +26,7 @@ year: '2018'
 doi: 10.1016/j.ajhg.2018.08.014
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in PIGS, Encoding a GPI Transamidase, Cause a Neurological Syndrome Ranging from Fetal Akinesia to Epileptic Encephalopathy

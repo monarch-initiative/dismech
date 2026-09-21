@@ -19,6 +19,7 @@ year: '2021'
 doi: 10.3389/fcell.2021.710247
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Intracellular Lipid Accumulation and Mitochondrial Dysfunction Accompanies Endoplasmic Reticulum Stress Caused by Loss of the Co-chaperone DNAJC3

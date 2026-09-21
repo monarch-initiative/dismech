@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1093/brain/awac074
-title: "Bi-allelic variants in
-                    <i>CHKA</i>
-                    cause a neurodevelopmental disorder with epilepsy and microcephaly"
+title: "Bi-allelic variants in <i>CHKA</i> cause a neurodevelopmental disorder with epilepsy and microcephaly"
 authors:
 - Chiara Klöckner
 - J Pedro Fernández-Murray
@@ -38,11 +36,10 @@ year: '2022'
 doi: 10.1093/brain/awac074
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Bi-allelic variants in
-                    <i>CHKA</i>
-                    cause a neurodevelopmental disorder with epilepsy and microcephaly
+# Bi-allelic variants in <i>CHKA</i> cause a neurodevelopmental disorder with epilepsy and microcephaly
 **Authors:** Chiara Klöckner, J Pedro Fernández-Murray, Mahtab Tavasoli, Heinrich Sticht, Gisela Stoltenburg-Didinger, Leila Motlagh Scholle, Somayeh Bakhtiari, Michael C Kruer, Hossein Darvish, Saghar Ghasemi Firouzabadi, Alex Pagnozzi, Anju Shukla, Katta Mohan Girisha, Dhanya Lakshmi Narayanan, Parneet Kaur, Reza Maroofian, Maha S Zaki, Mahmoud M Noureldeen, Andreas Merkenschlager, Janina Gburek-Augustat, Elisa Cali, Selina Banu, Kamrun Nahar, Stephanie Efthymiou, Henry Houlden, Rami Abou Jamra, Jason Williams, Christopher R McMaster, Konrad Platzer
 **Journal:** Brain (2022)
 **DOI:** [10.1093/brain/awac074](https://doi.org/10.1093/brain/awac074)

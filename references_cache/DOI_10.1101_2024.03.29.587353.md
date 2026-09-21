@@ -16,6 +16,7 @@ doi: 10.1101/2024.03.29.587353
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # Neurofilament accumulation disrupts autophagy in giant axonal neuropathy

@@ -1,22 +1,49 @@
 ---
 reference_id: DOI:10.5698/1535-7511.17.2.112
-title: "Precision Medicine: NMDA Receptor–Targeted Therapy for
-                    <i>GRIN2D</i>
-                    Encephalopathy"
+title: "Precision Medicine: NMDA Receptor–Targeted Therapy for <i>GRIN2D</i> Encephalopathy"
 authors:
 - Jennifer A. Kearney
 journal: Epilepsy Currents
 year: '2017'
 doi: 10.5698/1535-7511.17.2.112
-content_type: unavailable
+content_type: full_text_html
 is_preprint: false
+full_text_attempted: true
+full_text_provider: openalex
+full_text_url: "https://www.ncbi.nlm.nih.gov/pmc/articles/5416858"
+oa_status: green
 ---
 
-# Precision Medicine: NMDA Receptor–Targeted Therapy for
-                    <i>GRIN2D</i>
-                    Encephalopathy
+# Precision Medicine: NMDA Receptor–Targeted Therapy for <i>GRIN2D</i> Encephalopathy
 **Authors:** Jennifer A. Kearney
 **Journal:** Epilepsy Currents (2017)
 **DOI:** [10.5698/1535-7511.17.2.112](https://doi.org/10.5698/1535-7511.17.2.112)
 
 ## Content
+
+Editor's Note: Authors have a Conflict of Interest disclosure which is posted under the Supplemental Materials (203.6KB, docx)  link.
+
+GRIN2D Recurrent De Novo Dominant Mutation Causes a Severe Epileptic Encephalopathy Treatable With NMDA Receptor Channel Blockers.
+
+Li D, Yuan H, Ortiz-Gonzalez XR, Marsh ED, Tian L, McCormick EM, Kosobucki GJ, Chen W, Schulien AJ, Chiavacci R, Tankovic A, Naase C, Brueckner F, von Stülpnagel-Steinbeis C, Hu C, Kusumoto H, Hedrich UBS, Elsen G, Hörtnagel K, Aizenman E, Lemke JR, Hakonarson H, Traynelis SF, Falk MJ. Am J Hum Genet
+2016;994:802–816.
+
+N-methyl-D-aspartate receptors (NMDARs) are ligand-gated cation channels that mediate excitatory synaptic transmission. Genetic mutations in multiple NMDAR subunits cause various childhood epilepsy syndromes. Here, we report a de novo recurrent heterozygous missense mutation—c.1999G>A (p.Val667Ile)—in a NMDAR gene previously unrecognized to harbor disease-causing mutations, GRIN2D, identified by exome and candidate panel sequencing in two unrelated children with epileptic encephalopathy. The resulting GluN2D p.Val667Ile exchange occurs in the M3 transmembrane domain involved in channel gating. This gain-of-function mutation increases glutamate and glycine potency by 2-fold, increases channel open probability by 6-fold, and reduces receptor sensitivity to endogenous negative modulators such as extracellular protons. Moreover, this mutation prolongs the deactivation time course after glutamate removal, which controls the synaptic time course. Transfection of cultured neurons with human GRIN2D cDNA harboring c.1999G>A leads to dendritic swelling and neuronal cell death, suggestive of excitotoxicity mediated by NMDAR over-activation. Because both individuals' seizures had proven refractory to conventional antiepileptic medications, the sensitivity of mutant NMDARs to FDA-approved NMDAR antagonists was evaluated. Based on these results, oral memantine was administered to both children, with resulting mild to moderate improvement in seizure burden and development. The older proband subsequently developed refractory status epilepticus, with dramatic electroclinical improvement upon treatment with ketamine and magnesium. Overall, these results suggest that NMDAR antagonists can be useful as adjuvant epilepsy therapy in individuals with GRIN2D gain-of-function mutations. This work further demonstrates the value of functionally evaluating a mutation, enabling mechanistic understanding and therapeutic modeling to realize precision medicine for epilepsy.
+
+Glutamate is the major excitatory neurotransmitter in the brain and mediates its action through a variety of receptors, including ion channels (ionotropic) and G-protein–coupled receptors (metabotropic). Ionotropic glutamate receptors are nonselective cation channels classified into three types designated by their distinguishing ligands: NMDA, AMPA, and kainate receptors. NMDA receptors are unique in several respects. First, they allow entry of calcium in addition to monovalent cations and mediate the slow calcium permeable component of excitatory postsynaptic responses. Second, NMDA receptors require glycine as a co-agonist. Third, NMDA receptors are subject to block by extracellular magnesium at hyperpolarized potentials, and depolarization is required to remove the magnesium block (1). Functional NMDA receptors consist of two glycine-binding GluN1 subunits and two glutamate-binding GluN2 subunits. The GluN1 subunit is encoded by the GRIN1 gene, while the GluN2 subunit subtypes A–D are encoded by GRIN2A, GRIN2B, GRIN2C, and GRIN2D.
+
+Mutations in GRIN1, GRIN2A, and GRIN2B had previously been reported in neurodevelopmental disorders, including intellectual disability and epilepsy (2–5). In the current study, Li and colleagues report a novel, recurrent GRIN2D variant that occurred de novo in two unrelated children with infant-onset drug-resistant epilepsy and global developmental delay. The variant resulted in the missense substitution V667I in a highly conserved residue located in the M2 transmembrane domain near an important motif involved in channel gating.
+
+The authors performed detailed functional characterization of the GRIN2D-V667I variant using several in vitro expression systems, including Xenopus laevis oocytes, HEK293 cells, and cultured neurons. A number of functional defects were observed, including increased glutamate and glycine potency, reduced sensitivity to negative modulation, prolonged response to synaptic-like stimulation, and increased open probability of agonist-bound channel. Additionally, they evaluated voltage-dependent magnesium block and found a 1.3-fold reduction in potency for G667I-containing receptors compared with wildtype. Together, these results point to a strong gain-of-function that supports pathogenicity and suggests reducing activity of V667I-containing NMDA receptors as a potential therapeutic strategy.
+
+The failure of conventional anticonvulsants to provide seizure control in both probands with the GRIN2D-V667I variant, and detailed knowledge of the biological defect provided an opportunity for a targeted therapy approach. NMDA receptors have been the focus of drug development efforts for many years, and there are a number of FDA-approved drugs targeting these receptors. Using similar in vitro functional assays, the authors screened a panel of FDA-approved NMDA receptor antagonists (memantine, dextromethorphan, dextrorphan, amantadine, and ketamine) for their ability to inhibit the overactive V667I-containing receptors. The FDA-approved NMDA channel blockers all inhibited currents from the V667I-containing receptors, albeit with a 3- to 7-fold lower potency compared with wild-type receptors. Of these drugs, memantine has been used in children without significant side effects and has shown anticonvulsant effects in a rodent seizure model (6, 7). Furthermore, memantine treatment was previously used in a child with epileptic encephalopathy caused by a GRIN2A mutation, and it significantly reduced his seizure burden (4).
+
+Based on the functional studies, available child safety data and dosing guidelines, and a successful n-of-1 experience in a GRIN2A case, memantine treatment was initiated in both probands with mixed results. Proband 1 had subjective developmental gains, but seizure response was not improved. Over time, there was seizure worsening, including several hospital admissions for refractory status epilepticus, and memantine treatment was discontinued. Returning to the underlying biology, they developed a novel NMDA-targeted combination therapy with ketamine and magnesium sulfate that resulted in significant improvement. In contrast, proband 2 had a favorable response to memantine treatment with a reduction in seizure burden and developmental gains.
+
+The difference in memantine response in these two cases with the exact same GRIN2D mutation is striking. There are a number of possibilities that could explain the divergent responses. Memantine treatment was initiated much later in proband 1, at 6.5 years of age, compared with 2.5 years of age in proband 2. Little is known about the natural history of the disease, and it may be that deterioration and intractability develop over time. As a toddler, proband 1 initially had favorable response with levetiracetam, but her epilepsy worsened over time. The in vitro functional studies in neurons demonstrated excitotoxic cell death with the V667I mutation, raising the possibility of a neurodegenerative component.
+
+This report highlights the challenges of precision medicine and adds another layer of complexity. The well-understood goal of precision medicine is to select the right drug for the individual patient, but an equally important and underappreciated aspect is that timing is critical. In vitro functional assays give us a static snapshot of dysfunction of the mutated protein but fail to reveal the myriad of dynamic changes that occur in the nervous system in response to the aberrant activity of the mutant protein. In this case, the authors had the unique opportunity to report treatment response in two individuals with the same exact GRIN2D mutation. Certainly, understanding the underlying biological mechanism provided insights for treatment, although the initial response and eventual effective drug were different in these two cases.
+
+This is another in a recent group of n-of-1 and small case series reports using a precision medicine approach for rare genetic epilepsies in which treatment options are limited. Memantine had previously been used successfully in a child with a GRIN2A mutation (4). Ezogabine (retigabine) has been used, with mixed results, in KCNQ2 epileptic encephalopathy (8). Treatment of KCNT1-related epileptic encephalopathy with quinidine has also produced mixed results (9, 10). With all three genetic syndromes, this directed therapy approach has both successes and failures, which are difficult to predict a priori based solely on clinical genetic findings or in vitro functional data. Although, n-of-1 trials are difficult to evaluate due to the absence of placebo controls, insufficient statistical power, and a lack of good natural history data on these rare syndromes, it is likely that they will continue in cases where there are FDA-approved drugs with reasonable safety data. Reporting the outcomes, both positive and negative, is the best way forward until well-designed clinical trials occur.
+
+Articles from Epilepsy Currents are provided here courtesy of American Epilepsy Society

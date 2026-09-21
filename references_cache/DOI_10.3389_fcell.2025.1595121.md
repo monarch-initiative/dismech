@@ -9,6 +9,7 @@ year: '2025'
 doi: 10.3389/fcell.2025.1595121
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Protein misfolding and mitochondrial dysfunction in glaucoma

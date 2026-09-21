@@ -12,6 +12,7 @@ year: '2023'
 doi: 10.3390/genes14112071
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic Spectrum and Cascade Screening of Familial Hypercholesterolemia in Routine Clinical Setting in Hong Kong

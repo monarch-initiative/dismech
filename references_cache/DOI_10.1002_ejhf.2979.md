@@ -39,6 +39,7 @@ year: '2023'
 doi: 10.1002/ejhf.2979
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # State-of-the-Art Document on Optimal Contemporary Management of Cardiomyopathies

@@ -12,6 +12,7 @@ year: '2018'
 doi: 10.1159/000497035
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Golgipathies in Neurodevelopment: A New View of Old Defects

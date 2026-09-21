@@ -22,6 +22,7 @@ year: '2024'
 doi: 10.1002/advs.202402166
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # AAV‐mediated Gene Therapy for Hereditary Deafness: Progress and Perspectives

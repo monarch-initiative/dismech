@@ -13,6 +13,7 @@ year: '2015'
 doi: 10.1016/j.ymgme.2015.10.009
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Adult-onset liver disease and hepatocellular carcinoma in S-adenosylhomocysteine hydrolase deficiency

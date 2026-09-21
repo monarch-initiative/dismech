@@ -11,6 +11,7 @@ year: '2011'
 doi: 10.1016/j.siny.2011.05.004
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mitochondrial disorders caused by mutations in respiratory chain assembly factors

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.gim.2023.101039"
+reference_id: DOI:10.1016/j.gim.2023.101039
 title: Severity-adjusted evaluation of liver transplantation on health outcomes in urea cycle disorders
 authors:
 - Roland Posset
@@ -65,6 +65,7 @@ journal: Genetics in Medicine
 year: '2024'
 doi: 10.1016/j.gim.2023.101039
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Severity-adjusted evaluation of liver transplantation on health outcomes in urea cycle disorders

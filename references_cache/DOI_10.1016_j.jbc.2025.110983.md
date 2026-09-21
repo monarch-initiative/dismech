@@ -19,6 +19,7 @@ year: '2026'
 doi: 10.1016/j.jbc.2025.110983
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Neurodevelopmental disease-causing variants in choline kinase CHKA gene couple phosphatidylcholine synthesis to oxidative stress damage and disease etiology

@@ -10,6 +10,7 @@ year: '2017'
 doi: 10.1016/j.jacc.2017.05.014
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Cardiovascular Effects of Cocaine

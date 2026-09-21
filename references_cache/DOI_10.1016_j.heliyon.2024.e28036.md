@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.1016/j.heliyon.2024.e28036
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic investigation in a four-generation Chinese family with congenital fibrosis of extraocular muscles and keratoconus

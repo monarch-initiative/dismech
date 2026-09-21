@@ -11,6 +11,7 @@ year: '2009'
 doi: 10.1080/15563650903086444
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Diethylene glycol poisoning

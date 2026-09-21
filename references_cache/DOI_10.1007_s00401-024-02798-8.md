@@ -18,6 +18,7 @@ year: '2024'
 doi: 10.1007/s00401-024-02798-8
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel mutation of SMPX-related scapuloperoneal myopathy and myofibrillar myopathy

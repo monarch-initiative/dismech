@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.1002/bdr2.2287
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic etiologies and diagnostic methods for congenital ventriculomegaly and hydrocephalus: A scoping review

@@ -14,6 +14,7 @@ year: '2016'
 doi: 10.1212/nxg.0000000000000068
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Spinocerebellar ataxia type 36 in the Han Chinese

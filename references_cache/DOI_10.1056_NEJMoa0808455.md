@@ -15,6 +15,7 @@ year: '2009'
 doi: 10.1056/NEJMoa0808455
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Antivenom for Critically Ill Children with Neurotoxicity from Scorpion Stings

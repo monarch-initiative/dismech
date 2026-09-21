@@ -8,6 +8,7 @@ year: '2010'
 doi: 10.1111/j.1365-2125.2010.03632.x
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Treatment of patients with cocaine‐induced arrhythmias: bringing the bench to the bedside

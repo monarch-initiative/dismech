@@ -17,6 +17,7 @@ year: '2011'
 doi: 10.1002/humu.21402
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutation screening of the EYA1, SIX1, and SIX5 genes in a large cohort of patients harboring branchio-oto-renal syndrome calls into question the pathogenic role of SIX5 mutations

@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1002/jfa2.70003
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The effect of ankle‐foot orthoses on gait characteristics in people with Charcot‐Marie‐Tooth disease: A systematic review and meta‐analysis

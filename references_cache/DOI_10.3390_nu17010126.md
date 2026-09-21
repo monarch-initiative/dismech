@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.3390/nu17010126
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Preconceptional and Periconceptional Folic Acid Supplementation in the Visegrad Group Countries for the Prevention of Neural Tube Defects

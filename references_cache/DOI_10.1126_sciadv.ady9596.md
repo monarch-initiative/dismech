@@ -15,6 +15,7 @@ year: '2025'
 doi: 10.1126/sciadv.ady9596
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The mechanism of action of digoxin requires the sodium-dependent inactivation of the sodium-calcium exchanger
