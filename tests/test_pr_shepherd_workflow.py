@@ -175,5 +175,39 @@ def test_workflow_policy_changes_run_the_python_test_job():
         ".github/workflows/pr-shepherd.yml",
         "scripts/auto_merge_ready_prs.py",
         "scripts/pr_shepherd_policy.py",
+        "scripts/expire_pr_assignments.py",
     ):
         assert f"- '{path}'" in text
+
+
+def test_assignment_inactivity_is_an_independent_trusted_job_with_scoped_writes():
+    data = workflow(SHEPHERD)
+    job = data["jobs"]["assignment-inactivity"]
+    assert "needs" not in job
+    assert "if" not in job  # Also runs during controller-only hours.
+    assert job["concurrency"] == {
+        "group": "pr-shepherd-assignment-inactivity",
+        "cancel-in-progress": False,
+    }
+    assert set(job["permissions"].values()) == {"read"}
+    checkout = step(job, "Checkout trusted default branch")
+    assert checkout["with"]["ref"] == "${{ github.event.repository.default_branch }}"
+    assert checkout["with"]["persist-credentials"] is False
+    token = step(job, "Generate scoped assignment token")
+    assert {k: v for k, v in token["with"].items() if k.startswith("permission-")} == {
+        "permission-pull-requests": "write",
+    }
+    assert "DRY_RUN != 'true'" in token["if"]
+    assert "ASSIGNMENT_LIMIT != '0'" in token["if"]
+    action = step(job, "Remind or release inactive assignments")
+    assert action["env"]["GH_TOKEN"] == "${{ github.token }}"
+    assert (
+        action["env"]["GH_ASSIGNMENT_TOKEN"]
+        == "${{ steps.assignment-token.outputs.token }}"
+    )
+    assert "args+=(--dry-run)" in action["run"]
+    assert 'args+=(--specific-pr "$SPECIFIC_PR")' in action["run"]
+    assert '--max-actions "$ASSIGNMENT_LIMIT"' in action["run"]
+    assert "python scripts/expire_pr_assignments.py" in action["run"]
+    assert "uv " not in action["run"]
+    assert not any("claude-code-action" in uses for uses in action_uses(job))

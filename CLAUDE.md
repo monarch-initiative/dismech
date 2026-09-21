@@ -4008,6 +4008,31 @@ before retrying. The default budget is five retries per sweep; `dry_run`,
 `pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
 the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
 
+### Inactive PR assignments
+
+Assignment is an active-work hold, not a permanent reservation. The independent
+`assignment-inactivity` shepherd job considers every open assigned PR, regardless
+of author, draft status, or checks. After seven days without activity from any
+current assignee, it posts one reminder tagging the author and assignees. At
+fourteen days **since the last assignee activity**, it removes the assignment
+if the reminder is still unanswered. An assignee's PR comment, review, inline
+review comment, or authored or committed GitHub-linked commit resets the clock.
+Assignment changes also restart it. Other users' comments and the reminder
+itself do not count.
+
+Any current assignee can keep a jointly assigned PR active. After a response,
+a later week of inactivity gets a new reminder; the fourteen-day threshold also
+starts from that new activity. Old PRs always receive a reminder first, but if
+already inactive for fourteen days they can be unassigned on the next sweep,
+currently about an hour later. There is no separate reminder grace period.
+The job rereads activity and assignment immediately before a write, and leaves
+assignments alone when history is incomplete or unavailable. Manual inputs
+`dry_run`, `pr_number`, and `max_assignment_actions` (default 10; 0 disables) apply.
+
+Unassignment clears only the assignment hold. Review requirements, conflict and
+CI checks, and the repair jobs' author restrictions still apply. See
+[assignment inactivity](docs/explanation/automation-and-agents.md#inactive-pr-assignments).
+
 ### Shepherd repair scope and generated-cache conflicts
 
 The shepherd tends eligible abandoned code, tests, schema, workflow, and
@@ -4073,10 +4098,11 @@ review. If that protection setting is ever turned off, the sweep needs an explic
 
 **To stop a PR being auto-merged, assign it to a human or leave a
 CHANGES_REQUESTED review.** A human-assigned PR is treated as somebody's active
-work and is never swept; bot or agent assignment is not a hold. Draft status is
-not a hold: anything opened as a PR is in the review queue. The controller marks
-an eligible draft ready, re-reads every guard, and restores draft state if that
-merge attempt aborts.
+work and is never swept while assigned; maintain that hold by responding to
+inactivity reminders as described above. Bot or agent assignment is not a hold.
+Draft status is not a hold: anything opened as a PR is in the review queue. The
+controller marks an eligible draft ready, re-reads every guard, and restores
+draft state if that merge attempt aborts.
 
 **A third hold exists and is not visible from the PR page.** The controller
 also holds a PR back once it has failed the merge queue
