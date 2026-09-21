@@ -283,22 +283,7 @@ validate-history file:
 # Validate all history records
 [group('QC')]
 validate-history-all:
-    #!/usr/bin/env bash
-    set -e
-    if [[ ! -d "{{history_dir}}" ]]; then
-        echo "No history directory found."
-        exit 0
-    fi
-    files=()
-    while IFS= read -r f; do
-        files+=("$f")
-    done < <(find "{{history_dir}}" -type f -name '*.yaml' | sort)
-    if [ ${#files[@]} -eq 0 ]; then
-        echo "No history YAML files found in {{history_dir}}."
-        exit 0
-    fi
-    printf 'Validating %s history record(s).\n' "${#files[@]}"
-    uv run linkml-validate --schema {{history_schema_path}} --target-class HistoryRecord "${files[@]}"
+    uv run python scripts/validate_schema_all.py history "{{history_dir}}" "{{history_schema_path}}"
 
 # Validate a single cross-provider research synthesis (research/*-research-synthesis.yaml)
 [group('QC')]
@@ -327,22 +312,10 @@ validate-synthesis-all:
     uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
     uv run python -m dismech.research_synthesis "${files[@]}"
 
-# Schema validation for all files (batched: one process startup for all files)
+# Schema validation for all files in bounded batches (safe as the corpus grows)
 [group('QC')]
 validate-schema-all:
-    #!/usr/bin/env bash
-    set -e
-    if command -v rg >/dev/null 2>&1; then
-        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
-    else
-        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
-    fi
-    if [ ${#files[@]} -eq 0 ]; then
-        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
-        exit 1
-    fi
-    echo "Validating ${#files[@]} disorder files (schema)..."
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease "${files[@]}"
+    uv run python scripts/validate_schema_all.py disorders "{{kb_dir}}" "{{schema_path}}"
 
 # Schema validation for all comorbidity YAML files
 [group('QC')]
