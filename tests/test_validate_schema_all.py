@@ -8,12 +8,14 @@ import pytest
 from scripts import validate_schema_all as validator
 
 
-def test_batches_bound_count_and_encoded_bytes():
+def test_batches_bound_encoded_bytes():
     files = [f"folder/{i:05d} é space.yaml" for i in range(11000)]
     files += ["long/" + "é" * 2000 + f"{i}.yaml" for i in range(50)]
     batches = list(validator.batches(files))
     assert [path for batch in batches for path in batch] == files
-    assert all(len(batch) <= 100 for batch in batches)
+    # Each batch fills the byte budget, avoiding needless validator startups.
+    for batch, following in zip(batches, batches[1:]):
+        assert sum(len(os.fsencode(p)) + 1 for p in [*batch, following[0]]) > 32768
     assert all(sum(len(os.fsencode(p)) + 1 for p in b) <= 32768 for b in batches)
 
 
@@ -21,6 +23,8 @@ def test_batches_bound_count_and_encoded_bytes():
 def test_all_batches_run_after_validation_failure(tmp_path, monkeypatch, capsys, kind):
     for i in range(201):
         (tmp_path / f"{i:03d} space.yaml").touch()
+    path_bytes = len(os.fsencode(tmp_path / "000 space.yaml")) + 1
+    monkeypatch.setattr(validator, "MAX_PATH_BYTES", 100 * path_bytes)
     calls = []
 
     def run(command, **kwargs):
@@ -29,9 +33,25 @@ def test_all_batches_run_after_validation_failure(tmp_path, monkeypatch, capsys,
 
     monkeypatch.setattr(validator.subprocess, "run", run)
     assert validator.main([kind, str(tmp_path), "schema.yaml"]) == 1
+    assert all(
+        call[:5]
+        == [
+            "linkml-validate",
+            "--schema",
+            "schema.yaml",
+            "--target-class",
+            "HistoryRecord" if kind == "history" else "Disease",
+        ]
+        for call in calls
+    )
     assert [len(call[5:]) for call in calls] == [100, 100, 1]
     assert len({path for call in calls for path in call[5:]}) == 201
-    assert "Validation batch 1 failed" in capsys.readouterr().err
+    errors = capsys.readouterr().err
+    assert "Validation batch 1 failed" in errors
+    assert "100 files" in errors
+    assert str(tmp_path / "000 space.yaml") in errors
+    assert str(tmp_path / "099 space.yaml") in errors
+    assert len(errors.splitlines()) == 1
 
 
 def test_enumeration_and_exclusion(tmp_path):

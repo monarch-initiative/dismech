@@ -15,7 +15,6 @@ import sys
 
 # Leave ample room for the environment and fixed arguments on macOS.
 MAX_PATH_BYTES = 32 * 1024
-MAX_FILES = 100
 
 
 def batches(files):
@@ -23,7 +22,7 @@ def batches(files):
     size = 0
     for path in files:
         cost = len(os.fsencode(path)) + 1
-        if batch and (len(batch) >= MAX_FILES or size + cost > MAX_PATH_BYTES):
+        if batch and size + cost > MAX_PATH_BYTES:
             yield batch
             batch, size = [], 0
         batch.append(path)
@@ -102,11 +101,10 @@ def main(argv=None):
         if result.returncode:
             failed = True
             print(
-                f"Validation batch {number} failed (exit {result.returncode}); inputs:",
+                f"Validation batch {number} failed (exit {result.returncode}): "
+                f"{len(batch)} files ({batch[0]} through {batch[-1]})",
                 file=sys.stderr,
             )
-            for path in batch:
-                print(f"  {path}", file=sys.stderr)
     return int(failed)
 
 
