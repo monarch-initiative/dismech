@@ -238695,6 +238695,134 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Pediatric Acute-onset Neuropsychiatric Syndrome",
+    "disease_id": "MONDO:1060178",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Disease",
+      "Mental Health Disorder"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pediatric acute-onset neuropsychiatric syndrome (PANS) is a clinically defined neuropsychiatric condition of childhood characterized by the abrupt, dramatic onset of obsessive-compulsive disorder or severely restricted food intake, accompanied by at least two concurrent neuropsychiatric symptoms such as anxiety, emotional lability or depression, irritability/aggression, behavioral regression, deterioration in school performance, sensory or motor abnormalities, and somatic signs including sleep disturbance or enuresis. PANS is defined by its clinical phenotype and time course rather than by a single trigger: it is proposed to reflect a post-infectious and/or immune-mediated neuroinflammatory process affecting the basal ganglia, of which streptococcal infection (PANDAS) is one well-studied precipitant. The concept was introduced in 2012 to broaden the earlier PANDAS criteria beyond group A streptococcus to encompass other infectious, immune, and metabolic triggers. It remains a clinically defined and debated entity without a validated confirmatory biomarker.",
+    "pathophysiology": [
+      "Post-infectious / immune-mediated basal ganglia neuroinflammation",
+      "Broadened diagnostic construct beyond streptococcus",
+      "Candidate susceptibility genes converging on immune and synaptic pathways"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Acute-onset obsessive-compulsive behavior",
+      "Restricted food intake",
+      "Anxiety",
+      "Emotional lability",
+      "Enuresis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000722",
+      "HP:0020302",
+      "HP:0000739",
+      "HP:0000712",
+      "HP:0000805"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PPM1D",
+      "SGCE",
+      "PLCG2",
+      "NLRC4",
+      "CACNA1B",
+      "SHANK3",
+      "CHEK2",
+      "GRIN2A",
+      "RAG1",
+      "GABRG2",
+      "SYNGAP1"
+    ],
+    "treatments": [
+      "Anti-infective Treatment of the Identified Trigger",
+      "Corticosteroid and Immunomodulatory Therapy",
+      "Intravenous Immunoglobulin",
+      "Cognitive Behavioral Therapy and SSRI"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pediatric_Acute-Onset_Neuropsychiatric_Syndrome.yaml",
+    "page_url": "../pages/disorders/Pediatric_Acute-onset_Neuropsychiatric_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 11,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Pediatric Autoimmune Neuropsychiatric Disorders Associated with Streptococcal Infections",
+    "disease_id": "MONDO:0019020",
+    "category": "Autoimmune",
+    "parents": [
+      "Pediatric Acute-onset Neuropsychiatric Syndrome",
+      "Autoimmune Disease",
+      "Mental Health Disorder"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pediatric autoimmune neuropsychiatric disorders associated with streptococcal infections (PANDAS) is the streptococcus-triggered subset of pediatric acute-onset neuropsychiatric syndrome (PANS). It is defined by the abrupt, dramatic onset or episodic relapsing-remitting exacerbation of obsessive-compulsive disorder and/or a tic disorder in prepubertal children, temporally associated with group A beta-hemolytic streptococcal (GAS) infection and accompanied by additional neuropsychiatric signs such as anxiety, emotional lability, behavioral regression, and choreiform movements. The proposed mechanism is post-streptococcal molecular mimicry, in which antibodies raised against streptococcal antigens cross-react with neuronal targets in the basal ganglia (including dopamine receptors and lysoganglioside), activating calcium/calmodulin-dependent protein kinase II signaling and disrupting cortico-striato-thalamo-cortical circuits. PANDAS overlaps clinically and mechanistically with Sydenham chorea. Both the diagnostic construct and the strength of the streptococcal-autoimmune link remain debated, and there is no validated confirmatory biomarker.",
+    "pathophysiology": [
+      "Post-streptococcal molecular mimicry",
+      "Anti-neuronal antibody targeting of the basal ganglia",
+      "Th17-mediated CNS entry and blood-brain barrier breakdown"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Acute-onset obsessive-compulsive behavior",
+      "Tics",
+      "Anxiety",
+      "Emotional lability",
+      "Enuresis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000722",
+      "HP:0100033",
+      "HP:0000739",
+      "HP:0000712",
+      "HP:0000805"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Anti-streptococcal Antibiotic Therapy",
+      "Antibiotic Prophylaxis",
+      "Cognitive Behavioral Therapy and SSRI"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pediatric_Autoimmune_Neuropsychiatric_Disorders_Associated_With_Streptococcal_Infections.yaml",
+    "page_url": "../pages/disorders/Pediatric_Autoimmune_Neuropsychiatric_Disorders_Associated_with_Streptococcal_Infections.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Peeling Skin Syndrome",
     "disease_id": "MONDO:0019347",
     "category": "Mendelian",
@@ -318398,19 +318526,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3050,
+  "total_disorder_pages": 3052,
   "total_subtypes": 3821,
-  "total_disorders_and_subtypes": 6871,
-  "total_unique_evidence_sources": 43748,
-  "total_unique_publications": 41275,
+  "total_disorders_and_subtypes": 6873,
+  "total_unique_evidence_sources": 43762,
+  "total_unique_publications": 41289,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3045,
-  "total_unique_pathological_events": 18698,
+  "total_pathographs": 3047,
+  "total_unique_pathological_events": 18704,
   "total_modules": 177,
-  "total_research_reports": 3164,
+  "total_research_reports": 3166,
   "total_classifications": 20,
   "total_comorbidities": 46,
-  "total_groupings": 102
+  "total_groupings": 103
 };
 window.dispatchEvent(new Event('searchDataReady'));
