@@ -1350,7 +1350,7 @@ list-causal-targets *files:
 # else: reports, sidecars, entry and page all validate. A slug miss makes every
 # report under it INVISIBLE; an id miss renders it detached with no status.
 # Only genuinely unreachable directories fail: one that renders solely through
-# the fallback is reported as advisory, because 538 entries have
+# the fallback is reported as advisory, because several hundred entries have
 # slugify(name) != file stem and failing those would make this gate stricter
 # than the renderer it guards. Ungated and whole-KB because the PR that breaks
 # it -- renaming an entry, folding it into a parent per design decisions

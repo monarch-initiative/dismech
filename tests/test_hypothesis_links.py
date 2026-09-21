@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.check_hypothesis_links import BLOCKING_KINDS, collect
+from scripts.check_hypothesis_links import BLOCKING_KINDS, collect, main
 
 
 def _entry(kb: Path, slug: str, ids: list[str]) -> None:
@@ -107,8 +107,8 @@ def test_directory_named_for_the_disease_name_is_advisory_not_blocking(
 ) -> None:
     """render_disorder retries with slugify(name), so this one does render.
 
-    538 disorder entries have slugify(name) != file stem. Failing them would
-    make this gate stricter than the renderer it guards.
+    Several hundred entries have slugify(name) != file stem. Failing them
+    would make this gate stricter than the renderer it guards.
     """
     kb = repo / "kb"
     (kb / "disorders" / "46_XX_Gonadal_Dysgenesis.yaml").write_text(
@@ -142,6 +142,66 @@ def test_shadowed_directory_blocks_because_the_retry_never_runs(
     blocking = [f for f in findings if f.kind in BLOCKING_KINDS]
     assert len(blocking) == 1
     assert "already has its own" in blocking[0].detail
+
+
+def test_reportless_canonical_directory_does_not_shadow(repo: Path) -> None:
+    """collect_hypothesis_research_links returns [] for a reportless directory too.
+
+    `render_disorder` retries whenever the primary lookup yields no sections, not
+    only when the directory is missing, so a canonical directory holding no
+    report does not block the fallback -- and the page does render.
+    """
+    kb = repo / "kb"
+    (kb / "disorders" / "46_XX_Gonadal_Dysgenesis.yaml").write_text(
+        "name: 46,XX Gonadal Dysgenesis\n"
+        "mechanistic_hypotheses:\n"
+        "- hypothesis_group_id: h1\n",
+        encoding="utf-8",
+    )
+    _report(kb, "46,XX_Gonadal_Dysgenesis", "h1")
+    reportless = kb / "hypotheses" / "46_XX_Gonadal_Dysgenesis" / "h1"
+    reportless.mkdir(parents=True)
+    (reportless / "openscientist.md.citations.md").write_text("x", encoding="utf-8")
+
+    findings = collect(repo)
+    assert [f.kind for f in findings] == ["non_canonical_slug"]
+    assert not [f for f in findings if f.kind in BLOCKING_KINDS]
+
+
+def test_exit_code_is_zero_for_advisory_only(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An advisory must not fail CI -- that is the whole point of the split."""
+    kb = repo / "kb"
+    (kb / "disorders" / "46_XX_Gonadal_Dysgenesis.yaml").write_text(
+        "name: 46,XX Gonadal Dysgenesis\n"
+        "mechanistic_hypotheses:\n"
+        "- hypothesis_group_id: h1\n",
+        encoding="utf-8",
+    )
+    _report(kb, "46,XX_Gonadal_Dysgenesis", "h1")
+
+    monkeypatch.setattr("sys.argv", ["check", "--repo-root", str(repo)])
+    assert main() == 0
+    assert "advisory finding(s); nothing unreachable" in capsys.readouterr().out
+
+
+def test_exit_code_is_one_for_a_blocking_finding(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _entry(repo / "kb", "Huntington_Disease", ["alternative_excitotoxicity"])
+    _report(repo / "kb", "Huntingtons_Disease", "alternative_excitotoxicity")
+
+    monkeypatch.setattr("sys.argv", ["check", "--repo-root", str(repo)])
+    assert main() == 1
+
+
+def test_report_mode_never_fails(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _entry(repo / "kb", "Huntington_Disease", ["alternative_excitotoxicity"])
+    _report(repo / "kb", "Huntingtons_Disease", "alternative_excitotoxicity")
+
+    monkeypatch.setattr("sys.argv", ["check", "--repo-root", str(repo), "--report"])
+    assert main() == 0
 
 
 def test_committed_kb_has_no_disconnected_hypothesis_directories() -> None:

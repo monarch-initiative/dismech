@@ -18,9 +18,10 @@ lookup comes back empty *and* ``slugify(entry["name"]) != file_stem``, it calls
 again with the slugified name (``render.py``, "if not hypothesis_research_links
 and file_stem != disorder_slug"). So a directory named for the disease's ``name:``
 rather than its filename does still render. That retry is why this checker
-separates two outcomes rather than failing both: 538 disorder entries currently
-have ``slugify(name) != <file stem>``, and failing all of those would make the
-gate stricter than the thing it is guarding.
+separates two outcomes rather than failing both: several hundred kb entries have
+``slugify(name) != <file stem>``, and failing all of those would make the gate
+stricter than the thing it is guarding. (Run ``--report`` for the live count
+rather than trusting a number written here, which is stale by construction.)
 
 A directory is therefore only UNREACHABLE when it matches neither name -- or when
 it matches the slugified name while a canonical directory also exists, since the
@@ -64,17 +65,17 @@ from pathlib import Path
 
 import yaml
 
-from dismech.render import slugify
+from dismech.export.utils import slugify
 
 KB_SUBDIRS = ("disorders", "modules", "comorbidities", "groupings")
 
 # Only these kinds fail the gate; a non-canonical directory still renders.
-BLOCKING_KINDS = ("no_entry", "undeclared_id")
+BLOCKING_KINDS = ("no_entry", "shadowed", "undeclared_id")
 
 
 @dataclass(frozen=True)
 class Finding:
-    kind: str  # "no_entry" | "undeclared_id" | "non_canonical_slug"
+    kind: str  # "no_entry" | "shadowed" | "undeclared_id" | "non_canonical_slug"
     directory: str
     detail: str
     fix: str
@@ -175,7 +176,15 @@ def collect(repo_root: Path) -> list[Finding]:
         return []
     entries = _entry_paths(kb_root)
     by_slug = _slug_index(entries)
-    present = {p.name for p in hyp_root.iterdir() if p.is_dir()}
+    # "Present" must mean what the renderer means. `collect_hypothesis_research_links`
+    # returns [] both for a missing directory and for one whose subdirectories all
+    # fail `if not reports: continue`, and `render_disorder` retries on either. A
+    # canonical directory holding no report therefore does NOT shadow.
+    present = {
+        p.name
+        for p in hyp_root.iterdir()
+        if p.is_dir() and any(d.is_dir() and _has_report(d) for d in p.iterdir())
+    }
     findings: list[Finding] = []
     id_cache: dict[Path, set[str]] = {}
 
@@ -204,13 +213,13 @@ def collect(repo_root: Path) -> list[Finding]:
         if how == "shadowed":
             findings.append(
                 Finding(
-                    "no_entry",
+                    "shadowed",
                     f"kb/hypotheses/{name}/",
                     f"names the disease of {entry.stem!r}, but that entry "
                     f"already has its own kb/hypotheses/{entry.stem}/ "
-                    f"directory. The renderer's fallback only runs when the "
-                    f"first lookup finds nothing, so these {reports} report "
-                    f"directory/ies are unreachable.",
+                    f"directory with reports in it. The renderer's fallback "
+                    f"only runs when the first lookup yields nothing, so these "
+                    f"{reports} report directory/ies are unreachable.",
                     f"merge this directory's contents into kb/hypotheses/{entry.stem}/",
                 )
             )
@@ -267,8 +276,22 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    findings = collect(args.repo_root.resolve())
+    repo_root = args.repo_root.resolve()
+    findings = collect(repo_root)
     blocking = [f for f in findings if f.kind in BLOCKING_KINDS]
+
+    if args.report:
+        entries = _entry_paths(repo_root / "kb")
+        by_slug = _slug_index(entries)
+        hyp_root = repo_root / "kb" / "hypotheses"
+        dirs = (
+            sum(1 for p in hyp_root.iterdir() if p.is_dir()) if hyp_root.is_dir() else 0
+        )
+        print(
+            f"{dirs} hypothesis directory/ies; {len(entries)} kb entries, of "
+            f"which {len(by_slug)} have slugify(name) != <file stem> and so "
+            f"could be reached by render_disorder's fallback.\n"
+        )
     if not findings:
         print(
             "OK: every hypothesis directory resolves to a kb entry and a "
@@ -288,7 +311,7 @@ def main() -> int:
             "only found by looking for it.\n"
         )
 
-    unreachable = [f for f in findings if f.kind == "no_entry"]
+    unreachable = [f for f in findings if f.kind in ("no_entry", "shadowed")]
     undeclared = [f for f in findings if f.kind == "undeclared_id"]
     advisory = [f for f in findings if f.kind == "non_canonical_slug"]
 
