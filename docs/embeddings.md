@@ -1,5 +1,12 @@
 # Disorder Embeddings System
 
+> **Freshness audit (2026-09-20):** the published disease embedding payload still
+> contains 720 diseases and matches the file last committed on April 16. The
+> mechanism payload was last committed on February 4. These are manually generated
+> snapshots; the page workflows do not regenerate them. See the
+> [concept-space browser proposal](explanation/concept-space-browser.md) for the
+> refresh blockers and a plan to combine embeddings with ontology navigation.
+
 The DisMech knowledge base includes a semantic embedding system for analyzing disorder similarity across multiple dimensions. This enables:
 
 - Finding disorders with similar pathophysiology, phenotypes, treatments, or cell types
