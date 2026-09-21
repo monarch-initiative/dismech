@@ -20,10 +20,11 @@ reason is instructive.
 The Gene Table's leaf is not a disorder. It is a `(group, disease, gene)`
 coordinate, and a gene appears once per clinically distinct allelic
 presentation. TTN is Udd distal myopathy in group 4, LGMDR10 in group 1,
-centronuclear myopathy in group 3, HMERF in group 5, and dilated/hypertrophic
-cardiomyopathy in group 10. Measured over the online table, 117 of 612 genes
-carrying parseable group coordinates appear in more than one group, and 224
-(36.6%) have more than one allelic disease phenotype.
+centronuclear myopathy in group 3, HMERF in group 5, dilated/hypertrophic
+cardiomyopathy in group 10, and a motoneuron-disease presentation in group 12 —
+six groups for one gene. Across the committed transcription of GT_NMD 2026,
+127 of 707 genes (18.0%) carry more than one group, over 879 assignments in
+total.
 
 Projecting that onto a disease entry forces multi-assignment, which in turn
 wants a scoping mechanism to say *which* subtype each group covers. Two
@@ -124,6 +125,42 @@ Consulting HGNC previous/alias symbols also means the 14 genes the table still
 lists under retired symbols (AARS→AARS1, ADCK3→COQ8A, C12orf65→MTRFR,
 SEPT9→SEPTIN9, TAZ→TAFAZZIN, KIAA0196→WASHC5, …) resolve to current identifiers
 rather than being dropped.
+
+### Coordinates must be read in their parenthesised context
+
+Group numbers come from the "All allelic disease phenotypes" cell, where each
+phenotype is followed by its coordinates: `Barth syndrome - BTHS (10.103, 10.90)`.
+Reading them with a bare `\d{1,2}\.\d+` across the whole cell also captures
+decimals inside disease and locus *names*. TAZ is listed with its old locus
+designation **"G4.5"**, which was read as group 4 and put TAFAZZIN — a
+cardioskeletal myopathy with proximal weakness — into distal myopathies.
+
+The fix matches only parenthesised comma-separated coordinate runs. Across the
+707 genes this changed exactly one assignment, which is what makes the class of
+bug dangerous: a single wrong row in an otherwise correct file, discoverable
+only by someone who knows the biology. It was caught in review by biological
+implausibility, not by any check.
+
+### The resolution floor exists so failure is loud
+
+`resolve_symbol` walks prefixes downwards, so without a minimum length almost
+any capitalised cell eventually matches *some* one- or two-letter symbol.
+`None` becomes unreachable, every row resolves, and a wrong gene is
+indistinguishable from a right one — a zero-unresolved run is then evidence of
+nothing.
+
+A floor of 3 characters, with an allow-list for genuinely short symbols, makes
+an unhandled run-together pattern surface as a reported non-resolution instead.
+The allow-list is populated by that mechanism working: the first run after
+adding the floor reported `KY` (kyphoscoliosis peptidase) as unresolved, and it
+was added. Extend the list the same way rather than lowering the floor.
+
+### Layout assumptions are asserted
+
+The gene and coordinate cells are read positionally (`cells[0]`, `cells[2]`),
+so a reordered or added column would leave the scraper producing a well-formed
+but wrong file. The header row is asserted against `_EXPECTED_HEADER` and a run
+that never sees it raises, converting that into a hard failure.
 
 ## Consequences
 

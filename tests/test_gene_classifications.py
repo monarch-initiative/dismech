@@ -10,12 +10,24 @@ genes, and the symbol-resolution regressions described in
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import pytest
 from linkml_runtime.utils.schemaview import SchemaView
 
 from dismech.yaml_io import safe_load_path
+
+
+def _load_scraper():
+    """Import the scraper by path; ``scripts/`` is not an importable package."""
+    spec = importlib.util.spec_from_file_location(
+        "fetch_nmd_gene_table", Path("scripts/fetch_nmd_gene_table.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 
 SCHEMA_PATH = Path("src/dismech/schema/dismech.yaml")
 GENE_CLASSIFICATION_DIR = Path("kb/gene_classifications")
@@ -139,7 +151,8 @@ def test_nmd_gene_table_membership_is_set_valued() -> None:
     This is the property that makes gene classification a separate axis from
     disease classification, so it is asserted rather than assumed. TTN is the
     canonical case: Udd distal myopathy, LGMDR10, centronuclear myopathy,
-    HMERF, and dilated/hypertrophic cardiomyopathy are five different groups.
+    HMERF, dilated/hypertrophic cardiomyopathy, and a motoneuron-disease
+    presentation are six different groups.
     """
     rows = {
         r["gene"]["term"]["label"]: r for r in _collection(NMD_GENE_TABLE_PATH)["genes"]
@@ -166,3 +179,55 @@ def test_nmd_gene_table_membership_is_set_valued() -> None:
         "expected many multi-group genes; a collapse to near-single-valued means "
         "the allelic-phenotype column stopped being parsed"
     )
+
+
+def test_group_coordinates_are_read_only_inside_parentheses() -> None:
+    """Coordinates are parenthesised; decimals in disease or locus names are not.
+
+    TAZ is listed with its old locus designation "G4.5". A bare
+    ``\\d{1,2}\\.\\d+`` scan over the whole cell reads that as group 4 and puts
+    TAFAZZIN -- a cardioskeletal myopathy with proximal weakness -- into distal
+    myopathies. This is the exact cell text from the live table.
+    """
+    parse = _load_scraper().parse_group_coordinates
+
+    taz_cell = (
+        "* Barth syndrome - BTHS (10.103, 10.90)"
+        "* Endocardial fibroelastosis-2 - G4.5 (10.103, 10.90)"
+        "* Noncompaction of left ventricular myocardium, isolated - INVM (10.103, 10.90)"
+    )
+    assert parse(taz_cell) == {10}, "G4.5 must not be read as a group coordinate"
+
+    # A genuinely multi-group cell still parses every coordinate.
+    assert parse("* A - X (4.4, 1.2)* B - Y (10.9)") == {1, 4, 10}
+    # Out-of-range group numbers are dropped rather than emitted.
+    assert parse("* C - Z (99.1)") == set()
+
+
+def test_short_symbols_resolve_only_via_the_allow_list() -> None:
+    """The resolution floor must make an unhandled pattern loud, not silent.
+
+    Without a minimum prefix length, resolution walks down to a one- or
+    two-letter match and `None` becomes unreachable, so a mis-resolution looks
+    exactly like a correct one. KY (kyphoscoliosis peptidase) is the worked
+    case: it is a real two-letter symbol in the table and is allow-listed.
+    """
+    scraper = _load_scraper()
+    approved = {"KY": ("hgnc:21208", "KY"), "ZZ": ("hgnc:99999", "ZZ")}
+
+    resolved = scraper.resolve_symbol("KYKyphoscoliosis peptidase", approved, {})
+    assert resolved is not None and resolved[1][1] == "KY"
+
+    # Same shape, but not allow-listed: must fail rather than resolve.
+    assert scraper.resolve_symbol("ZZSome protein", approved, {}) is None
+
+
+def test_nmd_gene_table_has_no_unresolved_symbols() -> None:
+    """A committed collection should carry no unresolved-symbol note.
+
+    The note is how the scraper reports a symbol it could not resolve. Its
+    presence means a run-together pattern needs handling or a short symbol
+    needs allow-listing -- not that the row should be left out.
+    """
+    collection = _collection(NMD_GENE_TABLE_PATH)
+    assert "unresolved" not in (collection.get("notes") or "").lower()

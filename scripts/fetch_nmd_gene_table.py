@@ -5,10 +5,13 @@ Gisele Bonne and Francois Rivier and published annually in *Neuromuscular
 Disorders*. Its rows are genes; its 17 disease groups are the filing system.
 
 Each gene row carries an "All allelic disease phenotypes" column in which every
-phenotype is followed by its coordinates in the table, written ``<group>.<entry>``.
-A gene's group membership is therefore the set of leading group numbers across
-that column -- which is set-valued, because a gene appears once per clinically
-distinct allelic presentation. TTN spans six groups on exactly this basis.
+phenotype is followed by a parenthesised run of coordinates, written
+``<group>.<entry>`` -- for example ``Barth syndrome - BTHS (10.103, 10.90)``. A
+gene's group membership is the set of leading group numbers across those runs,
+which is set-valued because a gene appears once per clinically distinct allelic
+presentation. TTN spans six groups on exactly this basis.
+
+Only parenthesised runs count; see :func:`parse_group_coordinates`.
 
 Writes ``kb/gene_classifications/nmd_gene_table.yaml``. Regenerate rather than
 hand-editing the output::
@@ -63,19 +66,37 @@ GROUPS = {
     17: "other_neuromuscular_disorders",
 }
 
-_ROW_RE = re.compile(r"<tr[^>]*>(.*?)</tr>", re.S | re.I)
-_CELL_RE = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.S | re.I)
+_ROW_RE = re.compile(r"<tr[^>]*>(.*?)</tr>", re.DOTALL | re.IGNORECASE)
+_CELL_RE = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.DOTALL | re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
 #: The gene cell renders as "<symbol><protein name>" with no separator, e.g.
 #: "TTNTitin" or "ATP13A2ATPase type 13A2". The symbol boundary is not reliably
 #: findable by pattern -- "ATP13A2AT" is a perfectly plausible-looking symbol --
 #: so candidates are cut here and resolved by longest-prefix match against HGNC.
-_CANDIDATE_RE = re.compile(r"^([A-Z][A-Za-z0-9orf\-]{0,24})")
+_CANDIDATE_RE = re.compile(r"^([A-Z][A-Za-z0-9\-]{0,24})")
 #: Longest HGNC symbol worth trying as a prefix.
 _MAX_SYMBOL_LEN = 15
+#: Shortest prefix accepted without being on the allow-list below. Resolution walks
+#: prefixes downwards, so without a floor almost any capitalised cell eventually
+#: matches some one- or two-letter symbol and a mis-resolution is silent. See
+#: ``resolve_symbol``.
+_MIN_SYMBOL_LEN = 3
+#: Genuinely short approved symbols the gene table lists, exempt from the floor.
+#: Extend when a run reports a real short symbol as unresolved -- which is the
+#: floor working: KY (kyphoscoliosis peptidase) was added after surfacing that way.
+_SHORT_SYMBOLS = frozenset({"AR", "KY", "MB", "PC", "TK2", "TTN", "VCP"})
+#: Table coordinates appear only inside a parenthesised, comma-separated run of
+#: ``<group>.<entry>`` pairs, e.g. "(10.103, 10.90)". They MUST be read in that
+#: context: matching bare ``\d{1,2}\.\d+`` anywhere in the cell also picks up
+#: decimals inside disease and locus names, and TAZ's old locus designation
+#: "G4.5" was silently read as group 4, putting TAFAZZIN in distal myopathies.
+_COORD_BLOCK_RE = re.compile(r"\(\s*(\d{1,2}\.\d+(?:\s*,\s*\d{1,2}\.\d+)*)\s*\)")
 _COORD_RE = re.compile(r"(\d{1,2})\.\d+")
 #: "GT_NMD 2026 (updated 18/05/2026)"
 _VERSION_RE = re.compile(r"(GT_NMD\s+\d{4})\s*\(updated\s+(\d{2})/(\d{2})/(\d{4})\)")
+#: Header cells of the gene table, asserted so a reordered or added column fails
+#: loudly instead of silently producing a well-formed but wrong file.
+_EXPECTED_HEADER = ("Gene symbol and protein", "Gene Location")
 
 
 def _fetch(url: str, timeout: int = 120) -> str:
@@ -107,24 +128,49 @@ def scrape_gene_groups() -> dict[str, set[int]]:
     down to a real symbol.
     """
     gene_groups: dict[str, set[int]] = {}
+    header_seen = False
     for letter in string.ascii_uppercase:
         page = _fetch(f"{GENE_TABLE_BASE}/4DACTION/GS/{letter}")
         for row_html in _ROW_RE.findall(page):
             cells = _cells(row_html)
             if len(cells) < 3:
                 continue
+            if tuple(cells[:2]) == _EXPECTED_HEADER:
+                header_seen = True
+                continue
             candidate_match = _CANDIDATE_RE.match(cells[0])
             if not candidate_match:
                 continue
-            groups = {int(g) for g in _COORD_RE.findall(cells[2])}
-            groups &= set(GROUPS)
+            groups = parse_group_coordinates(cells[2])
             if groups:
                 gene_groups.setdefault(candidate_match.group(1), set()).update(groups)
+    if not header_seen:
+        raise RuntimeError(
+            f"never saw the expected gene-table header {_EXPECTED_HEADER}; the columns "
+            "have probably been reordered, and cells[0]/cells[2] no longer mean what "
+            "this scraper assumes"
+        )
     if not gene_groups:
         raise RuntimeError(
             "scraped no genes from the gene table; the site layout has probably changed"
         )
     return gene_groups
+
+
+def parse_group_coordinates(phenotype_cell: str) -> set[int]:
+    """Extract group numbers from an "All allelic disease phenotypes" cell.
+
+    Only parenthesised, comma-separated coordinate runs count. Matching bare
+    ``\\d{1,2}\\.\\d+`` across the whole cell also captures decimals inside
+    disease and locus names: TAZ is listed with the old locus designation
+    "G4.5", which was read as group 4 and put TAFAZZIN in distal myopathies
+    when its coordinates are ``(10.103, 10.90)`` -- hereditary cardiomyopathies
+    only.
+    """
+    groups: set[int] = set()
+    for block in _COORD_BLOCK_RE.findall(phenotype_cell):
+        groups.update(int(g) for g in _COORD_RE.findall(block))
+    return groups & set(GROUPS)
 
 
 def resolve_symbol(
@@ -144,11 +190,21 @@ def resolve_symbol(
     pseudogene LAMB2P1, instead of LAMB2; and "ARAndrogen receptor" yields ARA,
     an alias of ABCC6, instead of AR. Preferring an approved symbol at any
     length over an alias at a longer one gets both right.
+
+    Prefixes shorter than ``_MIN_SYMBOL_LEN`` are rejected unless the symbol is
+    on ``_SHORT_SYMBOLS``. Without that floor the walk continues to length 1 and
+    nearly every capitalised cell matches *some* one- or two-letter symbol, so
+    ``None`` is unreachable and a wrong gene is indistinguishable from a right
+    one. The floor converts a future run-together pattern this function cannot
+    handle into a reported non-resolution rather than a silent mis-resolution.
     """
     upper = candidate.upper()
     for index in (approved, secondary):
         for end in range(min(len(upper), _MAX_SYMBOL_LEN), 0, -1):
-            resolved = index.get(upper[:end])
+            prefix = upper[:end]
+            if end < _MIN_SYMBOL_LEN and prefix not in _SHORT_SYMBOLS:
+                continue
+            resolved = index.get(prefix)
             if resolved is not None:
                 return candidate[:end], resolved
     return None
@@ -182,11 +238,23 @@ def hgnc_symbol_index() -> tuple[
         entry = (hgnc_id.replace("HGNC:", "hgnc:"), symbol)
         approved[symbol.upper()] = entry
         for field in ("prev_symbol", "alias_symbol"):
-            for alias in (record.get(field) or "").split("|"):
-                alias = alias.strip().upper()
-                if alias and alias not in secondary:
+            for raw_alias in (record.get(field) or "").split("|"):
+                alias = raw_alias.strip().upper()
+                if not alias:
+                    continue
+                # Two genes can share a retired symbol. Break the tie on the
+                # lower HGNC numeric id rather than on position in the
+                # downloaded file, so a re-download that reorders rows cannot
+                # change which gene an ambiguous alias resolves to.
+                held = secondary.get(alias)
+                if held is None or _hgnc_sort_key(entry[0]) < _hgnc_sort_key(held[0]):
                     secondary[alias] = entry
     return approved, secondary
+
+
+def _hgnc_sort_key(curie: str) -> int:
+    """Numeric part of an ``hgnc:NNNN`` CURIE, for deterministic tie-breaking."""
+    return int(curie.split(":", 1)[1])
 
 
 def build_collection(
@@ -280,8 +348,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--retrieved-date",
-        default=datetime.date.today().isoformat(),
-        help="retrieval date to record (default: today)",
+        default=datetime.datetime.now(tz=datetime.UTC).date().isoformat(),
+        help="retrieval date to record (default: today, UTC)",
     )
     args = parser.parse_args(argv)
 

@@ -2220,9 +2220,10 @@ just validate-gene-classifications # validate every collection
 
 **`values` is multivalued by design.** A gene appears once per clinically
 distinct allelic presentation — TTN is in six Gene Table groups (Udd distal
-myopathy, LGMDR10, centronuclear myopathy, HMERF, cardiomyopathy). That is a
-true fact about TTN, and putting it on the gene is exactly why this axis exists;
-it becomes unmodellable if forced onto a disease entry's `classifications`.
+myopathy, LGMDR10, centronuclear myopathy, HMERF, cardiomyopathy, and a
+motoneuron-disease presentation). That is a true fact about TTN, and putting it
+on the gene is exactly why this axis exists; it becomes unmodellable if forced
+onto a disease entry's `classifications`.
 
 Current collection: `nmd_gene_table.yaml` — 707 genes in the 17 groups of the
 [Gene Table of Neuromuscular Disorders](https://musclegenetable.fr/) (`GeneTableNMDGroupEnum`).
