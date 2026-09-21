@@ -383,7 +383,9 @@ The reminder is recorded in a machine-readable footer on the bot's comment;
 only reminders posted by the verified `ai4c-agent[bot]` identity are accepted.
 This avoids duplicate reminders on repeated sweeps. A PR that was already
 inactive for fourteen days receives a reminder first and can be unassigned on
-a subsequent sweep if no assignee responds. A copied marker in someone else's
+the next sweep if no assignee responds. The current schedule is hourly, so the
+existing overdue backlog may get only about an hour's notice; there is no extra
+grace period measured from the reminder. A copied marker in someone else's
 comment cannot authorize unassignment.
 
 The job reads all pages of assignment events, comments, reviews, and PR commits,
@@ -395,14 +397,18 @@ trusted default-branch Python with no PR checkout or dependencies. Its separate
 App token has only pull-request write permission and is used only to post the
 reminder or remove the inspected assignees. Runs serialize with one another.
 
-`max_assignment_actions` defaults to 10 reminders/releases per run; `0` disables
-the job's actions. `dry_run` and `pr_number` also apply. To preview locally:
+`max_assignment_actions` is a shared budget of 10 reminders and releases per run;
+`0` disables the job's actions. `dry_run` and `pr_number` also apply. To preview
+locally:
 
 ```bash
 uv run python scripts/expire_pr_assignments.py --repo monarch-initiative/dismech --dry-run
 ```
 
-The summary distinguishes assigned PRs found, PRs inspected, actions, and errors.
+The summary distinguishes assigned PRs found, PRs inspected, actions, deferrals,
+and errors. Changed or incomplete histories are reported as deferrals without
+failing the job. API and other unexpected failures fail the job; CLI errors
+include the exit code without exposing command arguments or response bodies.
 Releasing an assignment does not close or merge the PR, change reviews, or
 override the repair jobs' separate author restrictions.
 

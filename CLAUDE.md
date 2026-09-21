@@ -4023,7 +4023,8 @@ itself do not count.
 Any current assignee can keep a jointly assigned PR active. After a response,
 a later week of inactivity gets a new reminder; the fourteen-day threshold also
 starts from that new activity. Old PRs always receive a reminder first, but if
-already inactive for fourteen days they can be unassigned on a subsequent sweep.
+already inactive for fourteen days they can be unassigned on the next sweep,
+currently about an hour later. There is no separate reminder grace period.
 The job rereads activity and assignment immediately before a write, and leaves
 assignments alone when history is incomplete or unavailable. Manual inputs
 `dry_run`, `pr_number`, and `max_assignment_actions` (default 10; 0 disables) apply.

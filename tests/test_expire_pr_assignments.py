@@ -224,7 +224,7 @@ def harness(monkeypatch, initial=None, fresh=None):
 
 def test_reminder_and_release_use_only_the_intended_endpoints(monkeypatch):
     writes = harness(monkeypatch)
-    lines, errors = expiry.sweep("owner/repo", NOW)
+    _, errors = expiry.sweep("owner/repo", NOW)
     assert errors == 0 and len(writes) == 1
     assert writes[0][0] == (
         "api",
@@ -297,16 +297,58 @@ def test_specific_pr_and_action_budget_bound_the_sweep(monkeypatch):
     assert any("Inspected 1;" in line for line in lines)
 
 
-def test_failed_activity_lookup_never_releases_an_assignment(monkeypatch):
+@pytest.mark.parametrize("phase", ["read_snapshot", "gh"])
+def test_failed_lookup_or_write_reports_exit_code_without_secrets(monkeypatch, phase):
     writes = harness(monkeypatch, warned())
 
-    def fail(*args):
-        raise subprocess.CalledProcessError(1, ["gh", "secret"])
+    def fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(4, ["gh", "secret"], stderr="secret body")
 
-    monkeypatch.setattr(expiry, "read_snapshot", fail)
+    monkeypatch.setattr(expiry, phase, fail)
     lines, errors = expiry.sweep("owner/repo", NOW)
     assert errors == 1 and not writes
+    assert any("ERROR (CalledProcessError, exit code 4)" in line for line in lines)
     assert "secret" not in "\n".join(lines)
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "PR exceeds the 250-commit activity lookup limit",
+        "PR changed while reading activity; retry next sweep",
+    ],
+)
+def test_expected_deferrals_leave_assignments_alone_and_job_successful(
+    monkeypatch, capsys, reason
+):
+    writes = harness(monkeypatch, warned())
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+
+    def defer(*args):
+        raise expiry.ActivityUnavailable(reason)
+
+    monkeypatch.setattr(expiry, "read_snapshot", defer)
+    assert expiry.main(["--repo", "owner/repo", "--dry-run"]) == 0
+    output = capsys.readouterr().out
+    assert reason in output and "deferred 1; errors 0" in output
+    assert not writes
+
+
+def test_failed_initial_listing_returns_failure_with_a_redacted_summary(
+    monkeypatch, capsys, tmp_path
+):
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+
+    def fail(*args):
+        raise subprocess.CalledProcessError(4, ["gh", "secret"], stderr="secret body")
+
+    monkeypatch.setattr(expiry, "pages", fail)
+    assert expiry.main(["--repo", "owner/repo", "--dry-run"]) == 1
+    output = capsys.readouterr().out
+    assert "ERROR (CalledProcessError, exit code 4)" in output
+    assert "secret" not in output
+    assert summary.read_text().strip() == output.strip()
 
 
 def test_all_pages_are_read_including_a_response_after_the_first_page(monkeypatch):

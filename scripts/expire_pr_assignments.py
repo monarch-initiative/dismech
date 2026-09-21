@@ -25,6 +25,14 @@ class ActivityUnavailable(ValueError):
     """A known, safe-to-report reason not to infer inactivity."""
 
 
+def error_detail(exc):
+    """Report the failure type and exit code without command arguments or bodies."""
+    detail = type(exc).__name__
+    if isinstance(exc, subprocess.CalledProcessError):
+        detail += f", exit code {exc.returncode}"
+    return detail
+
+
 def timestamp(value):
     result = datetime.fromisoformat(value)
     if result.tzinfo is None:
@@ -201,7 +209,8 @@ def decide(snapshot, now):
         return Plan("skip", f"waiting for a response until {deadline.isoformat()}")
     return Plan(
         "unassign",
-        f"no assignee activity for {RELEASE_DAYS} days; reminder #{reminder['id']} unanswered",
+        f"no assignee activity for {RELEASE_DAYS} days; reminder #{reminder['id']} "
+        f"from {timestamp(reminder['created_at']).isoformat()} unanswered",
         activity,
         reminder["id"],
     )
@@ -220,7 +229,8 @@ def reminder_body(pr, activity):
         "reset the inactivity clock. "
         f"The shepherd removes inactive assignments after {RELEASE_DAYS} days "
         "since the last assignee activity. If that threshold has already passed, "
-        "a subsequent sweep may remove the assignment unless an assignee responds.\n\n"
+        "the next sweep may remove the assignment unless an assignee responds "
+        "(currently scheduled hourly).\n\n"
         f"<!-- {MARKER} {marker} -->"
     )
 
@@ -235,7 +245,7 @@ def sweep(repo, now, *, dry_run=False, specific_pr=None, limit=10):
     )
     candidates = [p for p in prs if p["state"] == "open" and p["assignees"]]
     lines = [f"Open assigned PRs found: {len(candidates)}."]
-    actions = errors = inspected = 0
+    actions = errors = deferred = inspected = 0
     for pr in candidates:
         if actions >= limit:
             lines.append(
@@ -263,6 +273,7 @@ def sweep(repo, now, *, dry_run=False, specific_pr=None, limit=10):
                 fingerprint(fresh["pr"]) != fingerprint(snapshot["pr"])
                 or decide(fresh, now) != plan
             ):
+                deferred += 1
                 lines.append(
                     f"PR #{number}: changed before action; reconsider next sweep."
                 )
@@ -289,7 +300,7 @@ def sweep(repo, now, *, dry_run=False, specific_pr=None, limit=10):
             actions += 1
             lines.append(f"PR #{number}: {plan.action.upper()} — {plan.reason}.")
         except ActivityUnavailable as exc:
-            errors += 1
+            deferred += 1
             lines.append(f"PR #{number}: DEFERRED: {exc}; no action confirmed.")
         except (
             subprocess.SubprocessError,
@@ -301,10 +312,11 @@ def sweep(repo, now, *, dry_run=False, specific_pr=None, limit=10):
             # Never print subprocess arguments/environment or untrusted bodies.
             errors += 1
             lines.append(
-                f"PR #{number}: DEFERRED ({type(exc).__name__}); no action confirmed."
+                f"PR #{number}: ERROR ({error_detail(exc)}); no action confirmed."
             )
     lines.append(
-        f"Inspected {inspected}; {'planned' if dry_run else 'completed'} actions {actions}; errors {errors}."
+        f"Inspected {inspected}; {'planned' if dry_run else 'completed'} actions {actions}; "
+        f"deferred {deferred}; errors {errors}."
     )
     return lines, errors
 
@@ -326,13 +338,23 @@ def main(argv=None):
         and not os.environ.get("GH_ASSIGNMENT_TOKEN")
     ):
         parser.error("execution requires GH_ASSIGNMENT_TOKEN")
-    lines, errors = sweep(
-        args.repo,
-        datetime.now(UTC),
-        dry_run=args.dry_run,
-        specific_pr=args.specific_pr,
-        limit=args.max_actions,
-    )
+    try:
+        lines, errors = sweep(
+            args.repo,
+            datetime.now(UTC),
+            dry_run=args.dry_run,
+            specific_pr=args.specific_pr,
+            limit=args.max_actions,
+        )
+    except (
+        subprocess.SubprocessError,
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+    ) as exc:
+        lines = [f"ERROR ({error_detail(exc)}); assignment sweep could not finish."]
+        errors = 1
     summary = "PR assignment inactivity\n\n" + "\n".join(lines) + "\n"
     print(summary)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
