@@ -81,10 +81,12 @@ _MAX_SYMBOL_LEN = 15
 #: matches some one- or two-letter symbol and a mis-resolution is silent. See
 #: ``resolve_symbol``.
 _MIN_SYMBOL_LEN = 3
-#: Genuinely short approved symbols the gene table lists, exempt from the floor.
-#: Extend when a run reports a real short symbol as unresolved -- which is the
-#: floor working: KY (kyphoscoliosis peptidase) was added after surfacing that way.
-_SHORT_SYMBOLS = frozenset({"AR", "KY", "MB", "PC", "TK2", "TTN", "VCP"})
+#: Approved symbols shorter than the floor that the gene table genuinely lists,
+#: so only entries of fewer than _MIN_SYMBOL_LEN characters belong here -- a
+#: longer one is never consulted. Extend when a run reports a real short symbol
+#: as unresolved, which is the floor working: KY (kyphoscoliosis peptidase) was
+#: added after surfacing exactly that way.
+_SHORT_SYMBOLS = frozenset({"AR", "KY", "MB"})
 #: Table coordinates appear only inside a parenthesised, comma-separated run of
 #: ``<group>.<entry>`` pairs, e.g. "(10.103, 10.90)". They MUST be read in that
 #: context: matching bare ``\d{1,2}\.\d+`` anywhere in the cell also picks up
@@ -95,8 +97,15 @@ _COORD_RE = re.compile(r"(\d{1,2})\.\d+")
 #: "GT_NMD 2026 (updated 18/05/2026)"
 _VERSION_RE = re.compile(r"(GT_NMD\s+\d{4})\s*\(updated\s+(\d{2})/(\d{2})/(\d{4})\)")
 #: Header cells of the gene table, asserted so a reordered or added column fails
-#: loudly instead of silently producing a well-formed but wrong file.
-_EXPECTED_HEADER = ("Gene symbol and protein", "Gene Location")
+#: loudly instead of silently producing a well-formed but wrong file. This MUST
+#: cover every column the scraper reads positionally, including cells[2] --
+#: checking only the first two would let a column inserted at position 2 pass
+#: while silently changing what gets parsed as coordinates.
+_EXPECTED_HEADER = (
+    "Gene symbol and protein",
+    "Gene Location",
+    "All allelic disease phenotypes - locus/disease symbols",
+)
 
 
 def _fetch(url: str, timeout: int = 120) -> str:
@@ -135,7 +144,7 @@ def scrape_gene_groups() -> dict[str, set[int]]:
             cells = _cells(row_html)
             if len(cells) < 3:
                 continue
-            if tuple(cells[:2]) == _EXPECTED_HEADER:
+            if tuple(cells[: len(_EXPECTED_HEADER)]) == _EXPECTED_HEADER:
                 header_seen = True
                 continue
             candidate_match = _CANDIDATE_RE.match(cells[0])

@@ -222,6 +222,37 @@ def test_short_symbols_resolve_only_via_the_allow_list() -> None:
     assert scraper.resolve_symbol("ZZSome protein", approved, {}) is None
 
 
+def test_header_assertion_covers_every_positional_column() -> None:
+    """The header guard must cover every column read by index, including cells[2].
+
+    The scraper takes the gene from ``cells[0]`` and the coordinates from
+    ``cells[2]``. Asserting only the first two headers would let a column
+    inserted at position 2 pass while silently changing what is parsed as
+    coordinates -- the exact failure the assertion exists to prevent.
+    """
+    scraper = _load_scraper()
+    assert len(scraper._EXPECTED_HEADER) >= 3, (
+        "header assertion must cover cells[2], the coordinate column"
+    )
+    assert "allelic disease phenotypes" in scraper._EXPECTED_HEADER[2]
+
+
+def test_short_symbol_allow_list_has_no_unreachable_entries() -> None:
+    """Only symbols shorter than the floor are ever consulted.
+
+    An entry at or above ``_MIN_SYMBOL_LEN`` is dead config: the floor never
+    rejects a prefix that long, so the allow-list is not read for it.
+    """
+    scraper = _load_scraper()
+    unreachable = sorted(
+        s for s in scraper._SHORT_SYMBOLS if len(s) >= scraper._MIN_SYMBOL_LEN
+    )
+    assert not unreachable, (
+        f"_SHORT_SYMBOLS entries never consulted (len >= "
+        f"{scraper._MIN_SYMBOL_LEN}): {unreachable}"
+    )
+
+
 def test_nmd_gene_table_has_no_unresolved_symbols() -> None:
     """A committed collection should carry no unresolved-symbol note.
 
