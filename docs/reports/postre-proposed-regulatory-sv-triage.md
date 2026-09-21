@@ -1,6 +1,6 @@
 # POSTRE regulatory structural variant curation triage
 
-Assessment date: 2026-09-21. Scope: the six Table 1 reference alleles and **all 41 Table 2 proposed long-range cases**, compared with the DisMech worktree. This is a curation worklist, not a pathogenicity adjudication or patient-level phenotype dataset. The Table 2 pass changes no KB entries.
+Assessment date: 2026-09-21. Scope: the six Table 1 reference alleles and **all 41 Table 2 proposed long-range cases**, compared with the DisMech worktree. This is a curation worklist, not a pathogenicity adjudication or patient-level phenotype dataset. The initial Table 2 triage changed no KB entries; the follow-up below records subsequent curation.
 
 ## Inputs and identity checks
 
@@ -30,7 +30,15 @@ POSTRE’s grouping of these six as reference cases does **not** establish equal
 | Patient_Nr5; IHH | Duplication chr2:219907598–220954793, POSTRE-reported bounds | [Lupiáñez 2015, PMID:25959774](https://pubmed.ncbi.nlm.nih.gov/25959774/), case P1; prior K1549/K1552 reports in [Yuksel-Apak 2012, PMID:22234151](https://pubmed.ncbi.nlm.nih.gov/22234151/) | [IHH-related polysyndactyly](../../kb/disorders/IHH-Related_Polysyndactyly.yaml); primary hg18 chr2:219583780–220497443 spans 913,663 bp, whereas POSTRE’s hg19 span is approximately 1,047 kb. The discrepancy is unresolved; do not represent these as harmonized exact bounds. |
 | Patient_Nr6; SHH | Duplication chr7:156437229–156692706 | [Lohan 2014, PMID:24456159](https://pubmed.ncbi.nlm.nih.gov/24456159/), family 1; Table 1 array bounds match POSTRE | [ZRS-related limb malformation](../../kb/disorders/ZRS-Related_Limb_Malformation.yaml); add the family 1 duplication. Junctions were sequenced for families 2 and 5, not this allele; ectopic SHH expression remains hypothetical here. |
 
-## Coverage and evidence by target group
+## Curation follow-up
+
+The next curation tranche adds `FOXG1_Nr5` (Mehrjouy P1) and `MEF2C_Nr2`/`MEF2C_Nr3` (DGAP191/DGAP218), with qualitative affected regions and source-resolved allele descriptions. [MEF2C-related disorder](../../kb/disorders/MEF2C-Related_Disorder.yaml) now supplies the missing disease context. Its MEF2C-AS1 breakpoint annotations preserve the later lncRNA interpretation alongside the proposed enhancer mechanism. Patient LCL results remain distinct from neuronal expression claims.
+
+The SHFM1 extension records Allen family 2's deletion, **not** POSTRE `DLX5&6_Nr7` (Allen family 1's translocation). Added PAX6, SHOX, and BMP2 examples likewise should not be counted as additional curated Table 2 rows. SOX9 family F1 now carries an EC1.45 feature annotation without equating that enhancer with the full deletion.
+
+The coverage counts and case-by-case priorities below are the **initial triage snapshot**, retained for provenance. They do not override the three subsequent Table 2 allele additions above. The remaining MEF2C alleles still require individual assessment despite the new disease entry.
+
+## Coverage and evidence by target group at initial triage
 
 The codes used in the case table are disease-scope matches, **not allele matches**. There are 19 cases with a direct disease/subtype destination, seven with related but incomplete disease scope, and 15 without an appropriate current disease entry. Gene mentions in unrelated disorders do not count as coverage.
 
@@ -112,6 +120,6 @@ No candidate is discarded merely because its target gene, disorder or cited publ
 
 The pre-existing local `benchmark/` directory contains 1,842 PhenoSV simulation CSVs. A manifest identifying the 193 source cases was not readily available, and the simulation files were not used as a substitute for source-case provenance. **Allele-level overlap with the PhenoSV 193-case set remains unassessed.** Before using this list as an independent evaluation set, reconcile original study/patient identifiers, assemblies and breakpoint intervals across datasets; overlapping intervals or shared genes alone are insufficient.
 
-A productive next tranche would start with the SHFM1 family alleles, FOXG1 Nr5–8 and the blood/LCL-supported BCL11B, MEF2C and SLC2A1 cases. Resolve the missing MEF2C/BCL11B disease entries and SATB2 disease scope before adding their alleles. Retrieve individual phenotype records for the Redin cases and original CNV accessions for the D’Haene-derived deletions. Keep the NR2F2 and CTNNA2 cases as explicit hypotheses until evidence justifies a stronger assertion.
+After the follow-up above, remaining candidates include the other SHFM1 family alleles, FOXG1 Nr6–8 and the blood/LCL-supported BCL11B, MEF2C and SLC2A1 cases. Resolve the missing BCL11B disease entry and SATB2 disease scope before adding those alleles. Retrieve individual phenotype records for the Redin cases and original CNV accessions for the D’Haene-derived deletions. Keep the NR2F2 and CTNNA2 cases as explicit hypotheses until evidence justifies a stronger assertion.
 
 For each eventual KB allele, separate the physical rearrangement and any overlapping genes from the intact regulatory target; identify the tested enhancer and assay system; distinguish measured RNA abundance from proposed spatial/temporal misexpression; and preserve competing explanations and mixed coding/regulatory effects. A POSTRE score alone does not establish a mechanistic edge or justify `LOE`, `mLOE` or `GOE`.
