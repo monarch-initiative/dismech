@@ -210,6 +210,55 @@ def test_report_mode_never_fails(repo: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert main() == 0
 
 
+def test_slug_collision_does_not_falsely_shadow(repo: Path) -> None:
+    """Two entries can slugify to one name; only one of them can own it.
+
+    The directory renders on the page of whichever entry lacks a canonical
+    directory, so keeping just one candidate would block a rendering tree.
+    """
+    kb = repo / "kb"
+    for stem in ("A_Variant", "B_Variant"):
+        (kb / "disorders" / f"{stem}.yaml").write_text(
+            "name: Foo (Bar)\nmechanistic_hypotheses:\n- hypothesis_group_id: h1\n",
+            encoding="utf-8",
+        )
+    # A_Variant has its own directory; B_Variant does not, so B's page renders
+    # Foo_Bar through the retry.
+    _report(kb, "A_Variant", "h1")
+    _report(kb, "Foo_Bar", "h1")
+
+    findings = collect(repo)
+    assert [f.kind for f in findings] == ["non_canonical_slug"]
+    assert not [f for f in findings if f.kind in BLOCKING_KINDS]
+
+
+def test_reportless_directory_is_never_a_finding(repo: Path) -> None:
+    """A directory with no report has no reachability to lose."""
+    kb = repo / "kb"
+    _entry(kb, "Real_Entry", ["h1"])
+    empty = kb / "hypotheses" / "Not_An_Entry_At_All" / "h1"
+    empty.mkdir(parents=True)
+    (empty / "openscientist.md.citations.md").write_text("x", encoding="utf-8")
+
+    assert collect(repo) == []
+
+
+def test_folded_name_header_is_not_read_as_a_slug(repo: Path) -> None:
+    """`name: >-` must not file the entry under the literal '>-'."""
+    kb = repo / "kb"
+    (kb / "disorders" / "Folded_Entry.yaml").write_text(
+        "name: >-\n  Folded Entry\nmechanistic_hypotheses:\n"
+        "- hypothesis_group_id: h1\n",
+        encoding="utf-8",
+    )
+    _report(kb, "Folded_Entry", "h1")
+
+    from scripts.check_hypothesis_links import _entry_name
+
+    assert _entry_name(kb / "disorders" / "Folded_Entry.yaml") is None
+    assert collect(repo) == []
+
+
 def test_committed_kb_has_no_disconnected_hypothesis_directories() -> None:
     """The real tree must stay clean; this is the regression guard."""
     root = Path(__file__).resolve().parents[1]

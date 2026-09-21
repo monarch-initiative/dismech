@@ -38,8 +38,12 @@ It is drift by construction, because the directory is named once, at run time,
 from the free-text ``disease_name`` the runner was invoked with, while the entry
 filename and the hypothesis ids are curated afterwards and keep moving:
 
-* ``Huntington's Disease`` slugified to ``Huntingtons_Disease``; the entry is
-  ``Huntington_Disease.yaml``. Four OpenScientist reports were unreachable.
+* The runner was invoked with the free text ``Huntington's Disease`` and wrote
+  ``Huntingtons_Disease``; the entry is ``Huntington_Disease.yaml``. Four
+  OpenScientist reports were unreachable. (Note ``slugify`` does not strip the
+  apostrophe -- it returns ``Huntington's_Disease`` -- so that directory name
+  came from the runner, not from ``slugify``, and the fallback never had a
+  chance to rescue it.)
 * ``Metastatic_Pancreatic_Adenocarcinoma`` was folded into
   ``Pancreatic_Ductal_Adenocarcinoma`` per design decisions section 3a, which
   moved the hypothesis ids to the parent and left the directory behind. Two more
@@ -104,26 +108,37 @@ def _entry_name(path: Path) -> str | None:
         for line in handle:
             if line.startswith("name:"):
                 match = _NAME_LINE.match(line.rstrip("\n"))
-                if match:
-                    return match.group(1).strip().strip("\"'")
-                return None
+                if not match:
+                    return None
+                value = match.group(1).strip()
+                # A folded/literal header ("name: >-") continues on the next
+                # line; returning ">-" would file the entry under a garbage
+                # slug and make a directory that renders look like an orphan.
+                if value[:1] in {">", "|", "&", "*"}:
+                    return None
+                return value.strip("\"'")
             if line.startswith(("pathophysiology:", "phenotypes:")):
                 break  # past the header; no top-level name
     return None
 
 
-def _slug_index(entries: dict[str, Path]) -> dict[str, Path]:
-    """Map ``slugify(entry["name"])`` to its path, for the renderer's retry.
+def _slug_index(entries: dict[str, Path]) -> dict[str, list[Path]]:
+    """Map ``slugify(entry["name"])`` to every entry reaching it by the retry.
 
     Only entries whose slug differs from their filename stem can be reached
     this way, because ``render_disorder`` guards the retry with
     ``file_stem != disorder_slug``.
+
+    The value is a list because two entries can share a slug -- distinct files
+    carrying the same ``name:``, or names differing only in a character
+    ``slugify`` drops. Keeping one would make the directory look shadowed for
+    whichever entry lost the tie, while that entry's page renders it.
     """
-    index: dict[str, Path] = {}
+    index: dict[str, list[Path]] = {}
     for stem, path in entries.items():
         slug = slugify(_entry_name(path) or stem)
         if slug != stem:
-            index.setdefault(slug, path)
+            index.setdefault(slug, []).append(path)
     return index
 
 
@@ -146,7 +161,7 @@ def _has_report(hypothesis_dir: Path) -> bool:
 def _classify(
     name: str,
     entries: dict[str, Path],
-    by_slug: dict[str, Path],
+    by_slug: dict[str, list[Path]],
     present: set[str],
 ) -> tuple[Path | None, str]:
     """Resolve a hypothesis directory the way the renderer does.
@@ -163,10 +178,16 @@ def _classify(
     """
     if name in entries:
         return entries[name], "canonical"
-    entry = by_slug.get(name)
-    if entry is None:
+    candidates = by_slug.get(name)
+    if not candidates:
         return None, "orphan"
-    return entry, "retry" if entry.stem not in present else "shadowed"
+    # It renders if ANY candidate entry would fall through to the retry. Only
+    # when every one of them already has its own populated directory is this
+    # directory genuinely unreachable.
+    for candidate in candidates:
+        if candidate.stem not in present:
+            return candidate, "retry"
+    return candidates[0], "shadowed"
 
 
 def collect(repo_root: Path) -> list[Finding]:
@@ -192,6 +213,12 @@ def collect(repo_root: Path) -> list[Finding]:
         name = disease_dir.name
         entry, how = _classify(name, entries, by_slug, present)
         reports = sum(1 for d in disease_dir.iterdir() if d.is_dir() and _has_report(d))
+
+        if not reports:
+            # A directory with no report cannot render for anyone, so it has no
+            # reachability to lose. Reporting it would print "0 report
+            # directory/ies are unreachable", which is not a finding.
+            continue
 
         if how == "orphan":
             near = difflib.get_close_matches(name, entries, n=1, cutoff=0.8)
@@ -225,7 +252,7 @@ def collect(repo_root: Path) -> list[Finding]:
             )
             continue
 
-        if how == "retry" and reports:
+        if how == "retry":
             findings.append(
                 Finding(
                     "non_canonical_slug",
@@ -287,10 +314,14 @@ def main() -> int:
         dirs = (
             sum(1 for p in hyp_root.iterdir() if p.is_dir()) if hyp_root.is_dir() else 0
         )
+        reachable = sum(len(paths) for paths in by_slug.values())
+        collisions = sum(1 for paths in by_slug.values() if len(paths) > 1)
         print(
             f"{dirs} hypothesis directory/ies; {len(entries)} kb entries, of "
-            f"which {len(by_slug)} have slugify(name) != <file stem> and so "
-            f"could be reached by render_disorder's fallback.\n"
+            f"which {reachable} have slugify(name) != <file stem> and so "
+            f"could be reached by render_disorder's fallback "
+            f"({len(by_slug)} distinct slug(s), {collisions} shared by more "
+            f"than one entry).\n"
         )
     if not findings:
         print(
