@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ergotism · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Ergotism</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Ergotism</h1>
+                
+                <p class="report-subtitle">Ergotism: Comprehensive Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-09-18</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0042496" target="_blank" rel="noopener noreferrer">MONDO:0042496</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">41 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Ergotism: Comprehensive Disease Characteristics Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Ergotism (also called ergot poisoning, ergotoxicosis, or historically "St. Anthony's Fire" / "holy fire" / "ignis sacer") is a toxicological syndrome caused by ingestion of ergot alkaloids — indole (ergoline) alkaloids produced by fungi of the genus <em>Claviceps</em>, most classically <em>Claviceps purpurea</em>, which parasitizes rye and other cereal grains, forming dark sclerotia ("ergots") in place of normal grain kernels <a href="https://en.wikipedia.org/wiki/Ergotism">Wikipedia: Ergotism</a>; <a href="https://www.britannica.com/science/ergotism">Britannica: Ergotism</a>. The disease is not a Mendelian/genetic disorder but an environmental/toxicological entity — an acquired intoxication from either (a) contaminated food (classic/epidemic ergotism) or (b) pharmaceutical ergot-alkaloid derivatives used therapeutically (iatrogenic ergotism, the dominant modern form) <a href="https://www.sciencedirect.com/topics/medicine-and-dentistry/ergotism">ScienceDirect: Ergotism overview</a>.</p>
+<p><strong>Key identifiers.</strong>
+- <strong>ICD-10-CM:</strong> T62.2 (toxic effect of ingested mycotoxin food contaminants; ergot-specific subcodes exist in some national modifications), typically paired with an external-cause code <a href="https://www.bionity.com/en/encyclopedia/Ergotism.html">bionity.com: Ergotism</a>.
+- <strong>MeSH:</strong> "Ergotism" is an indexed MeSH descriptor (used extensively across the PubMed literature retrieved above).
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0042496" target="_blank" rel="noopener noreferrer">MONDO:0042496</a> was supplied as the target identifier for this curation; the general web search did not surface a public-facing MONDO term page distinct from the ontology's general documentation, so this identifier should be independently confirmed against the current MONDO release before binding (<code>just validate-terms</code>-equivalent check) rather than asserted from this report.
+- <strong>Orphanet:</strong> no dedicated rare-disease Orphanet entry was located in this search; ergotism is a toxidrome rather than a genetically-defined rare disease, so Orphanet coverage may not exist — this should be verified directly against Orphanet rather than assumed absent.</p>
+<p><strong>Synonyms:</strong> St. Anthony's Fire, holy fire, ignis sacer, ergot poisoning, ergotoxicosis, ergotized-grain poisoning; the two principal clinical subtypes are named <strong>gangrenous ergotism</strong> and <strong>convulsive ergotism</strong> <a href="https://en.wikipedia.org/wiki/Ergotism">Wikipedia: Ergotism</a>; <a href="https://www.nationalgeographic.com/history/history-magazine/article/ergotism-infections-medieval-europe">National Geographic: St Anthony's fire</a>.</p>
+<p><strong>Data derivation.</strong> Modern knowledge is derived overwhelmingly from (1) aggregated case reports/case series of <strong>iatrogenic ergotism</strong> from therapeutic ergotamine/dihydroergotamine/methylergonovine use (individual-patient case reports, PMID-indexed), (2) historical and modern <strong>epidemic outbreak investigations</strong> of food-borne (grain-contamination) ergotism, especially in Ethiopia and India, and (3) <strong>veterinary/agricultural toxicology</strong> of livestock "fescue toxicosis"/"ergotism in animals," which is a well-studied natural-disease analog in cattle <a href="https://pubmed.ncbi.nlm.nih.gov/22903169/">Human and cattle ergotism since 1900 — PMID:22903169</a>; <a href="https://www.merckvetmanual.com/toxicology/mycotoxicoses/ergotism-in-animals">Merck Veterinary Manual: Ergotism in Animals</a>.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factors.</strong> Ergotism is <strong>exogenous/environmental</strong>, not intrinsic-genetic: it is caused by exposure to ergot alkaloids, either from (a) fungal contamination of food grain by <em>Claviceps</em> spp. sclerotia, or (b) pharmacological/iatrogenic overdose or drug-interaction-potentiated toxicity of ergot-derived medications (ergotamine, dihydroergotamine, methylergonovine/methylergometrine, ergonovine/ergometrine) <a href="https://asm.org/articles/2018/november/from-poisoning-to-pharmacy-a-tale-of-two-ergots">ASM.org: From Poisoning to Pharmacy</a>.</p>
+<p><strong>Risk factors — environmental/exposure:</strong>
+- Consumption of rye or other cereal (wheat, barley, oats) contaminated with <em>Claviceps purpurea</em> sclerotia — historically the dominant cause of mass poisoning in medieval Europe, with cool, wet climates favoring fungal growth on grain <a href="https://en.wikipedia.org/wiki/Ergotism">Ergotism — Wikipedia</a>; a 9th-century Rhine Valley outbreak reportedly killed tens of thousands <a href="https://www.nationalgeographic.com/history/history-magazine/article/ergotism-infections-medieval-europe">National Geographic</a>.
+- Poor food-safety/grain-cleaning infrastructure and lower socioeconomic status — modern outbreaks have occurred in Ethiopia (1977–78 and 2001, Arsi Zone, from ergotized wild-oat–contaminated barley) and India (1975) <a href="https://www.ejhd.org/index.php/ejhd/article/view/798/609">Laboratory studies on the outbreak of Gangrenous Ergotism… Arsi, Ethiopia</a>.
+- Therapeutic ergot-alkaloid use (migraine treatment with ergotamine/dihydroergotamine; obstetric use of methylergonovine/ergometrine for postpartum hemorrhage) — the principal modern human risk exposure in industrialized settings <a href="https://pubmed.ncbi.nlm.nih.gov/1908611/">Severe iatrogenic ergotism: incidence and clinical importance — PMID:1908611</a>.
+- <strong>Drug-drug interaction risk factor:</strong> co-administration of ergot alkaloids with potent CYP3A4 inhibitors — protease inhibitors (ritonavir, darunavir, atazanavir, indinavir, lopinavir, nelfinavir, saquinavir, tipranavir, amprenavir/fosamprenavir) and macrolide antibiotics (clarithromycin, telithromycin) — dramatically raises plasma ergotamine/DHE concentrations, converting a therapeutic dose into a toxic one; this is now considered a <em>contraindicated</em> combination <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6313968/">Drug Interaction Interaction of Ergotamine with Darunavir/Abacavir/Lamivudine — PMC6313968</a>; case of coronary vasospasm with ergotamine + cobicistat + darunavir (PMID search, <em>J Int Med Res</em> 2022).
+- HIV-positive patients on antiretroviral protease-inhibitor regimens are a specifically flagged modern at-risk population <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11910312/">A potentially lethal interaction: Migraine, HIV and ergotism — PMC11910312</a>.
+- Concurrent tobacco/caffeine use has been implicated in exacerbating iatrogenic ergotism (cessation of these is part of first-line management).</p>
+<p><strong>Genetic risk factors.</strong> No Mendelian causal gene exists (this is an acquired toxidrome), but <strong>genetic variability in hepatic CYP3A4/CYP3A5 metabolic capacity</strong> (≈20 characterized variants, ~350 SNPs, most reducing enzyme activity) plausibly modulates individual susceptibility to ergotamine toxicity by altering systemic ergot-alkaloid clearance, though disease-specific pharmacogenomic studies for ergotism specifically were not found in this search and should be treated as inferred rather than established <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11625447/">CYP3A4 and CYP3A5: crucial roles in clinical drug metabolism — PMC11625447</a>.</p>
+<p><strong>Protective factors.</strong>
+- Modern grain-safety practices: fungicide use, crop rotation, planting of clean/inspected seed, and seed-flotation separation of ergot sclerotia from healthy kernels before milling <a href="https://www.medicalnewstoday.com/articles/ergot-poisoning">Medical News Today: Ergot poisoning</a>.
+- Regulatory maximum limits on ergot sclerotia/alkaloid content in traded grain (see Prevention, §13).
+- Avoidance of concomitant strong CYP3A4 inhibitors in patients prescribed ergot-derivative medications.</p>
+<p><strong>Gene-environment interactions.</strong> The principal documented interaction is pharmacogenomic/pharmacokinetic rather than germline-susceptibility: CYP3A4 inhibition (by co-administered drugs, a chemical/environmental factor) interacting with the pharmacologically active ergot-alkaloid "gene product" target profile (5-HT, dopamine, and α-adrenergic receptors) to produce toxic vasoconstriction at otherwise sub-toxic doses <a href="https://www.ncbi.nlm.nih.gov/books/NBK555953/">Ergotamine/Caffeine — StatPearls NBK555953</a>.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Ergotism presents as two overlapping but classically distinguished symptom clusters, first well documented in Renaissance/medieval European epidemics and confirmed in modern case series:</p>
+<h3>A. Gangrenous ergotism (vasospastic form)</h3>
+<ul>
+<li><strong>Peripheral vasospasm/ischemia</strong> of the extremities — cold, pale, painful hands/feet progressing to cyanosis, and dry gangrene with tissue necrosis, historically requiring limb amputation <a href="https://en.wikipedia.org/wiki/Ergotism">Ergotism — Wikipedia</a>. Suggested <strong>HP term: <a href="http://purl.obolibrary.org/obo/HP_0034976" target="_blank" rel="noopener noreferrer">HP:0034976</a> (Peripheral gangrene)</strong> / general <strong><a href="http://purl.obolibrary.org/obo/HP_0025637" target="_blank" rel="noopener noreferrer">HP:0025637</a> (Vasospasm)</strong> if present in the enum; verify against the current HPO release before binding.</li>
+<li><strong>Burning pain/paresthesia</strong> in the extremities ("St. Anthony's Fire" burning sensation) — precedes overt ischemia. Candidate <strong><a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" rel="noopener noreferrer">HP:0003401</a> (Paresthesia)</strong>.</li>
+<li><strong>Diminished/absent peripheral pulses</strong> (radial, ulnar, popliteal, tibial) — documented in case report of a 25-year-old with ergotamine-induced vasospasm <a href="https://pubmed.ncbi.nlm.nih.gov/18763151/">Reversal of ergotamine-induced vasospasm following methylprednisolone — PMID:18763151</a>.</li>
+<li><strong>Myocardial/coronary vasospasm and infarction</strong> — reported in an obstetric case following intramuscular ergometrine for postpartum hemorrhage <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11879452/">Joining forces: cardio-obstetrics case of severe ergometrine-induced vasospasm — PMC11879452</a>. Candidate <strong><a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" rel="noopener noreferrer">HP:0001677</a> (Coronary artery atherosclerosis)</strong> is not quite right — better: free-text/CHEBI-linked vasospasm phenotype; consider <strong><a href="http://purl.obolibrary.org/obo/HP_0031650" target="_blank" rel="noopener noreferrer">HP:0031650</a> (Vasospasm)</strong> if present.</li>
+<li><strong>Cerebral ischemia/stroke</strong> from vasospasm of cerebral arteries, in severe drug-interaction cases <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6313968/">Drug-Drug Interaction of Ergotamine… Fatal Vasospastic Ischemia — PMC6313968</a>.</li>
+<li><strong>Transient monocular blindness</strong> and <strong>renal arterial spasm</strong> — unusual manifestations documented in a historical review of ergot intoxication <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1343691/">Ergot Intoxication: Historical Review — PMC1343691</a>.</li>
+<li><strong>Bilateral foot drop</strong> from ischemic common peroneal nerve damage — an unusual, previously undocumented presentation in the same review.</li>
+</ul>
+<h3>B. Convulsive ergotism (neuropsychiatric form)</h3>
+<ul>
+<li><strong>Muscle spasms/twitching and painful seizures</strong> — candidate <strong><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> (Seizure)</strong>.</li>
+<li><strong>Hallucinations and psychosis/mania</strong> — psychiatric manifestations historically mistaken for demonic possession in medieval accounts <a href="https://pubmed.ncbi.nlm.nih.gov/12849122/">Convulsive ergotism: epidemics of the serotonin syndrome? — PMID:12849122</a>. The paper's title itself argues convulsive ergotism may represent a historical analog of <strong>serotonin syndrome</strong>, given ergot alkaloids' serotonin-receptor agonism.</li>
+<li><strong>Paresthesias and itching (formication)</strong> — a tactile hallucination of insects crawling under the skin, documented in the 2001 Ethiopian outbreak <a href="https://www.ejhd.org/index.php/ejhd/article/view/798/609">Laboratory studies on the outbreak of Gangrenous Ergotism, Arsi, Ethiopia</a>.</li>
+<li><strong>Diarrhea, nausea, vomiting</strong> — gastrointestinal symptoms common to both forms.</li>
+<li><strong>Headache</strong> — frequently reported, consistent with the serotonergic/vasoconstrictive mechanism also underlying ergotamine's therapeutic anti-migraine effect.</li>
+<li><strong>Fever and diaphoresis (sweating)</strong>, lasting weeks in some accounts.</li>
+<li><strong>Weakness and burning sensations</strong> — reported general prodromal symptoms in the 2001 Ethiopian outbreak.</li>
+<li><strong>Infant mortality from starvation</strong>, attributed to maternal lactation failure during the outbreak — a distinctive, population-level secondary phenotype in the Ethiopian epidemic [same source].</li>
+</ul>
+<p><strong>Phenotype characteristics:</strong>
+- <strong>Onset:</strong> acute-to-subacute after ingestion of contaminated grain (epidemic form) or after days-to-weeks of excessive/interacting ergot-medication use (iatrogenic form); in the case report above, symptoms began after ~1 week of ergotamine use for migraine and progressed over 2 days [<a href="https://pubmed.ncbi.nlm.nih.gov/18763151/" target="_blank" rel="noopener noreferrer">PMID:18763151</a>].
+- <strong>Severity:</strong> highly variable — from mild paresthesia/headache to limb-threatening gangrene, blindness, stroke, or myocardial infarction, and (rarely) death.
+- <strong>Progression:</strong> in gangrenous ergotism, progressive vasospasm → ischemia → dry gangrene → possible auto-amputation/surgical amputation if untreated; convulsive ergotism can show a fluctuating/relapsing course.
+- <strong>Frequency:</strong> exact population frequencies are not established (this is an exposure-driven toxidrome rather than a fixed-penetrance disease); case-series literature is the primary quantitative source.
+- <strong>Reversibility:</strong> iatrogenic ergotism is often reversible with prompt discontinuation of the causative agent — "recovery may occur within 4 days of stopping the ergot-containing medication" — but ischemic complications (gangrene, infarction, stroke) can be permanent if treatment is delayed <a href="https://www.sciencedirect.com/topics/medicine-and-dentistry/ergotism">ScienceDirect: Ergotism treatment overview</a>; [Ergot Intoxication historical review, PMC1343691] ("no convincing evidence that any treatment other than discontinuation… is of benefit").</p>
+<p><strong>Quality of life impact:</strong> Limb amputation, chronic ischemic pain, and (in the psychotic/convulsive form) lasting neuropsychiatric sequelae are the major QoL burdens; specific validated QoL instrument data (EQ-5D/SF-36) for ergotism were not identified in this search and would need dedicated retrieval.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p>Ergotism has <strong>no primary causal human gene</strong> — it is a toxin-mediated disease. The "genetic/molecular" content that is relevant is almost entirely about (a) the fungal biosynthetic genes producing the toxin, and (b) the human drug-metabolizing/pharmacogenomic genes modulating host susceptibility.</p>
+<ul>
+<li><strong>Fungal causal genetics:</strong> <em>Claviceps purpurea</em> ergot alkaloids are synthesized from a <strong>14-gene biosynthetic gene cluster</strong> in the fungal genome producing the ergoline/lysergic-acid-derived alkaloid metabolites <a href="https://www.bionity.com/en/encyclopedia/Ergotism.html">Bionity.com: Ergotism</a>.</li>
+<li><strong>Host pharmacogenomics:</strong> CYP3A4 (and CYP3A5) — the human hepatic enzyme responsible for ergotamine/dihydroergotamine metabolism — carries ~20 characterized genetic variants and ~350 SNPs, most reducing enzymatic activity and thereby plausibly elevating individual susceptibility to ergotism when ergot-alkaloid drugs are used [PMC11625447]. Candidate gene: <strong>CYP3A4 (<a href="https://bioregistry.io/HGNC:2637" target="_blank" rel="noopener noreferrer">HGNC:2637</a>)</strong>.</li>
+<li><strong>Not applicable:</strong> somatic/germline variant classification (ClinVar/ACMG), chromosomal abnormalities, epigenetic disease drivers, and modifier genes in the classic Mendelian sense do not apply to this entity, since it is not a genetically caused disease. If the dismech schema requires a <code>genetic:</code> section, it should likely be limited to the CYP3A4 metabolic-susceptibility modifier framed as <code>relationship_type: MODIFIER</code> (pharmacogenomic host factor), not a causal gene.</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>This is the <strong>dominant etiological category</strong> for ergotism and should anchor the <code>environmental:</code> section of the entry.</p>
+<ul>
+<li><strong>Fungal/mycotoxin contamination:</strong> <em>Claviceps purpurea</em> (and related <em>Claviceps</em> spp.) infecting rye, wheat, barley, oats, and other cereal grasses, forming sclerotia ("ergots") that, if not removed before milling, contaminate flour and food products with ergot alkaloids <a href="https://en.wikipedia.org/wiki/Ergot">Ergot — Wikipedia</a>; <a href="https://www.apsnet.org/edcenter/sites/Mycotoxins/Pages/ErgotAlkaloids.aspx">APS: Ergot Alkaloids</a>.</li>
+<li><strong>Ergot alkaloid classes:</strong> two principal chemical groups — <strong>clavine alkaloids</strong> and <strong>lysergic acid alkaloids</strong> (amides and peptide/ergopeptine alkaloids), sharing a <strong>tetracyclic ergoline ring</strong> core. Key compounds found in <em>Claviceps</em> sclerotia: <strong>ergometrine (ergonovine)</strong>, <strong>ergotamine</strong>, <strong>ergosine</strong>, <strong>ergocristine</strong>, <strong>ergocryptine</strong>, and <strong>ergocornine</strong> <a href="https://en.wikipedia.org/wiki/Ergoline">Ergoline — Wikipedia</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4488688/">Analysis of Ergot Alkaloids — PMC4488688</a>. LSD (lysergic acid diethylamide) is chemically related but is a semi-synthetic derivative, not a natural sclerotial contaminant. Candidate CHEBI terms: ergotamine (<strong><a href="http://purl.obolibrary.org/obo/CHEBI_4880" target="_blank" rel="noopener noreferrer">CHEBI:4880</a></strong>-family), ergometrine, ergosine, ergocristine, ergocryptine, ergocornine (specific CHEBI IDs should be confirmed via <code>runoak</code> lookup per project convention rather than asserted here).</li>
+<li><strong>Iatrogenic/pharmaceutical exposure:</strong> ergotamine tartrate, dihydroergotamine, methylergonovine/methylergometrine, and ergometrine used therapeutically (migraine abortive therapy; obstetric hemorrhage control) are the principal modern environmental exposure route in industrialized countries <a href="https://www.ncbi.nlm.nih.gov/books/NBK555953/">Ergotamine/Caffeine — StatPearls NBK555953</a>.</li>
+<li><strong>Climate factor:</strong> cool, wet growing conditions favor <em>Claviceps</em> sporulation and sclerotia formation on grain heads, historically concentrating outbreaks in northern/central Europe and linked in the literature to periods of unusually wet weather preceding epidemic years <a href="https://www.nationalgeographic.com/history/history-magazine/article/ergotism-infections-medieval-europe">National Geographic: St Anthony's Fire</a>.</li>
+<li><strong>Socioeconomic/food-security factor:</strong> contaminated-grain outbreaks recur in settings of food insecurity and inadequate grain-cleaning infrastructure — documented in Ethiopia (1977–78, 2001) and India (1975) <a href="https://www.ejhd.org/index.php/ejhd/article/view/798/609">EJHD: Arsi Ethiopia outbreak</a>.</li>
+<li><strong>Infectious agent:</strong> <em>Claviceps purpurea</em> is technically a plant-pathogenic ascomycete fungus, not a human/animal infectious pathogen — ergotism is a toxicosis/mycotoxicosis, not an infection of the human host. NCBI Taxonomy: <em>Claviceps purpurea</em> (NCBITaxon — specific ID should be confirmed by lookup).</li>
+<li><strong>Drug-drug interaction as an environmental/exposure amplifier:</strong> concomitant strong CYP3A4 inhibitors (protease inhibitors, macrolide antibiotics) are a well-documented environmental co-exposure that converts therapeutic ergot dosing into toxic exposure [PMC6313968]; [Cheng-En Wu et al., coronary vasospasm with ergotamine + cobicistat + darunavir, <em>J Int Med Res</em> 2022].</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Ingestion or therapeutic administration of ergot alkaloids</strong> (ergotamine, dihydroergotamine, ergometrine/methylergonovine, or a mixture from contaminated grain) <strong>leads to</strong> systemic absorption of ergoline-ring compounds structurally similar to endogenous monoamine neurotransmitters (serotonin, dopamine, norepinephrine) <a href="https://www.pharmacology2000.com/Introduction%20to%20Medical%20Pharmacology/ERGO-Module1-Content.html">Ergot Alkaloid Pharmacology — pharmacology2000.com</a>.</li>
+<li><strong>[Amplifying/optional branch]</strong> Co-administration of a strong <strong>CYP3A4 inhibitor</strong> (protease inhibitor or macrolide) <strong>inhibits hepatic ergot-alkaloid metabolism</strong>, which <strong>results in</strong> markedly elevated plasma ergot-alkaloid concentrations even at otherwise-therapeutic oral doses [PMC6313968].</li>
+<li>Elevated ergot-alkaloid concentration <strong>leads to</strong> simultaneous partial-agonist/agonist binding at multiple G-protein-coupled receptor families on vascular smooth muscle and neurons: <strong>α1/α2-adrenergic receptors</strong>, <strong>serotonin 5-HT1B/5-HT1D/5-HT2A receptors</strong>, and <strong>dopamine D2-like receptors</strong> <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10199403/">Investigation of the relationship between ergocristinine and vascular receptors — PMC10199403</a>; <a href="https://link.springer.com/article/10.1007/BF00166953">Naunyn-Schmiedeberg's: non-peptide ergot alkaloids at 5-HT1-like and 5-HT2 receptors</a>.</li>
+<li><strong>Simultaneous activation of α-adrenergic and 5-HT2 receptors on vascular smooth muscle</strong> <strong>results in</strong> sustained arterial and arteriolar vasoconstriction — this dual-receptor mechanism is specifically cited as the basis of ergot-induced vasospasm <a href="https://www.sciencedirect.com/topics/pharmacology-toxicology-and-pharmaceutical-science/ergotism">ScienceDirect: Ergotism — Pharmacology/Toxicology topic</a>.</li>
+<li>Sustained arterial vasoconstriction <strong>leads to</strong> regional tissue hypoperfusion/<strong>ischemia</strong>, particularly in the distal extremities (fingers, toes, hands, feet) where arterial supply is most vulnerable to prolonged spasm, and, in severe or drug-potentiated cases, in coronary, cerebral, renal, and ocular circulations [PMC1343691]; [PMC11879452 — coronary vasospasm/MI]; [PMC6313968 — cerebral ischemia].</li>
+<li>Prolonged ischemia <strong>results in</strong> tissue hypoxia, oxidative/metabolic injury, and, if uncorrected, <strong>dry gangrene and tissue necrosis</strong> — historically the defining lesion of "gangrenous ergotism"/St. Anthony's Fire [Wikipedia: Ergotism].</li>
+<li><strong>In parallel (branch)</strong>, direct agonism of ergot alkaloids at central/peripheral <strong>serotonin receptors</strong> (5-HT) in the CNS <strong>leads to</strong> the neuropsychiatric/"convulsive ergotism" phenotype — muscle spasms, seizures, hallucinations, and psychosis — proposed in the literature to represent a historical epidemic analog of <strong>serotonin syndrome</strong> [Convulsive ergotism: epidemics of the serotonin syndrome? — <a href="https://pubmed.ncbi.nlm.nih.gov/12849122/" target="_blank" rel="noopener noreferrer">PMID:12849122</a>].</li>
+<li>In the specific case of postpartum ergometrine/methylergonovine administration, ergot-receptor agonism also <strong>acts directly on uterine smooth muscle</strong> (the intended oxytocic/uterotonic pharmacological target) <strong>in parallel with</strong> unintended coronary/systemic vasospasm, explaining reports of peripartum myocardial infarction after obstetric ergot use [PMC11879452].</li>
+</ol>
+<h3>Category detail</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> GPCR signaling downstream of α-adrenergic, 5-HT (serotonergic), and dopaminergic receptor agonism on vascular and neuronal cell membranes. Candidate GO terms: <strong><a href="http://purl.obolibrary.org/obo/GO_0003085" target="_blank" rel="noopener noreferrer">GO:0003085</a> (negative regulation of systemic arterial blood pressure)</strong> is not quite right; more precise: <strong><a href="http://purl.obolibrary.org/obo/GO_0042311" target="_blank" rel="noopener noreferrer">GO:0042311</a> (vasodilation)</strong> [negatively implicated] and its antonym vasoconstriction processes — <strong><a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" rel="noopener noreferrer">GO:0042310</a> (vasoconstriction)</strong> is a strong candidate for the primary node's biological process, and <strong><a href="http://purl.obolibrary.org/obo/GO_0007210" target="_blank" rel="noopener noreferrer">GO:0007210</a> (serotonin receptor signaling pathway)</strong> / <strong><a href="http://purl.obolibrary.org/obo/GO_0007212" target="_blank" rel="noopener noreferrer">GO:0007212</a> (dopamine receptor signaling pathway)</strong> / <strong><a href="http://purl.obolibrary.org/obo/GO_0071875" target="_blank" rel="noopener noreferrer">GO:0071875</a> (adrenergic receptor signaling pathway)</strong> for the receptor-signaling steps. (Confirm exact IDs/labels via OAK lookup before binding.)</li>
+<li><strong>Cellular processes:</strong> vascular smooth muscle contraction (sustained, pathological — a "gain-of-function-like" qualitative overactivation rather than a quantitative INCREASED reading of a normally regulated process, given the exogenous receptor agonist driving it outside physiological regulatory constraints); ischemic cell injury/necrosis in distal tissue.</li>
+<li><strong>Protein dysfunction:</strong> not a protein-structural disease — the mechanism is receptor <em>agonism</em> by an exogenous small molecule (ergot alkaloid) rather than any host protein misfolding or intrinsic dysfunction.</li>
+<li><strong>Tissue damage mechanisms:</strong> ischemia-driven <strong>dry gangrene/coagulative necrosis</strong> of distal extremities; possible <strong>myocardial infarction</strong> from coronary vasospasm; possible <strong>cerebral infarction/stroke</strong> from intracranial arterial vasospasm; renal arterial spasm.</li>
+<li><strong>Biochemical abnormalities:</strong> no primary enzyme deficiency; secondary biochemical consequences of ischemia (lactic acidosis in ischemic tissue) may occur but are non-specific.</li>
+<li><strong>Immune system involvement:</strong> not a primary immune-mediated mechanism, although chronic gangrenous tissue may become secondarily infected/septic ("gangrene and sepsis of limbs" as a late-stage complication) [Wikipedia: Ergotism].</li>
+<li><strong>Cell types involved:</strong> vascular smooth muscle cells (candidate <strong><a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" rel="noopener noreferrer">CL:0000359</a>, vascular associated smooth muscle cell</strong>, exact CL ID to confirm), and CNS neurons expressing serotonergic/dopaminergic receptor targets.</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level:</strong> primary — peripheral vasculature of the extremities (hands, feet, digits); secondary — coronary arteries (myocardial ischemia/infarction), cerebral arteries (stroke), renal arteries, retinal/ophthalmic artery (transient monocular blindness), uterine vasculature (in obstetric ergot use), and peripheral nerves (ischemic mononeuropathy, e.g., common peroneal nerve → foot drop) [PMC1343691]. Body systems: cardiovascular, nervous, and (in convulsive form) central nervous/psychiatric.</li>
+<li><strong>Tissue/cell level:</strong> vascular smooth muscle of small-to-medium arteries and arterioles is the direct pharmacological target; distal skin and subcutaneous tissue undergo ischemic/gangrenous change.</li>
+<li><strong>Subcellular level:</strong> GPCR signal transduction at the plasma membrane of vascular smooth muscle cells and neurons (α-adrenergic, 5-HT, dopamine receptor complexes); no organelle-specific pathology is described in the literature reviewed.</li>
+<li><strong>Localization:</strong> classically <strong>bilateral and symmetric</strong> in the epidemic/gangrenous form (both feet/hands), though case reports also document unilateral presentations (e.g., unilateral leg ischemia) [PMC1343691]. Candidate UBERON terms: extremities (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002542" target="_blank" rel="noopener noreferrer">UBERON:0002542</a>, appendage skeleton</strong> — too broad; prefer digit/limb-specific terms), coronary artery (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0001621" target="_blank" rel="noopener noreferrer">UBERON:0001621</a></strong>), cerebral artery, uterus (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000995" target="_blank" rel="noopener noreferrer">UBERON:0000995</a></strong>).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> variable by route — epidemic/food-borne ergotism can present within days of consuming contaminated grain; iatrogenic ergotism has been reported after as little as ~1 week of therapeutic ergotamine use, and drug-interaction-potentiated cases can occur even with standard single/short-course dosing once a CYP3A4 inhibitor is added [<a href="https://pubmed.ncbi.nlm.nih.gov/18763151/" target="_blank" rel="noopener noreferrer">PMID:18763151</a>].</li>
+<li><strong>Progression:</strong> gangrenous ergotism progresses through a recognizable sequence — burning paresthesia → coldness/pallor/cyanosis → absent pulses → dry gangrene, over a timescale of days; convulsive ergotism may show a fluctuating course with fever/sweating persisting for "several weeks" in some historical accounts.</li>
+<li><strong>Disease course pattern:</strong> iatrogenic ergotism is generally <strong>self-limited/reversible upon cessation of the causative agent</strong>, with recovery reported within about 4 days in many cases; but ischemic complications that progress to gangrene or infarction before treatment become <strong>fixed, irreversible</strong> lesions.</li>
+<li><strong>Recurrence:</strong> documented "recurrent ergotism" case reports exist in patients who resumed or continued using ergot-derivative medications after an initial episode <a href="https://cdn.mdedge.com/files/s3fs-public/jfp-archived-issues/1978-volume_6-7/JFP_1978-04_v6_i4_recurrent-ergotism-a-case-report.pdf">Recurrent Ergotism: A Case Report, <em>J Fam Pract</em> 1978</a>.</li>
+<li><strong>Critical window:</strong> early recognition and cessation of the causative ergot exposure, plus prompt vasodilator therapy, represent the critical intervention window before irreversible ischemic tissue loss.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance pattern:</strong> <strong>not applicable</strong> — ergotism is an acquired toxicological disease, not a Mendelian/heritable condition. No penetrance, expressivity, anticipation, mosaicism, founder-effect, or carrier-frequency concepts apply in the conventional genetic sense.</li>
+<li><strong>Epidemiology:</strong> exact modern incidence/prevalence figures were not located in this search (expected, given the sporadic/case-report nature of modern disease); historically, epidemic outbreaks affected many thousands in medieval Europe (e.g., the 9th-century Rhine Valley outbreak reportedly killing "tens of thousands") [National Geographic]. Modern documented outbreaks: Ethiopia 1977–78 and 2001 (Arsi Zone, gangrenous ergotism from ergotized-wild-oat–contaminated barley, ~0.75% ergot content in affected grain) and India 1975 [EJHD Arsi Ethiopia study]; [Human and cattle ergotism since 1900 — <a href="https://pubmed.ncbi.nlm.nih.gov/22903169/" target="_blank" rel="noopener noreferrer">PMID:22903169</a>].</li>
+<li><strong>Population demographics:</strong> modern iatrogenic ergotism disproportionately affects individuals prescribed ergot-alkaloid migraine therapy (historically more common in women, consistent with migraine epidemiology) and obstetric patients receiving ergometrine/methylergonovine for postpartum hemorrhage (exclusively female by indication). HIV-positive patients on protease-inhibitor regimens represent a specific modern at-risk subgroup due to the CYP3A4 drug-interaction mechanism [PMC11910312].</li>
+<li><strong>Geographic distribution:</strong> historically concentrated in northern/central Europe (rye-dependent diet, cool wet climate favoring <em>Claviceps</em>); modern food-borne outbreaks concentrated in regions with less-regulated grain supply chains (Ethiopia, India).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical tests:</strong></li>
+<li><strong>Angiography</strong> — the primary diagnostic imaging modality, revealing characteristic segmental vasospastic narrowing of peripheral (and occasionally coronary/cerebral/renal) arteries, distinguishing ergotism from fixed atherosclerotic or embolic occlusion [PMC1343691]; angiographic pattern is also a key differentiator from thromboangiitis obliterans (Buerger disease), which shows distal segmental occlusive lesions with normal proximal arteries and a smooth, regular arterial wall without calcification <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1523324/">Thromboangiitis obliterans — PMC1523324</a>.</li>
+<li>Peripheral pulse examination (radial, ulnar, popliteal, tibial) — diminished/absent pulses support the diagnosis in the acute setting.</li>
+<li>Toxicological/analytical confirmation — detection of ergotamine and ergometrine in contaminated grain samples was used to confirm etiology in the Ethiopian outbreak investigation [EJHD Arsi Ethiopia study].</li>
+<li><strong>Differential diagnosis:</strong> thromboangiitis obliterans (Buerger disease), Raynaud phenomenon, other vasculitides (ergotism is specifically flagged as a vasculitis-mimic warranting careful differentiation in imaging reviews of medium/large-vessel disease) <a href="https://ajronline.org/doi/full/10.2214/AJR.09.3367">AJR: Imaging of Primary and Secondary Inflammatory Diseases</a>, scleroderma/CREST syndrome, and hypercoagulable states — recommended work-up includes CBC, liver function tests, creatinine, fasting glucose, ESR, ANA, rheumatoid factor, and hypercoagulability screening to exclude these mimics.</li>
+<li><strong>Genetic testing:</strong> not applicable as a diagnostic modality for this condition (no causal gene); pharmacogenomic CYP3A4 genotyping is not a standard diagnostic test for ergotism itself but could theoretically inform risk stratification before prescribing ergot-derivative drugs.</li>
+<li><strong>Clinical criteria:</strong> diagnosis is principally clinical — history of ergot-alkaloid exposure (medication or contaminated grain) plus compatible vasospastic/ischemic or convulsive/neuropsychiatric findings, supported by angiography and (in epidemic settings) toxicological confirmation of ergot alkaloids in the implicated food source.</li>
+</ul>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Reversibility with treatment:</strong> the historical-review literature states plainly that "there is no convincing evidence that any treatment other than discontinuation of ergotamine is of benefit in the treatment of iatrogenic ergotism," and case reports document full recovery (e.g., complete resolution of ischemic foot drop within months) after cessation of the offending agent [PMC1343691].</li>
+<li><strong>Complications:</strong> limb gangrene with risk of surgical amputation, myocardial infarction, cerebral infarction/stroke, transient or permanent monocular blindness, ischemic mononeuropathy, and (in untreated gangrenous cases) secondary sepsis [Wikipedia: Ergotism]; [PMC6313968 — fatal vasospastic ischemia case].</li>
+<li><strong>Mortality:</strong> modern iatrogenic cases treated promptly generally have good outcomes; however, severe drug-interaction-potentiated cases (e.g., ergotamine + protease inhibitor) have been reported as <strong>fatal</strong> [PMC6313968 title: "…Causing a Fatal Vasospastic Ischemia"]. Historical epidemic ergotism carried substantial mortality, including reported infant deaths from lactation failure during the 2001 Ethiopian outbreak.</li>
+<li><strong>Prognostic factors:</strong> speed of recognition and cessation of the causative ergot exposure; presence/absence of a potentiating CYP3A4-inhibitor interaction; severity/duration of ischemia before treatment; response to vasodilator therapy.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<ul>
+<li><strong>First-line/supportive management:</strong> <strong>immediate discontinuation</strong> of the causative ergot-alkaloid medication (and cessation of caffeine/tobacco, which may exacerbate vasospasm) [ScienceDirect: Ergotism treatment].</li>
+<li><strong>Vasodilator pharmacotherapy:</strong></li>
+<li><strong>Sodium nitroprusside</strong> (intravenous or intra-arterial infusion) — the most extensively documented treatment, described across multiple case series as effective in relieving vasospasm, often combined with forced diuresis and hydroxocobalamin administration to manage cyanide-release risk from prolonged nitroprusside use <a href="https://doi.org/10.1148/124.1.73">Sodium Nitroprusside in the Treatment of Ergotism — <em>Radiology</em> 1977</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/3802106/">Intraarterial sodium nitroprusside infusion in the treatment of severe ergotism — PMID:3802106</a>. NCIT candidate: pharmacotherapy (<strong>NCIT:C15986</strong>) with therapeutic_agent sodium nitroprusside (CHEBI lookup required).</li>
+<li><strong>Calcium channel blockers</strong> and <strong>prostaglandins</strong> — cited as alternative direct vascular-smooth-muscle vasodilators for severe vasospasm [ScienceDirect: Ergotism treatment overview].</li>
+<li><strong>Nitroglycerin</strong> — studied experimentally in vitro and in migraine patients, and used to treat an overt ergotism case <a href="https://link.springer.com/article/10.1007/BF00542453">Nitroglycerin for ergotism — <em>Eur J Clin Pharmacol</em></a>.</li>
+<li><strong>Corticosteroids (methylprednisolone)</strong> — reported as successful in a case unresponsive to sodium nitroprusside, suggested as alternative therapy especially for intractable cases [<a href="https://pubmed.ncbi.nlm.nih.gov/18763151/" target="_blank" rel="noopener noreferrer">PMID:18763151</a>].</li>
+<li><strong>Anticoagulation:</strong> heparin, to prevent secondary thrombosis in ischemic vascular beds.</li>
+<li><strong>Interventional/surgical:</strong> balloon angioplasty/dilatation, and surgical intervention (including amputation) for cases progressing to established gangrene despite medical therapy.</li>
+<li><strong>Treatment algorithm summary:</strong> stop causative agent → vasodilator therapy (sodium nitroprusside first-line) ± heparin → escalate to corticosteroids or interventional/surgical management for refractory or advanced ischemic disease.</li>
+<li><strong>Experimental/investigational:</strong> no dedicated clinical trials (NCT-registered) specifically for ergotism treatment were identified in this search; management is derived from case reports and small case series rather than randomized trial evidence.</li>
+<li><strong>Genetic-counseling/screening interventions:</strong> not applicable (non-genetic disease).</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention (food safety):</strong></li>
+<li>EU <strong>Regulation (EU) 2021/1399</strong> (amending Regulation (EC) No 1881/2006) sets maximum levels for ergot sclerotia and for the sum of 12 toxicologically relevant ergot alkaloids in cereals and cereal products, effective 1 January 2022; unprocessed-cereal sclerotia limits were tightened (e.g., ≤0.5 g/kg for rye, with further reduction to 0.2 g/kg from 1 July 2024 for certain categories), because milling can grind sclerotia into "ergot dust" that contaminates grain even without visible sclerotia, necessitating separate alkaloid (not just sclerotia) limits <a href="https://www.foodsafetynews.com/2021/09/europe-sets-new-ergot-alkaloids-limits/">Europe sets new ergot alkaloids limits — Food Safety News</a>; <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX%3A32021R1399&amp;rid=2">Commission Regulation (EU) 2021/1399 text</a>.</li>
+<li>Modern agricultural practice: fungicide application, crop rotation, use of clean/certified seed, and mechanical seed-cleaning (flotation separation of sclerotia) before milling [Medical News Today: Ergot poisoning].</li>
+<li><strong>Secondary prevention/screening:</strong> routine grain inspection and cleaning at mills; surveillance of grain-supply chains in food-insecure regions where prior outbreaks have occurred.</li>
+<li><strong>Tertiary prevention (iatrogenic disease):</strong> prescriber vigilance for CYP3A4-drug-interaction risk — avoiding co-prescription of ergot-alkaloid medications with protease inhibitors or macrolide antibiotics; ergotamine/DHE are now labeled <strong>contraindicated</strong> with strong CYP3A4 inhibitors [drug interaction sources above].</li>
+<li><strong>Counseling:</strong> patient education regarding maximum ergot-medication dosing limits and drug-interaction avoidance for migraine patients on chronic ergotamine therapy; obstetric protocols limiting ergometrine/methylergonovine dosing.</li>
+<li><strong>Public health:</strong> governmental grain-inspection regulation as the principal public-health lever, given the disease's near-total dependence on food-supply contamination in its epidemic form.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Ergotism is <strong>naturally occurring and economically significant in livestock</strong>, providing a well-studied comparative-pathology model:</p>
+<ul>
+<li><strong>Cattle ("fescue toxicosis"/"fescue lameness"):</strong> grazing on endophyte-infected tall fescue (<em>Lolium arundinaceum</em>/<em>Festuca arundinacea</em>, infected by the endophytic fungus <em>Epichloë coenophiala</em>, which — like <em>Claviceps</em> — produces ergopeptine alkaloids, principally <strong>ergovaline</strong>, constituting ~90% of ergopeptide alkaloids in toxic fescue) causes a clinical syndrome closely paralleling human gangrenous ergotism: hindlimb lameness progressing to distal-limb necrosis/gangrene, tail and ear necrosis, rough coat, reduced body mass, and an arched-back posture <a href="https://www.merckvetmanual.com/toxicology/mycotoxicoses/fescue-poisoning-in-animals">Merck Veterinary Manual: Fescue Poisoning in Animals</a>; <a href="https://hayandforage.com/article-806-It's-fescue-toxicosis-on-steroids.html">It's fescue toxicosis on steroids — Hay and Forage Magazine</a>.</li>
+<li><strong>Toxic threshold:</strong> ergovaline concentrations of 100–500 ppb are typical in infected fescue, with <strong>&gt;200 ppb considered toxic</strong>; the mechanism mirrors the human disease — agonism at monoamine (adrenergic/serotonergic) receptors on vascular smooth muscle due to structural similarity between ergot alkaloids and endogenous monoamine neurotransmitters <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6628433/">Impact of Ergot Alkaloids on Female Reproduction in Domestic Livestock — PMC6628433</a>.</li>
+<li><strong>Reproductive toxicity in livestock:</strong> altered estrous cyclicity, suppressed hormone secretion, reduced pregnancy rates, agalactia (failure of milk production — directly paralleling the human infant-lactation-failure deaths reported in the 2001 Ethiopian outbreak), and reduced offspring birth weight [PMC6628433].</li>
+<li><strong>Economic burden:</strong> fescue toxicosis is estimated to cause <strong>over $2 billion in annual economic loss</strong> to U.S. livestock industries [Fescue Toxicosis — Hay and Forage Magazine].</li>
+<li><strong>Comparative biology:</strong> the shared receptor-agonism mechanism (adrenergic + serotonergic vasoconstriction) across cattle and humans makes livestock fescue-toxicosis studies a natural, non-experimental disease model directly informative for human ergotism pathophysiology — this is a naturally occurring analog rather than a laboratory-induced model.</li>
+<li><strong>Other species:</strong> ergotism is also documented in horses, sheep, and other grazing livestock exposed to ergotized pasture grasses or contaminated feed grain <a href="https://www.merckvetmanual.com/toxicology/mycotoxicoses/ergotism-in-animals">Merck Veterinary Manual: Ergotism in Animals</a>.</li>
+<li><strong>Zoonotic potential:</strong> none — this is a shared dietary/environmental toxin exposure across species (both grazing on/eating the same contaminated plant material), not a transmissible infectious disease between species.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Livestock as natural disease models:</strong> cattle (particularly Angus breed studies of fescue-toxicosis resistance/susceptibility) and sheep represent the best-characterized <strong>naturally occurring, non-induced animal models</strong> of ergot-alkaloid-induced vasoconstrictive disease, closely recapitulating the human gangrenous phenotype <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7764894/">Evaluation of Resistance to Fescue Toxicosis in Purebred Angus Cattle — PMC7764894</a>.</li>
+<li><strong>Experimental/induced models:</strong></li>
+<li><strong>Sheep</strong> — acute ergot-alkaloid dosing studies directly measuring vasoactive/vasoconstrictive responses ("Vasoactive Effects of Acute Ergot Exposure in Sheep" — PMC8072561), providing a controlled induced-exposure model complementing the natural cattle-grazing model.</li>
+<li><strong>Isolated vascular tissue preparations</strong> — rat aorta, rabbit aorta, bovine lateral saphenous vein, and human saphenous vein (obtained during varicose-vein saphenectomy surgery) have been used ex vivo to characterize ergot-alkaloid receptor pharmacology (5-HT1/5-HT2/α-adrenergic receptor contributions to vasoconstriction) <a href="https://link.springer.com/article/10.1007/BF00166953">Actions of non-peptide ergot alkaloids at 5-HT1-like and 5-HT2 receptors — <em>Naunyn-Schmiedeberg's Arch Pharmacol</em></a>; <a href="https://link.springer.com/article/10.1007/BF00506240">Alpha-adrenoceptors, 5-HT receptors and dihydroergotamine in human venous preparations</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11214916/">Serotonin receptor-mediated vasorelaxation in bovine lateral saphenous vein — PMC11214916</a>.</li>
+<li><strong>Pithed rat model</strong> — used to pharmacologically dissect the specific receptor subtypes (5-HT1A/1B/1D, α2-adrenoceptors, D2-like receptors) mediating ergotamine's inhibition of vasopressor sympathetic outflow [Pharmacological evidence that 5-HT1A/1B/1D, α2-adrenoceptors and D2-like receptors mediate ergotamine-induced effects — ScienceDirect].</li>
+<li><strong>Model characteristics/limitations:</strong> the isolated-vessel ex vivo preparations recapitulate the <strong>receptor-pharmacology</strong> of ergot-alkaloid vasoconstriction well but cannot model the <strong>systemic ischemic/gangrenous tissue outcome</strong>; the cattle/sheep whole-animal models recapitulate the full phenotype (vasospasm → distal necrosis → reproductive/lactation failure) with high translational fidelity to the human disease, given the shared receptor pharmacology and grazing/dietary exposure route, though species differences in vascular receptor density and diet composition remain translational caveats.</li>
+<li><strong>Resources:</strong> no dedicated ergotism-specific model-organism database was identified (unlike Mendelian-disease model registries such as MGI/IMPC); the relevant literature is distributed across veterinary toxicology (Merck Veterinary Manual, agricultural extension publications) and pharmacology journals rather than a centralized model-organism resource.</li>
+</ul>
+<hr />
+<h2>Notes on Curation Gaps and Verification Needed</h2>
+<ul>
+<li><strong><a href="http://purl.obolibrary.org/obo/MONDO_0042496" target="_blank" rel="noopener noreferrer">MONDO:0042496</a></strong> should be independently verified against the current MONDO build before being bound as <code>disease_term</code>; this report could not confirm the identifier via public search.</li>
+<li>Specific <strong>CHEBI IDs</strong> for ergotamine, ergometrine, ergosine, ergocristine, ergocryptine, and ergocornine, and specific <strong>HP/GO/CL/UBERON</strong> term IDs suggested above, are candidates only — per the dismech ontology-term contract, each must be independently confirmed via <code>runoak</code>/cache lookup at curation time rather than written from this report.</li>
+<li>Orphanet/OMIM coverage was not confirmed either way in this search and should be checked directly.</li>
+<li>No NCT-registered clinical trials specific to ergotism treatment were located; treatment evidence is case-report/case-series level throughout.</li>
+<li>Precise modern incidence/prevalence rate figures (cases per 100,000) were not found and may not exist in a form suitable for the <code>Prevalence</code> schema's <code>rate_per_100000</code> slot — <code>CASES_IN_LITERATURE</code> may be the most defensible <code>measure_type</code> for this entry given the sporadic/case-report evidence base.</li>
+</ul>
+<hr />
+<h3>Sources</h3>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Ergotism">Ergotism — Wikipedia</a></li>
+<li><a href="https://www.britannica.com/science/ergotism">Ergotism — Britannica</a></li>
+<li><a href="https://www.sciencedirect.com/topics/medicine-and-dentistry/ergotism">Ergotism — an overview | ScienceDirect Topics (medicine/dentistry)</a></li>
+<li><a href="https://www.sciencedirect.com/topics/pharmacology-toxicology-and-pharmaceutical-science/ergotism">Ergotism — an overview | ScienceDirect Topics (pharmacology/toxicology)</a></li>
+<li><a href="https://asm.org/articles/2018/november/from-poisoning-to-pharmacy-a-tale-of-two-ergots">From Poisoning to Pharmacy: A Tale of Two Ergots — ASM.org</a></li>
+<li><a href="https://www.nationalgeographic.com/history/history-magazine/article/ergotism-infections-medieval-europe">What was St Anthony's fire, the medieval killer in the rye? — National Geographic</a></li>
+<li><a href="https://www.medicalnewstoday.com/articles/ergot-poisoning">Ergot poisoning: History, causes, symptoms, and more — Medical News Today</a></li>
+<li><a href="https://www.bionity.com/en/encyclopedia/Ergotism.html">Ergotism — bionity.com</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1343691/">Ergot Intoxication: Historical Review and Description of Unusual Clinical Manifestations — PMC1343691 (PMID:4371616)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/12849122/">Convulsive ergotism: epidemics of the serotonin syndrome? — PMID:12849122</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22903169/">Human and cattle ergotism since 1900: symptoms, outbreaks, and regulations — PMID:22903169</a></li>
+<li><a href="https://www.ejhd.org/index.php/ejhd/article/view/798/609">Laboratory studies on the outbreak of Gangrenous Ergotism… Arsi, Ethiopia — Ethiopian Journal of Health Development</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/18763151/">Reversal of ergotamine-induced vasospasm following methylprednisolone — PMID:18763151</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11879452/">Joining forces: cardio-obstetrics case of severe ergometrine-induced vasospasm — PMC11879452</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6313968/">Drug-Drug Interaction of Ergotamine with Darunavir/Abacavir/Lamivudine Causing a Fatal Vasospastic Ischemia — PMC6313968</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11910312/">A potentially lethal interaction: Migraine, HIV and ergotism — PMC11910312</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/1908611/">Severe iatrogenic ergotism: incidence and clinical importance — PMID:1908611</a></li>
+<li><a href="https://cdn.mdedge.com/files/s3fs-public/jfp-archived-issues/1978-volume_6-7/JFP_1978-04_v6_i4_recurrent-ergotism-a-case-report.pdf">Recurrent Ergotism: A Case Report — Journal of Family Practice, 1978</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK555953/">Ergotamine/Caffeine — StatPearls NBK555953</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11625447/">CYP3A4 and CYP3A5: crucial roles in clinical drug metabolism and genetic polymorphisms — PMC11625447</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Ergoline">Ergoline — Wikipedia</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4488688/">Analysis of Ergot Alkaloids — PMC4488688</a></li>
+<li><a href="https://www.apsnet.org/edcenter/sites/Mycotoxins/Pages/ErgotAlkaloids.aspx">Ergot Alkaloids — American Phytopathological Society</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10199403/">Investigation of the relationship between ergocristinine and vascular receptors — PMC10199403</a></li>
+<li><a href="https://link.springer.com/article/10.1007/BF00166953">Actions of non-peptide ergot alkaloids at 5-HT1-like and 5-HT2 receptors — Naunyn-Schmiedeberg's Archives of Pharmacology</a></li>
+<li><a href="https://link.springer.com/article/10.1007/BF00506240">Alpha-adrenoceptors, 5-HT receptors and dihydroergotamine in human venous preparations — Naunyn-Schmiedeberg's Archives of Pharmacology</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11214916/">Serotonin receptor-mediated vasorelaxation in bovine lateral saphenous vein — PMC11214916</a></li>
+<li><a href="https://doi.org/10.1148/124.1.73">Sodium Nitroprusside in the Treatment of Ergotism — Radiology, 1977</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/3802106/">Intraarterial sodium nitroprusside infusion in the treatment of severe ergotism — PMID:3802106</a></li>
+<li><a href="https://link.springer.com/article/10.1007/BF00542453">Nitroglycerin for ergotism — European Journal of Clinical Pharmacology</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1523324/">Thromboangiitis obliterans (Buerger's disease) — PMC1523324</a></li>
+<li><a href="https://ajronline.org/doi/full/10.2214/AJR.09.3367">Imaging of Primary and Secondary Inflammatory Diseases Involving Large and Medium-Sized Vessels — AJR</a></li>
+<li><a href="https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX%3A32021R1399&amp;rid=2">Commission Regulation (EU) 2021/1399 — EUR-Lex</a></li>
+<li><a href="https://www.foodsafetynews.com/2021/09/europe-sets-new-ergot-alkaloids-limits/">Europe sets new ergot alkaloids limits — Food Safety News</a></li>
+<li><a href="https://www.merckvetmanual.com/toxicology/mycotoxicoses/ergotism-in-animals">Merck Veterinary Manual: Ergotism in Animals</a></li>
+<li><a href="https://www.merckvetmanual.com/toxicology/mycotoxicoses/fescue-poisoning-in-animals">Merck Veterinary Manual: Fescue Poisoning in Animals</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6628433/">Impact of Ergot Alkaloids on Female Reproduction in Domestic Livestock Species — PMC6628433</a></li>
+<li><a href="https://hayandforage.com/article-806-It's-fescue-toxicosis-on-steroids.html">It's fescue toxicosis on steroids — Hay and Forage Magazine</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7764894/">Evaluation of Resistance to Fescue Toxicosis in Purebred Angus Cattle — PMC7764894</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>23</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMC:PMC11625447</code> (5 mentions) - CYP3A4 and CYP3A5: the crucial roles in clinical drug metabolism and the significant implications of genetic polymorphisms.</li>
+<li>shared terms: cyp3a4, human</li>
+<li><code>PMC:PMC11879452</code> (6 mentions) - Joining forces: a complex cardio-obstetrics case report of severe ergometrine-induced vasospasm.</li>
+<li>shared terms: vasospasm, ergometrine</li>
+<li><code>PMC:PMC11214916</code> (4 mentions) - Serotonin receptor-mediated vasorelaxation occurs primarily through 5-HT(4) activation in bovine lateral saphenous vein.</li>
+<li>shared terms: receptor</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>ergotism</code>, <code>ergot</code>, <code>disease</code>, <code>ergotamine</code>, <code>alkaloid</code>, <code>gangrenous</code>, <code>epidemic</code>, <code>outbreak</code>, <code>grain</code>, <code>vasospasm</code>, <code>cyp3a4</code>, <code>ergot-alkaloid</code>, <code>iatrogenic</code>, <code>ischemic</code>, <code>human</code>, <code>modern</code>, <code>documented</code>, <code>receptor</code>, <code>gangrene</code>, <code>ergometrine</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0042496</code> (3 mentions) - the report calls it "if available"; MONDO calls it <strong>ergotism</strong></li>
+<li><code>HP:0034976</code> (1 mention) - the report calls it "Peripheral gangrene"; HP calls it <strong>Absent pituitary stalk</strong></li>
+<li><code>HP:0031650</code> (1 mention) - the report calls it "Vasospasm"; HP calls it <strong>Abnormal atrioventricular valve physiology</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>CHEBI:4880</code> (CHEBI_4880) (1 mention) - replaced by <code>CHEBI:16000</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0007212</code> (1 mention) - the report calls it "dopamine receptor signaling pathway"; GO calls it <strong>G protein-coupled dopamine receptor signaling pathway</strong>, and lists "dopamine receptor signalling pathway" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Erdheim-Chester_Disease-falcon.html">← Erdheim-Chester Disease (Falcon)</a>
+                
+                
+                <a href="Erythrokeratodermia_Variabilis-asta.html">Erythrokeratodermia Variabilis (Asta) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Ergotism.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Ergotism-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
