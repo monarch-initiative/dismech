@@ -170285,6 +170285,100 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Isolated Thyroid-stimulating Hormone Deficiency",
+    "disease_id": "MONDO:0010139",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Hypothyroidism",
+      "Central Hypothyroidism"
+    ],
+    "creation_date": "2026-09-21T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital central hypothyroidism caused by biallelic loss-of-function variants in TSHB, the gene for the beta subunit of thyroid-stimulating hormone. The thyroid gland itself is normal; what is missing is the pituitary signal that drives it. Because the beta subunit is what makes TSH a thyrotropin rather than a generic glycoprotein hormone - the alpha subunit is shared with LH, FSH and hCG - losing it means no functional heterodimer can be assembled, the thyroid is never stimulated, and circulating free T4 and free T3 fall from birth.\nThe defining clinical problem is diagnostic rather than therapeutic. Treatment is levothyroxine and, given early enough, it is close to curative: a 25-year follow-up of a severely affected patient concluded that timely replacement averted neurocognitive sequelae. But the biochemical signature is a low free T4 beside a TSH that is low, normal or undetectable, and newborn screening programmes that measure TSH alone are built to detect the opposite pattern. Such a programme cannot see this disease at all, so affected infants present later with prolonged jaundice, hypotonia, failure to thrive and oedema, and untreated disease ends in irreversible intellectual disability and growth failure. Whether a given child is detected depends on which analyte their country screens.",
+    "pathophysiology": [
+      "Biallelic TSHB Loss of Function",
+      "Failure to Assemble Bioactive TSH Heterodimer",
+      "Understimulation of the Normal Thyroid Gland",
+      "Systemic Thyroid Hormone Deficiency",
+      "Invisibility to TSH-Based Newborn Screening"
+    ],
+    "cell_types": [
+      "pituitary thyrotroph",
+      "thyroid follicular cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000476",
+      "CL:0002258"
+    ],
+    "biological_processes": [
+      "thyroid-stimulating hormone signaling at TSHR",
+      "thyroid hormone generation",
+      "thyroid hormone receptor signaling in peripheral tissues"
+    ],
+    "phenotypes": [
+      "Central hypothyroidism",
+      "Prolonged neonatal jaundice",
+      "Hypothermia",
+      "Lethargy",
+      "Constipation",
+      "Umbilical hernia",
+      "Hypotonia",
+      "Global developmental delay",
+      "Failure to thrive",
+      "Short stature",
+      "Intellectual disability"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Endocrine",
+      "Growth",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011787",
+      "HP:0006579",
+      "HP:0002045",
+      "HP:0001254",
+      "HP:0002019",
+      "HP:0001537",
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0001508",
+      "HP:0004322",
+      "HP:0001249"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "TSHB"
+    ],
+    "treatments": [
+      "Levothyroxine Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Thyrotropin (TSH)",
+      "Serum Free Thyroxine (Free T4)"
+    ],
+    "source_file": "Isolated_Thyroid-stimulating_Hormone_Deficiency.yaml",
+    "page_url": "../pages/disorders/Isolated_Thyroid-stimulating_Hormone_Deficiency.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Isolated Woolly Hair",
     "disease_id": "MONDO:0008686",
     "category": "Mendelian",
@@ -319691,17 +319785,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3058,
+  "total_disorder_pages": 3059,
   "total_subtypes": 3824,
-  "total_disorders_and_subtypes": 6882,
-  "total_unique_evidence_sources": 43991,
-  "total_unique_publications": 41478,
+  "total_disorders_and_subtypes": 6883,
+  "total_unique_evidence_sources": 44001,
+  "total_unique_publications": 41488,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3053,
-  "total_unique_pathological_events": 18828,
+  "total_pathographs": 3054,
+  "total_unique_pathological_events": 18833,
   "total_modules": 177,
-  "total_research_reports": 3169,
+  "total_research_reports": 3170,
   "total_classifications": 20,
   "total_comorbidities": 46,
   "total_groupings": 103
