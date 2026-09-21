@@ -1,5 +1,7 @@
 """Tests for KGX edge and node exporter."""
 
+from pathlib import Path
+
 import pytest
 
 pytest.importorskip("biolink_model", reason="biolink-model not installed (install with: uv sync --group export)")
@@ -107,6 +109,50 @@ class TestPhenotypeToEdge:
             },
         }
         assert phenotype_to_edge("MONDO:0005611", phenotype) is None
+
+    def test_upstream_risk_phenotype_emits_associated_with(self):
+        """A phenotype driving a pathophysiology node is an upstream risk state.
+
+        It must export as a direction-neutral biolink:associated_with rather than
+        has_phenotype, so the KG does not assert the risk factor is a feature
+        *of* the disease (e.g. selenium deficiency in Hashimoto's).
+        """
+        phenotype = {
+            "name": "Selenium Deficiency",
+            "phenotype_term": {
+                "preferred_term": "Selenium deficiency",
+                "term": {
+                    "id": "HP:0033192",
+                    "label": "Decreased circulating selenium concentration",
+                },
+            },
+            "sequelae": [{"target": "Thyroidal Oxidative Stress"}],
+        }
+        patho_names = {"Thyroidal Oxidative Stress"}
+        edge = phenotype_to_edge("MONDO:0007699", phenotype, patho_names)
+        assert isinstance(edge, Association)
+        assert not isinstance(edge, DiseaseToPhenotypicFeatureAssociation)
+        assert edge.predicate == "biolink:associated_with"
+        assert edge.subject == "MONDO:0007699"
+        assert edge.object == "HP:0033192"
+        assert edge.subject_category == "biolink:Disease"
+        assert edge.object_category == "biolink:PhenotypicFeature"
+
+    def test_manifestation_phenotype_still_has_phenotype(self):
+        """A normal manifestation (sequelae into other phenotypes, or none) keeps
+        has_phenotype even when pathophysiology_names is supplied."""
+        phenotype = {
+            "name": "Hypothyroidism",
+            "phenotype_term": {
+                "preferred_term": "Hypothyroidism",
+                "term": {"id": "HP:0000821", "label": "Hypothyroidism"},
+            },
+            "sequelae": [{"target": "Fatigue"}],  # a phenotype, not a mechanism node
+        }
+        patho_names = {"Thyroidal Oxidative Stress"}
+        edge = phenotype_to_edge("MONDO:0007699", phenotype, patho_names)
+        assert isinstance(edge, DiseaseToPhenotypicFeatureAssociation)
+        assert edge.predicate == "biolink:has_phenotype"
 
 
 class TestDiseaseComorbidityToEdge:
@@ -268,30 +314,93 @@ class TestGeneToEdge:
     """Tests for gene_to_edge function."""
 
     def test_valid_gene(self):
-        """Test with a complete gene entry."""
-        gene = {"name": "IL4", "association": "Associated"}
+        """Test with a complete gene entry (gene_term.term.id is required)."""
+        gene = {
+            "name": "IL4",
+            "gene_term": {"term": {"id": "hgnc:6014", "label": "IL4"}},
+            "association": "Associated",
+        }
         edge = gene_to_edge("MONDO:0004979", gene)
         assert isinstance(edge, GeneToDiseaseAssociation)
-        assert edge.subject == "HGNC.SYMBOL:IL4"
+        assert edge.subject == "hgnc:6014"
         assert edge.predicate == "biolink:contributes_to"
         assert edge.object == "MONDO:0004979"
         assert edge.subject_category == "biolink:Gene"
         assert edge.object_category == "biolink:Disease"
         assert edge.primary_knowledge_source == KNOWLEDGE_SOURCE
 
-    def test_missing_name(self):
-        """Test with missing gene name."""
-        gene = {"association": "Associated"}
+    def test_missing_gene_term(self):
+        """Without gene_term.term.id we now skip (see #2099 — no more
+        HGNC.SYMBOL:{name} fallback that produced malformed CURIEs)."""
+        gene = {"name": "IL4", "association": "Associated"}
         assert gene_to_edge("MONDO:0004979", gene) is None
 
     def test_none_gene(self):
         """Test with None gene."""
         assert gene_to_edge("MONDO:0004979", None) is None
 
-    def test_empty_name(self):
-        """Test with empty gene name."""
-        gene = {"name": "", "association": "Associated"}
-        assert gene_to_edge("MONDO:0004979", gene) is None
+
+class TestModifierCurieMap:
+    """The qualifier vocabulary is derived from the schema, not invented here."""
+
+    def test_modifier_curies_match_schema_meanings(self):
+        """Every PATO CURIE in the map is the schema's own `meaning` (#9131).
+
+        The map is hardcoded for runtime simplicity, so this is what stops it
+        drifting from `ModifierEnum`. The generated datamodel cannot be used as
+        the source — it carries no `meaning:` and is missing two permissible
+        values — so the schema YAML is read directly.
+        """
+        import yaml
+
+        from dismech.export.kgx_export import MODIFIER_TO_CURIE
+
+        schema = yaml.safe_load(
+            (Path(__file__).parent.parent / "src/dismech/schema/dismech.yaml").read_text()
+        )
+        values = schema["enums"]["ModifierEnum"]["permissible_values"]
+
+        # every value is exported, none silently dropped
+        assert set(MODIFIER_TO_CURIE) == set(values)
+
+        for name, pv in values.items():
+            meaning = (pv or {}).get("meaning")
+            if meaning:
+                assert MODIFIER_TO_CURIE[name] == meaning, (
+                    f"{name} is bound to {meaning} in the schema"
+                )
+            else:
+                # no ontology term -> the dismech namespace, qualified by the
+                # enum so it cannot collide with a same-named value elsewhere
+                assert MODIFIER_TO_CURIE[name] == f"dismech:ModifierEnum#{name}"
+
+    def test_no_qualifier_is_a_bare_string(self):
+        """Biolink types `qualifiers` as `range: ontology class` (#9131).
+
+        A `direction:increased`-style entry claims a namespace that does not
+        exist, which is what this whole vocabulary change is about.
+        """
+        from dismech.export.kgx_export import MODIFIER_TO_CURIE
+
+        for value in MODIFIER_TO_CURIE.values():
+            prefix, _, local = value.partition(":")
+            assert local, f"{value} is not a CURIE"
+            assert prefix in {"PATO", "dismech"}, f"{prefix} is not a declared prefix"
+
+    def test_unbound_values_are_namespaced_by_their_enum(self):
+        """A flat `dismech:GAIN_OF_FUNCTION` would name two different concepts.
+
+        GAIN_OF_FUNCTION and LOSS_OF_FUNCTION are `FunctionalImpactEnum` values
+        too, where they describe a variant's consequence rather than a pathway's
+        activity state — CLAUDE.md keeps those apart, and they can co-occur on a
+        single node. 18 permissible-value names in the schema are shared this way.
+        """
+        from dismech.export.kgx_export import MODIFIER_TO_CURIE
+
+        for value in MODIFIER_TO_CURIE.values():
+            if value.startswith("dismech:"):
+                assert "#" in value, f"{value} is not qualified by its enum"
+                assert value.startswith("dismech:ModifierEnum#")
 
 
 class TestExposureToEdge:
@@ -405,6 +514,109 @@ class TestExposureToEdge:
         edge = exposure_to_edge("MONDO:0004979", environmental)
         assert edge.predicate == "biolink:contributes_to"
 
+    def test_decreased_modifier_emits_pato_curie(self):
+        """A deficiency exposure must not export as plain exposure (#8468).
+
+        Reproduces the Anencephaly maternal-folate-deficiency entry: the ECTO
+        subject is "exposure to folic acid", but the curated claim is that
+        *low* folate triggers the defect. Without the qualifier the triple
+        asserts the opposite of the YAML.
+        """
+        environmental = {
+            "name": "Maternal Folate Deficiency",
+            "exposure_term": {
+                "preferred_term": "low maternal folic acid exposure",
+                "modifier": "DECREASED",
+                "term": {"id": "ECTO:9000123", "label": "exposure to folic acid"},
+            },
+            "influences_mechanisms": [
+                {
+                    "target": "Disrupted Folate One-Carbon Metabolism",
+                    "environmental_effect": "TRIGGERS",
+                }
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0008742", environmental)
+        assert edge is not None
+        assert edge.subject == "ECTO:9000123"
+        assert edge.predicate == "biolink:contributes_to"
+        assert edge.qualifiers == ["PATO:0002301"]
+
+    def test_increased_modifier_emits_pato_curie(self):
+        """An INCREASED modifier is a fidelity gain, not an inversion (#8468)."""
+        environmental = {
+            "name": "High Sodium Diet",
+            "exposure_term": {
+                "modifier": "INCREASED",
+                "term": {"id": "ECTO:9001347", "label": "exposure to sodium chloride"},
+            },
+            "influences_mechanisms": [
+                {"target": "Sodium Retention", "environmental_effect": "TRIGGERS"}
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0001134", environmental)
+        assert edge.qualifiers == ["PATO:0002300"]
+
+    def test_modifier_is_independent_of_predicate(self):
+        """Direction qualifies the subject; the predicate still reads the effect.
+
+        Periconceptional folate supplementation (Ventricular_Septal_Defect) is
+        an INCREASED exposure that PROTECTS_AGAINST — both signals must survive.
+        """
+        environmental = {
+            "name": "Periconceptional folic acid supplementation",
+            "exposure_term": {
+                "modifier": "INCREASED",
+                "term": {"id": "ECTO:9000123", "label": "exposure to folic acid"},
+            },
+            "influences_mechanisms": [
+                {"target": "Cardiac Septation", "environmental_effect": "PROTECTS_AGAINST"}
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0002526", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+        assert edge.qualifiers == ["PATO:0002300"]
+
+    def test_no_modifier_emits_no_qualifiers(self):
+        """An exposure without a modifier keeps qualifiers unset."""
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:6000029"}},
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.qualifiers is None
+
+    @pytest.mark.parametrize(
+        "modifier,expected",
+        [
+            ("ABSENT", "PATO:0000462"),
+            ("ABNORMAL", "PATO:0000460"),
+            ("DYSREGULATED", "dismech:ModifierEnum#DYSREGULATED"),
+        ],
+    )
+    def test_every_modifier_exports_as_a_curie(self, modifier, expected):
+        """No ModifierEnum value is dropped, and none becomes a non-CURIE.
+
+        ABSENT needs no lossy projection onto "decreased" — PATO carries its own
+        `absent`. DYSREGULATED has no ontology term at all, so it takes the
+        dismech namespace rather than being silently discarded.
+        """
+        environmental = {
+            "exposure_term": {"modifier": modifier, "term": {"id": "ECTO:9000123"}},
+        }
+        edge = exposure_to_edge("MONDO:0000819", environmental)
+        assert edge.qualifiers == [expected]
+
+    def test_the_same_curie_is_used_on_a_disease_process_edge(self):
+        """One vocabulary across every edge type — no per-site variant (#9131).
+
+        The exposure edge qualifies its subject and this one its object, but the
+        CURIE is the same because the curated modifier is.
+        """
+        process = {"term": {"id": "GO:0016301"}, "modifier": "ABSENT"}
+        assert biological_process_to_edge("MONDO:0004979", process).qualifiers == [
+            "PATO:0000462"
+        ]
+
 
 class TestMolecularFunctionToEdge:
     """Tests for molecular_function_to_edge function."""
@@ -423,7 +635,7 @@ class TestMolecularFunctionToEdge:
         assert edge.object == "GO:0016301"
         assert edge.subject_category == "biolink:Disease"
         assert edge.object_category == "biolink:MolecularActivity"
-        assert "direction:increased" in edge.qualifiers
+        assert edge.qualifiers == ["PATO:0002300"]
 
     def test_missing_term_id(self):
         """Test with missing term.id."""
@@ -452,6 +664,19 @@ class TestCellularComponentToEdge:
         """Test with missing term.id."""
         component = {"preferred_term": "cilium"}
         assert cellular_component_to_edge("MONDO:0004979", component) is None
+
+    def test_cellular_component_carries_no_direction(self):
+        """This edge does not read `modifier`, and docs/kgx-export.md says so.
+
+        The direction-carrying edges are biological process, molecular function,
+        and pathway; a cellular component is a location rather than a level, so
+        there is nothing for a direction to qualify.
+        """
+        component = {
+            "term": {"id": "GO:0005929", "label": "cilium"},
+            "modifier": "DECREASED",
+        }
+        assert cellular_component_to_edge("MONDO:0004979", component).qualifiers is None
 
 
 class TestChemicalEntityToEdge:
@@ -494,7 +719,7 @@ class TestPathwayToEdge:
         assert edge.object == "GO:0016055"
         assert edge.subject_category == "biolink:Disease"
         assert edge.object_category == "biolink:Pathway"
-        assert "direction:decreased" in edge.qualifiers
+        assert edge.qualifiers == ["PATO:0002301"]
 
     def test_missing_term_id(self):
         """Test with missing term.id."""
@@ -727,12 +952,24 @@ class TestGeneToEdgeWithGeneTerm:
         assert edge.subject_category == "biolink:Gene"
         assert edge.object_category == "biolink:Disease"
 
-    def test_falls_back_to_name(self):
-        """Test fallback to HGNC.SYMBOL:name when gene_term is missing."""
-        gene = {"name": "IL4", "association": "Associated"}
-        edge = gene_to_edge("MONDO:0004979", gene)
-        assert isinstance(edge, GeneToDiseaseAssociation)
-        assert edge.subject == "HGNC.SYMBOL:IL4"
+    def test_skips_every_falsy_gene_term_id_shape(self):
+        """Every shape that leaves gene_term.term.id falsy is skipped — no
+        HGNC.SYMBOL:{name} fallback that produced malformed CURIEs (#2099),
+        and no empty-CURIE subject either."""
+        for gene in [
+            {"name": "IL4", "association": "Associated"},          # no gene_term at all
+            {"name": "", "association": "Associated"},             # no gene_term, empty name
+            {"name": "IL4", "gene_term": {}},                      # gene_term but no term
+            {"name": "IL4", "gene_term": {"term": {}}},            # term but no id
+            {"name": "IL4", "gene_term": {"term": {"id": ""}}},    # id present but empty
+        ]:
+            assert gene_to_edge("MONDO:0004979", gene) is None, gene
+
+    def test_skips_aneuploidy_or_disease_class(self):
+        """Multi-word names that aren't real gene symbols are skipped (#2099)."""
+        for name in ["Trisomy 21", "Cat Eye Syndrome (chr22 duplication)",
+                     "EDS-Related Connective Tissue Disorder"]:
+            assert gene_to_edge("MONDO:0018484", {"name": name}) is None
 
     def test_no_gene_term_no_name(self):
         """Test that None is returned when neither gene_term nor name is present."""
@@ -810,7 +1047,11 @@ class TestTransform:
                 },
             ],
             "genetic": [
-                {"name": "GENE1", "association": "Associated"},
+                {
+                    "name": "GENE1",
+                    "gene_term": {"term": {"id": "hgnc:00001", "label": "GENE1"}},
+                    "association": "Associated",
+                },
             ],
             "inheritance": [
                 {
@@ -986,7 +1227,11 @@ class TestExtractNodes:
                 },
             ],
             "genetic": [
-                {"name": "GENE1", "association": "Associated"},
+                {
+                    "name": "GENE1",
+                    "gene_term": {"term": {"id": "hgnc:00001", "label": "GENE1"}},
+                    "association": "Associated",
+                },
             ],
             "environmental": [
                 {
@@ -1059,7 +1304,7 @@ class TestExtractNodes:
         assert isinstance(node_by_id["NCIT:C25218"], Treatment)
         assert isinstance(node_by_id["NCIT:C00001"], ChemicalEntity)
         assert isinstance(node_by_id["HP:0000003"], PhenotypicFeature)
-        assert isinstance(node_by_id["HGNC.SYMBOL:GENE1"], Gene)
+        assert isinstance(node_by_id["hgnc:00001"], Gene)
         assert isinstance(node_by_id["ECTO:0000001"], ExposureEvent)
         assert isinstance(node_by_id["HP:0000006"], GeneticInheritance)
         assert isinstance(node_by_id["NCBITaxon:813"], OrganismTaxon)
@@ -1081,7 +1326,7 @@ class TestExtractNodes:
         # treatments[].name — see issue #1932.
         assert node_by_id["NCIT:C25218"].name == "treatment a"
         # Gene uses gene name
-        assert node_by_id["HGNC.SYMBOL:GENE1"].name == "GENE1"
+        assert node_by_id["hgnc:00001"].name == "GENE1"
 
     def test_node_provided_by(self, sample_disorder):
         """Test that all nodes have provided_by set."""
@@ -1097,7 +1342,7 @@ class TestExtractNodes:
         assert "biolink:Disease" in node_by_id["MONDO:0000001"].category
         assert "biolink:PhenotypicFeature" in node_by_id["HP:0000001"].category
         assert "biolink:Cell" in node_by_id["CL:0000001"].category
-        assert "biolink:Gene" in node_by_id["HGNC.SYMBOL:GENE1"].category
+        assert "biolink:Gene" in node_by_id["hgnc:00001"].category
 
     def test_deduplicates_nodes(self):
         """Test that duplicate term IDs only produce one node."""
@@ -1129,7 +1374,13 @@ class TestExtractNodes:
         assert len(nodes) == 0
 
     def test_skips_entries_without_term_ids(self):
-        """Test that entries without term IDs are skipped."""
+        """Test that entries without term IDs are skipped.
+
+        Covers the gene branch too: a genetic[] entry with only a free-text
+        name must yield no node at all, rather than the old synthetic
+        HGNC.SYMBOL:{name} (see #2099). This is the extract_nodes half of the
+        fix — the half responsible for the dropped gene node ids.
+        """
         disorder = {
             "name": "Test Disorder",
             "disease_term": {"term": {"id": "MONDO:0000001"}},
@@ -1137,12 +1388,17 @@ class TestExtractNodes:
                 {"name": "Complete", "phenotype_term": {"term": {"id": "HP:0000001"}}},
                 {"name": "Incomplete"},  # No phenotype_term
             ],
+            "genetic": [
+                {"name": "Trisomy 21"},  # No gene_term — not a gene, must be skipped
+            ],
         }
         nodes = list(extract_nodes(disorder))
         ids = [n.id for n in nodes]
         assert "MONDO:0000001" in ids
         assert "HP:0000001" in ids
-        assert len(nodes) == 2  # disease + 1 valid phenotype
+        assert not any(i.startswith("HGNC.SYMBOL") for i in ids)
+        assert not any(isinstance(n, Gene) for n in nodes)
+        assert len(nodes) == 2  # disease + 1 valid phenotype; the gene entry is dropped
 
     def test_treatment_node_uses_canonical_ncit_label(self):
         """Treatment node `name` must come from treatment_term.term.label,

@@ -45,6 +45,42 @@ def discover_disorder_files(input_dir: Path) -> list[Path]:
     ]
 
 
+def pathophysiology_node_names(record: dict) -> set[str]:
+    """Return the set of ``pathophysiology[].name`` values in a disorder record."""
+    return {
+        node["name"]
+        for node in (record.get("pathophysiology") or [])
+        if isinstance(node, dict) and node.get("name")
+    }
+
+
+def phenotype_is_upstream_risk_state(
+    phenotype: dict, pathophysiology_names: set[str]
+) -> bool:
+    """Whether a ``phenotypes[]`` entry is an UPSTREAM risk state, not a manifestation.
+
+    A phenotype node that carries a causal (``sequelae``) edge *into* a
+    pathophysiology (mechanism) node is feeding the disease mechanism - it is a
+    driver/risk factor (e.g. a nutritional deficiency), not a downstream feature
+    of the disease. Such a node must NOT be exported as
+    ``<disease> biolink:has_phenotype <term>`` (KGX) or as a positive
+    ``phenotype.hpoa`` annotation, because that inverts the curated causal
+    direction. Exporters use this to route these nodes to a direction-neutral
+    ``biolink:associated_with`` (KGX) or to skip them (HPOA) instead.
+
+    This is a purely structural signal - no schema change - and is deliberately
+    narrow. It is a *convention*, not a schema invariant: no manifestation in the
+    KB currently points a ``sequelae`` edge at a pathophysiology node, but nothing
+    prevents one (e.g. a curator modelling a feed-forward loop where a
+    manifestation aggravates a mechanism), and such a node would silently lose its
+    ``has_phenotype`` edge and HPOA row. See dismech#8453 review discussion.
+    """
+    for edge in phenotype.get("sequelae") or []:
+        if isinstance(edge, dict) and edge.get("target") in pathophysiology_names:
+            return True
+    return False
+
+
 def _count_kb_yaml(kb_dir: Path) -> int:
     """Count non-history ``*.yaml`` files directly under ``kb_dir``."""
     if not kb_dir.exists():

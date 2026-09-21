@@ -1,0 +1,23 @@
+---
+reference_id: DOI:10.3390/cells15070635
+title: "Tubular Aggregate Myopathies: Genetic Heterogeneity and Diverse Clinical Features Converging on Calcium Dysregulation"
+authors:
+- Matteo Serano
+- Federica Fiore
+- Vincenzo Sorrentino
+- Daniela Rossi
+journal: Cells
+year: '2026'
+doi: 10.3390/cells15070635
+content_type: abstract_only
+is_preprint: false
+---
+
+# Tubular Aggregate Myopathies: Genetic Heterogeneity and Diverse Clinical Features Converging on Calcium Dysregulation
+**Authors:** Matteo Serano, Federica Fiore, Vincenzo Sorrentino, Daniela Rossi
+**Journal:** Cells (2026)
+**DOI:** [10.3390/cells15070635](https://doi.org/10.3390/cells15070635)
+
+## Content
+
+Tubular aggregate myopathy (TAM) is a rare inherited muscle disorder characterized by the abnormal accumulation of tubular aggregates (TAs) within skeletal muscle fibers. These aggregates, composed of compacted sarcoplasmic reticulum (SR) tubules, are strongly linked to disturbances in calcium (Ca2+) homeostasis. Clinically, TAM manifests with slowly progressive proximal muscle weakness, exercise intolerance, cramps, and myalgia, frequently beginning in childhood and often present with elevated serum creatine kinase levels. These symptoms can also be associated with some additional disorders, such as thrombocytopathy, miosis, hypocalcemia, hyposplenism, and ichthyosis, thereby resulting in a clinical picture that overlaps with symptoms of Stormorken (STRMK) syndrome. Considerable heterogeneity exists in age of onset, severity, and extra-muscular involvement, suggesting that TAM and STRMK represent a continuum rather than distinct entities. Histopathological hallmarks include TAs staining positive for SR proteins and displaying a honeycomb-like ultrastructure, consistent with aberrant SR remodeling. Mutations in genes encoding key regulators of store-operated calcium entry (SOCE), including STIM1 and ORAI1 have been identified as major contributors to TAM and its broader clinical spectrum, which encompasses STRMK syndrome, whereas mutations in CASQ1 and RYR1, have been described in only a minority of patients. Despite advances in delineating the genetic and molecular basis of TAM, key questions remain regarding the mechanisms that drive TAs formation and translate Ca2+ dysregulation into muscle dysfunction and multisystem disease. Understanding the molecular mechanisms underlying TAM and STRMK syndrome is crucial for developing targeted therapies. Moreover, further research is needed to elucidate additional pathways involved in disease progression and to refine genotype–phenotype correlations. This review summarizes current knowledge on the genetics, pathophysiology, clinical features, and diagnostic hallmarks of TAM, with particular emphasis on the role of Ca2+ homeostasis.
