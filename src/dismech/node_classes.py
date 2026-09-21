@@ -1,0 +1,524 @@
+"""Parser for the compact pathograph node-class tree.
+
+``kb/node_classes/pathograph_node_classes.txt`` holds a candidate
+classification of pathograph nodes as an indented plain-text tree whose leaves
+are real ``(node name, disease)`` pairs from ``kb/disorders/``. The format was
+written by hand because compactness is the point: the whole classification is
+readable in one screen and a category can be added, moved, or argued with in a
+single line. This module makes that text machine-readable without giving up the
+compactness, so the tree can be checked in CI and converted to YAML/JSON when
+the design settles.
+
+The tree is curated content (it lives under ``kb/``) but has no schema slot
+yet, so no disorder entry references a class by name.
+
+Grammar
+-------
+Indentation is **exactly two spaces per level**; tabs are rejected. Blank lines
+are ignored. Every other line is classified by its **first non-space
+character**, so a line's kind never depends on invisible spacing:
+
+``# ...``
+    A **comment**, ignored by the parser. The prose notes stay where they are.
+
+``[Disease_Entry] Node name``
+    An **example**: a real pathophysiology node cited as a representative of
+    the enclosing class. The bracketed slug is the ``kb/`` entry; the rest of
+    the line is the node's ``name`` verbatim.
+
+``:key free text value``
+    An **attribute** of the nearest enclosing node (class or example).
+    Repeats accumulate, so a debundle proposal can carry several ``:split``
+    lines.
+
+``= expression``
+    The class's **logical definition** -- a sufficient condition over the
+    ontology-bound slots a node carries, in the small language documented in
+    :mod:`dismech.node_class_definitions`. At most one per class; not allowed
+    on an example.
+
+``CLASS NAME -- optional gloss``
+    Anything else is a **class**. The gloss follows `` -- `` (space, two
+    dashes, space) and is the human-readable definition; a class name may
+    therefore contain single spaces but not that separator.
+
+Class names must be unique among siblings, depth may increase by at most one
+level per line, and an example may carry attributes but not class children.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from dismech.node_class_definitions import Definition, DefinitionError, parse_definition
+
+INDENT = 2
+
+#: ``[Disease_Entry] Node name`` -- a bracketed slug opens an example line.
+EXAMPLE_RE = re.compile(r"^\[(?P<disease>[^\[\]]+)\]\s*(?P<node>.*)$")
+#: ``:key value`` -- key is a single bare word.
+ATTR_RE = re.compile(r"^:(?P<key>[A-Za-z][\w-]*)\s*(?P<value>.*)$")
+#: ``NAME -- gloss`` -- the separator is a spaced double dash.
+GLOSS_SEP = " -- "
+
+
+class ParseError(ValueError):
+    """A node-class file could not be parsed. Carries the offending line."""
+
+    def __init__(self, source: str, line: int, message: str) -> None:
+        super().__init__(f"{source}:{line}: {message}")
+        self.source = source
+        self.line = line
+        self.message = message
+
+
+def _slug(name: str) -> str:
+    """Derive a stable upper-snake identifier from a human class name."""
+    return re.sub(r"[^A-Z0-9]+", "_", name.upper()).strip("_")
+
+
+@dataclass
+class Example:
+    """A real ``(node, disease)`` pair cited under a class."""
+
+    node: str
+    disease: str
+    line: int
+    attributes: dict[str, list[str]] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {"node": self.node, "disease": self.disease}
+        if self.attributes:
+            out["attributes"] = {k: list(v) for k, v in self.attributes.items()}
+        return out
+
+
+@dataclass
+class ClassNode:
+    """One class in the tree, with its sub-classes and cited examples."""
+
+    name: str
+    line: int
+    gloss: str | None = None
+    #: the ``= expression`` line, verbatim; parsed on demand
+    definition: str | None = None
+    children: list[ClassNode] = field(default_factory=list)
+    examples: list[Example] = field(default_factory=list)
+    attributes: dict[str, list[str]] = field(default_factory=dict)
+
+    @property
+    def id(self) -> str:
+        """Upper-snake identifier, the candidate enum/class name."""
+        return _slug(self.name)
+
+    @property
+    def parsed_definition(self) -> Definition | None:
+        return parse_definition(self.definition) if self.definition else None
+
+    def to_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {"id": self.id, "name": self.name}
+        if self.gloss:
+            out["gloss"] = self.gloss
+        if self.definition:
+            out["definition"] = self.definition
+        if self.attributes:
+            out["attributes"] = {k: list(v) for k, v in self.attributes.items()}
+        if self.examples:
+            out["examples"] = [e.to_dict() for e in self.examples]
+        if self.children:
+            out["children"] = [c.to_dict() for c in self.children]
+        return out
+
+
+def _add_attribute(target: ClassNode | Example, key: str, value: str) -> None:
+    target.attributes.setdefault(key, []).append(value)
+
+
+def _close_deeper(last_at_depth: dict[int, ClassNode | Example], depth: int) -> None:
+    """Forget the nodes a new line at ``depth`` has just closed.
+
+    ``last_at_depth`` is what an attribute line consults to find its owner. It
+    must shrink with the class stack: without this, a misindented attribute
+    resolves to a node in an already-closed subtree and attaches there silently,
+    which is the one failure the parser exists to make loud.
+    """
+    for deeper in [d for d in last_at_depth if d > depth]:
+        del last_at_depth[deeper]
+
+
+def parse_text(text: str, *, source: str = "<text>") -> list[ClassNode]:
+    """Parse node-class text into a forest of :class:`ClassNode` roots.
+
+    Raises :class:`ParseError` with a line number on any grammar violation.
+    """
+    roots: list[ClassNode] = []
+    # stack[d] is the class opened at depth d; examples are tracked separately
+    # so an attribute line can attach to whichever was most recently opened.
+    stack: list[ClassNode] = []
+    last_at_depth: dict[int, ClassNode | Example] = {}
+
+    for lineno, raw in enumerate(text.splitlines(), start=1):
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        if "\t" in raw[: len(raw) - len(raw.lstrip())]:
+            raise ParseError(source, lineno, "tab in indentation; use spaces")
+
+        spaces = len(raw) - len(raw.lstrip(" "))
+        if spaces % INDENT:
+            raise ParseError(
+                source, lineno, f"indent {spaces} is not a multiple of {INDENT}"
+            )
+        depth = spaces // INDENT
+        content = raw.strip()
+
+        attr = ATTR_RE.match(content)
+        if attr:
+            owner = last_at_depth.get(depth - 1)
+            if owner is None:
+                raise ParseError(
+                    source, lineno, "attribute line has no enclosing node"
+                )
+            _add_attribute(owner, attr.group("key"), attr.group("value").strip())
+            continue
+
+        if content.startswith("="):
+            owner = last_at_depth.get(depth - 1)
+            if owner is None:
+                raise ParseError(
+                    source, lineno, "definition line has no enclosing class"
+                )
+            if isinstance(owner, Example):
+                raise ParseError(
+                    source, lineno, "a definition belongs to a class, not an example"
+                )
+            if owner.definition is not None:
+                raise ParseError(
+                    source, lineno, f"class {owner.name!r} already has a definition"
+                )
+            expression = content[1:].strip()
+            try:
+                parse_definition(expression)
+            except DefinitionError as exc:
+                raise ParseError(source, lineno, f"bad definition: {exc}") from exc
+            owner.definition = expression
+            continue
+
+        example = EXAMPLE_RE.match(content)
+        if example:
+            # Guarded before the generic depth check so an example with no open
+            # class reports what is actually wrong with it.
+            if depth == 0 or depth > len(stack):
+                raise ParseError(source, lineno, "example outside any class")
+            node_name = example.group("node").strip()
+            if not node_name:
+                raise ParseError(source, lineno, "example line has no node name")
+            parent = stack[depth - 1]
+            ex = Example(
+                node=node_name,
+                disease=example.group("disease").strip(),
+                line=lineno,
+            )
+            parent.examples.append(ex)
+            # An example opens no class scope; drop anything deeper.
+            del stack[depth:]
+            _close_deeper(last_at_depth, depth)
+            last_at_depth[depth] = ex
+            continue
+
+        if depth > len(stack):
+            if not stack:
+                raise ParseError(
+                    source, lineno, "indented line before any class"
+                )
+            raise ParseError(
+                source,
+                lineno,
+                f"indent jumps from depth {len(stack) - 1} to {depth}; "
+                "increase by one level at a time",
+            )
+
+        name, sep, gloss = content.partition(GLOSS_SEP)
+        name = name.strip()
+        gloss = gloss.strip() if sep else None
+        if not name:
+            raise ParseError(source, lineno, "class line has an empty name")
+        if "[" in name and name.endswith("]"):
+            raise ParseError(
+                source, lineno, "example lines start with [Disease_Entry]"
+            )
+
+        node = ClassNode(name=name, line=lineno, gloss=gloss)
+        siblings = roots if depth == 0 else stack[depth - 1].children
+        if any(s.name == node.name for s in siblings):
+            raise ParseError(
+                source, lineno, f"duplicate sibling class name {node.name!r}"
+            )
+        siblings.append(node)
+        del stack[depth:]
+        stack.append(node)
+        _close_deeper(last_at_depth, depth)
+        last_at_depth[depth] = node
+
+    return roots
+
+
+def parse_file(path: str | Path) -> list[ClassNode]:
+    """Parse a node-class file from disk."""
+    p = Path(path)
+    return parse_text(p.read_text(encoding="utf-8"), source=str(p))
+
+
+def iter_classes(
+    roots: list[ClassNode], _trail: tuple[str, ...] = ()
+) -> Iterator[tuple[tuple[str, ...], ClassNode]]:
+    """Yield ``(path, node)`` for every class, depth-first."""
+    for node in roots:
+        trail = _trail + (node.name,)
+        yield trail, node
+        yield from iter_classes(node.children, trail)
+
+
+def iter_examples(roots: list[ClassNode]) -> Iterator[tuple[tuple[str, ...], Example]]:
+    """Yield ``(class path, example)`` for every cited example."""
+    for trail, node in iter_classes(roots):
+        for ex in node.examples:
+            yield trail, ex
+
+
+def to_dict(roots: list[ClassNode]) -> dict[str, Any]:
+    """Serialize the forest to a plain dict, ready for YAML or JSON."""
+    return {"classes": [r.to_dict() for r in roots]}
+
+
+def render_text(roots: list[ClassNode]) -> str:
+    """Render the forest back to the compact text form (round-trips)."""
+    lines: list[str] = []
+
+    def emit_attrs(owner: ClassNode | Example, depth: int) -> None:
+        pad = " " * (INDENT * depth)
+        for key, values in owner.attributes.items():
+            for value in values:
+                lines.append(f"{pad}:{key} {value}".rstrip())
+
+    def walk(node: ClassNode, depth: int) -> None:
+        pad = " " * (INDENT * depth)
+        lines.append(f"{pad}{node.name}{GLOSS_SEP}{node.gloss}" if node.gloss else f"{pad}{node.name}")
+        if node.definition:
+            lines.append(f"{pad}{' ' * INDENT}= {node.definition}")
+        emit_attrs(node, depth + 1)
+        for ex in node.examples:
+            lines.append(f"{pad}{' ' * INDENT}[{ex.disease}] {ex.node}")
+            emit_attrs(ex, depth + 2)
+        for child in node.children:
+            walk(child, depth + 1)
+
+    for root in roots:
+        walk(root, 0)
+        lines.append("")
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def verify_examples(
+    roots: list[ClassNode], kb_dirs: list[Path]
+) -> list[str]:
+    """Check every example resolves to a real pathophysiology node in ``kb/``.
+
+    This is the check that was being run by hand while the tree was drafted: a
+    class tree whose leaves have drifted from the knowledge base is worse than
+    no tree, because it looks grounded. Returns a list of human-readable
+    problems; empty means every example resolved.
+    """
+    from dismech.yaml_io import safe_load
+
+    known: set[tuple[str, str]] = set()
+    diseases: set[str] = set()
+    for kb_dir in kb_dirs:
+        for path in sorted(kb_dir.glob("*.yaml")):
+            diseases.add(path.stem)
+            try:
+                data = safe_load(path.read_text(encoding="utf-8"))
+            except Exception:  # a malformed KB file is not this check's business
+                continue
+            for node in (data or {}).get("pathophysiology") or []:
+                name = node.get("name")
+                if name:
+                    known.add((str(name), path.stem))
+
+    problems: list[str] = []
+    for trail, ex in iter_examples(roots):
+        if (ex.node, ex.disease) in known:
+            continue
+        where = " > ".join(trail)
+        if ex.disease not in diseases:
+            problems.append(
+                f"line {ex.line}: no such entry {ex.disease!r} ({where})"
+            )
+        else:
+            problems.append(
+                f"line {ex.line}: {ex.disease} has no pathophysiology node "
+                f"named {ex.node!r} ({where})"
+            )
+    return problems
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="python -m dismech.node_classes",
+        description="Parse and check the compact pathograph node-class tree.",
+    )
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default="kb/node_classes/pathograph_node_classes.txt",
+        help="node-class text file (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--format",
+        choices=("check", "yaml", "json", "text", "summary"),
+        default="check",
+        help="output format; 'check' parses and reports nothing on success",
+    )
+    parser.add_argument(
+        "--verify-kb",
+        action="store_true",
+        help="also check every example resolves in kb/ (slow: parses the KB)",
+    )
+    parser.add_argument(
+        "--kb-dir",
+        action="append",
+        default=None,
+        help="KB directory to verify against (repeatable; "
+        "default: kb/disorders and kb/modules)",
+    )
+    parser.add_argument(
+        "--check-definitions",
+        action="store_true",
+        help="check every `=` line's CURIE labels against cache/<prefix>/terms.csv "
+        "(offline; a term absent from the cache is reported but not failed)",
+    )
+    parser.add_argument(
+        "--online",
+        action="store_true",
+        help="with --check-definitions: resolve labels from the ontology (OLS) "
+        "instead of the local caches; there an unresolved CURIE is a failure",
+    )
+    parser.add_argument(
+        "--evaluate",
+        action="store_true",
+        help="evaluate every definition against its examples and the whole KB "
+        "(needs the local OAK GO sqlite build for the is_a closure; slow)",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        roots = parse_file(args.path)
+    except ParseError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    problems: list[str] = []
+    if args.check_definitions:
+        from dismech.node_class_definitions import (
+            cache_label_lookup,
+            check_labels,
+            curie_labels,
+            ontology_label_lookup,
+            triage_label_problems,
+        )
+
+        defined = [n.parsed_definition for _, n in iter_classes(roots) if n.definition]
+        lookup = ontology_label_lookup() if args.online else cache_label_lookup()
+        source = "the ontology" if args.online else "the term cache"
+        found = check_labels(curie_labels(d for d in defined if d), lookup)
+        # Offline, an unresolved CURIE is merely unchecked and is reported
+        # without failing. Online the ontology is authoritative, so a CURIE it
+        # does not know is a fabricated term and fails the run.
+        failures, unchecked = triage_label_problems(found, authoritative=args.online)
+        for problem in unchecked:
+            print(f"{args.path}: definition term {problem.render(source)} -- not checked", file=sys.stderr)
+        problems.extend(f"definition term {p.render(source)}" for p in failures)
+        print(f"checked {len(defined)} definitions", file=sys.stderr)
+
+    if args.evaluate:
+        from dismech.node_class_definitions import evaluate_tree, go_ancestors
+
+        kb_dirs = [Path(d) for d in (args.kb_dir or ["kb/disorders", "kb/modules"])]
+        reports = evaluate_tree(roots, kb_dirs, go_ancestors())
+        print(f"{'class':58s} {'ex':>4s} {'hit':>4s} {'recall':>7s} {'kb':>6s}  cross-hits")
+        for r in reports:
+            cross = ", ".join(
+                f"{' > '.join(k[-1:])}={v}" for k, v in sorted(r.cross_hits.items(), key=lambda kv: -kv[1])[:4]
+            )
+            print(
+                f"{' > '.join(r.path)[:58]:58s} {r.examples:4d} {r.examples_matched:4d} "
+                f"{100 * r.recall:6.0f}% {r.kb_matched:6d}  {cross}"
+            )
+        total_ex = sum(r.examples for r in reports)
+        total_hit = sum(r.examples_matched for r in reports)
+        print(
+            f"\n{len(reports)} definitions; {total_hit}/{total_ex} of their own examples "
+            f"satisfied ({100 * total_hit / total_ex if total_ex else 0:.0f}%)",
+            file=sys.stderr,
+        )
+
+    if args.verify_kb:
+        kb_dirs = [Path(d) for d in (args.kb_dir or ["kb/disorders", "kb/modules"])]
+        missing = [d for d in kb_dirs if not d.is_dir()]
+        if missing:
+            print(
+                "error: not a directory: " + ", ".join(str(d) for d in missing),
+                file=sys.stderr,
+            )
+            return 2
+        problems = verify_examples(roots, kb_dirs)
+
+    if args.format == "json":
+        print(json.dumps(to_dict(roots), indent=2))
+    elif args.format == "yaml":
+        import yaml
+
+        print(yaml.safe_dump(to_dict(roots), sort_keys=False, width=100), end="")
+    elif args.format == "text":
+        print(render_text(roots), end="")
+    elif args.format == "summary":
+        classes = list(iter_classes(roots))
+        examples = list(iter_examples(roots))
+        print(f"{len(roots)} top-level classes, {len(classes)} classes total")
+        print(f"{len(examples)} examples across {len({e.disease for _, e in examples})} entries")
+        leaves = [n for _, n in classes if not n.children]
+        defined = [n for _, n in classes if n.definition]
+        print(
+            f"{len(defined)} classes carry a logical definition "
+            f"({sum(1 for n in leaves if n.definition)} of {len(leaves)} leaves)"
+        )
+        for trail, node in classes:
+            if len(trail) == 1:
+                n = sum(1 for t, _ in examples if t[0] == node.name)
+                print(f"  {node.id:30s} {n:4d} examples")
+
+    for problem in problems:
+        print(f"{args.path}: {problem}", file=sys.stderr)
+    if problems:
+        print(f"error: {len(problems)} problems", file=sys.stderr)
+        return 1
+    if args.format == "check":
+        classes = sum(1 for _ in iter_classes(roots))
+        examples = sum(1 for _ in iter_examples(roots))
+        suffix = ", all examples resolved in kb/" if args.verify_kb else ""
+        print(f"ok: {classes} classes, {examples} examples{suffix}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

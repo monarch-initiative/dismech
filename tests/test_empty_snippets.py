@@ -27,7 +27,7 @@ def test_no_empty_non_no_evidence_snippets_in_kb():
     ]
     assert not formatted, (
         "Empty (non-NO_EVIDENCE) evidence snippet(s) detected. An evidence "
-        "item that SUPPORTs/PARTIALly supports/REFUTEs a claim must quote "
+        "item that SUPPORTs or REFUTEs a claim must quote "
         "real text -- quote the real sentence, change `supports` to "
         "NO_EVIDENCE if that is genuinely what happened, or drop the item if "
         "the reference has no quotable text:\n  " + "\n  ".join(formatted)
