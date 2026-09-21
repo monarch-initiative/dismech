@@ -11531,6 +11531,144 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Acute Tricyclic Antidepressant Poisoning",
+    "disease_id": "MONDO:0018547",
+    "category": "Complex",
+    "parents": [
+      "Poisoning"
+    ],
+    "creation_date": "2026-09-20T21:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acute poisoning by a tricyclic antidepressant. One drug class, six receptor, channel and transporter targets, and the reason the syndrome is dangerous is that the targets are hit simultaneously rather than in sequence.\nThe lesion that kills is blockade of the cardiac fast sodium channel. Phase 0 of the ventricular action potential depends on a large, brief sodium current; a tricyclic sitting in that channel slows the upstroke, conduction through the His-Purkinje system and working myocardium slows with it, and the QRS complex on the surface electrocardiogram widens. Slowed, heterogeneous conduction is the substrate for reentrant ventricular arrhythmia, and the same loss of the depolarizing current weakens contraction. So one molecular event produces both the arrhythmia and the pump failure.\nFive further actions run alongside it and none of them is the sodium channel. The hERG potassium channel carries the repolarizing current, and blocking it lengthens the QT interval. Alpha-1 adrenergic blockade on vascular smooth muscle drops systemic vascular resistance, so the failing pump is loaded into a dilated circulation - hypotension in this poisoning is not one lesion but two arriving together. Muscarinic blockade produces the anticholinergic picture: dry mouth, dilated pupils, blurred vision, sinus tachycardia. Blockade of the norepinephrine transporter adds to the tachycardia from the other direction. And central drug accumulation produces drowsiness that deepens into coma - conventionally attributed in part to histamine H1 blockade, though nothing cited here measures that for tricyclics.\nTwo features make the course treacherous rather than merely severe. Circulatory failure generates acidaemia, and acidaemia increases the fraction of drug that is ionized and bound to the sodium channel - so the complications feed the lesion that caused them. And the antidote exploits the same chemistry in reverse: sodium bicarbonate works by raising extracellular sodium and by raising pH, and experimental work separates those two contributions and finds both of them real.",
+    "pathophysiology": [
+      "Systemic Tricyclic Antidepressant Burden",
+      "Cardiac Fast Sodium Channel Blockade",
+      "Slowed His-Purkinje and Myocardial Conduction",
+      "Ventricular Reentrant Arrhythmogenesis",
+      "hERG Potassium Channel Blockade",
+      "Altered Cardiac Action Potential",
+      "Delayed Ventricular Repolarization",
+      "Reduced Myocardial Contractility",
+      "Vascular Alpha-1 Adrenergic Receptor Blockade",
+      "Reduced Systemic Vascular Resistance",
+      "Circulatory Failure",
+      "Systemic Acidaemia",
+      "Muscarinic Acetylcholine Receptor Antagonism",
+      "Anticholinergic Toxidrome",
+      "Neuronal Monoamine Reuptake Inhibition",
+      "Central Nervous System Depression",
+      "Central Neuronal Hyperexcitability"
+    ],
+    "cell_types": [
+      "cardiac Purkinje fiber cell",
+      "ventricular cardiomyocyte",
+      "cardiomyocyte",
+      "vascular smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002068",
+      "CL:2000046",
+      "CL:0000746",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "cardiac conduction",
+      "cardiac muscle cell action potential",
+      "ventricular membrane repolarization",
+      "cardiac muscle contraction",
+      "vascular associated smooth muscle contraction"
+    ],
+    "phenotypes": [
+      "Prolonged QRS complex",
+      "Prolonged QT interval",
+      "Atrioventricular block",
+      "Complete right bundle branch block",
+      "Ventricular tachycardia",
+      "Ventricular fibrillation",
+      "Cardiac arrest",
+      "Hypotension",
+      "Cardiogenic shock",
+      "Sinus tachycardia",
+      "Coma",
+      "Seizure",
+      "Status epilepticus",
+      "Respiratory failure",
+      "Acidosis",
+      "Mydriasis",
+      "Xerostomia",
+      "Blurred vision"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Neurologic",
+      "Respiratory",
+      "Metabolic",
+      "Ophthalmologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0006677",
+      "HP:0001657",
+      "HP:0001678",
+      "HP:0011712",
+      "HP:0004756",
+      "HP:0001663",
+      "HP:0001695",
+      "HP:0002615",
+      "HP:0030149",
+      "HP:0011703",
+      "HP:0001259",
+      "HP:0001250",
+      "HP:0002133",
+      "HP:0002878",
+      "HP:0001941",
+      "HP:0011499",
+      "HP:0000217",
+      "HP:0000622"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CYP2D6",
+      "CYP2C19"
+    ],
+    "treatments": [
+      "Sodium Bicarbonate",
+      "Hypertonic Saline",
+      "Activated Charcoal",
+      "Benzodiazepine Anticonvulsant Therapy",
+      "Intravenous Fluid Resuscitation",
+      "Vasopressor Support",
+      "Lidocaine",
+      "Intravenous Lipid Emulsion",
+      "Veno-Arterial Extracorporeal Membrane Oxygenation",
+      "Mechanical Ventilation",
+      "Physostigmine"
+    ],
+    "environmental": [
+      "Ingestion of a tricyclic antidepressant in overdose"
+    ],
+    "biochemical": [],
+    "source_file": "Acute_Tricyclic_Antidepressant_Poisoning.yaml",
+    "page_url": "../pages/disorders/Acute_Tricyclic_Antidepressant_Poisoning.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 17,
+    "num_genes": 2,
+    "num_treatments": 11,
+    "causal_graph_edges": "56",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Adamantinoma",
     "disease_id": "MONDO:0002422",
     "category": "Cancer",
@@ -21890,6 +22028,9 @@ window.searchData = [
     ],
     "phenotypes": [
       "Psychosis",
+      "Catatonia",
+      "Mutism",
+      "Abnormal posturing",
       "Seizure",
       "Dyskinesia",
       "Memory Impairment",
@@ -21902,6 +22043,8 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Psychiatric",
+      "Behavioral",
+      "Motor",
       "Neurologic",
       "Respiratory"
     ],
@@ -21911,6 +22054,8 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0000709",
+      "HP:0002300",
+      "HP:0002533",
       "HP:0001250",
       "HP:0100660",
       "HP:0002354",
@@ -21948,12 +22093,12 @@ window.searchData = [
     ],
     "source_file": "Anti-NMDA_Receptor_Encephalitis.yaml",
     "page_url": "../pages/disorders/Anti-NMDA_Receptor_Encephalitis.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 13,
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 7,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Antiphospholipid Syndrome",
@@ -31160,7 +31305,26 @@ window.searchData = [
     ],
     "creation_date": "2026-07-31T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "MRD22",
+      "MRD41",
+      "MRD43",
+      "MRD45",
+      "MRD46",
+      "MRD47",
+      "MRD49",
+      "MRD50",
+      "MRD51",
+      "MRD53",
+      "MRD54",
+      "MRD55",
+      "MRD56",
+      "MRD57",
+      "MRD58",
+      "MRD59",
+      "MRD60",
+      "MRD73"
+    ],
     "description": "Autosomal dominant non-syndromic intellectual disability (AD-NSID; the OMIM \"mental retardation, autosomal dominant\" / MRD series) is a genetically extremely heterogeneous class of intellectual disability in which significantly impaired intellectual functioning and adaptive behaviour occur in the absence of a consistent pattern of associated dysmorphic, malformative, metabolic, or neuroimaging features that would define a clinically recognisable syndrome. Almost all affected individuals are simplex cases: the causal lesion is typically a heterozygous de novo loss-of-function variant that halves the dose of a strongly constraint-intolerant neurodevelopmental gene, so autosomal dominance is inferred from the monoallelic, fully penetrant lesion rather than observed as vertical family transmission (reduced reproductive fitness makes multigenerational pedigrees rare). The class was essentially invisible to linkage mapping and was defined only after parent-offspring trio exome sequencing became feasible, beginning with the \"de novo paradigm\" studies of 2010-2012 and continuing through the Deciphering Developmental Disorders study and its successors. Causal genes converge on a small number of biological modules - synaptic transmission and plasticity, chromatin and transcriptional regulation, and cytoskeletal/signalling control of neuronal morphogenesis - with SYNGAP1 (MRD5) the paradigmatic example. The syndromic/non-syndromic boundary is unstable: deeper phenotyping repeatedly reclassifies \"non-syndromic\" gene-disease pairs as syndromic, which has led to the proposal (see `mechanistic_hypotheses`) that AD-NSID is at least partly an ascertainment category defined by the current absence of a recognised phenotypic gestalt rather than a mechanistically distinct entity. A competing, not mutually exclusive model holds that a subset of causal genes is genuinely brain-restricted in expression and therefore produces isolated cognitive impairment; the boundary question remains open.",
     "pathophysiology": [
       "De Novo Heterozygous Variant in a Constraint-Intolerant Neurodevelopmental Gene",
@@ -31241,7 +31405,8 @@ window.searchData = [
       "TRIO",
       "CAMK2A",
       "DLG4",
-      "KMT5B"
+      "KMT5B",
+      "DPP6"
     ],
     "treatments": [
       "Genetic Counselling and Recurrence-Risk Assessment",
@@ -31256,9 +31421,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Autosomal_Dominant_Non-Syndromic_Intellectual_Disability.html",
     "num_phenotypes": 7,
     "num_pathophysiology": 9,
-    "num_genes": 10,
+    "num_genes": 11,
     "num_treatments": 5,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "6"
   },
   {
@@ -76314,7 +76479,8 @@ window.searchData = [
     "creation_date": "2026-03-15T23:04:34Z",
     "updated_date": null,
     "subtypes": [
-      "CSS4"
+      "CSS4",
+      "CSS6"
     ],
     "description": "Coffin-Siris syndrome is a genetically heterogeneous autosomal dominant neurodevelopmental disorder caused by pathogenic variants in genes encoding subunits of the BAF/SWI-SNF chromatin remodeling complex. Core manifestations include developmental delay or intellectual disability, coarse facial features, hypoplasia or aplasia of the fifth digit nails or distal phalanges, hypotonia, feeding difficulties, hypertrichosis, sparse scalp hair, short stature, and additional congenital anomalies including cardiac, renal, and brain malformations. Epilepsy and hearing impairment are frequent complications.",
     "pathophysiology": [
@@ -101352,6 +101518,102 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Dilated Cardiomyopathy 1W",
+    "disease_id": "MONDO:0012667",
+    "category": "Genetic",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-09-04T02:26:58Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 1W (CMD1W) is the VCL-related member of the numbered familial dilated cardiomyopathy series. VCL encodes vinculin and its muscle-specific splice isoform metavinculin, the mechanosensitive adaptor that anchors filamentous actin to the cadherin-based adherens junctions of the intercalated disc and to the integrin-based costameres of the sarcolemma. The lesion in CMD1W is therefore one of force *transmission*, not force *generation*: where the sarcomeric entries in this series (CMD1S/MYH7, CMD1E/TNNT2) perturb the motor that makes force, CMD1W perturbs the junctional machinery that carries that force between myocytes and out to the matrix. That distinction is mechanistically load-bearing and is why the entry exists separately from its sarcomeric siblings.\nTwo allelic classes are curated separately because their mechanisms differ. The founding alleles p.Arg975Trp and p.Leu954del lie in the metavinculin-specific exon, are absent from 500 controls, and qualitatively alter metavinculin-mediated actin cross-linking in vitro; the single patient examined ultrastructurally had grossly abnormal intercalated discs. Predicted loss-of-function (pLOF) alleles are a different proposition: they affect both the vinculin and the metavinculin transcripts, are strongly enriched in dilated cardiomyopathy referrals (OR 9.01), skew heavily toward infantile and pediatric onset, and yet do not segregate as a highly penetrant dominant trait. The largest aggregate study concludes that heterozygous VCL loss of function alone is insufficient to cause cardiomyopathy and that these alleles behave as moderate-penetrance risk alleles requiring an additional genetic or environmental contribution. ClinGen's Dilated Cardiomyopathy Gene Curation Expert Panel nonetheless classifies the VCL-dilated cardiomyopathy relationship as Strong with autosomal dominant inheritance, so gene-disease validity and allele-level penetrance are two separate judgements and are curated as such here.\nThe clinically distinctive feature is the infantile presentation with severe systolic failure that frequently reverses: in the only genotype-defined series, six infants presented at a median age of 2 months with a median ejection fraction of 24%, and five of six normalized ventricular function on an ACE inhibitor and a beta-blocker. That makes CMD1W a candidate genetic basis for heart failure with recovered ejection fraction, on a six-patient sample.",
+    "pathophysiology": [
+      "Metavinculin Tail Variant Altering Actin Cross-Linking",
+      "VCL Predicted Loss-of-Function Allele",
+      "Additional Genetic or Environmental Stressor",
+      "Impaired Vinculin-Actin Coupling at Cardiomyocyte Adhesion Complexes",
+      "Intercalated Disc and Costamere Destabilization",
+      "Connexin 43 Lateralization and Conduction Slowing",
+      "Ventricular Arrhythmia and Conduction Disease",
+      "Defective Force Transmission Across the Intercalated Disc",
+      "Ventricular Dilation and Systolic Dysfunction",
+      "Heart Failure with Reduced Ejection Fraction",
+      "Reverse Remodeling with Recovered Ejection Fraction"
+    ],
+    "cell_types": [
+      "Cardiomyocyte",
+      "Cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "Actin filament bundle assembly",
+      "Cell adhesion at the intercalated disc and costamere",
+      "Electrical coupling in cardiac conduction",
+      "Cardiac muscle cell contraction",
+      "Heart contraction"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Reduced left ventricular ejection fraction",
+      "Congestive Heart Failure",
+      "Feeding difficulties",
+      "Left ventricular noncompaction",
+      "Left ventricular hypertrophy",
+      "Bradycardia and Heart Block",
+      "Supraventricular Tachycardia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0012664",
+      "HP:0001635",
+      "HP:0011968",
+      "HP:0030682",
+      "HP:0001712",
+      "HP:0001678",
+      "HP:0004755"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "VCL",
+      "MYBPC3"
+    ],
+    "treatments": [
+      "Heart Failure Pharmacotherapy",
+      "Implantable Cardioverter-Defibrillator",
+      "Cardiac Resynchronization Therapy",
+      "Ventricular Assist Device Support",
+      "Heart Transplantation",
+      "Genetic Counseling and Family Screening"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1W.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1W.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 11,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Dilated Cardiomyopathy 1X",
@@ -174066,6 +174328,8 @@ window.searchData = [
     "description": "Kaposi sarcoma (KS) is a vascular neoplasm caused by Human Herpesvirus 8 (HHV-8), also known as Kaposi sarcoma-associated herpesvirus (KSHV). The tumor arises from infected endothelial cells that acquire a spindle cell morphology. Four clinical variants exist: classic (Mediterranean), endemic (African), iatrogenic (transplant-associated), and epidemic (AIDS-associated). HHV-8 viral oncoproteins including vGPCR, vFLIP, vCyclin, and LANA drive oncogenesis through activation of NF-kappaB, PI3K-AKT, and MAPK signaling pathways. The disease is characterized by multifocal red-purple vascular lesions of skin and viscera.",
     "pathophysiology": [
       "HHV-8 Latent Infection of Endothelial Cells",
+      "Immunosuppression-Mediated Loss of CD8+ T-Cell Control of HHV-8",
+      "HHV-8 Lytic Reactivation in Endothelial Cells",
       "vFLIP-Mediated NF-kappaB Activation",
       "vCyclin-Mediated Cell Cycle Dysregulation",
       "vGPCR-Mediated Angiogenic Signaling",
@@ -174074,13 +174338,19 @@ window.searchData = [
       "Angiogenic Proliferation"
     ],
     "cell_types": [
-      "endothelial cell"
+      "endothelial cell",
+      "CD8-positive T cell",
+      "natural killer cell"
     ],
     "cell_type_ids": [
-      "CL:0000115"
+      "CL:0000115",
+      "CL:0000625",
+      "CL:0000623"
     ],
     "biological_processes": [
       "viral transcription",
+      "negative regulation of viral genome replication",
+      "release from viral latency",
       "positive regulation of NF-kappaB transcription factor activity",
       "G1/S transition of mitotic cell cycle",
       "signal transduction",
@@ -174138,11 +174408,11 @@ window.searchData = [
     "source_file": "Kaposi_Sarcoma.yaml",
     "page_url": "../pages/disorders/Kaposi_Sarcoma.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Karyomegalic Interstitial Nephritis",
@@ -301270,7 +301540,9 @@ window.searchData = [
     ],
     "description": "Treacher Collins syndrome (TCS) is a genetically heterogeneous congenital craniofacial disorder characterized by bilateral and symmetric hypoplasia of the zygomatic bones, maxilla, and mandible, with malar flattening, micrognathia, downslanted palpebral fissures, lower-eyelid abnormalities, external and middle ear anomalies, and conductive hearing loss. Most TCS is autosomal dominant, while biallelic POLR1C or, rarely, POLR1D variants cause autosomal recessive disease. Pathogenic variants in TCOF1, POLR1B, POLR1C, or POLR1D disturb nucleolar function and ribosome biogenesis, activating p53-dependent apoptosis and depleting cranial neural crest cells during embryogenesis. Published prevalence estimates range from approximately 1 in 50,000 to 1 in 80,000, and intellect is typically normal.",
     "pathophysiology": [
-      "Impaired Ribosome Biogenesis in Neural Crest Cells",
+      "Impaired Ribosome Biogenesis",
+      "Tissue-Selective Vulnerability of Neuroepithelium and Neural Crest",
+      "Nucleolar Stress and RPL5/RPL11 Sequestration of MDM2",
       "TCOF1-Associated Oxidative DNA Damage",
       "p53-Dependent Neuroepithelial Apoptosis",
       "Cranial Neural Crest Cell Deficiency",
@@ -301288,6 +301560,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "Ribosome biogenesis",
+      "signal transduction by p53 class mediator",
       "Cellular response to oxidative stress",
       "Apoptotic process",
       "Intrinsic apoptotic signaling by p53 class mediator",
@@ -301377,11 +301650,11 @@ window.searchData = [
     "source_file": "Treacher_Collins_Syndrome.yaml",
     "page_url": "../pages/disorders/Treacher_Collins_Syndrome.html",
     "num_phenotypes": 17,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 10,
-    "causal_graph_edges": "35",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Trehalase Deficiency",
@@ -318058,17 +318331,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3048,
-  "total_subtypes": 3803,
-  "total_disorders_and_subtypes": 6851,
-  "total_unique_evidence_sources": 43673,
-  "total_unique_publications": 41217,
+  "total_disorder_pages": 3050,
+  "total_subtypes": 3822,
+  "total_disorders_and_subtypes": 6872,
+  "total_unique_evidence_sources": 43744,
+  "total_unique_publications": 41274,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3043,
-  "total_unique_pathological_events": 18666,
+  "total_pathographs": 3045,
+  "total_unique_pathological_events": 18693,
   "total_modules": 177,
-  "total_research_reports": 3162,
+  "total_research_reports": 3164,
   "total_classifications": 20,
   "total_comorbidities": 46,
   "total_groupings": 102
