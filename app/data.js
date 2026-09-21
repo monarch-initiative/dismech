@@ -10293,22 +10293,27 @@ window.searchData = [
     "creation_date": "2026-09-02T15:30:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Acute ackee fruit intoxication, long known as Jamaican vomiting sickness, follows eating the unripe fruit of Blighia sapida. The toxin is hypoglycin A, and it is harmless until the body activates it: metabolism converts it to methylenecyclopropylacetyl-CoA, which is a suicide substrate for acyl-CoA dehydrogenases. It binds the enzyme's flavin covalently and does not let go. Fatty acid beta-oxidation stops, so a fasting patient cannot make ketones or spare glucose, and the hypoglycaemia that follows is profound and unresponsive to the usual counter-regulation. The interest of this entry is that the resulting biochemistry is not merely similar to an inborn error - it is the same biochemistry. The urine of a poisoned patient carries the dicarboxylic acids of a fatty acid oxidation defect at up to a thousand times normal, and the acylcarnitine profile is read as multiple acyl-CoA dehydrogenase deficiency. One disease is inherited and one is eaten, and downstream of the enzyme there is nothing to tell them apart.",
+    "description": "Acute ackee fruit intoxication is an acquired foodborne poisoning associated with hypoglycin A in unripe or improperly processed Blighia sapida fruit and toxic seeds. Bioactivation produces MCPA-CoA, which inhibits selected mitochondrial acyl-CoA dehydrogenases. Impaired fatty-acid oxidation, ketogenesis and hepatic glucose production can cause profound hypoglycemia and neurological deterioration. Vomiting is common, but hypoglycemia and vomiting are not obligatory in every reported case. Human urinary organic-acid findings and comparative animal experiments support the metabolic mechanism; they do not make human poisoning diagnostically indistinguishable from inherited fatty-acid oxidation disorders. Management is prompt glucose correction and supportive care, with prevention through safe harvesting and processing.",
     "pathophysiology": [
       "Hypoglycin A Ingestion",
-      "Metabolic Activation to MCPA-CoA",
-      "Acyl-CoA Dehydrogenase Suicide Inactivation",
+      "Hypoglycin A Transamination",
+      "MCPA-CoA Formation",
+      "Selective Acyl-CoA Dehydrogenase Inactivation",
       "Impaired Fatty Acid Beta-Oxidation",
-      "Failure of Ketogenesis and Gluconeogenesis",
-      "Profound Hypoglycemia and Acute Metabolic Decompensation",
-      "Acute Encephalopathy and Death"
+      "Reduced Hepatic Acetyl-CoA",
+      "Reduced Hepatic ATP Availability",
+      "Reduced Hepatic Pyruvate Carboxylase Flux",
+      "Reduced Hepatic Glucose Production",
+      "Reduced Ketogenesis",
+      "Neuroglycopenia",
+      "Hepatocellular Injury"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
       "fatty acid beta-oxidation",
-      "ketone body biosynthetic process",
-      "gluconeogenesis"
+      "gluconeogenesis",
+      "ketone body biosynthetic process"
     ],
     "phenotypes": [
       "Hypoglycemia",
@@ -10316,12 +10321,22 @@ window.searchData = [
       "Encephalopathy",
       "Seizure",
       "Coma",
-      "Hypothermia"
+      "Hypothermia",
+      "Abdominal pain",
+      "Diarrhea",
+      "Muscle weakness",
+      "Hypotonia",
+      "Dehydration",
+      "Metabolic acidosis",
+      "Elevated hepatic transaminase",
+      "Acute liver failure"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Constitutional",
       "Digestive",
       "Metabolism",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -10330,30 +10345,44 @@ window.searchData = [
       "HP:0001298",
       "HP:0001250",
       "HP:0001259",
-      "HP:0002045"
+      "HP:0002045",
+      "HP:0002027",
+      "HP:0002014",
+      "HP:0001324",
+      "HP:0001252",
+      "HP:0001944",
+      "HP:0001942",
+      "HP:0002910",
+      "HP:0006554"
     ],
     "frequencies": [],
     "genes": [],
     "treatments": [
-      "Dextrose and supportive care"
+      "Dextrose correction and glucose monitoring",
+      "Fluid, electrolyte and gastrointestinal support",
+      "Seizure management",
+      "Hospital observation and critical care",
+      "Toxicology consultation",
+      "Safe harvesting, preparation and exposure prevention"
     ],
     "environmental": [
-      "Ingestion of unripe ackee arillus"
+      "Ingestion of toxic ackee material"
     ],
     "biochemical": [
       "Urinary dicarboxylic acids",
       "Urinary short-chain fatty acids",
-      "Acylcarnitine profile",
-      "MCPA-carnitine"
+      "Urinary MCPA after hydrolysis",
+      "Hypoglycin A in gastric contents",
+      "Hypoglycin A and methylenecyclopropylglycine exposure assays"
     ],
     "source_file": "Acute_Ackee_Fruit_Intoxication.yaml",
     "page_url": "../pages/disorders/Acute_Ackee_Fruit_Intoxication.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 12,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "8"
+    "num_treatments": 6,
+    "causal_graph_edges": "47",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Acute Alcohol Sensitivity",
@@ -13279,35 +13308,28 @@ window.searchData = [
     "creation_date": "2026-08-19T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Adult-onset ataxia and polyneuropathy (OMIM 500010) is a maternally inherited mitochondrial disorder defined by a kindred carrying the heteroplasmic m.8993T>C variant of MT-ATP6, in which slowly progressive cerebellar ataxia and axonal sensorimotor polyneuropathy begin in adult life. The same nucleotide-8993 substitution more commonly causes infantile or childhood disease (maternally inherited Leigh syndrome, NARP), so this entity marks the mild, late-onset end of a heteroplasmy- and modifier-dependent MT-ATP6 spectrum rather than a distinct molecular lesion. Because standard adult mitochondrial screening (cytochrome c oxidase muscle histochemistry, respiratory-chain enzymology) is typically normal in MT-ATP6 disease, affected adults are readily misclassified as undiagnosed spinocerebellar ataxia or Charcot-Marie-Tooth disease unless mtDNA is sequenced. Other MT-ATP6 variants (m.9035T>C, m.9185T>C) produce clinically indistinguishable adult-onset ataxia with variable pyramidal and peripheral-nerve involvement.",
+    "description": "Adult-onset ataxia and polyneuropathy (OMIM 500010) is a maternally inherited mitochondrial disorder anchored on a Finnish kindred with heteroplasmic MT-ATP6 m.8993T>C. Two of three examined adult siblings had slowly progressive overt ataxia and all three had axonal sensorimotor neuropathy; cerebellar and sensory dysfunction both contributed to the ataxia. Related m.9035T>C and m.9185T>C disorders can have similar adult presentations, with variable pyramidal signs. Adult onset can occur despite high mutant loads. Normal routine muscle histochemistry, respiratory-chain enzymology or MRI does not exclude an MT-ATP6 disorder. NARP and Leigh syndrome are overlapping presentations of the same broader mitochondrial spectrum, with different defining clinical patterns.",
     "pathophysiology": [
       "MT-ATP6 m.8993T>C Variant",
+      "Heteroplasmy-Dependent Expression",
       "Impaired ATP Synthase Function",
-      "Heteroplasmy Load Above the Phenotypic Threshold",
-      "Neuronal Energy Deficit and Oxidative Stress",
-      "Distal Axonal Degeneration of Peripheral Nerves",
-      "Cerebellar Degeneration",
-      "Adult-Onset Ataxia with Axonal Polyneuropathy"
+      "Cellular ATP Depletion",
+      "Reactive Oxygen Species Overproduction",
+      "Peripheral Axonal Dysfunction",
+      "Cerebellar Dysfunction"
     ],
     "cell_types": [
-      "neuron",
       "sensory neuron",
-      "Purkinje cell"
+      "neuron"
     ],
     "cell_type_ids": [
-      "CL:0000540",
       "CL:0000101",
-      "CL:0000121"
+      "CL:0000540"
     ],
     "biological_processes": [
       "proton motive force-driven ATP synthesis",
-      "oxidative phosphorylation",
       "reactive oxygen species metabolic process",
-      "response to oxidative stress",
-      "mitochondrion organization",
-      "axonal transport",
-      "transmission of nerve impulse",
-      "nervous system process"
+      "response to oxidative stress"
     ],
     "phenotypes": [
       "Progressive Cerebellar Ataxia",
@@ -13315,17 +13337,28 @@ window.searchData = [
       "Peripheral Axonal Neuropathy",
       "Sensorimotor Neuropathy",
       "Cerebellar Atrophy",
-      "Pyramidal Dysfunction",
+      "Babinski Sign",
       "Episodic Ataxia",
       "Transient Hemiparesis",
-      "Ophthalmoplegia"
+      "Ophthalmoplegia",
+      "Dysarthria",
+      "Gaze-Evoked Nystagmus",
+      "Absent Achilles Reflex",
+      "Reduced Lower-Limb Vibration Sensation",
+      "Pes Cavus",
+      "Muscle Weakness",
+      "Skeletal Muscle Atrophy",
+      "Atonic Seizure"
     ],
     "phenotype_categories": [
       "Neurological",
-      "Neuroimaging"
+      "Neuroimaging",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
       "Eye",
+      "Limbs",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -13337,13 +13370,17 @@ window.searchData = [
       "HP:0003487",
       "HP:0002131",
       "HP:0001269",
-      "HP:0000602"
+      "HP:0000602",
+      "HP:0001260",
+      "HP:0000640",
+      "HP:0003438",
+      "HP:0002166",
+      "HP:0001761",
+      "HP:0001324",
+      "HP:0003202",
+      "HP:0010819"
     ],
-    "frequencies": [
-      "OBLIGATE",
-      "OCCASIONAL",
-      "VERY_RARE"
-    ],
+    "frequencies": [],
     "genes": [
       "MT-ATP6"
     ],
@@ -13351,7 +13388,8 @@ window.searchData = [
       "Supportive and Symptomatic Management",
       "Physical and Occupational Therapy",
       "Avoidance of Mitochondrial Toxins",
-      "Genetic Counseling and Reproductive Options"
+      "Genetic Counseling and Reproductive Options",
+      "Neurological and Visual Surveillance"
     ],
     "environmental": [],
     "biochemical": [
@@ -13360,11 +13398,11 @@ window.searchData = [
     ],
     "source_file": "Adult-Onset_Ataxia_and_Polyneuropathy.yaml",
     "page_url": "../pages/disorders/Adult-Onset_Ataxia_and_Polyneuropathy.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 17,
     "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "11",
+    "num_treatments": 5,
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "5"
   },
   {
@@ -13494,33 +13532,41 @@ window.searchData = [
       "LOMG",
       "VLOMG"
     ],
-    "description": "Adult-onset myasthenia gravis is acquired autoimmune myasthenia gravis whose symptoms begin after puberty. It shares the postsynaptic neuromuscular-junction effector mechanism of myasthenia gravis generally \u2014 autoantibody binding, complement-mediated damage to the endplate, and fatigable weakness \u2014 but is defined by an additional axis that the serotype axis does not capture: age at onset. Early-onset disease (EOMG, conventionally onset before 50 years) is female-predominant and is driven by a hyperplastic thymus that behaves as a tertiary lymphoid organ, with ectopic germinal centres, intrathymic acetylcholine-receptor antigen presentation, and a very strong HLA-B*08/DRB1*03 class I-anchored susceptibility signal. Late-onset disease (LOMG, onset at or after 50 years, with a very-late-onset tier beyond 65 years) is male-predominant, arises against an atrophic involuted thymus, carries striational (anti-titin and anti-ryanodine-receptor) autoantibodies, and has an HLA architecture that is weaker and in places directionally opposite to EOMG. LOMG incidence has risen substantially in ageing populations while EOMG incidence has stayed flat, and the thymectomy evidence base is restricted to the adult non-thymomatous population.",
+    "description": "Adult-onset myasthenia gravis is acquired autoimmune disease beginning in adulthood, with fluctuating, fatigable skeletal-muscle weakness caused by impaired postsynaptic neuromuscular transmission. Onset-age groups overlap with antibody-defined and thymic subgroups. Early-onset AChR-positive disease often has thymic follicular hyperplasia, whereas late-onset disease more often accompanies an involuted thymus and striational antibodies. These are population patterns, not obligatory features or established distinct initiating mechanisms. AChR antibodies can activate complement, accelerate receptor loss, or interfere with receptor function; predominantly IgG4 MuSK antibodies impair receptor-clustering signals through a different mechanism. Treatment depends on antibody status, clinical activity, thymic pathology, comorbidity, and age.",
     "pathophysiology": [
-      "Age-at-Onset Stratification of Myasthenia Gravis",
-      "Thymic Follicular Hyperplasia and Ectopic Germinal Centre Formation",
-      "Late-Onset Autoimmunity Against an Involuted Thymus",
-      "Striational Autoantibody Response",
-      "Onset-Age-Stratified Immunogenetic Susceptibility",
-      "Autoantibody-Mediated Neuromuscular Junction Failure"
+      "Thymic Chemokine Overexpression",
+      "Thymic Lymphocyte Recruitment",
+      "Ectopic Thymic Germinal Center Formation",
+      "Thymoma-Associated Loss of Immune Tolerance",
+      "AChR Autoantibody Production",
+      "AChR Autoantibody Binding",
+      "Complement Activation at the Endplate",
+      "Postsynaptic Membrane Injury",
+      "AChR Crosslinking",
+      "Accelerated AChR Internalization",
+      "Reduced Surface AChR Availability",
+      "AChR Functional Blockade",
+      "MuSK Autoantibody Binding",
+      "Impaired LRP4-MuSK Interaction",
+      "Reduced Agrin-Stimulated MuSK Phosphorylation",
+      "Impaired Postsynaptic AChR Clustering",
+      "Reduced Endplate Potential Safety Margin",
+      "Impaired Neuromuscular Transmission"
     ],
     "cell_types": [
-      "Thymic Epithelial Cell",
-      "Germinal Centre B Cell",
-      "T Follicular Helper Cell",
-      "Skeletal Muscle Cell"
+      "B cell",
+      "plasma cell"
     ],
     "cell_type_ids": [
-      "CL:0002293",
-      "CL:0000844",
-      "CL:0002038",
-      "CL:0000188"
+      "CL:0000236",
+      "CL:0000786"
     ],
     "biological_processes": [
-      "Ectopic Germinal Centre Formation",
-      "Positive Regulation of Immunoglobulin Production",
-      "Age-Related Thymic Involution",
-      "Neuromuscular Synaptic Transmission",
-      "Complement Activation"
+      "germinal center formation",
+      "immunoglobulin production",
+      "complement activation",
+      "endocytosis",
+      "neuromuscular synaptic transmission"
     ],
     "phenotypes": [
       "Fatigable Muscle Weakness",
@@ -13530,7 +13576,9 @@ window.searchData = [
       "Dysphagia",
       "Dysarthria",
       "Generalized Muscle Weakness",
+      "Neck Muscle Weakness",
       "Myasthenic Crisis",
+      "Fatigue",
       "Thymic Follicular Hyperplasia",
       "Thymoma"
     ],
@@ -13539,10 +13587,12 @@ window.searchData = [
       "Ocular",
       "Bulbar",
       "Respiratory",
+      "Constitutional",
       "Thymic"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Constitutional",
       "Digestive",
       "Endocrine",
       "Eye",
@@ -13559,7 +13609,9 @@ window.searchData = [
       "HP:0002015",
       "HP:0001260",
       "HP:0003324",
+      "HP:0000467",
       "HP:0002878",
+      "HP:0012378",
       "HP:0010516",
       "HP:0100522"
     ],
@@ -13571,27 +13623,55 @@ window.searchData = [
       "TNIP1",
       "PTPN22",
       "TNFRSF11A",
-      "ZBTB10"
+      "ZBTB10",
+      "CHRNA1",
+      "CTLA4",
+      "TBX18",
+      "AGRN"
     ],
     "treatments": [
-      "Thymectomy",
-      "Corticosteroid and Azathioprine Immunosuppression",
-      "Pyridostigmine"
+      "Pyridostigmine",
+      "Corticosteroids",
+      "Azathioprine",
+      "Cyclosporine",
+      "Mycophenolate Mofetil",
+      "Tacrolimus",
+      "Methotrexate",
+      "Thymectomy for Nonthymomatous AChR-Positive Generalized MG",
+      "Thymoma-Directed Treatment",
+      "Rituximab",
+      "Eculizumab",
+      "Ravulizumab",
+      "Zilucoplan",
+      "Efgartigimod",
+      "Rozanolixizumab",
+      "Nipocalimab",
+      "Inebilizumab",
+      "Intravenous Immunoglobulin",
+      "Plasma Exchange or Immunoadsorption",
+      "Crisis Monitoring and Respiratory Support",
+      "Ocular Symptom Support",
+      "Vaccination and Infection-Risk Management",
+      "Clinical and Treatment-Toxicity Monitoring",
+      "Fatigue Management and Rehabilitation",
+      "Pregnancy and Reproductive Counseling",
+      "Medication and Exacerbation Education"
     ],
     "environmental": [],
     "biochemical": [
       "Anti-Acetylcholine Receptor Antibody",
       "Anti-Titin Antibody",
-      "Anti-Ryanodine Receptor Antibody"
+      "Anti-Ryanodine Receptor Antibody",
+      "Anti-MuSK Antibody"
     ],
     "source_file": "Adult-Onset_Myasthenia_Gravis.yaml",
     "page_url": "../pages/disorders/Adult-Onset_Myasthenia_Gravis.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 6,
-    "num_genes": 7,
-    "num_treatments": 3,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "2"
+    "num_phenotypes": 12,
+    "num_pathophysiology": 18,
+    "num_genes": 11,
+    "num_treatments": 26,
+    "causal_graph_edges": "64",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Adult-Onset Proximal Spinal Muscular Atrophy, Autosomal Dominant",
@@ -13823,13 +13903,18 @@ window.searchData = [
     "creation_date": "2026-09-04T02:40:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Adult-type hypolactasia, also called lactase non-persistence, is the ancestral human state in which intestinal lactase-phlorizin hydrolase activity declines after weaning. It is not caused by a coding lesion in LCT: the causal variants lie in an enhancer within an intron of the neighbouring MCM6 gene, roughly 14 kb upstream of LCT, where the C allele at C/T-13910 (and independently derived alleles elsewhere, notably in Africa) fails to sustain LCT transcription into adulthood. Lactase activity falls rather than disappears, so the phenotype is dose-dependent: ingested lactose that escapes hydrolysis is retained in the small-bowel lumen as an osmotically active solute, draws in water, and is then fermented by colonic bacteria to short-chain fatty acids and gas, producing bloating, flatulence, abdominal pain and diarrhoea. Lactase non-persistence is the majority state worldwide, reported at 57-65% of adults, so this is the global norm and lactase persistence is the derived, selected trait. Malabsorption is necessary but not sufficient for symptoms: in a randomised double-blind trial, adults who described themselves as severely intolerant had negligible symptoms on 240 mL of milk daily. Management is therefore dose reduction or enzyme replacement rather than complete dairy avoidance.",
+    "description": "Adult-type hypolactasia, or lactase non-persistence, is the common ancestral pattern of declining intestinal lactase activity after early childhood. Regulatory variation at the LCT-MCM6 locus contributes to whether lactase expression persists into adulthood, with different persistence-associated alleles in different populations. It is distinct from congenital LCT coding-variant deficiency and acquired mucosal injury. Reduced enzyme activity can allow ingested lactose to reach the colon, where osmotic effects and microbial fermentation may cause diarrhea, flatulence, bloating and pain. Lactase deficiency, lactose malabsorption and symptomatic lactose intolerance are related but distinct: many non-persistent individuals tolerate ordinary dietary amounts. Care is guided by symptoms, dietary tolerance and nutritional adequacy.",
     "pathophysiology": [
-      "Failure to Sustain LCT Transcription After Weaning",
+      "LCT-MCM6 Regulatory Haplotypes",
+      "Genotype-Associated Regulatory DNA Modification",
+      "Reduced Enterocyte LCT Transcription",
       "Declining Intestinal Lactase Activity",
-      "Unhydrolysed Lactose Retained in the Small-Bowel Lumen",
-      "Osmotic Water Influx and Luminal Distension",
-      "Colonic Microbial Fermentation of Lactose"
+      "Unhydrolysed Lactose Retained in the Intestinal Lumen",
+      "Increased Intestinal Luminal Water",
+      "Colonic Microbial Fermentation of Lactose",
+      "Increased Intestinal Gas Production",
+      "Intestinal Luminal Distension",
+      "Increased Visceral Sensitivity"
     ],
     "cell_types": [
       "enterocyte"
@@ -13838,19 +13923,20 @@ window.searchData = [
       "CL:0000584"
     ],
     "biological_processes": [
-      "regulation of LCT transcription by RNA polymerase II",
-      "carbohydrate metabolic process",
-      "water transport into the intestinal lumen",
-      "lactose catabolic process by colonic microbiota"
+      "LCT transcriptional regulation",
+      "microbial lactose catabolism"
     ],
     "phenotypes": [
       "Diarrhea",
       "Flatulence",
       "Abdominal Pain",
-      "Abdominal Distension"
+      "Abdominal Distension",
+      "Nausea",
+      "Vomiting",
+      "Borborygmi"
     ],
     "phenotype_categories": [
-      "Phenotypic"
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
       "Constitutional",
@@ -13860,34 +13946,38 @@ window.searchData = [
       "HP:0002014",
       "HP:0033589",
       "HP:0002027",
-      "HP:0003270"
+      "HP:0003270",
+      "HP:0002018",
+      "HP:0002013",
+      "HP:0030143"
     ],
-    "frequencies": [
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
-      "MCM6 regulatory variant (lactase non-persistence allele)",
-      "African and Middle Eastern lactase-persistence alleles",
-      "LCT (the regulated gene)"
+      "MCM6 intronic regulatory haplotypes",
+      "Regionally distributed lactase-persistence variants",
+      "LCT, the regulated lactase gene"
     ],
     "treatments": [
-      "Lactose Restriction",
-      "Exogenous Lactase Supplementation"
+      "Individualized lactose reduction",
+      "Exogenous lactase supplementation",
+      "Dietetic and nutritional support",
+      "Investigational strain-specific probiotic supplementation"
     ],
     "environmental": [
       "Dietary lactose ingestion"
     ],
     "biochemical": [
-      "Breath hydrogen excretion after an oral lactose load"
+      "Breath hydrogen after lactose challenge",
+      "Intestinal regulatory-region DNA modification"
     ],
     "source_file": "Adult-Type_Hypolactasia.yaml",
     "page_url": "../pages/disorders/Adult-Type_Hypolactasia.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 10,
     "num_genes": 3,
-    "num_treatments": 2,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 4,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Adult Granulosa Cell Tumor of Ovary",
@@ -17025,13 +17115,11 @@ window.searchData = [
     "creation_date": "2026-08-26T09:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Alopecia-intellectual disability syndrome 1 (APMR1; OMIM #203650) is a very rare autosomal recessive neuroectodermal syndrome combining total or partial absence of hair from the scalp and other body sites with variable intellectual disability. The APMR1 locus was mapped by genome-wide linkage to chromosome 3q26.33-q27.3 in a large consanguineous Pakistani kindred, and a homozygous AHSG missense variant (NM_001622:c.950G>A, p.Arg317His) segregating in a large consanguineous family with seven affected members subsequently identified AHSG \u2014 alpha-2-HS-glycoprotein, the gene encoding the plasma glycoprotein fetuin-A \u2014 as the causal gene. AHSG maps to 3q27.3, inside the original linkage interval.\nThe mechanism connecting fetuin-A to hair and brain development is not established. Fetuin-A's best-characterised roles \u2014 systemic inhibition of ectopic calcification and antagonism of TGF-beta/BMP family signalling \u2014 do not obviously predict this phenotype, and the Ahsg-null mouse is reported as phenotypically normal apart from ectopic calcification on a mineralising diet. This entry therefore models the proximal molecular lesion as established and the route from it to alopecia and intellectual disability as an explicitly hypothetical TGF-beta-antagonism model, flagged with a HUMAN_MODEL_MISMATCH discussion.\nAPMR1 is one of four numbered forms in the alopecia-intellectual disability syndrome (APMR) series (MONDO:0008756). Only two are molecularly characterised \u2014 APMR1 (AHSG, 3q27.3) and APMR4 (LSS, 21q22.3, curated at kb/disorders/Alopecia-Intellectual_Disability_Syndrome_4.yaml) \u2014 while the APMR2 (3q26.2-q26.31) and APMR3 (18q11.2-q12.2) loci remain uncharacterised. Because the numbered forms are separate diseases with different genes on different chromosomes rather than a single-gene severity spectrum, the series is modelled as a Grouping (kb/groupings/Alopecia-Intellectual_Disability_Syndromes.yaml) over the member Disease entries, NOT as one umbrella Disease with has_subtypes.\n",
+    "description": "Alopecia-intellectual disability syndrome 1 (APMR1) is a rare autosomal recessive neurocutaneous condition combining total or partial scalp and body hair loss with intellectual disability. The original Pakistani linkage family had congenital generalized alopecia and severe intellectual disability; a later Iranian family with seven affected relatives carried homozygous AHSG p.Arg317His. The historical linkage family was not molecularly resolved in its report, so its complete phenotype is not automatically an AHSG-specific spectrum.\nAHSG encodes fetuin-A. The reported variant segregates with the phenotype and is associated with altered protein migration, but its biochemical effect and the routes to hair loss and intellectual disability remain unresolved. TGF-beta antagonism and keratinocyte migration are candidate explanations drawn from experiments outside APMR1. The numbered APMR forms are genetically heterogeneous: AHSG is associated with APMR1, LSS with APMR4, and APMR2 and APMR3 denote separate linkage loci. An APMR1-specific population prevalence has not been established.",
     "pathophysiology": [
       "Biallelic AHSG Missense Variant",
-      "Aberrant Fetuin-A Protein Processing",
       "Reduced Fetuin-A TGF-beta Antagonism",
-      "Premature Hair Follicle Catagen Entry",
-      "Impaired Neocortical Development"
+      "Premature Hair Follicle Catagen Entry"
     ],
     "cell_types": [
       "hair follicle cell"
@@ -17040,9 +17128,7 @@ window.searchData = [
       "CL:0002559"
     ],
     "biological_processes": [
-      "negative regulation of transforming growth factor beta receptor signaling pathway",
-      "hair follicle development",
-      "cerebral cortex development"
+      "negative regulation of transforming growth factor beta receptor signaling pathway"
     ],
     "phenotypes": [
       "Alopecia of Scalp",
@@ -17068,26 +17154,28 @@ window.searchData = [
       "HP:0002555",
       "HP:0001249"
     ],
-    "frequencies": [
-      "OBLIGATE"
-    ],
+    "frequencies": [],
     "genes": [
       "AHSG"
     ],
     "treatments": [
-      "Supportive and Developmental Care",
-      "Genetic Counseling"
+      "Individualized developmental and educational support",
+      "Genetic counseling",
+      "Scalp and eye protection for hair loss",
+      "Family support and individualized behavioral care"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Altered fetuin-A electrophoretic migration"
+    ],
     "source_file": "Alopecia-Intellectual_Disability_Syndrome_1.yaml",
     "page_url": "../pages/disorders/Alopecia-Intellectual_Disability_Syndrome_1.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Alopecia-Intellectual Disability Syndrome 4",
@@ -17274,7 +17362,7 @@ window.searchData = [
   {
     "name": "Alpers-Huttenlocher Syndrome",
     "disease_id": "MONDO:0008758",
-    "category": "Complex",
+    "category": "Genetic",
     "parents": [
       "Epilepsy",
       "Mitochondrial Disease",
@@ -17283,54 +17371,66 @@ window.searchData = [
     "creation_date": "2026-08-05T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A severe childhood mitochondrial disease that kills a brain and a liver at the same time, from the same lesion. The gene is POLG, which encodes the only polymerase the mitochondrion has for copying its own small genome; when both copies fail, mitochondrial DNA is not replaced as it turns over, and the tissues that need the most mitochondria run out first. Clinically that shows up as a triad: a toddler or young child who had been developing normally starts losing skills, develops seizures that will not stop and often become epilepsia partialis continua, and then the liver fails. The epileptiform activity has an odd and consistent preference for the occipital region, which nobody has explained. And there is a trap built into the disease: sodium valproate, one of the drugs a neurologist would naturally reach for in intractable seizures, can precipitate fatal liver failure in these children at any stage of the illness. That is why this entry treats a drug as part of the pathophysiology rather than only as a treatment.",
+    "description": "Alpers-Huttenlocher syndrome is a severe POLG-related mitochondrial encephalopathy characterized by progressive loss of developmental or cognitive abilities, epilepsy that commonly becomes drug resistant, and variable hepatic disease. Biallelic pathogenic POLG variants impair mitochondrial DNA maintenance, leading to tissue-dependent mitochondrial dysfunction and neurodegeneration. Onset is usually in early childhood, but later presentation occurs; preceding development and the timing of liver involvement vary. Valproate can precipitate or accelerate life-threatening liver failure and is contraindicated in POLG-related disease.",
     "pathophysiology": [
-      "Biallelic Loss of DNA Polymerase Gamma Function",
-      "Failure of Mitochondrial DNA Replication",
-      "Tissue Mitochondrial DNA Depletion",
-      "Respiratory Chain Deficiency and Cellular Energy Failure",
-      "Selective Interneuron and Pyramidal Neuron Loss in Occipital Cortex",
-      "Intractable Focal Epilepsy and Epilepsia Partialis Continua",
-      "Progressive Developmental Regression",
-      "Hepatocellular Dysfunction and Failure",
-      "Valproate-Precipitated Fulminant Hepatic Failure"
+      "Biallelic Pathogenic POLG Variation",
+      "Reduced DNA Polymerase Gamma Function",
+      "Impaired Mitochondrial DNA Replication",
+      "Mitochondrial DNA Depletion",
+      "Respiratory Chain Deficiency",
+      "Reduced Cellular ATP Availability",
+      "Increased Mitochondrial Oxidative Stress",
+      "Cortical Neuronal Loss",
+      "Reduced Cortical Inhibition",
+      "Recurrent Seizure Activity",
+      "Purkinje Cell Loss",
+      "Hepatocellular Injury",
+      "Valproate-Associated Hepatocellular Injury",
+      "Impaired Polymerase Gamma Holoenzyme Assembly",
+      "Increased Degradation of Unprotected POLG",
+      "Reduced POLG Protein Abundance"
     ],
     "cell_types": [
-      "hepatocyte",
-      "neuron",
-      "inhibitory interneuron",
-      "GABAergic neuron",
-      "Purkinje cell"
+      "Purkinje cell",
+      "hepatocyte"
     ],
     "cell_type_ids": [
-      "CL:0000182",
-      "CL:0000540",
-      "CL:0000099",
-      "CL:0000617",
-      "CL:0000121"
+      "CL:0000121",
+      "CL:0000182"
     ],
     "biological_processes": [
       "mitochondrial DNA replication",
-      "mitochondrial ATP synthesis coupled electron transport"
+      "response to oxidative stress"
     ],
     "phenotypes": [
-      "Intractable Focal Seizures",
+      "Focal Seizures",
       "Status Epilepticus",
-      "Failure to Thrive",
       "Epilepsia Partialis Continua",
       "Developmental Regression",
-      "Hepatic Failure",
+      "Neurodevelopmental Delay",
       "Hypotonia",
+      "Hepatic Failure",
+      "Failure to Thrive",
       "Ataxia",
-      "Global Developmental Delay"
+      "Spasticity",
+      "Cortical visual impairment",
+      "Peripheral Neuropathy",
+      "Nystagmus",
+      "Feeding Difficulties",
+      "Dysphagia",
+      "Vomiting",
+      "Headache"
     ],
     "phenotype_categories": [
       "Neurological",
+      "Hepatic",
       "Growth",
-      "Hepatic"
+      "Ophthalmological",
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
       "Digestive",
+      "Eye",
       "Growth",
       "Musculoskeletal",
       "Nervous System"
@@ -17338,40 +17438,68 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0007359",
       "HP:0002133",
-      "HP:0001508",
       "HP:0012847",
       "HP:0002376",
-      "HP:0001399",
+      "HP:0012758",
       "HP:0001252",
+      "HP:0001399",
+      "HP:0001508",
       "HP:0001251",
-      "HP:0001263"
+      "HP:0001257",
+      "HP:0100704",
+      "HP:0009830",
+      "HP:0000639",
+      "HP:0011968",
+      "HP:0002015",
+      "HP:0002013",
+      "HP:0002315"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "VERY_FREQUENT"
     ],
     "genes": [
       "POLG"
     ],
     "treatments": [
-      "Avoidance of Sodium Valproate",
-      "Liver Enzyme Surveillance",
-      "POLG Genotyping Before Valproate Exposure",
-      "Non-Valproate Antiseizure Therapy and Supportive Care"
+      "Avoidance of Valproate and Divalproex",
+      "Rapid Molecular Evaluation When POLG Disease Is Suspected",
+      "Individualized Non-Valproate Antiseizure Therapy",
+      "Emergency Status Epilepticus Management",
+      "Careful Management of Refractory EPC",
+      "Selected Adjuncts for Refractory Epilepsy",
+      "Hepatic and Metabolic Monitoring",
+      "Support for Hepatic Decompensation",
+      "Liver Transplantation Assessment",
+      "Feeding, Swallowing and Nutritional Support",
+      "Rehabilitation and Communication Support",
+      "Spasticity and Movement-Disorder Management",
+      "Respiratory and Sleep Support",
+      "Vision and Hearing Care",
+      "Intercurrent-Illness Planning",
+      "Selective Cofactor Supplementation",
+      "Palliative, Family and Care Coordination Support",
+      "Genetic Counseling and Family Testing",
+      "Nicotinamide Riboside: Preclinical Investigation",
+      "Vatiquinone: Investigational Evidence",
+      "Deoxycytidine and Deoxythymidine: Clinical Investigation"
     ],
-    "environmental": [],
+    "environmental": [
+      "Valproate exposure"
+    ],
     "biochemical": [
       "Blood and cerebrospinal fluid lactate",
-      "Hepatic aminotransferases"
+      "Hepatic synthetic and metabolic dysfunction",
+      "Elevated cerebrospinal fluid protein"
     ],
     "source_file": "Alpers-Huttenlocher_Syndrome.yaml",
     "page_url": "../pages/disorders/Alpers-Huttenlocher_Syndrome.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 17,
+    "num_pathophysiology": 16,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "7"
+    "num_treatments": 21,
+    "causal_graph_edges": "64",
+    "causal_graph_longest_path": "13"
   },
   {
     "name": "Alpha-gal Syndrome",
@@ -45942,6 +46070,112 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 0,
     "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Bleeding Disorder of Unknown Cause",
+    "disease_id": "MONDO:0002243",
+    "category": "Hematologic Disease",
+    "parents": [
+      "Hemorrhagic disease",
+      "Mild-to-moderate bleeding disorder"
+    ],
+    "creation_date": "2026-08-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bleeding disorder of unknown cause (BDUC) is the diagnosis assigned to a patient with an objectively increased mucocutaneous bleeding tendency in whom a rigorous hemostatic work-up returns entirely normal results. It is defined by exclusion rather than by a positive finding: von Willebrand disease, platelet function defects, coagulation factor deficiencies, and non-hemostatic causes of bleeding must all have been ruled out. It is not a rare curiosity \u2014 it is the single most frequent outcome of referral for a mild-to-moderate bleeding tendency, accounting for roughly half to three-quarters of such referrals, and the bleeding phenotype is as severe as in patients who do receive a named diagnosis. Up to 80% of cohorts are women, in whom heavy menstrual bleeding, iron deficiency, and postpartum hemorrhage dominate the clinical picture.\nThis entry is curated deliberately as a mechanism-gap entry. There is no canonical pathophysiological chain for BDUC. What exists instead is a set of competing, individually under-powered candidate mechanisms \u2014 subclinical platelet dysfunction below the detection threshold of light transmission aggregometry, impaired thrombin generation, excess of natural anticoagulants such as free TFPI-alpha and activated protein C, altered fibrinolytic balance, and altered fibrin clot architecture \u2014 each supported by case-control cohort data, none established as causal, and several mutually inconsistent in the direction of their reported effect. The pathograph below models these as parallel arms converging on a shared final common node rather than forcing one to be primary, and the disagreements are recorded explicitly as `mechanistic_hypotheses` and `discussions` rather than silently averaged away.\n",
+    "pathophysiology": [
+      "Hemostatic Defect Below the Detection Threshold of Routine Testing",
+      "Occult Platelet Function and Secretion Defect",
+      "Impaired Thrombin Generation",
+      "Natural Anticoagulant Excess",
+      "Altered Fibrinolytic Balance",
+      "Altered Fibrin Clot Architecture",
+      "Impaired Hemostatic Plug Formation and Clot Stability",
+      "Mucocutaneous and Post-Challenge Bleeding",
+      "Chronic Blood Loss and Iron Depletion",
+      "Impaired Health-Related Quality of Life"
+    ],
+    "cell_types": [
+      "platelet",
+      "erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000233",
+      "CL:0000232"
+    ],
+    "biological_processes": [
+      "hemostasis",
+      "platelet activation",
+      "platelet degranulation",
+      "blood coagulation",
+      "negative regulation of blood coagulation",
+      "fibrinolysis",
+      "blood coagulation, fibrin clot formation"
+    ],
+    "phenotypes": [
+      "Increased Mucocutaneous Bleeding Tendency",
+      "Heavy Menstrual Bleeding",
+      "Epistaxis",
+      "Easy Bruising and Spontaneous Hematoma",
+      "Oral and Gingival Bleeding",
+      "Prolonged Bleeding After Surgery",
+      "Prolonged Bleeding After Dental Extraction",
+      "Postpartum Hemorrhage",
+      "Iron Deficiency Anemia",
+      "Joint Bleeding"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001892",
+      "HP:0000132",
+      "HP:0000421",
+      "HP:0000978",
+      "HP:0000225",
+      "HP:0004846",
+      "HP:0006298",
+      "HP:0011891",
+      "HP:0001891",
+      "HP:0005261"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Tranexamic Acid",
+      "Desmopressin (DDAVP)",
+      "Levonorgestrel 52-mg Intrauterine System",
+      "Platelet Transfusion and Recombinant Factor VIIa for Major Bleeding",
+      "Periprocedural and Peripartum Hemostatic Prophylaxis"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Thrombin Generation (Endogenous Thrombin Potential)",
+      "Free Tissue Factor Pathway Inhibitor Alpha",
+      "Activated Protein C Antigen",
+      "Plasma Clot Lysis Time",
+      "Plasmin Generation (Peak Plasmin)"
+    ],
+    "source_file": "Bleeding_Disorder_of_Unknown_Cause.yaml",
+    "page_url": "../pages/disorders/Bleeding_Disorder_of_Unknown_Cause.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "5"
   },
   {
@@ -253622,6 +253856,135 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Prolidase Deficiency",
+    "disease_id": "MONDO:0008221",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Metabolism",
+      "Inborn Error of Immunity"
+    ],
+    "creation_date": "2026-08-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Prolidase deficiency is a rare autosomal recessive inborn error of peptide metabolism caused by biallelic loss-of-function variants in PEPD, which encodes prolidase (peptidase D), the only human enzyme able to hydrolyse imidodipeptides bearing a C-terminal proline or hydroxyproline. Prolidase catalyses the terminal, rate-limiting step of collagen catabolism, so its loss simultaneously (i) blocks clearance of the imidodipeptides released from collagen turnover, producing the massive imidodipeptiduria that is the disorder's biochemical signature, and (ii) interrupts recycling of proline back into collagen and other proline-rich proteins, degrading extracellular-matrix remodelling and wound healing. The clinical picture is protean rather than organ-limited: recalcitrant lower-limb skin ulceration and other dermatological lesions, characteristic facial dysmorphism, developmental delay or intellectual disability, splenomegaly, recurrent respiratory infection with chronic lung disease, cytopenias, and a striking burden of immune dysregulation (elevated IgE, hypocomplementemia, a systemic-lupus-erythematosus-like phenotype, Crohn disease, and hemophagocytic lymphohistiocytosis) that has led to the disorder being classified as an inborn error of immunity as well as of metabolism. Symptoms usually begin in early childhood but are nonspecific at onset, and ulcers appear later (median 12 years), so diagnosis is characteristically delayed by more than a decade. There is no correlation between residual enzyme activity or accumulated dipeptide levels and clinical severity, and the mechanistic route from the enzyme block to the immunological and neurodevelopmental features remains unresolved.\n",
+    "pathophysiology": [
+      "PEPD Prolidase Catalytic Deficiency",
+      "Imidodipeptide Accumulation and Imidodipeptiduria",
+      "Impaired Proline Recycling for Collagen Resynthesis",
+      "Defective Matrix Remodeling and Wound Healing",
+      "Chronic Cutaneous Ulceration",
+      "Spontaneous T Cell Activation and Loss of Self-Tolerance",
+      "Enhanced Inflammasome Activation",
+      "Systemic Autoimmunity",
+      "Impaired Host Defense and Recurrent Infection"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "collagen catabolic process",
+      "L-proline metabolic process",
+      "collagen biosynthetic process",
+      "extracellular matrix organization",
+      "wound healing",
+      "T cell activation",
+      "positive regulation of interleukin-1 beta production"
+    ],
+    "phenotypes": [
+      "Abnormal facial shape",
+      "Recurrent respiratory infections",
+      "Anemia",
+      "Splenomegaly",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Telangiectasia",
+      "Skin rash",
+      "Increased circulating IgE concentration",
+      "Skin ulcer",
+      "Eczematoid dermatitis",
+      "Thrombocytopenia",
+      "Hepatomegaly",
+      "Failure to thrive",
+      "Reduced circulating complement concentration",
+      "Cutaneous photosensitivity",
+      "Systemic lupus erythematosus",
+      "Autoimmunity",
+      "Hemophagocytosis",
+      "Bronchiectasis",
+      "Short stature",
+      "Microcephaly",
+      "Osteopenia",
+      "Genu valgum"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001999",
+      "HP:0002205",
+      "HP:0001903",
+      "HP:0001744",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001009",
+      "HP:0000988",
+      "HP:0003212",
+      "HP:0200042",
+      "HP:0000964",
+      "HP:0001873",
+      "HP:0002240",
+      "HP:0001508",
+      "HP:0004431",
+      "HP:0000992",
+      "HP:0002725",
+      "HP:0002960",
+      "HP:0012156",
+      "HP:0002110",
+      "HP:0004322",
+      "HP:0000252",
+      "HP:0000938",
+      "HP:0002857"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PEPD"
+    ],
+    "treatments": [
+      "Topical glycine-proline ointment for recalcitrant ulcers",
+      "Rituximab for refractory autoimmune manifestations",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Urinary imidodipeptides (imidodipeptiduria)",
+      "Erythrocyte and fibroblast prolidase activity"
+    ],
+    "source_file": "Prolidase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Prolidase_Deficiency.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Proliferative Vitreoretinopathy",
     "disease_id": "MONDO:0700115",
     "category": "Acquired",
@@ -319328,15 +319691,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3056,
+  "total_disorder_pages": 3058,
   "total_subtypes": 3824,
-  "total_disorders_and_subtypes": 6880,
-  "total_unique_evidence_sources": 43876,
-  "total_unique_publications": 41391,
-  "total_unique_disease_categories": 59,
+  "total_disorders_and_subtypes": 6882,
+  "total_unique_evidence_sources": 43991,
+  "total_unique_publications": 41478,
+  "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3051,
-  "total_unique_pathological_events": 18790,
+  "total_pathographs": 3053,
+  "total_unique_pathological_events": 18828,
   "total_modules": 177,
   "total_research_reports": 3169,
   "total_classifications": 20,
