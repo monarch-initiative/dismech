@@ -4,13 +4,12 @@ Run from the repository root:
   uv run python docs/reports/senescent-cell-representation/scan_kb.py
 """
 
-from collections import Counter
 import json
-from pathlib import Path
 import subprocess
+from collections import Counter
+from pathlib import Path
 
 from dismech.kb_cache import default_off, load_document
-
 
 ROOT = Path(__file__).resolve().parents[3]
 TERMS = {"GO:0090398", "GO:0090399", "GO:0090400", "GO:0090402", "GO:0090403"}

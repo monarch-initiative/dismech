@@ -8,16 +8,15 @@ checks structural expressibility and graph targets, not biological truth or
 ontology/reference validity (run the separate recipes recorded in the note).
 """
 
-from copy import deepcopy
 import json
-from pathlib import Path
 import subprocess
 import tempfile
+from copy import deepcopy
+from pathlib import Path
 
 import yaml
 
 from dismech.graph import build_causal_graph
-
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
