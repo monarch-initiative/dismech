@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1016/j.mib.2023.102421
+extractor_version: 1
 title: The intersection between host–pathogen interactions and metabolism during Vibrio cholerae infection
 authors:
 - Sedelia R Dominguez
@@ -9,7 +10,8 @@ journal: Current Opinion in Microbiology
 year: '2024'
 doi: 10.1016/j.mib.2023.102421
 content_type: unavailable
-full_text_attempted: true
+is_preprint: false
+full_text_declined: landing_page_only
 ---
 
 # The intersection between host–pathogen interactions and metabolism during Vibrio cholerae infection
