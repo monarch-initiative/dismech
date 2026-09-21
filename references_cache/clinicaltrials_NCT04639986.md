@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04639986"
+reference_id: clinicaltrials:NCT04639986
 title: "A Phase 3 Asian Study of Sacituzumab Govitecan (IMMU-132) Versus Treatment of Physician's Choice (TPC) in Subjects With Hormonal Receptor-positive (HR+)/Human Epidermal Growth Factor Receptor 2 Negative (HER2-) Metastatic Breast Cancer (MBC) Who Have Failed at Least 2 Prior Chemotherapy Regimens"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 3 Asian Study of Sacituzumab Govitecan (IMMU-132) Versus Treatment of Physician's Choice (TPC) in Subjects With Hormonal Receptor-positive (HR+)/Human Epidermal Growth Factor Receptor 2 Negative (HER2-) Metastatic Breast Cancer (MBC) Who Have Failed at Least 2 Prior Chemotherapy Regimens

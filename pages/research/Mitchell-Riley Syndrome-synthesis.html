@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cross-provider synthesis: Mitchell-Riley Syndrome</title>
+    <style>
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+        :root {
+            --gray-100: #f5f6f8;
+            --gray-200: #e7e9ee;
+            --gray-300: #d5d8e0;
+            --gray-600: #5b6270;
+            --gray-800: #23262e;
+            --ink: #1a1c22;
+            --concordant: #1f8a4c;
+            --concordant-bg: #e6f5ec;
+            --partial: #b8860b;
+            --partial-bg: #fbf1d6;
+            --contradictory: #c0392b;
+            --contradictory-bg: #fbe5e2;
+            --silent: #6b7280;
+            --silent-bg: #eef0f3;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--ink);
+            background: #fff;
+            line-height: 1.5;
+        }
+        main { max-width: 1040px; margin: 0 auto; padding: 32px 20px 80px; }
+        a { color: #1a5fb4; }
+        .crumbs { font-size: 0.85rem; margin-bottom: 18px; color: var(--gray-600); }
+        h1 { font-size: 1.7rem; margin: 0 0 6px; }
+        .subtitle { color: var(--gray-600); margin: 0 0 18px; font-size: 0.95rem; }
+        .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.85rem; color: var(--gray-600); margin-bottom: 24px; }
+        .providers { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+        .provider-chip {
+            border: 1px solid var(--gray-300); border-radius: 999px;
+            padding: 4px 12px; font-size: 0.82rem; background: var(--gray-100);
+        }
+        .provider-chip b { font-weight: 600; }
+        h2 { font-size: 1.15rem; margin: 34px 0 12px; border-bottom: 1px solid var(--gray-200); padding-bottom: 6px; }
+        .finding {
+            border: 1px solid var(--gray-200); border-radius: 10px;
+            padding: 16px 18px; margin-bottom: 16px; background: #fff;
+        }
+        .finding-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 6px; }
+        .finding-statement { font-weight: 600; font-size: 1.02rem; margin: 0; flex: 1 1 320px; }
+        .pill { border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+        .section-tag {
+            display: inline-block; background: var(--gray-100); border: 1px solid var(--gray-200);
+            border-radius: 6px; padding: 1px 7px; font-size: 0.72rem; color: var(--gray-600); margin: 2px 4px 2px 0;
+        }
+        .tags { margin: 4px 0 12px; }
+        .consensus-unanimous { background: var(--concordant-bg); color: var(--concordant); }
+        .consensus-majority { background: var(--partial-bg); color: var(--partial); }
+        .consensus-single { background: var(--silent-bg); color: var(--silent); }
+        .consensus-conflict { background: var(--contradictory-bg); color: var(--contradictory); }
+        .status { background: var(--gray-100); border: 1px solid var(--gray-200); color: var(--gray-600); }
+        table.support { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        table.support th, table.support td {
+            text-align: left; vertical-align: top; padding: 8px 10px; font-size: 0.86rem;
+            border-top: 1px solid var(--gray-200);
+        }
+        table.support th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--gray-600); }
+        .stance { font-weight: 600; }
+        .stance-concordant { color: var(--concordant); }
+        .stance-partial { color: var(--partial); }
+        .stance-contradictory { color: var(--contradictory); }
+        .stance-silent { color: var(--silent); }
+        tr.row-concordant td:first-child { border-left: 3px solid var(--concordant); }
+        tr.row-partial td:first-child { border-left: 3px solid var(--partial); }
+        tr.row-contradictory td:first-child { border-left: 3px solid var(--contradictory); }
+        tr.row-silent td:first-child { border-left: 3px solid var(--silent); }
+        .quote { color: var(--gray-800); font-style: italic; }
+        .quote::before { content: "\201C"; }
+        .quote::after { content: "\201D"; }
+        .expl { color: var(--gray-600); margin-top: 4px; font-size: 0.82rem; }
+        .cites { margin-top: 4px; font-size: 0.76rem; color: var(--gray-600); }
+        .narrative p { margin: 0 0 10px; }
+        .narrative h3 { font-size: 0.95rem; margin: 16px 0 4px; }
+        .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.78rem; color: var(--gray-600); margin-bottom: 20px; }
+        .legend .stance { margin-right: 4px; }
+        .notes { font-size: 0.85rem; color: var(--gray-600); border-top: 1px solid var(--gray-200); margin-top: 28px; padding-top: 14px; }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+<main>
+    <div class="crumbs">
+        <a href="index.html">← Research index</a>
+        &nbsp;·&nbsp; <a href="../disorders/Mitchell-Riley_Syndrome.html">Disorder page</a>
+        &nbsp;·&nbsp; <a href="https://github.com/monarch-initiative/dismech/blob/main/research/Mitchell-Riley_Syndrome-research-synthesis.yaml">Source YAML</a>
+    </div>
+
+    <h1>Cross-provider research synthesis</h1>
+    <p class="subtitle">Mitchell-Riley Syndrome</p>
+
+    <div class="meta">
+        <span><a href="http://purl.obolibrary.org/obo/MONDO_0017400">MONDO:0017400</a></span>
+        <span>Curated 2026-08-16T20:10:00Z</span>
+        <span>11 harmonized findings</span>
+    </div>
+
+    <div class="providers">
+        
+        <span class="provider-chip"><b>claude_code</b> · 26 citations</span>
+        
+        <span class="provider-chip"><b>asta</b> · 19 citations</span>
+        
+        <span class="provider-chip"><b>falcon</b> ·  citations</span>
+        
+    </div>
+
+    <div class="legend">
+        <span><span class="stance stance-concordant">Concordant</span> asserts the finding</span>
+        <span><span class="stance stance-partial">Partial</span> supports a weaker/qualified form</span>
+        <span><span class="stance stance-contradictory">Contradictory</span> conflicts with it</span>
+        <span><span class="stance stance-silent">Silent</span> does not address it</span>
+    </div>
+
+    <h2>Harmonized findings</h2>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Mitchell-Riley syndrome is an ultra-rare autosomal recessive multisystem disorder of endoderm-derived organ development, caused by biallelic loss-of-function variants in RFX6.</p>
+            <span class="pill consensus-single">SINGLE</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">pathophysiology</span><span class="section-tag">genetic_factor</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>97%</td>
+                    <td>
+                        <span class="quote">is an ultra-rare, autosomal recessive multisystem disorder of endoderm-derived organ development</span>
+                        <div class="expl">The report&#39;s framing matches the curated description. Promoted to the disorder YAML anchored to PMID:26264437 and PMID:27523286 rather than to the report.</div>
+                        <div class="cites">PMID:20148032, PMID:26264437</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">RFX6 is required at the primitive gut tube stage for anteroposterior endoderm patterning, which is why the structural malformations are restricted to posterior foregut and mid-hindgut derivatives.</p>
+            <span class="pill consensus-single">SINGLE</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">pathophysiology</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-partial">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-partial">PARTIAL</span></td>
+                    <td>70%</td>
+                    <td>
+                        <span class="quote">RFX6 loss disrupts duodenal identity specification</span>
+                        <div class="expl">The report identifies the primitive-gut-tube patterning defect as the earliest step and places RFX6 upstream of PDX1, which is concordant. It attributes this to unnamed bioRxiv/organoid studies and a Development paper it does not identify by PMID, and it does not mention CDX2 or the sparing of SOX2/anterior foregut. The curated node was therefore built from PMID:38239755, which supplies the PDX1-and-CDX2-but-not-SOX2 result that actually explains the regional restriction. Scored PARTIAL because the report reaches a compatible conclusion from weaker and less specific support.</div>
+                        
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        <div class="expl">The report&#39;s &#34;upstream of PDX1&#34; phrasing and PMID:38239755&#39;s ParaHox result agree in direction. The curated entry deliberately states the in-vitro, putative-motif character of the binding evidence, which the report asserts more strongly than its sources do.</div>
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">RFX6 acts downstream of NEUROG3 to direct differentiation of all major islet endocrine cell types except pancreatic-polypeptide cells; loss causes retention of NEUROG3/SOX9 progenitor markers with increased apoptosis.</p>
+            <span class="pill consensus-unanimous">UNANIMOUS</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">pathophysiology</span><span class="section-tag">gene_function</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>95%</td>
+                    <td>
+                        <span class="quote">Downstream of NEUROG3, RFX6 is required to direct differentiation of</span>
+                        <div class="expl">Correct and well sourced to Smith et al. 2010. The companion citation attached to this same claim carried the off-by-one PMID recorded under identifier_issues; the claim itself is independently supported by PMID:20148032 and by the human stem-cell data in PMID:38743124.</div>
+                        <div class="cites">PMID:20148032</div>
+                    </td>
+                </tr>
+                
+                <tr class="row-concordant">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>90%</td>
+                    <td>
+                        <span class="quote">loss of Rfx6 causes upregulation of precursor markers (NEUROG3, SOX9) with increased apoptosis</span>
+                        <div class="expl">The progenitor-retention-plus-apoptosis detail is stated for the mouse in the report; PMID:38743124 establishes the same result in human stem-cell-derived islets, which is the form curated.</div>
+                        <div class="cites">PMID:38743124</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Patient-derived iPSCs differentiate normally to definitive endoderm and primitive gut tube but fail to generate pancreatic endoderm efficiently.</p>
+            <span class="pill consensus-single">SINGLE</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">pathophysiology</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>92%</td>
+                    <td>
+                        <span class="quote">Patient iPSC-derived cells generate definitive endoderm and primitive gut tube normally, but</span>
+                        <div class="expl">Accurate, but the report marks the supporting Development 2020 paper &#34;PMID pending verification&#34;. That paper was located independently as PMID:33033118 (Trott et al.), fetched, and used as the evidence anchor.</div>
+                        <div class="cites">PMID:33033118</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Beyond development, RFX6 maintains mature beta-cell identity by transactivating the insulin gene and L-type calcium channel genes; patient missense alleles R181W and V506G fail to transactivate both.</p>
+            <span class="pill consensus-single">SINGLE</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">pathophysiology</span><span class="section-tag">gene_function</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>93%</td>
+                    <td>
+                        <span class="quote">Functional testing of patient missense alleles (R181W, V506G) confirmed failure of insulin-promoter transactivation</span>
+                        <div class="expl">Correct and matches PMID:35813646 and PMID:25497100. The Piccand maintenance citation in the same passage carried the wrong journal name (recorded under identifier_issues); the underlying paper, PMID:25497096, is the one curated.</div>
+                        <div class="cites">PMID:25497100, PMID:25497096, PMID:35813646</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">RFX6 drives peptidergic enteroendocrine differentiation while repressing the serotonin-producing enterochromaffin program, and its loss produces congenital GLP-1 deficiency that is proposed as the mechanism of the protracted diarrhea.</p>
+            <span class="pill consensus-single">SINGLE</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">pathophysiology</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>94%</td>
+                    <td>
+                        <span class="quote">RFX6 is required for intestinal enteroendocrine cell (EEC) differentiation, promoting peptide-secreting EEC fates while repressing serotonin-producing enterochromaffin programs</span>
+                        <div class="expl">This is the strongest section of the report and it correctly separates the enteroendocrine arm from the islet arm. Curated from PMID:31668390 (mouse) and PMID:33382423 (human GLP-1 measurements). The report cites the enteroendocrine paper as a bioRxiv preprint; it is published in Molecular Metabolism as PMID:31668390.</div>
+                        <div class="cites">PMID:31668390, PMID:33382423</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        <div class="expl">The reciprocal enterochromaffin/serotonin expansion is a mouse result only. The disorder entry records this as a HUMAN_MODEL_MISMATCH discussion rather than curating it as human mechanism.</div>
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Off-label liraglutide produced rapid improvement in protracted diarrhea, supporting GLP-1 deficiency as its cause.</p>
+            <span class="pill consensus-single">SINGLE</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">treatment</span><span class="section-tag">pathophysiology</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>85%</td>
+                    <td>
+                        <span class="quote">supported therapeutically by rapid clinical response to the GLP-1 analogue</span>
+                        <div class="expl">Concordant with PMID:33382423. The report adds a quantitative detail — stool frequency falling to 1-3 per day within 6 days — that is not in the abstract; the curated treatment states only the abstract-supported &#34;rapid improvement during the course of 12 months&#34;.</div>
+                        <div class="cites">PMID:33382423</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">RFX6 is an allelic series: biallelic null variants cause Mitchell-Riley syndrome, biallelic hypomorphic variants cause later childhood-onset diabetes, and heterozygous protein-truncating variants cause reduced-penetrance MODY.</p>
+            <span class="pill consensus-single">SINGLE</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">genetic_factor</span><span class="section-tag">diagnosis</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>96%</td>
+                    <td>
+                        <span class="quote">biallelic severe (null) variants cause Mitchell-Riley syndrome; biallelic hypomorphic/missense variants can cause a milder syndromic or non-syndromic</span>
+                        <div class="expl">The clearest single contribution of the report to the entry&#39;s structure. It motivated modelling the two subtypes and recording RFX6-MODY as an allelic but distinct differential diagnosis rather than as a mild form of the syndrome.</div>
+                        <div class="cites">PMID:26264437, PMID:29026101, PMID:38743124</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">The RFX6 truncating variant p.His293LeufsTer7 is enriched in the Finnish population at roughly 1:250 carrier frequency.</p>
+            <span class="pill consensus-single">SINGLE</span>
+            <span class="pill status">LEAD</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">epidemiology</span><span class="section-tag">genetic_factor</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>90%</td>
+                    <td>
+                        <span class="quote">a roughly 10-fold enrichment attributable to the Finnish population bottleneck</span>
+                        <div class="expl">Supported by PMID:38743124, which states the ~1:250 Finnish carrier frequency. Not promoted because it is a property of the heterozygous MODY-associated allele, not of Mitchell-Riley syndrome itself; the biallelic syndrome has no published population prevalence. It belongs in a future RFX6-MODY entry.</div>
+                        <div class="cites">PMID:38743124</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Exocrine pancreatic insufficiency with depressed faecal elastase and only partial response to enzyme replacement is part of the phenotype.</p>
+            <span class="pill consensus-single">SINGLE</span>
+            <span class="pill status">LEAD</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">phenotype</span><span class="section-tag">treatment</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>80%</td>
+                    <td>
+                        <span class="quote">Exocrine acinar tissue is hypoplastic/dysfunctional (severe fecal elastase depression, poor/partial response to pancreatic enzyme replacement)</span>
+                        <div class="expl">Biologically plausible and consistent with pancreatic hypoplasia, but the report gives no citation for this specific passage and exocrine insufficiency is not in the HPO annotation set for OMIM:615710. Left as a lead pending a quotable source; HP:0001738 is the term to use if it is confirmed.</div>
+                        
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        <div class="expl">Adding this would also justify a pancreatic-enzyme-replacement treatment entry, which the current disorder YAML does not have.</div>
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Cholestasis occurred in 3 of 4 patients in the largest recent series, one requiring liver transplant at 7 months.</p>
+            <span class="pill consensus-single">SINGLE</span>
+            <span class="pill status">LEAD</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">phenotype</span><span class="section-tag">prognosis</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-partial">
+                    <td><b>claude_code</b></td>
+                    <td><span class="stance stance-partial">PARTIAL</span></td>
+                    <td>60%</td>
+                    <td>
+                        <span class="quote">Reported in 3/4 patients in the largest recent series; one required liver transplant at 7 months for progressive failure</span>
+                        <div class="expl">Cholestasis itself is curated, but this quantitative 3/4 fraction and the liver-transplant detail are not in the abstract of PMID:35813646 and could not be verified against the cached reference. Recorded as a lead rather than used to justify a frequency band, consistent with the entry&#39;s decision to assert frequency only where a cited abstract states the fraction.</div>
+                        <div class="cites">PMID:35813646</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+
+    
+    <h2>Narrative</h2>
+    <div class="narrative">
+        <h3>Overview</h3><p>This is a single-provider synthesis by necessity rather than by design. Of three providers attempted, only claude_code produced usable output. Its mechanistic account of Mitchell-Riley syndrome is accurate and well structured, and it correctly separates the two arms of RFX6 biology — the endoderm-patterning/islet-developmental arm and the enteroendocrine arm with its congenital GLP-1 deficiency — which is the organizing insight the curated pathograph adopts.</p>
+        <h3>Agreement</h3><p>Not assessable. Cross-provider agreement requires at least two usable reports; falcon produced none and asta produced an off-topic one.</p>
+        <h3>Divergence</h3><p>Also not assessable in the intended sense. The only divergence worth recording is between the report and the primary literature it cites: the report&#39;s mechanistic conclusions were consistently reproducible against fetched abstracts, but its bibliographic layer was not. Two citation defects are recorded under the claude_code provider&#39;s identifier_issues, and the report&#39;s own closing section volunteers that several PMIDs were unverified. The practical lesson is that a report can be scientifically reliable and bibliographically unreliable at the same time, which is exactly the case the verify-every-identifier rule exists for.</p>
+        <h3>Integration</h3><p>Eight findings were promoted to kb/disorders/Mitchell-Riley_Syndrome.yaml, covering the RFX6 loss-of-function trigger, primitive-gut-tube endoderm patterning, the NEUROG3-downstream islet block, the pancreatic-endoderm specification failure, beta-cell insulin and calcium-channel maintenance, the enteroendocrine/GLP-1 arm, liraglutide, and the allelic series. Every one was re-anchored to an independently fetched abstract; no evidence snippet was taken from the report text.</p>
+        <h3>Not integrated (leads)</h3><p>Three findings were retained as leads: the Finnish founder allele, which belongs to the heterozygous MODY entity rather than to this syndrome; exocrine pancreatic insufficiency, which is plausible but uncited in the report and absent from the HPO annotation set; and the 3-of-4 cholestasis fraction with its liver-transplant detail, which is not in the cited abstract. The mouse enterochromaffin/serotonin expansion was integrated only as a HUMAN_MODEL_MISMATCH discussion, not as asserted human mechanism.</p>
+    </div>
+    
+
+    
+    <div class="notes">Off-pattern in one respect: all 59 other syntheses in research/ compare two or more providers, and the ProviderReport class was designed around that. This one declares three providers of which two produced nothing usable, so the agreement/divergence narrative slots are largely empty by circumstance. It is recorded anyway because the provenance is worth keeping — a later reader should be able to see that falcon was attempted and failed on credit, not that it was never tried.
+The run_status, status_detail, nec_preflight_verdict, nec_preflight_detail and identifier_issues slots used here were added to the research_synthesis schema in the same change that created this file; this synthesis is their first worked example.</div>
+    
+</main>
+</body>
+</html>
