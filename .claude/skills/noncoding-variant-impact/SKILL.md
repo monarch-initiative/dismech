@@ -34,8 +34,10 @@ to these fields. Gene and process annotations still use their normal descriptors
 
 Contexts can overlap and depend on the transcript. Identify the relevant
 genes/transcripts in `description`; an intronic host gene may differ from the
-regulatory target. Use `noncoding exon` only for an entire exon without codons;
-use the appropriate UTR context for untranslated sequence. Omit unknown contexts.
+regulatory target. Prefer the appropriate UTR context when the overlap is known
+to be untranslated sequence of a protein-coding transcript, including a wholly
+untranslated exon such as APC exon 1B. Use `noncoding exon` for an entire exon
+without codons when no more specific UTR context applies. Omit unknown contexts.
 Only put contexts shared by the represented alleles on a shared initiating node.
 These classifications neither identify an enhancer nor encode genomic coordinates.
 
