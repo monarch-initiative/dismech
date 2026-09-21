@@ -651,7 +651,7 @@ Chris authorized updating the existing
 reviewing the exploration. It now has eight pathophysiology nodes, preserving
 the names of all five original nodes and adding this context-specific branch:
 
-**Senescence-associated arrest → HLA-E display by senescent skin fibroblasts →
+**Senescence-associated secretory phenotype → HLA-E display by senescent cells →
 reduced NK-cell cytotoxicity → impaired immune clearance → senescent-cell
 accumulation.**
 
@@ -685,8 +685,9 @@ The Demaria wound-healing result remains in the research discussion with its
 expression-of-concern caveat, not newly promoted into this module. Other evasion
 routes (CD47/SIRP-alpha, ligand shedding, PD-L1/PD-1, GD3, FasL and suppressive
 secretions) remain explicitly identified for source-specific assessment. The
-existing treatment and experimental, animal and computational model sections
-were preserved. This captures the paper's central distinctions without implying
+existing treatment, animal and computational model sections were preserved.
+The experimental skin model's fibroblast binding was refined to CL:0002620;
+its experimental claims were preserved. This captures the paper's central distinctions without implying
 that every cited primary study has been independently adjudicated.
 
 Module schema and ontology validation passed, and all **46/46 evidence snippets**
@@ -695,15 +696,36 @@ entity-reference, causal-target and knowledge-gap checks passed. The built graph
 has 28 edges and no orphan targets. The repository's citation-title checkers
 found no title-only snippets or reference-title mismatches in the changed module;
 the history and generated term-cache integrity checks also passed. The detailed
-results and content hashes are
+initial results and content hashes are
 recorded in [curation-validation.json](senescent-cell-representation/curation-validation.json).
+The subsequent review corrections and current module validation are recorded in
+[review-validation.json](senescent-cell-representation/review-validation.json).
 An append-only [curation history record](../../history/modules/cellular_senescence/2026-09-21T011251Z-codex-01c6b3.yaml)
 records the authorized change and its validation.
 Before PR preparation, the branch was refreshed to `f3df177789af41976971b15edbb91d65f0c67cc1`.
-The module content hash is unchanged. Schema, ontology, reference, fixture and
+The module content hash was unchanged by that refresh. Schema, ontology, reference, fixture and
 module-content checks were repeated against that base, and the recorded ontology
 searches returned the same counts. See [PR validation](senescent-cell-representation/pr-validation.json).
 The earlier KB inventory remains a snapshot of the original investigation base.
+
+The PR review corrected the HLA-E edge's upstream node to SASP, using the primary
+study's explicit cytokine/p38 result (Abstract and Results, Figure 2). The earlier
+arrest-to-display edge conflated state identification with the inducing pathway.
+The primary study's negative ATM-inhibition result does not exclude every possible
+DNA-damage contribution; no such universal exclusion is asserted here. The node
+is now named `HLA-E Display by Senescent Cells`, retaining the specific ligand
+while keeping its dermal-fibroblast evidence explicit. Verified `hgnc:4962`
+(HLA-E) and `hgnc:6374` (KLRC1, encoding NKG2A) annotate the target and effector
+nodes, respectively.
+
+The optional antigen-presentation binding GO:0002428 was looked up but not added:
+the curated mechanism is inhibitory ligand display, and this pass does not assert
+an experimentally resolved peptide-processing pathway or senescence-specific
+antigen. The primary study leaves the latter question open. The broad immune
+effector-process binding is retained because clearance spans multiple effector
+arms. The report-specific validation scripts and lookup records remain beside
+the fixtures they reproduce. Lookup results and the disposition of each review
+suggestion accompany the final validation record.
 
 ## Validation and reproducibility
 
