@@ -177,6 +177,34 @@ _TAG_RE = re.compile(r"<[^<>]{1,40}>")
 _SCRAPED_PREFIXES = frozenset({"url", "http", "https"})
 
 
+#: ``Æ æ Œ œ`` are encoded as distinct letters rather than compatibility
+#: characters, so neither NFKC nor NFKD touches them and an explicit table is
+#: the only thing that folds them. They are genuine orthography (archaic
+#: ``anæmia``, ``fœtal``) as well as an occasional extractor artifact.
+#:
+#: This lives here rather than in the shared snippet normalizer on purpose. The
+#: snippet gate is an *exact-quote* check and must agree with
+#: ``linkml-reference-validator``, which deliberately preserves these letters --
+#: equating ``Æ`` with ``AE`` would change scientific terms. Title comparison is
+#: a *similarity* check against a cached title, where an archaic spelling
+#: costing enough similarity to fail a correct pair is the real risk. Different
+#: question, different answer; keeping the table local is what stops the audit
+#: from silently re-diverging from the gate (dismech#11849).
+_DISTINCT_LETTER_LIGATURES = {
+    "Œ": "OE",
+    "œ": "oe",
+    "Æ": "AE",
+    "æ": "ae",
+}
+
+
+def _fold_distinct_letter_ligatures(text: str) -> str:
+    """Expand ligatures encoded as letters, which Unicode normalization keeps."""
+    for ligature, expansion in _DISTINCT_LETTER_LIGATURES.items():
+        text = text.replace(ligature, expansion)
+    return text
+
+
 def normalize(text: str) -> str:
     """Fold a title to its comparable form: case, punctuation, and diacritics.
 
@@ -192,7 +220,7 @@ def normalize(text: str) -> str:
     """
     text = html.unescape(text)
     text = _TAG_RE.sub(" ", text)
-    text = CachedReferenceIndex.fold_ligatures(text)
+    text = _fold_distinct_letter_ligatures(text)
     decomposed = unicodedata.normalize("NFKD", text)
     text = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
     return _fold_case_and_punctuation(text)

@@ -271,10 +271,10 @@ def check_consumer_compatibility(path: Path) -> Finding | None:
     whether the emitter quoted the title, such a file either crashes the
     validation run or silently loses its title and every field after it.
 
-    ``dismech.patch_reference_validator`` repairs the read side for anything
-    routed through ``scripts/run_reference_validator.sh``, so these files are
-    readable *here*. They remain a hazard for a bare ``linkml-reference-validator``
-    invocation, and the emitter's quoting is not stable across versions (#7393,
+    Upstream now splits on the ``---`` *line*
+    (linkml/linkml-reference-validator#71), so a current validator reads these
+    files correctly. They remain a hazard for any other delimiter-unaware
+    consumer, and the emitter's quoting is not stable across versions (#7393,
     #7523) — a file that is silently degraded today can crash tomorrow. Hence:
     report, do not gate.
     """
@@ -292,8 +292,7 @@ def check_consumer_compatibility(path: Path) -> Finding | None:
     # '---' in the file then is the closing delimiter, so both readings select
     # the same text. Skipping the two YAML parses here takes the scan over the
     # 33k-file corpus from ~68s to ~1.5s with identical output, which matters
-    # because this is the first dependency of `just qc`. Mirrors the guard in
-    # patch_reference_validator._wrap_load_markdown_format.
+    # because this is the first dependency of `just qc`.
     if "---" not in split.frontmatter:
         return None
 
@@ -329,9 +328,9 @@ def check_consumer_compatibility(path: Path) -> Finding | None:
             (
                 "frontmatter contains a literal '---' inside a value, so a "
                 "delimiter-unaware consumer reads this file differently (issue "
-                "#7697); valid here because dismech.patch_reference_validator "
-                "repairs the read side, but a bare linkml-reference-validator "
-                "run will truncate or crash on it"
+                "#7697); valid for a current linkml-reference-validator, which "
+                "splits on the delimiter line, but an older one or another "
+                "naive reader will truncate or crash on it"
             ),
         ),
     )
