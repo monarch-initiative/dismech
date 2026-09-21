@@ -253222,7 +253222,14 @@ window.searchData = [
       "Metastatic Dissemination",
       "Immune-Suppressive Tumor Microenvironment",
       "Osteoblastic Bone Tropism",
-      "Clonal Evolution and Lineage Plasticity"
+      "Clonal Evolution and Lineage Plasticity",
+      "AR-Mediated Mutagenesis at Androgen Receptor Binding Sites",
+      "Replication Stress-Driven Chromosomal Instability",
+      "Reactive Oxygen Species-Driven Mutagenesis",
+      "Homologous Recombination Deficiency",
+      "CDK12-Associated Non-Canonical Homologous Recombination Impairment",
+      "Mismatch Repair Deficiency and Microsatellite Instability",
+      "APOBEC Cytidine Deaminase Mutagenesis"
     ],
     "cell_types": [
       "epithelial cell of prostate"
@@ -253239,7 +253246,15 @@ window.searchData = [
       "epithelial to mesenchymal transition",
       "negative regulation of immune response",
       "positive regulation of ossification",
-      "cell fate commitment"
+      "cell fate commitment",
+      "chromoplexy (chained interchromosomal rearrangement) at AR binding sites",
+      "DNA replication under replication stress",
+      "chromosome organization",
+      "response to oxidative stress",
+      "base-excision repair",
+      "double-strand break repair via homologous recombination",
+      "tandem duplication formation",
+      "mismatch repair"
     ],
     "phenotypes": [
       "Lower Urinary Tract Symptoms",
@@ -253297,11 +253312,11 @@ window.searchData = [
     "source_file": "Prostate_Adenocarcinoma.yaml",
     "page_url": "../pages/disorders/Prostate_Adenocarcinoma.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 16,
     "num_genes": 6,
     "num_treatments": 8,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Proteasome-Associated Autoinflammatory Syndrome",
@@ -309577,12 +309592,21 @@ window.searchData = [
     "creation_date": "2026-08-19T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Vitamin D-dependent rickets type 2A is end-organ resistance to calcitriol caused by biallelic loss-of-function variants in VDR, the nuclear vitamin D receptor. Vitamin D activation is intact - indeed calcitriol is characteristically elevated, because the feedback loop that normally suppresses its synthesis is itself receptor-dependent - but target tissues cannot respond. The result is hypocalcemia, secondary hyperparathyroidism and early, severe rickets that does not respond to calcitriol, distinguishing it from type 1. Alopecia, present in the great majority of patients, reflects a distinct, ligand-independent role of the receptor in the hair follicle and has no counterpart in any other member of the vitamin D-dependent rickets series.",
+    "description": "Vitamin D-dependent rickets type 2A is impaired calcitriol signaling caused usually by biallelic loss-of-function variants in VDR and, very rarely, by a heterozygous dominant-negative VDR variant. Allele-specific defects can impair receptor production, ligand binding, DNA binding, RXR heterodimerization, or coactivator recruitment. The resulting loss of VDR-regulated intestinal calcium and phosphate absorption causes secondary hyperparathyroidism, hypophosphatemia, and rickets, while intact hormone production and dysregulated receptor-mediated homeostasis make circulating calcitriol characteristically high. Hormone resistance is not uniformly complete: some genotypes respond to supraphysiologic active vitamin D plus calcium, whereas severe oral-treatment-refractory disease requires intravenous calcium. Alopecia reflects a separate ligand-independent hair-cycle function of VDR; it is frequent but not universal and is strongly genotype dependent.",
     "pathophysiology": [
-      "Vitamin D Receptor Resistance",
-      "Calcitriol-Unresponsive Intestinal Calcium Malabsorption",
+      "Absent or Truncated VDR Protein",
+      "Impaired Calcitriol Binding by VDR",
+      "Impaired VDR Binding to Vitamin D Response Elements",
+      "Impaired VDR-RXR Heterodimerization",
+      "Impaired VDR Coactivator Recruitment",
+      "Dominant-Negative VDR Corepressor Retention",
+      "Impaired VDR-Regulated Transcription",
+      "Elevated Circulating Calcitriol in VDR Resistance",
+      "Reduced VDR-Dependent Enterocyte Calcium and Phosphate Transport",
+      "Compensatory Secondary Hyperparathyroidism",
+      "PTH-Driven Renal Phosphate Wasting",
       "Defective Skeletal Mineralization",
-      "Alopecia from Ligand-Independent Receptor Loss"
+      "Disrupted Ligand-Independent VDR Hair-Cycle Function"
     ],
     "cell_types": [
       "Enterocyte",
@@ -309593,12 +309617,19 @@ window.searchData = [
       "CL:0000062"
     ],
     "biological_processes": [
-      "Vitamin D Receptor Signaling",
+      "vitamin D receptor signaling pathway",
+      "vitamin D metabolic process",
       "Intestinal Calcium Absorption",
-      "Bone Mineralization"
+      "Bone Mineralization",
+      "hair cycle"
     ],
     "phenotypes": [
       "Rickets",
+      "Muscle weakness",
+      "Hypotonia",
+      "Bone pain",
+      "Enlargement of the costochondral junction",
+      "Enamel hypoplasia",
       "Alopecia",
       "Seizure",
       "Hypocalcemia",
@@ -309606,18 +309637,24 @@ window.searchData = [
       "Secondary hyperparathyroidism",
       "Elevated circulating alkaline phosphatase",
       "Bowing of the legs",
-      "Growth failure"
+      "Delayed ability to walk",
+      "Short stature"
     ],
     "phenotype_categories": [
       "Skeletal",
+      "Musculoskeletal",
+      "Dental",
       "Integumentary",
       "Neurological",
       "Biochemical",
+      "Developmental",
       "Growth"
     ],
     "phenotype_hpo_categories": [
+      "Constitutional",
       "Endocrine",
       "Growth",
+      "Head and Neck",
       "Integument",
       "Limbs",
       "Metabolism",
@@ -309626,6 +309663,11 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0002748",
+      "HP:0001324",
+      "HP:0001252",
+      "HP:0002653",
+      "HP:0000920",
+      "HP:0006297",
       "HP:0001596",
       "HP:0001250",
       "HP:0002901",
@@ -309633,17 +309675,21 @@ window.searchData = [
       "HP:0000867",
       "HP:0003155",
       "HP:0002979",
-      "HP:0001510"
+      "HP:0031936",
+      "HP:0004322"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "FREQUENT"
     ],
     "genes": [
-      "Biallelic VDR loss-of-function variants"
+      "VDR pathogenic variants"
     ],
     "treatments": [
-      "High-Dose Calcium Repletion"
+      "High-Dose Active Vitamin D Plus Oral Calcium for Residual Responders",
+      "High-Dose Oral Calcium",
+      "Intravenous Calcium for Maximal-Oral-Treatment-Refractory Disease"
     ],
     "environmental": [],
     "biochemical": [
@@ -309652,12 +309698,12 @@ window.searchData = [
     ],
     "source_file": "Vitamin_D-Dependent_Rickets_Type_2A.yaml",
     "page_url": "../pages/disorders/Vitamin_D-Dependent_Rickets_Type_2A.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 15,
+    "num_pathophysiology": 13,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "2"
+    "num_treatments": 3,
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Vitamin D-Dependent Rickets Type 2B",
@@ -318529,12 +318575,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3052,
   "total_subtypes": 3821,
   "total_disorders_and_subtypes": 6873,
-  "total_unique_evidence_sources": 43762,
-  "total_unique_publications": 41289,
+  "total_unique_evidence_sources": 43777,
+  "total_unique_publications": 41304,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
   "total_pathographs": 3047,
-  "total_unique_pathological_events": 18704,
+  "total_unique_pathological_events": 18717,
   "total_modules": 177,
   "total_research_reports": 3166,
   "total_classifications": 20,
