@@ -81,27 +81,6 @@ def _gh_json(args: list[str]) -> object:
     return json.loads(result.stdout)
 
 
-def _comparison_contains_base(
-    comparison: dict, current_base_sha: str, head_sha: str
-) -> bool:
-    """Return whether an exact GitHub comparison proves base is in head."""
-    base = current_base_sha.strip()
-    head = head_sha.strip()
-    if not base or not head or not isinstance(comparison, dict):
-        raise ValueError("comparison inputs are incomplete")
-    compared_base = str((comparison.get("base_commit") or {}).get("sha") or "")
-    merge_base = str((comparison.get("merge_base_commit") or {}).get("sha") or "")
-    try:
-        behind_by = int(comparison["behind_by"])
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ValueError("comparison returned no valid behind count") from exc
-    return (
-        compared_base.casefold() == base.casefold()
-        and merge_base.casefold() == base.casefold()
-        and behind_by == 0
-    )
-
-
 def _rollup_disposition(rollup: list[dict] | None) -> str:
     """Classify an approved PR's checks for shortlist ownership routing."""
     if not rollup:
@@ -137,10 +116,13 @@ def _rollup_disposition(rollup: list[dict] | None) -> str:
     return "passing" if successful else "failing"
 
 
-def _controller_owns_approved(pr: dict, contains_current_base: bool) -> bool:
-    """Whether the deterministic closer can finish this PR without agent work."""
-    if not contains_current_base:
-        return False
+def _controller_owns_approved(pr: dict) -> bool:
+    """Whether the closer can finish this PR without branch edits.
+
+    The merge controller does not require the head to contain current main.
+    Routing clean, approved but behind PRs here avoids spending every tending
+    sweep refreshing branches that the merge queue already tests against main.
+    """
     if str(pr.get("mergeable") or "").upper() != "MERGEABLE":
         return False
     merge_state = str(pr.get("mergeStateStatus") or "").upper()
@@ -154,30 +136,27 @@ def _controller_owns_approved(pr: dict, contains_current_base: bool) -> bool:
 
 def _agent_action_rank(
     pr: dict,
-    contains_current_base: bool | None,
     controller_owned: bool,
 ) -> tuple[int, str, int] | None:
-    """Rank stuck bot PRs after deterministic ancestry/ownership checks."""
+    """Put abandoned review work ahead of branch maintenance."""
     review = str(pr.get("reviewDecision") or "").upper()
     updated = str(pr.get("updatedAt") or "")
     number = int(pr["number"])
     mergeable = str(pr.get("mergeable") or "").upper()
 
+    if review == "CHANGES_REQUESTED":
+        return (0, updated, number)
+    if mergeable == "CONFLICTING":
+        return (1, updated, number)
     if review == "APPROVED":
         if controller_owned:
             return None
-        if contains_current_base is False and mergeable == "MERGEABLE":
-            return (0, updated, number)
-        if mergeable == "CONFLICTING":
-            return (1, updated, number)
-        # Includes aligned-but-red PRs and comparisons that could not be
-        # established. Neither is safe to silently hand to the closer.
+        # Includes red/blocked PRs and unknown closing state. Neither is safe
+        # to silently hand to the closer.
         return (2, updated, number)
-    if review == "CHANGES_REQUESTED":
-        return (3, updated, number)
     if review == "REVIEW_REQUIRED":
-        return (4, updated, number)
-    return (5, updated, number)
+        return (3, updated, number)
+    return (4, updated, number)
 
 
 def list_agent_candidates(
@@ -186,7 +165,7 @@ def list_agent_candidates(
     """Fetch, rank, and bound the PRs the LLM may inspect or modify.
 
     The output is bounded *after* exact ownership ranking. Do not pre-truncate
-    the input by ``updatedAt``: ancestry and controller ownership are learned by
+    the input by ``updatedAt``: controller ownership is learned by
     the per-approved-PR lookups below, so an early cap can fill with work the
     controller owns and hide genuinely stuck PRs. If this fan-out becomes
     material, optimize those exact lookups without changing the candidate set.
@@ -225,53 +204,43 @@ def list_agent_candidates(
     if specific_pr is not None:
         return safe[:1]
 
-    branch = _gh_json(["api", f"repos/{repo}/branches/main"])
-    if not isinstance(branch, dict):
-        raise ValueError("GitHub branch response was not an object")
-    current_base_sha = str((branch.get("commit") or {}).get("sha") or "")
-    if not current_base_sha:
-        raise ValueError("GitHub branch response returned no head SHA")
     ranked = []
     for pr in safe:
-        contains_current_base: bool | None = None
         controller_owned = False
-        if str(pr.get("reviewDecision") or "").upper() == "APPROVED":
-            head_sha = str(pr.get("headRefOid") or "")
+        # A known conflict always stays in the agent lane, so checking whether
+        # the merge controller owns it cannot change the shortlist.
+        if (
+            str(pr.get("reviewDecision") or "").upper() == "APPROVED"
+            and str(pr.get("mergeable") or "").upper() != "CONFLICTING"
+        ):
             try:
-                comparison = _gh_json(
+                details = _gh_json(
                     [
-                        "api",
-                        f"repos/{repo}/compare/{current_base_sha}...{head_sha}",
+                        "pr",
+                        "view",
+                        str(pr["number"]),
+                        "--repo",
+                        repo,
+                        "--json",
+                        "headRefOid,reviewDecision,mergeable,isDraft,mergeStateStatus,statusCheckRollup",
                     ]
                 )
-                contains_current_base = _comparison_contains_base(
-                    comparison, current_base_sha, head_sha
-                )
-                if contains_current_base:
-                    details = _gh_json(
-                        [
-                            "pr",
-                            "view",
-                            str(pr["number"]),
-                            "--repo",
-                            repo,
-                            "--json",
-                            "isDraft,mergeStateStatus,statusCheckRollup",
-                        ]
-                    )
-                    if not isinstance(details, dict):
-                        raise ValueError("GitHub PR detail response was not an object")
-                    controller_owned = _controller_owns_approved(
-                        {**pr, **details}, contains_current_base
-                    )
+                if not isinstance(details, dict):
+                    raise ValueError("GitHub PR detail response was not an object")
+                # Never suppress a candidate using checks from a different
+                # head, or an approval that disappeared during discovery.
+                if (
+                    details.get("headRefOid") == pr.get("headRefOid")
+                    and details.get("reviewDecision") == "APPROVED"
+                ):
+                    controller_owned = _controller_owns_approved({**pr, **details})
             except (subprocess.CalledProcessError, ValueError, json.JSONDecodeError):
-                # Unknown ancestry/closing state stays in the shortlist. An API
+                # Unknown closing state stays in the shortlist. An API
                 # failure must never silently route a potentially stuck PR away
                 # from both lanes.
-                contains_current_base = None
                 controller_owned = False
 
-        rank = _agent_action_rank(pr, contains_current_base, controller_owned)
+        rank = _agent_action_rank(pr, controller_owned)
         if rank is not None:
             ranked.append((rank, pr))
     ranked.sort(key=lambda row: row[0])
