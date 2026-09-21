@@ -259,11 +259,27 @@ def _fetch_modern_pmc_html(self, pmcid, config):
     """
     import requests
 
-    time.sleep(config.rate_limit_delay)
-    response = requests.get(_pmc_html_url(pmcid), timeout=30)
-    if response.status_code != 200:
-        return None
-    soup = BeautifulSoup(response.content, "html.parser")
+    canonical_url = _pmc_html_url(pmcid)
+    # Some public articles return a browser-check page for the default view
+    # while PMC's PDF-render view still serves the complete article HTML.
+    # Both representations must pass the same body-content checks.
+    for url in (canonical_url, canonical_url + "?pdf=render"):
+        time.sleep(config.rate_limit_delay)
+        try:
+            response = requests.get(url, timeout=30)
+        except requests.RequestException as exc:
+            logger.warning("PMC HTML unavailable at %s: %s", url, exc)
+            continue
+        if response.status_code == 200:
+            text = _extract_modern_pmc_html(response.content)
+            if text:
+                return text
+    return None
+
+
+def _extract_modern_pmc_html(data):
+    """Extract substantive article text from either public PMC representation."""
+    soup = BeautifulSoup(data, "html.parser")
     article = (
         soup.select_one(".main-article-body")
         or soup.find("article")
