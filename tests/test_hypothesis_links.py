@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.check_hypothesis_links import collect
+from scripts.check_hypothesis_links import BLOCKING_KINDS, collect
 
 
 def _entry(kb: Path, slug: str, ids: list[str]) -> None:
@@ -100,6 +100,48 @@ def test_module_and_grouping_entries_also_resolve(repo: Path) -> None:
     )
     _report(repo / "kb", "deregulated_nutrient_sensing", "m1")
     assert collect(repo) == []
+
+
+def test_directory_named_for_the_disease_name_is_advisory_not_blocking(
+    repo: Path,
+) -> None:
+    """render_disorder retries with slugify(name), so this one does render.
+
+    538 disorder entries have slugify(name) != file stem. Failing them would
+    make this gate stricter than the renderer it guards.
+    """
+    kb = repo / "kb"
+    (kb / "disorders" / "46_XX_Gonadal_Dysgenesis.yaml").write_text(
+        "name: 46,XX Gonadal Dysgenesis\n"
+        "mechanistic_hypotheses:\n"
+        "- hypothesis_group_id: h1\n",
+        encoding="utf-8",
+    )
+    _report(kb, "46,XX_Gonadal_Dysgenesis", "h1")
+
+    findings = collect(repo)
+    assert [f.kind for f in findings] == ["non_canonical_slug"]
+    assert not [f for f in findings if f.kind in BLOCKING_KINDS]
+
+
+def test_shadowed_directory_blocks_because_the_retry_never_runs(
+    repo: Path,
+) -> None:
+    """The retry only fires when the file-stem lookup found nothing."""
+    kb = repo / "kb"
+    (kb / "disorders" / "46_XX_Gonadal_Dysgenesis.yaml").write_text(
+        "name: 46,XX Gonadal Dysgenesis\n"
+        "mechanistic_hypotheses:\n"
+        "- hypothesis_group_id: h1\n",
+        encoding="utf-8",
+    )
+    _report(kb, "46,XX_Gonadal_Dysgenesis", "h1")
+    _report(kb, "46_XX_Gonadal_Dysgenesis", "h1")
+
+    findings = collect(repo)
+    blocking = [f for f in findings if f.kind in BLOCKING_KINDS]
+    assert len(blocking) == 1
+    assert "already has its own" in blocking[0].detail
 
 
 def test_committed_kb_has_no_disconnected_hypothesis_directories() -> None:
