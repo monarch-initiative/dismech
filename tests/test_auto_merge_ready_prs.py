@@ -487,7 +487,10 @@ def test_real_errors_are_not_benign(message):
 # --- end-to-end main() ----------------------------------------------------
 
 
-def _run_main(monkeypatch, tmp_path, *, view, listed=None, extra_args=()):
+def _run_main(
+    monkeypatch, tmp_path, *, view, listed=None, extra_args=(), queue_payload=None,
+    ejection_payload=None,
+):
     """Drive main() against a stubbed gh, returning (exit code, gh calls)."""
     if listed is None:
         listed = [make_pr(number=42, mergeable="MERGEABLE")]
@@ -504,6 +507,22 @@ def _run_main(monkeypatch, tmp_path, *, view, listed=None, extra_args=()):
             payload = views[min(view_index, len(views) - 1)]
             view_index += 1
             return json.dumps(payload)
+        if args[:2] == ["api", "graphql"] and any(
+            "pullRequest(number:" in a for a in args
+        ):
+            return ejection_payload or json.dumps(
+                {"data": {"repository": {"pullRequest": {
+                    "commits": {"nodes": [
+                        {"commit": {"committedDate": "2026-09-04T00:00:00Z"}}
+                    ]},
+                    "timelineItems": {"nodes": []},
+                }}}}
+            )
+        if args[:2] == ["api", "graphql"]:
+            # No queue by default, so existing tests keep the direct-merge path.
+            return queue_payload or json.dumps(
+                {"data": {"repository": {"mergeQueue": None}}}
+            )
         return ""
 
     monkeypatch.setattr(auto_merge, "_gh", fake_gh)
@@ -613,7 +632,7 @@ def test_main_dry_run_merges_nothing(monkeypatch, tmp_path):
     assert "Would merge 1" in (tmp_path / "summary.md").read_text()
 
 
-def test_main_dry_run_reports_only_the_one_merge_a_real_run_would_attempt(
+def test_direct_mode_dry_run_reports_only_the_one_merge_a_real_run_would_attempt(
     monkeypatch, tmp_path
 ):
     listed = [make_pr(number=41), make_pr(number=42)]
@@ -895,7 +914,7 @@ def test_main_exits_nonzero_on_a_genuine_merge_error(monkeypatch, tmp_path):
     monkeypatch.setenv("GH_MERGE_TOKEN", "writer-token")
     code = auto_merge.main(["--repo", "o/r", "--summary-file", str(tmp_path / "s.md")])
     assert code == 1
-    assert "Failed to merge 1" in (tmp_path / "s.md").read_text()
+    assert "Failed 1" in (tmp_path / "s.md").read_text()
 
 
 def test_execute_merges_at_most_one(monkeypatch, tmp_path):
@@ -920,6 +939,142 @@ def test_execute_merges_at_most_one(monkeypatch, tmp_path):
     assert len([c for c in calls if c[:2] == ["pr", "view"]]) == 2
 
 
+def test_queue_mode_enqueues_every_candidate(monkeypatch, tmp_path):
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    queue_payload = json.dumps(
+        {
+            "data": {
+                "repository": {
+                    "mergeQueue": {
+                        "id": "MQ_x",
+                        "entries": {"totalCount": 0, "nodes": []},
+                    }
+                }
+            }
+        }
+    )
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed, queue_payload=queue_payload
+    )
+    assert code == 0
+    assert [int(c[2]) for c in calls if c[:2] == ["pr", "merge"]] == [41, 42]
+    assert "Added to the merge queue 2" in (tmp_path / "summary.md").read_text()
+
+
+def test_queue_mode_dry_run_walks_the_full_candidate_set(monkeypatch, tmp_path):
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    queue_payload = json.dumps(
+        {
+            "data": {
+                "repository": {
+                    "mergeQueue": {
+                        "id": "MQ_x",
+                        "entries": {"totalCount": 0, "nodes": []},
+                    }
+                }
+            }
+        }
+    )
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=views,
+        listed=listed,
+        extra_args=["--dry-run"],
+        queue_payload=queue_payload,
+    )
+    assert code == 0
+    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
+    summary = (tmp_path / "summary.md").read_text()
+    assert "Would add to the merge queue 2" in summary
+    assert "#41" in summary and "#42" in summary
+    assert "Would merge 2" not in summary
+
+
+def test_queue_mode_budget_reports_unprocessed_candidates(monkeypatch, tmp_path):
+    listed = [make_pr(number=number) for number in (41, 42, 43)]
+    views = [
+        make_pr(number=number, headRefOid=f"head{number}")
+        for number in (41, 41, 42, 42)
+    ]
+    queue_payload = json.dumps(
+        {
+            "data": {
+                "repository": {
+                    "mergeQueue": {
+                        "id": "MQ_x",
+                        "entries": {"totalCount": 0, "nodes": []},
+                    }
+                }
+            }
+        }
+    )
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=views,
+        listed=listed,
+        extra_args=["--max-enqueue-per-run", "2"],
+        queue_payload=queue_payload,
+    )
+    assert code == 0
+    assert [int(c[2]) for c in calls if c[:2] == ["pr", "merge"]] == [41, 42]
+    summary = (tmp_path / "summary.md").read_text()
+    assert "Unprocessed candidates 1" in summary
+    assert "#43 — not re-verified: enqueue-attempt budget of 2 reached" in summary
+
+
+def test_queue_mode_continues_after_an_enqueue_failure(monkeypatch, tmp_path):
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    acted_on = []
+
+    def fake_merge(repo, number, days, head, token, queued=False):
+        acted_on.append(number)
+        if number == 41:
+            raise subprocess.CalledProcessError(1, "gh", stderr="HTTP 502")
+        return queued
+
+    monkeypatch.setattr(auto_merge, "merge_pr", fake_merge)
+    queue_payload = json.dumps(
+        {
+            "data": {
+                "repository": {
+                    "mergeQueue": {
+                        "id": "MQ_x",
+                        "entries": {"totalCount": 0, "nodes": []},
+                    }
+                }
+            }
+        }
+    )
+    code, _calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed, queue_payload=queue_payload
+    )
+    assert code == 1
+    assert acted_on == [41, 42]
+    summary = (tmp_path / "summary.md").read_text()
+    assert "Added to the merge queue 1" in summary
+    assert "Failed 1" in summary
+
+
 # --- reporting ------------------------------------------------------------
 
 
@@ -932,7 +1087,7 @@ def test_summary_reports_merges_skips_and_failures():
     assert "Merged 1" in report
     assert "#1 — feat: A" in report
     assert "#2 — draft" in report
-    assert "Failed to merge 1" in report
+    assert "Failed 1" in report
 
 
 def test_summary_when_nothing_merged():
@@ -1029,11 +1184,131 @@ def test_merge_pins_the_verified_head_commit(monkeypatch):
     monkeypatch.setattr(
         auto_merge, "_gh", lambda args, token=None: calls.append((args, token)) or ""
     )
-    auto_merge.merge_pr("o/r", 7, 3, "deadbeef", "writer-token")
+    auto_merge.merge_pr("o/r", 7, 3, "deadbeef", "writer-token", False)
     merge_cmd, token = calls[0]
     assert "--squash" in merge_cmd
     assert merge_cmd[merge_cmd.index("--match-head-commit") + 1] == "deadbeef"
     assert token == "writer-token"
+
+
+def test_merge_drops_the_strategy_flag_when_a_queue_is_in_force(monkeypatch):
+    """gh only warns on a strategy flag here, but that warning would become
+    the reported cause of every real failure, so drop it. The head pin must
+    survive: it becomes the enqueue mutation's expectedHeadOid."""
+    calls = []
+    monkeypatch.setattr(
+        auto_merge, "_gh", lambda args, token=None: calls.append((args, token)) or ""
+    )
+    auto_merge.merge_pr("o/r", 7, 3, "deadbeef", "writer-token", True)
+    merge_cmd, _token = calls[0]
+    assert "--squash" not in merge_cmd
+    assert merge_cmd[merge_cmd.index("--match-head-commit") + 1] == "deadbeef"
+    body = " ".join(calls[1][0])
+    assert "merge queue" in body
+    assert "Squash-merged" not in body
+    assert "No further action needed" not in body
+
+
+def test_queue_state_reports_active_queue_and_its_members(monkeypatch):
+    payload = (
+        '{"data":{"repository":{"mergeQueue":{"id":"MQ_x","entries":'
+        '{"nodes":[{"pullRequest":{"number":11}},{"pullRequest":{"number":22}}]}}}}}'
+    )
+    monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: payload)
+    state = auto_merge.read_queue_state("o/r", "main")
+    assert state.active is True
+    assert state.queued_pr_numbers == frozenset({11, 22})
+
+
+def test_queue_state_collects_every_paginated_page(monkeypatch):
+    payload = json.dumps(
+        [
+            {
+                "data": {
+                    "repository": {
+                        "mergeQueue": {
+                            "id": "MQ_x",
+                            "entries": {
+                                "totalCount": 3,
+                                "pageInfo": {
+                                    "hasNextPage": True,
+                                    "endCursor": "cursor-1",
+                                },
+                                "nodes": [
+                                    {"pullRequest": {"number": 11}},
+                                    {"pullRequest": {"number": 22}},
+                                ],
+                            },
+                        }
+                    }
+                }
+            },
+            {
+                "data": {
+                    "repository": {
+                        "mergeQueue": {
+                            "id": "MQ_x",
+                            "entries": {
+                                "totalCount": 3,
+                                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                                "nodes": [{"pullRequest": {"number": 33}}],
+                            },
+                        }
+                    }
+                }
+            },
+        ]
+    )
+    calls = []
+    monkeypatch.setattr(
+        auto_merge, "_gh", lambda args, token=None: calls.append(args) or payload
+    )
+    state = auto_merge.read_queue_state("o/r", "main")
+    assert state.queued_pr_numbers == frozenset({11, 22, 33})
+    assert state.truncated == 0
+    assert "--paginate" in calls[0] and "--slurp" in calls[0]
+
+
+def test_queue_state_is_inactive_when_the_queue_is_paused(monkeypatch):
+    """Disabling the ruleset nulls the node; that is the break-glass signal."""
+    monkeypatch.setattr(
+        auto_merge,
+        "_gh",
+        lambda args, token=None: '{"data":{"repository":{"mergeQueue":null}}}',
+    )
+    state = auto_merge.read_queue_state("o/r", "main")
+    assert state.active is False
+    assert state.queued_pr_numbers == frozenset()
+
+
+def test_queue_state_failure_keeps_pre_queue_behavior(monkeypatch):
+    def boom(args, token=None):
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="nope")
+
+    monkeypatch.setattr(auto_merge, "_gh", boom)
+    assert auto_merge.read_queue_state("o/r", "main").active is False
+
+
+def test_gh_error_skips_the_queue_warning_line():
+    """gh prints its queue warning first; it is not the cause of the failure."""
+    exc = subprocess.CalledProcessError(
+        1,
+        ["gh"],
+        stderr=(
+            "! The merge strategy for main is set by the merge queue\n"
+            "X Pull request #7 is not mergeable: the base branch was modified\n"
+        ),
+    )
+    assert "base branch was modified" in auto_merge._gh_error(exc)
+    assert "merge strategy" not in auto_merge._gh_error(exc)
+
+
+def test_summary_does_not_claim_a_queued_pr_was_merged():
+    body = auto_merge.render_summary(
+        [{"number": 7, "title": "t", "queued": True}], [], [], dry_run=False
+    )
+    assert "Added to the merge queue" in body
+    assert "**Merged 1:**" not in body
 
 
 def test_merge_fails_closed_when_the_sha_is_unavailable(monkeypatch):
@@ -1085,4 +1360,257 @@ def test_gh_error_condenses_stderr():
     assert auto_merge._gh_error(exc) == "line one"
     assert auto_merge._gh_error(subprocess.CalledProcessError(1, "gh", stderr="")) == (
         "gh exited 1"
+    )
+
+
+def test_gh_error_still_reports_a_warning_when_it_is_all_there_is():
+    exc = subprocess.CalledProcessError(1, "gh", stderr="! something happened\n")
+    assert auto_merge._gh_error(exc) == "something happened"
+
+
+def test_a_queued_pr_is_skipped_and_the_sweep_reaches_the_next_one(
+    monkeypatch, tmp_path
+):
+    """The queued PR here is stubbed CLEAN/MERGEABLE, which is the state
+    measured on #10576 at 2026-09-02T23:37Z while its entry was UNMERGEABLE:
+    it passes every predicate, and re-enqueueing SUCCEEDS (gh exits 0 on an
+    already-queued PR), so without this skip the sweep spends its one action
+    re-announcing a PR that is already queued.
+
+    An AWAITING_CHECKS entry reports UNKNOWN instead and is already rejected
+    by `evaluate` with a `continue`, so for that state the skip buys a cheaper
+    path and an accurate reason rather than different behavior."""
+    queued, next_up = 11, 22
+    listed = [
+        make_pr(number=queued, mergeable="MERGEABLE"),
+        make_pr(number=next_up, mergeable="MERGEABLE"),
+    ]
+    acted_on = []
+    monkeypatch.setattr(
+        auto_merge,
+        "merge_pr",
+        lambda repo, number, days, head, token, q=False: (
+            acted_on.append(number) or bool(q)
+        ),
+    )
+    queue_payload = json.dumps(
+        {
+            "data": {
+                "repository": {
+                    "mergeQueue": {
+                        "id": "MQ_x",
+                        "entries": {"nodes": [{"pullRequest": {"number": queued}}]},
+                    }
+                }
+            }
+        }
+    )
+    code, _calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=[
+            make_pr(number=queued, mergeable="MERGEABLE"),
+            make_pr(number=next_up, mergeable="MERGEABLE"),
+        ],
+        listed=listed,
+        queue_payload=queue_payload,
+    )
+    assert code == 0
+    assert acted_on == [next_up], (
+        "the queued PR must be skipped and the next candidate acted on"
+    )
+
+
+def test_summary_reports_queue_state_so_an_inert_fix_is_visible():
+    """A failed queue read makes the controller behave as it did before queue
+    awareness, so it must be legible in the report rather than inferred from
+    the absence of a skip line."""
+    unreadable = auto_merge.render_summary(
+        [],
+        [],
+        [],
+        queue_state=auto_merge.QueueState(False, frozenset(), readable=False),
+    )
+    assert "state unavailable" in unreadable
+
+    inactive = auto_merge.render_summary(
+        [], [], [], queue_state=auto_merge.QueueState(False, frozenset())
+    )
+    assert "not in force" in inactive
+
+    active = auto_merge.render_summary(
+        [], [], [], queue_state=auto_merge.QueueState(True, frozenset({1, 2}))
+    )
+    assert "active, 2 queued" in active
+
+    truncated = auto_merge.render_summary(
+        [],
+        [],
+        [],
+        queue_state=auto_merge.QueueState(True, frozenset({1}), truncated=99),
+    )
+    assert "99" in truncated and "may be reselected" in truncated
+
+
+def _ejection_payload(head_written, events):
+    return json.dumps({"data": {"repository": {"pullRequest": {
+        "commits": {"nodes": [{"commit": {"committedDate": head_written}}]},
+        "timelineItems": {"nodes": events},
+    }}}})
+
+
+def test_one_ejection_does_not_block(monkeypatch):
+    """A single failure is not evidence of guilt: it may be collateral damage
+    from a PR ahead in the speculative stack, or a third-party outage."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [{"createdAt": "2026-09-04T13:00:00Z", "reason": "failed_checks"}],
+        ),
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is False
+    assert memory.strikes == 1
+
+
+def test_repeated_ejection_on_unchanged_content_blocks(monkeypatch):
+    """Collateral and infrastructure failures do not reproduce once the queue
+    has moved on; a defect in the PR itself does."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [
+                {"createdAt": "2026-09-04T01:56:00Z", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is True
+    assert "push a fix to retry" in memory.reason
+
+
+def test_a_push_resets_the_strike_count(monkeypatch):
+    """The content under test changed, so prior failures say nothing about it."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-04T20:00:00Z",
+            [
+                {"createdAt": "2026-09-04T01:56:00Z", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_non_failure_removals_are_not_strikes(monkeypatch):
+    """A manual dequeue or a merge_conflict removal is not a failed build."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "merge_conflict"},
+                {"createdAt": "2026-09-04T16:57:00Z", "reason": "manual"},
+            ],
+        ),
+    )
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_an_unparseable_head_date_fails_open(monkeypatch):
+    """Timestamps are parsed, so a malformed head date must fail open too.
+
+    The strike count is only meaningful relative to when the head was written.
+    If that date cannot be parsed, no strike can be attributed to the current
+    content -- the same situation as an absent date, and the same answer. Two
+    strikes are supplied so the test fails loudly if the guard ever holds here.
+    """
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "not-a-timestamp",
+            [
+                {"createdAt": "2026-09-04T01:56:00Z", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_an_unparseable_event_date_is_skipped_not_counted(monkeypatch):
+    """One malformed event must not be counted, nor discard the sound ones.
+
+    The surviving event is a single strike, which is below the limit, so the PR
+    is not held -- but the strike is still counted, which is what distinguishes
+    skipping the bad event from abandoning the whole timeline.
+    """
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [
+                {"createdAt": "whenever", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is False
+    assert memory.strikes == 1
+
+
+def test_ejection_lookup_failure_fails_open(monkeypatch):
+    """A lookup failure must not hold back an otherwise ready PR."""
+    def boom(args, token=None):
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="nope")
+
+    monkeypatch.setattr(auto_merge, "_gh", boom)
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_main_holds_a_repeatedly_failing_pr_and_never_marks_it_ready(
+    monkeypatch, tmp_path
+):
+    """End-to-end guard for the wiring, not just the predicate.
+
+    Deleting the ejection_memory call in main() must fail a test. It must also
+    fail if the check is moved back after the draft transition: a held draft
+    would then be marked ready, skipped, and re-drafted on every run.
+    """
+    acted, drafted = [], []
+    monkeypatch.setattr(
+        auto_merge, "merge_pr",
+        lambda *a, **k: acted.append(a[1]) or False,
+    )
+    monkeypatch.setattr(
+        auto_merge, "mark_pr_ready",
+        lambda *a, **k: drafted.append(("ready", a[1])),
+    )
+    monkeypatch.setattr(
+        auto_merge, "mark_pr_draft",
+        lambda *a, **k: drafted.append(("draft", a[1])),
+    )
+    held = make_pr(number=42, mergeable="MERGEABLE")
+    held["isDraft"] = True
+    two_strikes = json.dumps({"data": {"repository": {"pullRequest": {
+        "commits": {"nodes": [{"commit": {"committedDate": "2026-09-01T00:00:00Z"}}]},
+        "timelineItems": {"nodes": [
+            {"createdAt": "2026-09-03T01:00:00Z", "reason": "failed_checks"},
+            {"createdAt": "2026-09-03T02:00:00Z", "reason": "failed_checks"},
+        ]},
+    }}}})
+    code, _calls = _run_main(
+        monkeypatch, tmp_path, view=held, listed=[held],
+        ejection_payload=two_strikes,
+    )
+    assert code == 0
+    assert acted == [], "a held PR must not be enqueued or merged"
+    assert drafted == [], (
+        "a held draft must not be marked ready (and then re-drafted) every run"
     )
