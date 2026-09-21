@@ -815,7 +815,7 @@ def _iquery_gene_symbols(
 ) -> list[str]:
     candidates: list[Any] = []
 
-    if node_type == "genetic":
+    if node_type == "genetic" and not meta.get("affected_regions"):
         candidates.append(node_name)
 
     genes = meta.get("genes")
@@ -1405,6 +1405,26 @@ def _node_attributes(
         genomic_contexts = genetic_context.get("genomic_contexts")
         if isinstance(genomic_contexts, list) and genomic_contexts:
             attributes["genetic_context_genomic_contexts"] = genomic_contexts
+
+    # CX2 supports primitive attributes, so retain the full region objects as
+    # JSON alongside their searchable names. Do not promote landmark genes to
+    # iQuery gene annotations or inferred causal relationships.
+    for region_source, prefix in (
+        (meta, ""),
+        (genetic_context, "genetic_context_"),
+    ):
+        if not isinstance(region_source, dict):
+            continue
+        regions = region_source.get("affected_regions")
+        if isinstance(regions, list) and regions:
+            attributes[f"{prefix}affected_regions"] = [
+                region["name"]
+                for region in regions
+                if isinstance(region, dict) and region.get("name")
+            ]
+            attributes[f"{prefix}affected_regions_json"] = json.dumps(
+                regions, ensure_ascii=False, sort_keys=True
+            )
 
     regulatory_target = meta.get("regulatory_target_gene")
     if isinstance(regulatory_target, dict):

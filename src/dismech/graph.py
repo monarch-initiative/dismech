@@ -186,7 +186,10 @@ def _gene_lookup_keys(
     for gene in item.get("genes", []) or []:
         keys.update(_descriptor_lookup_keys(gene))
 
-    if allow_name_fallback and not keys:
+    # An explicitly regional record can have a short gene-like name (e.g. ZRS).
+    # Its name alone does not become a gene identifier; real descriptors above
+    # still work when a gene record also describes an affected subregion.
+    if allow_name_fallback and not keys and not item.get("affected_regions"):
         keys.update(_name_lookup_key(item.get("name")))
 
     return keys
@@ -934,6 +937,9 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
         genomic_contexts = _coerce_string_list(genetic_context.get("genomic_contexts"))
         if genomic_contexts:
             context_meta["genomic_contexts"] = genomic_contexts
+        if genetic_context.get("affected_regions"):
+            # Positional landmarks are metadata, never causal gene annotations.
+            context_meta["affected_regions"] = genetic_context["affected_regions"]
         if context_gene_terms:
             context_meta["gene_terms"] = context_gene_terms
         if context_meta:
@@ -1124,6 +1130,8 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
             meta["variant_type_detail"] = item["type"]
     if item.get("genomic_contexts"):
         meta["genomic_contexts"] = item["genomic_contexts"]
+    if item.get("affected_regions"):
+        meta["affected_regions"] = item["affected_regions"]
     if item.get("clinical_significance"):
         meta["clinical_significance"] = item["clinical_significance"]
     if item.get("regulatory_category"):

@@ -1,3 +1,4 @@
+{% from "_genomic_regions.html.j2" import render_affected_regions %}
 {% set pill_tips = namespace(n=0) %}<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1139,8 +1140,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1148,6 +1150,8 @@
                 if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
                 return label || id;
             }
+
+            {% include "_genomic_regions.js.j2" %}
 
             function formatGeneticContext(context) {
                 var parts = [];
@@ -1158,6 +1162,9 @@
                 if (context.variant_type) parts.push("Variant type: " + context.variant_type);
                 if (context.genomic_contexts && context.genomic_contexts.length) {
                     parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
                 }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
@@ -1194,6 +1201,7 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.regulatory_category) {
                 var categoryLabel = "Regulatory category: " + meta.regulatory_category;
@@ -1950,6 +1958,7 @@
                     <span class="tag tag-role">{{ patho.role | replace('_', ' ') }}</span>
                     {% endif %}
                 </div>
+                {% if patho.genetic_context %}{{ render_affected_regions(patho.genetic_context.affected_regions) }}{% endif %}
                 {% if patho.description %}
                 <div class="item-desc">{{ patho.description }}</div>
                 {% endif %}

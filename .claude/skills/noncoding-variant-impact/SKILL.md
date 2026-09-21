@@ -21,6 +21,7 @@ An SV can also overlap coding genes while acting primarily through regulation.
 |---|---|
 | Physical alteration | `Variant.variant_type`; initiating node's `genetic_context.variant_type` |
 | Sequence features overlapped | `genomic_contexts` on either of those objects |
+| Named affected region and its position | `affected_regions` on `Variant`, `GeneticContext`, or a regional `Genetic` record |
 | Gene whose expression is affected or proposed to be affected | `Variant.regulatory_target_gene`; gene annotation on the downstream expression node |
 | Element and direct molecular effect | `functional_effects[].regulatory_element_type`, `regulatory_mechanism`, and `description` |
 | Expression pattern | `regulatory_category` on `Variant`, `FunctionalEffect`, or `Pathophysiology`, when supported |
@@ -50,6 +51,75 @@ Keep legacy `type` and `allele_type` valid alongside the controlled fields;
 do not migrate unrelated entries or require both representations. Rendering and
 exports prefer `variant_type` while retaining distinct legacy detail. For a
 complex alteration outside the enum, retain free text rather than forcing a class.
+
+## Describe affected regions qualitatively
+
+Use optional `affected_regions` when a named enhancer, boundary, or chromosomal
+interval conveys more than a gene list. A `GenomicRegion` requires only `name`;
+add `description` for its scope, `regulatory_element_type` when known, and
+`chromosomal_region` for a reported cytoband or band range such as `7q36` or
+`16p12.2-p11.2`. Do not require an ontology identifier or one set of coordinates
+for a disease whose alleles differ. Keep legacy descriptions valid; annotate
+regions as entries are curated rather than migrating unrelated records.
+
+The gene relationships locate the **named region in the linear reference
+genome**. They use ordinary `GeneDescriptor` objects, with verified HGNC IDs
+when available:
+
+| Slot | Meaning |
+|---|---|
+| `between_genes` | Exactly two distinct, unordered gene landmarks on opposite sides of the region, with no overlap of either anchor; neither the nearest genes nor exact interval endpoints are implied |
+| `within_gene` | One gene whose genomic span contains the named region, for example ZRS within LMBR1 |
+| `overlaps_genes` | Genes whose genomic spans overlap the named region; the list need not be exhaustive |
+| `adjacent_to_genes` | Genes that share a sequence boundary with the region without overlapping it; do not use for vaguely nearby genes |
+
+These slots do not assert a regulatory target, a causal gene, a chromatin
+contact, or adjacency created by a rearrangement. Omit a relationship the
+source does not establish, and do not assign contradictory spatial relations
+to the same gene (such as both within and strictly adjacent). There are no
+left/right slots: genomic coordinate
+direction and transcriptional direction must not be conflated. A phrase such
+as "upstream of SHH" can remain in the description when the evidence supports
+that detail but not one of the available spatial relations.
+
+Choose the subject of each annotation carefully. An EPHA4-PAX3 boundary lies
+between gene landmarks; an entire deletion that also removes EPHA4 does not.
+Likewise, ZRS lies within LMBR1, but a ZRS-encompassing duplication may extend
+beyond LMBR1. The `affected_regions` list can identify the relevant element
+within a larger alteration without claiming to exhaust that alteration.
+
+```yaml
+affected_regions:
+- name: EPHA4-PAX3 regulatory boundary
+  regulatory_element_type: TAD_BOUNDARY
+  between_genes:
+  - preferred_term: EPHA4
+    term:
+      id: hgnc:3388
+      label: EPHA4
+  - preferred_term: PAX3
+    term:
+      id: hgnc:8617
+      label: PAX3
+  description: >-
+    The boundary is deleted together with EPHA4 coding sequence;
+    PAX3 coding sequence remains intact. The landmarks locate the
+    boundary, not the full deletion interval.
+```
+
+Support the region annotations in the enclosing variant, mechanism node, or
+genetic record's evidence; `GenomicRegion` has no separate evidence slot.
+For a regional `Genetic` record, omit `gene_term` if no gene-level causal
+association is being asserted. A host gene or flanking landmark belongs in
+the region object, not in a substitute causal-gene binding. Retain a
+`Variant.gene` annotation when the variant actually overlaps that gene, and
+keep `regulatory_target_gene` separate. In exports, positional gene landmarks
+must remain region metadata rather than becoming causal-gene edges.
+
+The worked examples are
+[Preaxial Digit Brachydactyly-Webbed Fingers](../../../kb/disorders/Preaxial_Digit_Brachydactyly-Webbed_Fingers.yaml),
+[ZRS-Related Limb Malformation](../../../kb/disorders/ZRS-Related_Limb_Malformation.yaml),
+and [Chromosome 16p12.2-p11.2 Deletion Syndrome](../../../kb/disorders/Chromosome_16p12.2-p11.2_Deletion_Syndrome.yaml).
 
 ## Classify expression effects conservatively
 
