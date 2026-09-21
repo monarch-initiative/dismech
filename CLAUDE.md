@@ -3211,10 +3211,14 @@ paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
 references, broken bare-name pathograph targets, and prose claims about
-defective sources that the cache contradicts. `check-snippet-length`,
-`check-title-snippets`, `check-snippet-grading` and `check-causal-targets` use
-baselines; do not update a baseline to admit a defect introduced by the current
-change.
+defective sources that the cache contradicts. Four of them carry a committed
+baseline file grandfathering a pre-existing backlog -- `check-snippet-length`,
+`check-title-snippets`, `check-snippet-grading` and `check-causal-targets`. Two
+further gates that are in `just qc` but not in the list above do too:
+`check-reference-titles` and `check-coarse-phenotypes`. Those six are the whole
+set, and it is checkable rather than remembered -- `tests/*_baseline.txt` and the
+`just update-*-baseline` recipes are one-to-one with it. Do not update a baseline
+to admit a defect introduced by the current change.
 
 Two of these gates used to have a baseline and no longer do, by the same route:
 the backlog was repaired, then the mechanism was removed, so there is now no way
