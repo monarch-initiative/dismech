@@ -1,5 +1,6 @@
 """TypeSafe HTTP adapter using the project's existing httpx dependency."""
 
+from dataclasses import asdict
 import hashlib
 import json
 import math
@@ -8,7 +9,12 @@ import time
 
 import httpx
 
-from dismech.classifier.base import Classification, ClassificationTask
+from dismech.classifier.base import (
+    Classification,
+    ClassificationTask,
+    ClassificationBatch,
+    ChoiceAnswer,
+)
 
 
 class TypeSafeClassifier:
@@ -26,15 +32,31 @@ class TypeSafeClassifier:
         self._transport = transport
 
     def classify(self, task: ClassificationTask) -> Classification:
+        batch = self.classify_many([task])
+        return Classification(
+            **asdict(batch.answers[task.name]),
+            model=batch.model,
+            usage=batch.usage,
+            elapsed_seconds=batch.elapsed_seconds,
+            request_sha256=batch.request_sha256,
+        )
+
+    def classify_many(self, tasks: list[ClassificationTask]) -> ClassificationBatch:
+        """Ask independent questions about one shared state in one API request."""
+        if not tasks or len({t.name for t in tasks}) != len(tasks):
+            raise ValueError("Questions must have distinct names and not be empty")
+        if any(t.state != tasks[0].state for t in tasks):
+            raise ValueError("Batched questions must share the same state")
         payload = {
             "model": self.model,
-            "state": task.state,
+            "state": tasks[0].state,
             "questions": {
-                task.name: {
+                t.name: {
                     "type": "choice",
-                    "instructions": task.instructions,
-                    "criteria": task.criteria,
+                    "instructions": t.instructions,
+                    "criteria": t.criteria,
                 }
+                for t in tasks
             },
         }
         digest = hashlib.sha256(
@@ -53,7 +75,18 @@ class TypeSafeClassifier:
                 time.sleep(2**attempt)
             response.raise_for_status()
             body = response.json()
-        answer = body["answers"][task.name]
+        if set(body["answers"]) != {t.name for t in tasks}:
+            raise ValueError("TypeSafe returned unexpected questions")
+        return ClassificationBatch(
+            answers={t.name: self._answer(t, body["answers"][t.name]) for t in tasks},
+            model=body["model"],
+            usage=body["usage"],
+            elapsed_seconds=round(time.monotonic() - start, 4),
+            request_sha256=digest,
+        )
+
+    @staticmethod
+    def _answer(task: ClassificationTask, answer: dict) -> ChoiceAnswer:
         probabilities = answer["probabilities"]
         if answer["type"] != "choice" or set(probabilities) != set(task.criteria):
             raise ValueError("TypeSafe returned unexpected classification options")
@@ -73,12 +106,4 @@ class TypeSafeClassifier:
             probabilities.values()
         ):
             raise ValueError("TypeSafe returned an inconsistent choice")
-        return Classification(
-            label=label,
-            probabilities=probabilities,
-            confidence=answer["confidence"],
-            model=body["model"],
-            usage=body["usage"],
-            elapsed_seconds=round(time.monotonic() - start, 4),
-            request_sha256=digest,
-        )
+        return ChoiceAnswer(label, probabilities, answer["confidence"])

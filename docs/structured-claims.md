@@ -71,3 +71,25 @@ This derives from the existing evidence-direction distinctions in design decisio
 §6 and the subtype foreign-key convention in §3. Evaluation reasons are not new
 `EvidenceItem.supports` values. The older text-only direct-support task remains
 available to replay its recorded benchmarks; new structured cases use `whole_claim`.
+
+## Aspect-level classification
+
+`dismech.classifier.aspects.aspect_output_schema(claim)` builds a typed result
+map from fields present in a claim. `/` means the whole claim; other keys are
+JSON Pointers relative to the claim envelope, such as
+`/assertion/phenotype_term/term`. The slash root is a deliberate convention
+(RFC 6901 itself uses an empty string for the root).
+
+The default profile selects `term`, `description`, `frequency`, and `temporality`.
+A term's ID and label form one assessment. Absent fields produce no question;
+other profiles can select different field names. Slot and enum meanings come
+from the installed dismech schema, including numeric frequency bands. The whole
+claim assessment still covers fields outside the selected profile.
+
+`aspect_prompt()` supplies the shared instructions. A provider compiles each
+property description into a question, keeping the complete sanitized claim as
+shared context. `TypeSafeClassifier.classify_many()` sends those independent
+Choice questions in one request and records usage once. Jev returns judgments,
+probabilities and confidence, not curator rationales. Existing single-question
+classification remains supported. Review records and target aggregation belong
+to the consuming benchmark, not to this model-input schema.

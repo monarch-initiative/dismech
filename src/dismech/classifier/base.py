@@ -26,3 +26,19 @@ class Classification:
 
 class Classifier(Protocol):
     def classify(self, task: ClassificationTask) -> Classification: ...
+
+
+@dataclass(frozen=True)
+class ChoiceAnswer:
+    label: str
+    probabilities: dict[str, float]
+    confidence: float
+
+
+@dataclass(frozen=True)
+class ClassificationBatch:
+    answers: dict[str, ChoiceAnswer]
+    model: str
+    usage: dict[str, int]
+    elapsed_seconds: float
+    request_sha256: str
