@@ -1,6 +1,7 @@
 """Regression coverage for corpus validation exceeding ARG_MAX."""
 
 import os
+from itertools import pairwise
 from types import SimpleNamespace
 
 import pytest
@@ -14,7 +15,7 @@ def test_batches_bound_encoded_bytes():
     batches = list(validator.batches(files))
     assert [path for batch in batches for path in batch] == files
     # Each batch fills the byte budget, avoiding needless validator startups.
-    for batch, following in zip(batches, batches[1:]):
+    for batch, following in pairwise(batches):
         assert sum(len(os.fsencode(p)) + 1 for p in [*batch, following[0]]) > 32768
     assert all(sum(len(os.fsencode(p)) + 1 for p in b) <= 32768 for b in batches)
 

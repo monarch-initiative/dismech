@@ -7,11 +7,10 @@ expands the recipe command line. LinkML still owns all validation semantics.
 
 import argparse
 import os
-from pathlib import Path
 import stat
 import subprocess
 import sys
-
+from pathlib import Path
 
 # Leave ample room for the environment and fixed arguments on macOS.
 MAX_PATH_BYTES = 32 * 1024
