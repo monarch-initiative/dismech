@@ -111,10 +111,11 @@ def _entry_name(path: Path) -> str | None:
                 if not match:
                     return None
                 value = match.group(1).strip()
-                # A folded/literal header ("name: >-") continues on the next
-                # line; returning ">-" would file the entry under a garbage
-                # slug and make a directory that renders look like an orphan.
-                if value[:1] in {">", "|", "&", "*"}:
+                # Decline anything this scan cannot read correctly, so the
+                # caller falls back to a real parse. A folded/literal header
+                # ("name: >-") continues on the next line, and a trailing
+                # comment is not part of the value.
+                if value[:1] in {">", "|", "&", "*"} or " #" in value:
                     return None
                 return value.strip("\"'")
             if line.startswith(("pathophysiology:", "phenotypes:")):
@@ -136,7 +137,16 @@ def _slug_index(entries: dict[str, Path]) -> dict[str, list[Path]]:
     """
     index: dict[str, list[Path]] = {}
     for stem, path in entries.items():
-        slug = slugify(_entry_name(path) or stem)
+        name = _entry_name(path)
+        if name is None:
+            # Falling back to the stem would be the one slug this entry cannot
+            # need, since a slug equal to the stem is skipped below -- so the
+            # entry would drop out of the index entirely and a directory the
+            # renderer resolves would read as an orphan. Pay for a real parse
+            # instead; no entry in kb/ reaches this path today.
+            parsed = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            name = str(parsed.get("name") or stem)
+        slug = slugify(name)
         if slug != stem:
             index.setdefault(slug, []).append(path)
     return index

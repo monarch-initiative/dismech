@@ -243,20 +243,36 @@ def test_reportless_directory_is_never_a_finding(repo: Path) -> None:
     assert collect(repo) == []
 
 
-def test_folded_name_header_is_not_read_as_a_slug(repo: Path) -> None:
-    """`name: >-` must not file the entry under the literal '>-'."""
+@pytest.mark.parametrize(
+    ("header", "label"),
+    [
+        ("name: >-\n  Folded Real Name\n", "folded header"),
+        ("name: Folded Real Name  # legacy\n", "trailing comment"),
+    ],
+)
+def test_unreadable_name_header_still_reaches_the_retry_path(
+    repo: Path, header: str, label: str
+) -> None:
+    """A name the line scan cannot read must not drop the entry from the index.
+
+    The directory is named for the *real* slugified name, not the file stem --
+    that is the path the renderer's retry uses, and the one that breaks if
+    `_slug_index` falls back to the stem. Naming it for the stem would pass
+    even with the bug present.
+    """
     kb = repo / "kb"
-    (kb / "disorders" / "Folded_Entry.yaml").write_text(
-        "name: >-\n  Folded Entry\nmechanistic_hypotheses:\n"
-        "- hypothesis_group_id: h1\n",
+    (kb / "disorders" / "Weird_Stem.yaml").write_text(
+        header + "mechanistic_hypotheses:\n- hypothesis_group_id: h1\n",
         encoding="utf-8",
     )
-    _report(kb, "Folded_Entry", "h1")
+    _report(kb, "Folded_Real_Name", "h1")
 
     from scripts.check_hypothesis_links import _entry_name
 
-    assert _entry_name(kb / "disorders" / "Folded_Entry.yaml") is None
-    assert collect(repo) == []
+    assert _entry_name(kb / "disorders" / "Weird_Stem.yaml") is None, label
+    findings = collect(repo)
+    assert [f.kind for f in findings] == ["non_canonical_slug"], label
+    assert not [f for f in findings if f.kind in BLOCKING_KINDS], label
 
 
 def test_committed_kb_has_no_disconnected_hypothesis_directories() -> None:
