@@ -1,0 +1,41 @@
+name: Auto-close duplicate issues
+
+# Schedule is generated from .github/cron-profiles.yaml.
+on:
+  schedule:
+    - cron: "17 9 * * *"  # daily duplicate closure after the three-day objection window
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Preview eligible closures without changing issues
+        type: boolean
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: auto-close-duplicates
+  cancel-in-progress: false
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Close duplicates after the objection window
+        uses: actions/github-script@v8
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        with:
+          script: |
+            const { closeDuplicates } = require('./.github/scripts/issue-duplicates.js');
+            await closeDuplicates(github, context.repo, {
+              dryRun: process.env.DRY_RUN === 'true',
+              log: core.info,
+            });
