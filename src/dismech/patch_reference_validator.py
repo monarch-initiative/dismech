@@ -380,6 +380,52 @@ def _wrap_html_extractor(original):
     return wrapper
 
 
+def _wrap_url_fetch(original):
+    """Cache HTML evidence without executable code or page configuration.
+
+    URLSource returns raw HTML rather than using HTMLExtractor. Page scripts
+    and data attributes can contain incidental credentials (including signed
+    download URLs) unrelated to the reference text. Retain body markup and
+    table structure, but remove code, comments and other attributes before the
+    fetcher writes the generated cache. Plain text, XML and extracted PDFs are
+    unchanged. This is source extraction, not a browser visibility test.
+    """
+
+    @wraps(original)
+    def wrapper(self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        if result is None or result.content_type != "url" or not result.content:
+            return result
+        content = result.content
+        if content.lstrip().startswith("<?xml"):
+            return result
+        soup = BeautifulSoup(content, "html.parser")
+        if soup.find("html") is None and not re.search(
+            r"<!doctype\s+html\b", content, re.IGNORECASE
+        ):
+            return result
+        from bs4 import Comment
+
+        for tag in soup(["script", "style", "noscript", "template"]):
+            tag.decompose()
+        for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+            comment.extract()
+        for tag in soup.find_all(True):
+            structural = {}
+            if tag.name in {"td", "th"}:
+                for attribute in ("rowspan", "colspan"):
+                    value = tag.get(attribute)
+                    if value is not None and str(value).isdigit():
+                        structural[attribute] = value
+                if tag.get("scope") in {"row", "col", "rowgroup", "colgroup"}:
+                    structural["scope"] = tag["scope"]
+            tag.attrs = structural
+        result.content = str(soup)
+        return result
+
+    return wrapper
+
+
 def _jats_tables_as_text(soup) -> str:
     """Render JATS ``<table-wrap>`` elements as pipe-delimited quotable rows.
 
@@ -627,6 +673,7 @@ def apply_patch():
         from linkml_reference_validator.etl.fulltext.pmc import PMCFullTextProvider
         from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
         from linkml_reference_validator.etl.sources.pmid import PMIDSource
+        from linkml_reference_validator.etl.sources.url import URLSource
     except ImportError:
         logger.debug("linkml-reference-validator not installed, skipping patch")
         return
@@ -695,6 +742,11 @@ def apply_patch():
         HTMLExtractor.extract = _wrap_html_extractor(HTMLExtractor.extract)
         HTMLExtractor._paragraph_whitespace_patch_applied = True  # type: ignore[attr-defined]
         logger.debug("Applied source-whitespace preservation patch to HTMLExtractor")
+
+    if not getattr(URLSource, "_html_page_code_patch_applied", False):
+        URLSource.fetch = _wrap_url_fetch(URLSource.fetch)
+        URLSource._html_page_code_patch_applied = True
+        logger.debug("Applied URL HTML page-code removal patch")
 
     if not getattr(ReferenceFetcher, "_clinicaltrials_cache_patch_applied", False):
         original_get_cache_path = ReferenceFetcher.get_cache_path
