@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2354,11 +2391,13 @@ This mechanism module involves decreased Visual perception (GO:0007601). GO:0007
             
             <div class="item-box anchor-target" id="module-pathophysiology-photoreceptor-gene-defect" data-dismech-node="Photoreceptor Gene Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor Gene Defect</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating lesion is a mutation in a gene required for photoreceptor function or homeostasis. Across retinitis pigmentosa subtypes the gene class varies - phototransduction-cascade components, outer-segment and connecting-cilium structural proteins, RPE visual-cycle enzymes, or pre-mRNA splicing factors - but the mutation is expressed in or critically impairs rod photoreceptors. The defect disrupts phototransduction, outer-segment renewal, or retinol metabolism, destabilizing the photoreceptor before overt cell death.</div>
                 
@@ -2532,11 +2571,13 @@ This pathophysiological event involves decreased Photoreceptor cell maintenance 
             
             <div class="item-box anchor-target" id="module-pathophysiology-photoreceptor-metabolic-and-oxidative-stress" data-dismech-node="Photoreceptor Metabolic and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor Metabolic and Oxidative Stress</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The gene defect imposes metabolic and oxidative stress on the photoreceptor. Disrupted phototransduction and dysregulated cGMP/Ca2+ handling, together with retention of un- or mis-folded proteins in the endoplasmic reticulum, activate the unfolded protein response. As rods are lost, falling oxygen consumption raises outer-retinal oxygen tension, driving superoxide and reactive-species production that overwhelms antioxidant defenses. This amplification step bridges the primary lesion to photoreceptor cell death.</div>
                 
@@ -2677,11 +2718,13 @@ This pathophysiological event involves increased Endoplasmic reticulum unfolded 
             
             <div class="item-box anchor-target" id="module-pathophysiology-rod-photoreceptor-apoptosis" data-dismech-node="Rod Photoreceptor Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Rod Photoreceptor Apoptosis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Accumulated metabolic and oxidative stress, dysregulated second messengers, and unfolded-protein-response signaling converge on programmed death of rod photoreceptors. Apoptosis is the central, conserved effector mechanism of rod loss across retinitis pigmentosa subtypes, although calpain-mediated and other non-apoptotic death pathways can also contribute. Because the disease mutation is expressed in rods, this is the primary, cell-autonomous death step.</div>
                 
@@ -2909,11 +2952,13 @@ This pathophysiological event involves increased Neuron apoptotic process (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-secondary-cone-degeneration-and-outer-retinal-thinning" data-dismech-node="Secondary Cone Degeneration and Outer Retinal Thinning" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Cone Degeneration and Outer Retinal Thinning</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">After rods are largely eliminated, cone photoreceptors degenerate in a characteristic non-cell-autonomous pattern even though the disease mutation is usually not expressed in cones. Proposed drivers include loss of rod-derived trophic support, nutrient and metabolic shortage, oxidative damage from the high post-rod-loss oxygen environment, and microglial inflammation. Progressive photoreceptor loss thins the outer retina. Cone death is the step that converts night blindness into disabling loss of daytime and central vision.</div>
                 
@@ -3033,11 +3078,13 @@ This pathophysiological event involves increased Response to oxidative stress (G
             
             <div class="item-box anchor-target" id="module-pathophysiology-progressive-visual-field-loss-and-blindness" data-dismech-node="Progressive Visual Field Loss and Blindness" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Visual Field Loss and Blindness</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical phenotype of retinitis pigmentosa / rod-cone dystrophy. Rod loss first produces night blindness (nyctalopia), then constriction of the peripheral visual field (tunnel vision), with central vision relatively preserved until cone degeneration advances. Eventually central vision is lost, progressing toward legal blindness. This is the conserved terminal consequence shared across all genetic subtypes.</div>
                 

@@ -1317,11 +1317,16 @@ list-causal-targets *files:
 # under kb/hypotheses/ reaches the disease page through two verbatim name
 # matches in render.collect_hypothesis_research_links -- <slug> against the
 # entry's filename stem, and <hypothesis_id> against a declared
-# mechanistic_hypotheses[].hypothesis_group_id. Neither has a fallback, and a
-# mismatch is silent everywhere else: reports, sidecars, entry and page all
-# validate. A slug miss makes every report under it INVISIBLE; an id miss
-# renders it detached with no status. Ungated and whole-KB because the PR that
-# breaks it -- renaming an entry, folding it into a parent per design decisions
+# mechanistic_hypotheses[].hypothesis_group_id -- plus one fallback in
+# render_disorder, which retries the first lookup with slugify(entry name) when
+# it comes back empty. A mismatch surviving all of that is silent everywhere
+# else: reports, sidecars, entry and page all validate. A slug miss makes every
+# report under it INVISIBLE; an id miss renders it detached with no status.
+# Only genuinely unreachable directories fail: one that renders solely through
+# the fallback is reported as advisory, because several hundred entries have
+# slugify(name) != file stem and failing those would make this gate stricter
+# than the renderer it guards. Ungated and whole-KB because the PR that breaks
+# it -- renaming an entry, folding it into a parent per design decisions
 # section 3a, renaming a hypothesis id -- never opens kb/hypotheses/ at all.
 [group('QC')]
 check-hypothesis-links:
@@ -1507,18 +1512,14 @@ check-snippet-boundaries *files:
         --config {{ref_validator_config}} --check-boundaries \
         {{ if files == "" { "kb/disorders/*.yaml kb/modules/*.yaml kb/module_collections/*.yaml kb/comorbidities/*.yaml" } else { files } }}
 
-# Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
-# '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
-# A baseline grandfathers the pre-existing backlog; this fails only on new ones.
+# A '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting',
+# silently breaking the compound. The baseline that grandfathered the
+# pre-existing backlog was removed once #11760 had repaired it (#12372), so
+# there is no way to grandfather a finding and every one fails.
+# Gate YAML folded-scalar compound-word splits in kb/ and src/
 [group('QC')]
 check-folded-hyphens:
     uv run python scripts/check_folded_hyphens.py
-
-# Regenerate the folded-scalar hyphen baseline after intentionally changing the
-# set (e.g. fixing backlog entries). Review the diff before committing.
-[group('QC')]
-update-folded-hyphen-baseline:
-    uv run python scripts/check_folded_hyphens.py --update-baseline
 
 # Guard against NEW degenerate evidence snippets in kb/ -- bare terms too short
 # to carry a claim (e.g. snippet: 'Strabismus'), which support nothing and are
