@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4650,6 +4689,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bag3-ipv-motif-variant" data-dismech-node="BAG3 IPV Motif Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">BAG3 IPV Motif Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Heterozygous variants affect the conserved IPV motif region of BAG3, the surface through which it binds the small heat shock protein HSPB8. The recurrent CMT2JJ allele is p.Pro209Ser (c.625C&gt;T), reported in three families and then independently in a Chinese family, and proposed on that basis to be a hotspot with more than one ethnic origin. It sits at the same codon as the myofibrillar myopathy allele p.Pro209Leu (c.626C&gt;T) — adjacent nucleotides, one codon, two diseases.</div>
 
 
@@ -4710,6 +4756,8 @@ This pathophysiological event involves BAG3 (hgnc:939). hgnc:939 is a gene from 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4722,6 +4770,9 @@ This pathophysiological event involves BAG3 (hgnc:939). hgnc:939 is a gene from 
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline missense variants at the IPV motif. The action is a toxic gain of function, not haploinsufficiency or a simple dominant negative: the Pro209 mutants as a class acquire a new property, relocating themselves and their chaperone partners into insoluble aggresomes. This was shown for all Pro209 mutants together, p.Pro209Ser included, rather than inferred from the myopathy allele alone.</div>
 
@@ -4817,6 +4868,13 @@ This pathophysiological event involves BAG3 (hgnc:939). hgnc:939 is a gene from 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chaperone-assisted-selective-autophagy-failure" data-dismech-node="Chaperone-Assisted Selective Autophagy Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Chaperone-Assisted Selective Autophagy Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">BAG3 is the co-chaperone of chaperone-assisted selective autophagy: with HSPB8 and Hsp70 it transports misfolded proteins to the microtubule organizing center for degradation in autophagosomes. The Pro209 mutants do not merely fail at this — they actively subvert it, relocating CASA-complex chaperones into insoluble aggresomes and trapping ubiquitinylated client proteins there so they cannot be cleared. This was demonstrated for the Pro209 mutant class including p.Pro209Ser, which is why this node is ESTABLISHED rather than inferred from the myopathy allele.</div>
 
@@ -5013,6 +5071,13 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-misfolded-protein-aggregation-in-peripheral-neurons" data-dismech-node="Misfolded Protein Aggregation in Peripheral Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Misfolded Protein Aggregation in Peripheral Neurons</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Aggresome formation and client entrapment are directly demonstrated for the Pro209 mutants, so the aggregation itself is not in doubt. What remains PROVISIONAL is specifically the peripheral-neuron step: the aggresome work was done in cell lines, no study has shown aggregates in nerve tissue from a CMT2JJ patient, and the supporting argument that aggregation is what damages the axon leans additionally on the analogy with HSPB1 p.Pro182Leu in CMT2. A closer corroboration than that analogy is that HSPB8 — one of the small heat-shock proteins the Pro209 motif binds directly — itself causes axonal CMT2 when mutated, so the client side of this chaperone relationship is independently established as a peripheral-neuropathy mechanism. The gradual loss of protein homeostasis these mutants produce is the plausible route to axonal degeneration; it has not been observed in the affected tissue.</div>
 
@@ -5242,6 +5307,13 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adult-onset-axonal-sensorimotor-neuropathy" data-dismech-node="Adult-Onset Axonal Sensorimotor Neuropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Adult-Onset Axonal Sensorimotor Neuropathy</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint: an axonal sensorimotor neuropathy of adult onset and moderate severity, confirmed by nerve conduction studies and supported by sural nerve biopsy. Adult onset is itself characteristic — most CMT presents in the first two decades, while axonal subtypes increasingly present in adulthood, and BAG3 belongs to that later-onset group. Lower limb MRI shows a selective pattern, with fatty infiltration more severe in soleus and the deep posterior compartment than in medial gastrocnemius and the anterior compartment.</div>
 
 
@@ -5414,7 +5486,7 @@ This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adult-Onset Axonal Sensorimotor Neuropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: an axonal sensorimotor neuropathy of adult onset and moderate severity, confirmed by nerve conduction studies and supported by sural nerve biopsy. Adult onset is itself characteristic \\u2014 most CMT presents in the first two decades, while axonal subtypes increasingly present in adulthood, and BAG3 belongs to that later-onset group. Lower limb MRI shows a selective pattern, with fatty infiltration more severe in soleus and the deep posterior compartment than in medial gastrocnemius and the anterior compartment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Sensory neuron\", \"Motor neuron\"], \"role\": \"consequence\"}}, {\"id\": \"BAG3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"BAG3\"], \"gene_terms\": [{\"label\": \"BAG3\", \"id\": \"hgnc:939\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"BAG3 IPV Motif Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous variants affect the conserved IPV motif region of BAG3, the surface through which it binds the small heat shock protein HSPB8. The recurrent CMT2JJ allele is p.Pro209Ser (c.625C\u003eT), reported in three families and then independently in a Chinese family, and proposed on that basis to be a hotspot with more than one ethnic origin. It sits at the same codon as the myofibrillar myopathy allele p.Pro209Leu (c.626C\u003eT) \\u2014 adjacent nucleotides, one codon, two diseases.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"BAG3\"], \"gene_terms\": [{\"label\": \"BAG3\", \"id\": \"hgnc:939\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Heterozygous germline missense variants at the IPV motif. The action is a toxic gain of function, not haploinsufficiency or a simple dominant negative: the Pro209 mutants as a class acquire a new property, relocating themselves and their chaperone partners into insoluble aggresomes. This was shown for all Pro209 mutants together, p.Pro209Ser included, rather than inferred from the myopathy allele alone.\"}, \"role\": \"trigger\"}}, {\"id\": \"Chaperone-Assisted Selective Autophagy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAG3 is the co-chaperone of chaperone-assisted selective autophagy: with HSPB8 and Hsp70 it transports misfolded proteins to the microtubule organizing center for degradation in autophagosomes. The Pro209 mutants do not merely fail at this \\u2014 they actively subvert it, relocating CASA-complex chaperones into insoluble aggresomes and trapping ubiquitinylated client proteins there so they cannot be cleared. This was demonstrated for the Pro209 mutant class including p.Pro209Ser, which is why this node is ESTABLISHED rather than inferred from the myopathy allele.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"chaperone-mediated autophagy\", \"protein folding\"], \"role\": \"central_effector\"}}, {\"id\": \"Misfolded Protein Aggregation in Peripheral Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aggresome formation and client entrapment are directly demonstrated for the Pro209 mutants, so the aggregation itself is not in doubt. What remains PROVISIONAL is specifically the peripheral-neuron step: the aggresome work was done in cell lines, no study has shown aggregates in nerve tissue from a CMT2JJ patient, and the supporting argument that aggregation is what damages the axon leans additionally on the analogy with HSPB1 p.Pro182Leu in CMT2. A closer corroboration than that analogy is that HSPB8 \\u2014 one of the small heat-shock proteins the Pro209 motif binds directly \\u2014 itself causes axonal CMT2 when mutated, so the client side of this chaperone relationship is independently established as a peripheral-neuropathy mechanism. The gradual loss of protein homeostasis these mutants produce is the plausible route to axonal degeneration; it has not been observed in the affected tissue.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Sensory neuron\", \"Motor neuron\"], \"biological_processes\": [\"protein folding\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"BAG3 IPV Motif Variant\", \"target\": \"Chaperone-Assisted Selective Autophagy Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chaperone-Assisted Selective Autophagy Failure\", \"target\": \"Misfolded Protein Aggregation in Peripheral Neurons\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Misfolded Protein Aggregation in Peripheral Neurons\", \"target\": \"Adult-Onset Axonal Sensorimotor Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BAG3\", \"target\": \"BAG3 IPV Motif Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adult-Onset Axonal Sensorimotor Neuropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: an axonal sensorimotor neuropathy of adult onset and moderate severity, confirmed by nerve conduction studies and supported by sural nerve biopsy. Adult onset is itself characteristic \\u2014 most CMT presents in the first two decades, while axonal subtypes increasingly present in adulthood, and BAG3 belongs to that later-onset group. Lower limb MRI shows a selective pattern, with fatty infiltration more severe in soleus and the deep posterior compartment than in medial gastrocnemius and the anterior compartment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Sensory neuron\", \"Motor neuron\"], \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"BAG3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"BAG3\"], \"gene_terms\": [{\"label\": \"BAG3\", \"id\": \"hgnc:939\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"BAG3 IPV Motif Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous variants affect the conserved IPV motif region of BAG3, the surface through which it binds the small heat shock protein HSPB8. The recurrent CMT2JJ allele is p.Pro209Ser (c.625C\u003eT), reported in three families and then independently in a Chinese family, and proposed on that basis to be a hotspot with more than one ethnic origin. It sits at the same codon as the myofibrillar myopathy allele p.Pro209Leu (c.626C\u003eT) \\u2014 adjacent nucleotides, one codon, two diseases.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"BAG3\"], \"gene_terms\": [{\"label\": \"BAG3\", \"id\": \"hgnc:939\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Heterozygous germline missense variants at the IPV motif. The action is a toxic gain of function, not haploinsufficiency or a simple dominant negative: the Pro209 mutants as a class acquire a new property, relocating themselves and their chaperone partners into insoluble aggresomes. This was shown for all Pro209 mutants together, p.Pro209Ser included, rather than inferred from the myopathy allele alone.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Chaperone-Assisted Selective Autophagy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAG3 is the co-chaperone of chaperone-assisted selective autophagy: with HSPB8 and Hsp70 it transports misfolded proteins to the microtubule organizing center for degradation in autophagosomes. The Pro209 mutants do not merely fail at this \\u2014 they actively subvert it, relocating CASA-complex chaperones into insoluble aggresomes and trapping ubiquitinylated client proteins there so they cannot be cleared. This was demonstrated for the Pro209 mutant class including p.Pro209Ser, which is why this node is ESTABLISHED rather than inferred from the myopathy allele.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"chaperone-mediated autophagy\", \"protein folding\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Misfolded Protein Aggregation in Peripheral Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aggresome formation and client entrapment are directly demonstrated for the Pro209 mutants, so the aggregation itself is not in doubt. What remains PROVISIONAL is specifically the peripheral-neuron step: the aggresome work was done in cell lines, no study has shown aggregates in nerve tissue from a CMT2JJ patient, and the supporting argument that aggregation is what damages the axon leans additionally on the analogy with HSPB1 p.Pro182Leu in CMT2. A closer corroboration than that analogy is that HSPB8 \\u2014 one of the small heat-shock proteins the Pro209 motif binds directly \\u2014 itself causes axonal CMT2 when mutated, so the client side of this chaperone relationship is independently established as a peripheral-neuropathy mechanism. The gradual loss of protein homeostasis these mutants produce is the plausible route to axonal degeneration; it has not been observed in the affected tissue.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Sensory neuron\", \"Motor neuron\"], \"biological_processes\": [\"protein folding\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"BAG3 IPV Motif Variant\", \"target\": \"Chaperone-Assisted Selective Autophagy Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chaperone-Assisted Selective Autophagy Failure\", \"target\": \"Misfolded Protein Aggregation in Peripheral Neurons\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Misfolded Protein Aggregation in Peripheral Neurons\", \"target\": \"Adult-Onset Axonal Sensorimotor Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BAG3\", \"target\": \"BAG3 IPV Motif Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6044,6 +6116,9 @@ This disease-associated gene is BAG3 (hgnc:939). hgnc:939 is a gene from the HUG
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

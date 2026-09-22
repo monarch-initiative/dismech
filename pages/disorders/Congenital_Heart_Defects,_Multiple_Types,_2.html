@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4477,6 +4516,7 @@ One management point follows directly from the mechanism and is easy to miss: be
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tab2-haploinsufficiency" data-dismech-node="TAB2 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">TAB2 Haploinsufficiency</div>
 
+
                 <div class="item-desc">Heterozygous deletion of 6q25.1 including TAB2, or a heterozygous loss-of-function variant within the gene, halves TAB2 dosage. The critical region was narrowed to 850 kb on 6q25.1 and TAB2 identified within it; the causal role was then confirmed by intragenic missense variants and by a translocation disrupting TAB2 that cosegregated with familial congenital heart disease. The loss-of-function framing of this node covers the deletion and truncating-variant class that defines the entity. It is not the whole allelic series: a functional screen of 47 variants found gain-of-function alleles alongside loss-of-function ones, with distinct phenotypes, so a pathogenic TAB2 missense variant cannot be assumed to reduce function.</div>
 
 
@@ -4534,9 +4574,14 @@ This genetic context concerns TAB2 (hgnc:17075). hgnc:17075 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4657,6 +4702,7 @@ This genetic context concerns TAB2 (hgnc:17075). hgnc:17075 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-tak1-complex-signaling" data-dismech-node="Impaired TAK1 Complex Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired TAK1 Complex Signaling</div>
+
 
                 <div class="item-desc">TAB2 is the adaptor that links TNFR1 and other receptors to the TAK1 complex by binding Lys63-linked polyubiquitin chains. Reduced TAB2 impairs that coupling. The consequence is not a single pathway output: TAB2 can act as a TAK1 activator or suppressor depending on cell type, and this node therefore branches into a developmental arm and a myocardial survival arm rather than into one effect. Which downstream output actually tracks disease is not settled. A cell-based screen of 47 TAB2 variants found that AP-1 transcriptional activity, the output of the stress-activated MAPK arm, predicted variant pathogenicity while NF-kappaB activity did not, so the NF-kappaB binding below records a dysregulated pathway rather than the discriminating readout.</div>
 
@@ -4868,6 +4914,7 @@ This pathophysiological event involves dysregulated stress-activated MAPK cascad
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-cardiac-morphogenesis" data-dismech-node="Disturbed Cardiac Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Cardiac Morphogenesis</div>
 
+
                 <div class="item-desc">TAB2 is expressed in the developing human and zebrafish heart, and graded knockdown of tab2 in zebrafish embryos produces cardiac defects, establishing a dosage-sensitive developmental requirement. The resulting human lesions are predominantly valvular and outflow tract abnormalities together with septal defects.</div>
 
 
@@ -5017,6 +5064,7 @@ This pathophysiological event involves abnormal heart valve morphogenesis (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ripk1-dependent-cardiomyocyte-death" data-dismech-node="RIPK1-Dependent Cardiomyocyte Death" data-dismech-type="pathophysiology">
                 <div class="item-name">RIPK1-Dependent Cardiomyocyte Death</div>
+
 
                 <div class="item-desc">In the mature myocardium TAB2 suppresses RIPK1 kinase activation by mediating its phosphorylation at Ser321 through TAK1. Loss of TAB2 releases that restraint, and RIPK1 assembles either the RIPK1-FADD-caspase-8 apoptotic complex or the RIPK1-RIPK3 necroptotic complex. This is a survival mechanism operating in the formed heart, which is why cardiomyopathy can arise without any structural defect.</div>
 
@@ -5242,6 +5290,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-connective-tissue-matrix-involvement" data-dismech-node="Connective Tissue Matrix Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Connective Tissue Matrix Involvement</div>
+
 
                 <div class="item-desc">The extra-cardiac half of the phenotype - short stature, joint hypermobility, abnormal skin texture and the facial gestalt - clusters as a connective tissue disorder, and most individuals with TAB2 single nucleotide variants present that way. The molecular route from reduced TAK1 signalling to matrix involvement is not established, so this node is curated as the tissue-level observation it is rather than as a mechanism, and its outgoing edges carry unknown intermediates.</div>
 
@@ -6382,6 +6431,9 @@ This disease-associated gene is TAB2 (hgnc:17075). hgnc:17075 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

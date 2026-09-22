@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4242,6 +4281,7 @@ Two things are specific to this locus and are curated here rather than inherited
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pex19-loss-of-function" data-dismech-node="Biallelic PEX19 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PEX19 Loss of Function</div>
 
+
                 <div class="item-desc">Both PEX19 alleles carry variants that abolish or severely reduce functional Pex19p. Reported severe alleles are truncating: the original complementation-group-J patient was homozygous for a single-base insertion that frameshifts the codon for Met255 and replaces the C-terminus, including the CAAX box required for function, with an unrelated 24-residue tail; the most recent family was homozygous for a nonsense change in exon 4 predicted to trigger nonsense-mediated decay.</div>
 
 
@@ -4411,6 +4451,7 @@ This pathophysiological event involves PEX19 (hgnc:9713). hgnc:9713 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cytosolic-membrane-protein-targeting" data-dismech-node="Failure of Cytosolic Membrane-Protein Targeting" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Cytosolic Membrane-Protein Targeting</div>
 
+
                 <div class="item-desc">Pex19p is a soluble protein, mostly cytosolic at steady state, that binds a broad range of peroxisomal membrane proteins through the regions those proteins use for peroxisomal targeting, and delivers them to the membrane. Farnesylation of its C-terminal CaaX motif reorganises the cargo-binding surface and strengthens the interaction, which is why alleles truncating that region are inactivating. When Pex19p is absent, newly synthesised membrane proteins are degraded or delivered to mitochondria instead.</div>
 
 
@@ -4576,6 +4617,7 @@ This pathophysiological event involves peroxisomal membrane protein targeting, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-peroxisomal-membrane-compartments" data-dismech-node="Absence of Peroxisomal Membrane Compartments" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of Peroxisomal Membrane Compartments</div>
+
 
                 <div class="item-desc">Cells from complementation group J contain no peroxisomal membrane remnants. This is the feature that separates PEX19 disease from the matrix-import peroxisome biogenesis disorders, in which membrane &#34;ghosts&#34; persist and can be stained; PEX3 and PEX16 deficiency behave the same way.</div>
 
@@ -4759,6 +4801,7 @@ This pathophysiological event involves decreased peroxisome organization (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collapse-of-peroxisomal-matrix-protein-import" data-dismech-node="Collapse of Peroxisomal Matrix Protein Import" data-dismech-type="pathophysiology">
                 <div class="item-name">Collapse of Peroxisomal Matrix Protein Import</div>
+
 
                 <div class="item-desc">With no peroxisomal compartment, matrix enzymes remain in the cytosol, where they are degraded or left in unprocessed precursor form. Expressing wild-type PEX19 in group-J patient fibroblasts restores matrix protein import, which is what demonstrates that the matrix defect is downstream of the PEX19 lesion rather than a separate one.</div>
 
@@ -4950,6 +4993,7 @@ This pathophysiological event involves decreased protein import into peroxisome 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-very-long-chain-fatty-acids" data-dismech-node="Accumulation of Very-Long-Chain Fatty Acids" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Very-Long-Chain Fatty Acids</div>
 
+
                 <div class="item-desc">Peroxisomes are where very-long-chain and branched-chain fatty acids are catabolised, so their absence lets these substrates accumulate. In this disorder that accumulation is usual but not invariable: the most recently reported PEX19 patient had an unremarkable very-long-chain fatty acid profile despite a homozygous nonsense allele, and normal plasma levels have been recorded in a handful of other peroxisome biogenesis disorder patients.</div>
 
 
@@ -5122,6 +5166,7 @@ This pathophysiological event involves decreased very long-chain fatty acid cata
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasmalogen-deficiency" data-dismech-node="Plasmalogen Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasmalogen Deficiency</div>
 
+
                 <div class="item-desc">The first steps of ether-lipid synthesis are peroxisomal, so plasmalogens fall when the compartment is lost. In Zellweger fibroblasts the plasmalogen fraction of phosphatidylethanolamine is roughly half of control while total phospholipid content and membrane fluidity are unchanged, so this is a selective lipid defect rather than general membrane damage.</div>
 
 
@@ -5237,6 +5282,7 @@ This pathophysiological event involves decreased ether lipid biosynthesis, annot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-migration-and-neurogenesis" data-dismech-node="Impaired Neuronal Migration and Neurogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Migration and Neurogenesis</div>
+
 
                 <div class="item-desc">Cortical neurons fail to reach their destinations in the severe end of the Zellweger spectrum, producing the neuronal migration defect that underlies the neonatal seizures, the profound hypotonia and the absent developmental progress. Ventricular enlargement and hydrocephalus are reported alongside it in the PEX19 cases.</div>
 
@@ -5415,6 +5461,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-hepatic-injury" data-dismech-node="Progressive Hepatic Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Hepatic Injury</div>
 
+
                 <div class="item-desc">Liver involvement is part of the severe Zellweger phenotype and was the late-emerging problem in the longest-surviving reported PEX19 patient, alongside renal tubular disease.</div>
 
 
@@ -5488,6 +5535,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-and-skeletal-dysmorphogenesis" data-dismech-node="Craniofacial and Skeletal Dysmorphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial and Skeletal Dysmorphogenesis</div>
+
 
                 <div class="item-desc">The Zellweger facies and the bone findings. In the reported PEX19 patients this covers wide open fontanelles, dense bones and the characteristic facial features; which arm of the peroxisomal metabolic failure produces them is not worked out.</div>
 
@@ -5656,6 +5704,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-structural-malformation" data-dismech-node="Congenital Structural Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Structural Malformation</div>
+
 
                 <div class="item-desc">Structural birth defects reported in this disorder. The renal cysts and neuronal migration defects of the severe Zellweger phenotype are long established; in the PEX19 patient reported in 2025 the malformations were unilateral renal agenesis, a cardiac septal defect and a patent ductus. No mechanistic account links peroxisome loss to these specific defects, and this node exists to carry the reported associations rather than to assert a pathway.</div>
 
@@ -5890,13 +5939,11 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Prenatal and Birth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7476,7 +7523,7 @@ This clinical feature is Congenital talipes equinovarus, annotated with Talipes 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-hypotonia" data-dismech-node="Generalized Hypotonia" data-dismech-type="phenotype">
@@ -7625,6 +7672,84 @@ This clinical feature is Dense bones, annotated with Increased bone mineral dens
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chondrodysplasia-punctata" data-dismech-node="Chondrodysplasia Punctata" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chondrodysplasia Punctata
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Calcific stippling of infantile cartilaginous skeleton</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0005841</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chondrodysplasia punctata of the patellae and long bones, annotated with Calcific stippling of infantile cartilaginous skeleton (HP:0005841). HP:0005841 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">HPO carries no term labelled &#34;chondrodysplasia punctata&#34;: an OLS search of hp for that string returns nothing bearing the name, and a search for &#34;calcific stippling&#34; returns site-specific terms (shoulder, humeral epiphyses, elbow, carpal bones) plus this one and HP:0002832 &#34;Calcific stippling&#34;. HP:0002832 is defined as calcification &#34;in soft tissues within or surrounding bones&#34;, which is not what chondrodysplasia punctata is; HP:0010655 &#34;Epiphyseal stippling&#34; is restricted to epiphyses and so does not cover the patella, which is cartilaginous at birth. This term covers the infantile cartilaginous skeleton as a whole, which is what the source describes.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301621" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301621" target="_blank">PMID:20301621</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They have distinctive facies, congenital malformations (neuronal migration defects associated with neonatal-onset seizures, renal cysts, and bony stippling"</div>
+
+
+                <div class="evidence-explanation">The GeneReviews congenital-malformation list. The quote stops before the source&#39;s bracketed gloss, which the reference validator strips from the query side only; the source reads &#34;bony stippling [chondrodysplasia punctata] of the patella[e] and the long bones&#34;. Graded indirect because the chapter covers the Zellweger spectrum as a class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-9">
@@ -7648,10 +7773,10 @@ This clinical feature is Dense bones, annotated with Increased bone mineral dens
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001265</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001265</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7720,10 +7845,10 @@ This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7792,10 +7917,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0032807</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0032807</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7866,10 +7991,10 @@ This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7938,10 +8063,10 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000238</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8010,10 +8135,10 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001320</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001320</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplastic inferior cerebellar vermis, annotated with Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8091,10 +8216,10 @@ This clinical feature is Hypoplastic inferior cerebellar vermis, annotated with 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001561</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001561</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8136,93 +8261,6 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
                 <div class="evidence-explanation">Antenatal finding in the PEX19-homozygous patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chondrodysplasia-punctata" data-dismech-node="Chondrodysplasia Punctata" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chondrodysplasia Punctata
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Calcific stippling of infantile cartilaginous skeleton</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0005841</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chondrodysplasia punctata of the patellae and long bones, annotated with Calcific stippling of infantile cartilaginous skeleton (HP:0005841). HP:0005841 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-                    <div class="item-desc">HPO carries no term labelled &#34;chondrodysplasia punctata&#34;: an OLS search of hp for that string returns nothing bearing the name, and a search for &#34;calcific stippling&#34; returns site-specific terms (shoulder, humeral epiphyses, elbow, carpal bones) plus this one and HP:0002832 &#34;Calcific stippling&#34;. HP:0002832 is defined as calcification &#34;in soft tissues within or surrounding bones&#34;, which is not what chondrodysplasia punctata is; HP:0010655 &#34;Epiphyseal stippling&#34; is restricted to epiphyses and so does not cover the patella, which is cartilaginous at birth. This term covers the infantile cartilaginous skeleton as a whole, which is what the source describes.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301621" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301621" target="_blank">PMID:20301621</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"They have distinctive facies, congenital malformations (neuronal migration defects associated with neonatal-onset seizures, renal cysts, and bony stippling"</div>
-
-
-                <div class="evidence-explanation">The GeneReviews congenital-malformation list. The quote stops before the source&#39;s bracketed gloss, which the reference validator strips from the query side only; the source reads &#34;bony stippling [chondrodysplasia punctata] of the patella[e] and the long bones&#34;. Graded indirect because the chapter covers the Zellweger spectrum as a class.</div>
 
 
 
@@ -8308,6 +8346,9 @@ This disease-associated gene is PEX19 (hgnc:9713). hgnc:9713 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

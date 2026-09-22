@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4914,6 +4953,7 @@ If the truncating alleles are simple loss of function, then a heterozygous trunc
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-slc17a8-variant" data-dismech-node="Heterozygous SLC17A8 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous SLC17A8 Variant</div>
 
+
                 <div class="item-desc">The founding and best-characterised allele is the missense c.632C&gt;T, p.A211V, which segregated with deafness in two apparently unrelated families sharing a distant common ancestor and was absent from 267 controls. The alanine is conserved across species and across all three human VGLUT paralogues.
 Later reported dominant alleles are of a different kind: a frameshift, p.M206Nfs*4, predicted to truncate the protein at residue 209 and remove transmembrane domains 5 to 12, and a canonical splice-donor variant, c.763+1G&gt;T. Whether these act by the same route as the missense allele is not established, and the entry does not assume it.</div>
 
@@ -4967,6 +5007,8 @@ This genetic context concerns SLC17A8 (hgnc:20151). hgnc:20151 is a gene from th
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4977,6 +5019,9 @@ This genetic context concerns SLC17A8 (hgnc:20151). hgnc:20151 is a gene from th
 
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous in every reported family. `functional_impact_category` is deliberately left empty: heterozygous Slc17a8 knockout mice hear normally while heterozygous human p.A211V carriers do not, so the missense allele is not behaving as a simple loss-of-function, and no dominant-negative or gain-of-function experiment has been done to license one of the narrower values instead. The truncating and splice alleles may well be loss-of-function, but they sit in the same slot on the same node and the category is single-valued.</div>
 
@@ -5101,6 +5146,7 @@ This genetic context concerns SLC17A8 (hgnc:20151). hgnc:20151 is a gene from th
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-vglut3-function-in-the-inner-hair-cell" data-dismech-node="Altered VGLUT3 Function in the Inner Hair Cell" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered VGLUT3 Function in the Inner Hair Cell</div>
+
 
                 <div class="item-desc">VGLUT3 is the vesicular glutamate transporter of the cochlear inner hair cell: it accumulates glutamate inside the synaptic vesicle so that the vesicle has something to release when it fuses. Of the three VGLUT paralogues it is the only one selectively expressed in inner hair cells, which is why the cochlear phenotype is not compensated by VGLUT1 or VGLUT2 and why an otherwise widely expressed transporter gives a nonsyndromic deafness.
 What the human p.A211V substitution does to that function is the open part. It does not impair vesicular glutamate accumulation, quantal release or quantal content when tested in hippocampal autaptic neurons, and in the knock-in mouse it lowers VGLUT3 protein in central terminals by roughly seventy per cent without changing VGLUT3-dependent behaviour. So the allele is not a straightforward transport-dead mutant, and the two hypothesis groups below diverge from this node rather than from the variant.</div>
@@ -5408,6 +5454,7 @@ This pathophysiological event involves inner hair cell synaptic vesicle, annotat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-glutamate-release-at-the-inner-hair-cell-ribbon-synapse" data-dismech-node="Impaired Glutamate Release at the Inner Hair Cell Ribbon Synapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Glutamate Release at the Inner Hair Cell Ribbon Synapse</div>
 
+
                 <div class="item-desc">In the Slc17a8 null cochlea the machinery of release is intact and the cargo is not. Calcium-triggered vesicle turnover measured by membrane capacitance is normal at two weeks of age, and the ribbon synapses that survive to three months look normal under the electron microscope. What is missing is the glutamate, so the vesicles fuse and the afferent terminal is not driven.</div>
 
 
@@ -5648,6 +5695,7 @@ This pathophysiological event involves decreased glutamate secretion at the inne
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inner-hair-cell-stereocilia-bundle-disruption" data-dismech-node="Inner Hair Cell Stereocilia Bundle Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Inner Hair Cell Stereocilia Bundle Disruption</div>
 
+
                 <div class="item-desc">In the knock-in mouse carrying the human allele, scanning electron microscopy shows the inner hair cell stereocilia bundles collapsing and fusing while the outer hair cell bundles are left alone. That selectivity matters: it is the same cell-type restriction as the transporter&#39;s expression, and it means the finding is not general hair-cell degeneration.
 No mechanism links a vesicular glutamate transporter to hair-bundle architecture, and the finding is surprising on its own terms: VGLUT3 is not present in inner hair cell stereocilia, and losing VGLUT3 altogether leaves the transducer working, with an intact hair cell receptor potential. The paper&#39;s own candidate explanation - that the variant protein misfolds and aggregates, disrupting traffic towards the stereocilia machinery - is argued against by two earlier results it cites: the point mutation reduces VGLUT3 in nerve terminals while leaving the soma unchanged, and a structural model shows that swapping alanine for valine barely changes the protein. The node is curated because the allele-matched model reports it as the primary lesion, not because the connection is understood.</div>
 
@@ -5838,6 +5886,7 @@ This pathophysiological event involves decreased inner hair cell stereocilium bu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-inner-hair-cell-receptor-potential" data-dismech-node="Reduced Inner Hair Cell Receptor Potential" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Inner Hair Cell Receptor Potential</div>
+
 
                 <div class="item-desc">The summating potential is the gross cochlear correlate of the inner hair cell receptor potential, and it is reduced in the knock-in mouse. Because cochlear amplification is intact in the same animals, a smaller receptor potential is being generated from a normal mechanical input - which is what a transduction defect in the inner hair cell looks like from outside.</div>
 
@@ -6073,6 +6122,7 @@ This pathophysiological event involves decreased mechanotransduction in the inne
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-ribbon-enlargement-and-altered-sustained-exocytosis" data-dismech-node="Synaptic Ribbon Enlargement and Altered Sustained Exocytosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Synaptic Ribbon Enlargement and Altered Sustained Exocytosis</div>
 
+
                 <div class="item-desc">Later in the knock-in mouse the ribbons grow oversized and the rate of sustained releasable pool exocytosis rises. This is a change in synaptic transfer rather than a loss of it, and it points the same way as the null mouse&#39;s ribbon morphology, where ribbons are described as abnormally thin and elongated. Whether an enlarged ribbon with a faster sustained release rate is compensatory or maladaptive has not been tested.</div>
 
 
@@ -6287,6 +6337,7 @@ This pathophysiological event involves increased sustained glutamate release fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-auditory-nerve-activation-with-preserved-cochlear-amplification" data-dismech-node="Failure of Auditory Nerve Activation with Preserved Cochlear Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Auditory Nerve Activation with Preserved Cochlear Amplification</div>
+
 
                 <div class="item-desc">The convergence point of both hypothesis groups, and the finding that puts DFNA25 in the same conversation as the auditory synaptopathies - in the models, at least. In the null mouse, sound-evoked auditory-nerve responses are absent while otoacoustic emissions are robust, and brainstem responses can still be evoked electrically - so the cochlear amplifier and the ascending pathway both work and the step between them does not. In the knock-in mouse the same dissociation appears in progressive form: brainstem responses deteriorate with age while distortion-product emissions stay intact.
 This is a mouse finding, and in the patients it does not hold. Otoacoustic emissions are reported absent in carriers of the p.A211V allele - the opposite of both mice - which is why the knock-in study concludes that DFNA25 in humans is more likely a progressive hearing loss than an auditory neuropathy. The node is therefore curated as what the models show, not as a human phenotype, and the absent-emissions finding is curated separately under phenotypes.</div>
@@ -6565,6 +6616,7 @@ This pathophysiological event occurs in organ of Corti, annotated with spiral or
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-deafferentation-of-the-inner-hair-cell" data-dismech-node="Secondary Deafferentation of the Inner Hair Cell" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Deafferentation of the Inner Hair Cell</div>
+
 
                 <div class="item-desc">In the null mouse the afferent synapses beneath the inner hair cells, the spiral ganglion neurons themselves and the lateral efferent endings all decline with time, and some cochlear ganglion neurons degenerate early enough that the glutamate released before hearing onset is inferred to have a developmental role rather than only a signalling one. Aged null cochleae show degeneration of inner hair cells, synapses and stereocilia together.
 This matters clinically because it is the part of the disease a therapy would have to outrun.</div>
@@ -7403,6 +7455,9 @@ This disease-associated gene is SLC17A8 (hgnc:20151). hgnc:20151 is a gene from 
 
 
                 </div>
+
+
+
 
 
 

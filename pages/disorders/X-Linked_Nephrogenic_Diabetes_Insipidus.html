@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4627,6 +4666,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-avpr2-loss-of-function-variant" data-dismech-node="AVPR2 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">AVPR2 Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">A hemizygous pathogenic variant in AVPR2 on Xq28, the gene encoding the arginine vasopressin V2 receptor. The allelic spectrum is wide and largely private: 82 different putative disease-causing variants were found among 117 families, and haplotype analysis indicates that recurrences of the same variant in apparently unrelated families arose independently rather than from a shared founder. Roughly a fifth of isolated cases are de novo, arising during oogenesis in the mother.</div>
 
 
@@ -4679,6 +4719,8 @@ This genetic context concerns AVPR2 (hgnc:897). hgnc:897 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4691,6 +4733,9 @@ This genetic context concerns AVPR2 (hgnc:897). hgnc:897 is a gene from the HUGO
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Hemizygous in affected males. Heterozygous females are affected only when X-inactivation is skewed against the normal allele.</div>
 
@@ -4842,6 +4887,7 @@ This pathophysiological event involves arginine vasopressin V2 receptor activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-or-truncated-v2-receptor-protein" data-dismech-node="Absent or Truncated V2 Receptor Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent or Truncated V2 Receptor Protein</div>
+
 
                 <div class="item-desc">The third mechanistic class of AVPR2 loss of function, and the one that cannot be addressed by rescuing a receptor, because there is no receptor to rescue. Nonsense, frameshift, large-deletion and complex-rearrangement alleles yield absent, truncated or otherwise undetectable receptor protein. The step that fails is after transcription rather than at it: in the study cited here mRNA was produced for every mutant construct tested, yet the 804delG frameshift allele gave no receptor protein on Western blot. This node exists because the entry&#39;s own flagship animal model - the Glu242stop knock-in mouse - carries an allele of exactly this class, so without it the model&#39;s variant class had no route through the graph.</div>
 
@@ -5035,6 +5081,7 @@ This pathophysiological event involves absent arginine vasopressin V2 receptor a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-retention-of-misfolded-v2-receptor" data-dismech-node="Endoplasmic Reticulum Retention of Misfolded V2 Receptor" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoplasmic Reticulum Retention of Misfolded V2 Receptor</div>
+
 
                 <div class="item-desc">The pathognomonic cell-biological lesion of XNDI, and the reason the disease is a trafficking disorder rather than a ligand-recognition disorder. A misfolded V2 receptor is held in the endoplasmic reticulum by the same chaperone-based quality control that polices any nascent membrane protein; calnexin associates with the ER-retained receptor for longer than with the wild-type one. The receptor is often intrinsically capable of signalling - it is simply in the wrong compartment. That distinction is what makes pharmacochaperone rescue conceivable at all, and it is why a cell-permeable non-peptide ligand can restore membrane expression of a mutant receptor that a membrane-impermeant peptide agonist could never reach.</div>
 
@@ -5316,6 +5363,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-signalling-incompetent-cell-surface-v2-receptor" data-dismech-node="Signalling-Incompetent Cell-Surface V2 Receptor" data-dismech-type="pathophysiology">
                 <div class="item-name">Signalling-Incompetent Cell-Surface V2 Receptor</div>
 
+
                 <div class="item-desc">The minority class of AVPR2 variants, in which the receptor folds well enough to be exported from the ER and delivered to the basolateral membrane of the principal cell but cannot transduce a vasopressin signal from there - either because hormone recognition is destroyed, or because coupling to Gs is. This node is kept separate from the ER-retention node because it carries a different therapeutic implication: a pharmacochaperone has nothing to correct.</div>
 
 
@@ -5518,6 +5566,7 @@ This pathophysiological event involves basolateral plasma membrane of the princi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-vasopressin-stimulated-camp-and-pka-signalling" data-dismech-node="Loss of Vasopressin-Stimulated cAMP and PKA Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Vasopressin-Stimulated cAMP and PKA Signalling</div>
+
 
                 <div class="item-desc">Vasopressin normally acts on the principal cell through a single linear cascade: V2 receptor occupancy activates the stimulatory G protein Gs, Gs activates adenylyl cyclase, cAMP rises, and cAMP activates protein kinase A. With no functional receptor at the membrane the cascade has no input. Note what is intact: the hormone, the G protein, the cyclase and PKA itself are all normal, which is the reason every experimental strategy for XNDI has aimed at re-entering the cascade below the receptor.</div>
 
@@ -5818,6 +5867,7 @@ This pathophysiological event involves decreased protein kinase A activity downs
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-aquaporin-2-phosphorylation-and-apical-insertion" data-dismech-node="Failure of Aquaporin-2 Phosphorylation and Apical Insertion" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Aquaporin-2 Phosphorylation and Apical Insertion</div>
 
+
                 <div class="item-desc">Aquaporin-2 is the vasopressin-regulated water channel of the principal cell, and it is regulated by being moved. PKA phosphorylates AQP2 at Ser256 and the channel is redistributed from intracellular vesicles into the apical membrane, where it makes the luminal surface water-permeable. In XNDI the AQP2 protein itself is normal - that is the defining feature separating this disease from the autosomal AQP2-mutation form - and the failure is purely one of regulation. It is also the reason the whole therapeutic literature is framed as &#34;reach AQP2 without the receptor&#34;.</div>
 
 
@@ -6092,6 +6142,7 @@ This pathophysiological event involves apical plasma membrane of the principal c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collecting-duct-water-impermeability" data-dismech-node="Collecting Duct Water Impermeability" data-dismech-type="pathophysiology">
                 <div class="item-name">Collecting Duct Water Impermeability</div>
 
+
                 <div class="item-desc">The collecting duct is the final site at which the kidney can return water to the body, and its water permeability is not constitutive - it exists only while aquaporin-2 is in the apical membrane. An XNDI collecting duct is therefore permanently in its dilute-urine configuration regardless of how dehydrated the patient is.</div>
 
 
@@ -6299,6 +6350,7 @@ This pathophysiological event occurs in kidney collecting duct epithelium (UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-medullary-countercurrent-urine-concentration" data-dismech-node="Failure of Medullary Countercurrent Urine Concentration" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Medullary Countercurrent Urine Concentration</div>
 
+
                 <div class="item-desc">Urine concentration depends on two things: a corticomedullary osmotic gradient built by countercurrent multiplication in the loops of Henle, and a collecting duct able to equilibrate with it. XNDI breaks only the second. This is worth stating explicitly because it is the reason XNDI is a pure water-handling disease with normal solute excretion, and the reason the washout of the gradient by very high tubular flow is a secondary aggravation rather than the primary defect.</div>
 
 
@@ -6465,6 +6517,7 @@ This pathophysiological event occurs in renal medulla (UBERON:0000362). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obligatory-hypotonic-free-water-loss" data-dismech-node="Obligatory Hypotonic Free Water Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Obligatory Hypotonic Free Water Loss</div>
+
 
                 <div class="item-desc">The organism-level consequence: a fixed, large output of dilute urine that continues irrespective of plasma osmolality or volume status. Because it is obligatory rather than regulated, thirst is the only defence, and an affected person is dependent on continuous access to water. Adolescents and adults may void 10 to 15 litres a day.</div>
 
@@ -6689,6 +6742,7 @@ This pathophysiological event involves abnormal organism-level water homeostasis
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-high-urinary-tract-flow" data-dismech-node="Sustained High Urinary Tract Flow" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained High Urinary Tract Flow</div>
+
 
                 <div class="item-desc">A mechanical consequence of the urine output, and the one most specific to long-standing untreated disease. Decades of very high flow through an anatomically normal urinary tract dilate it: the bladder becomes large and trabeculated, the ureters dilate, and the renal pelvis follows, all without any obstruction at the bladder outlet. The dilatation is not harmless - poor drainage of a huge compliant bladder raises residual volume, predisposes to infection, and can itself impair renal function.</div>
 
@@ -8649,6 +8703,9 @@ This disease-associated gene is AVPR2 (hgnc:897). hgnc:897 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
