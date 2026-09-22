@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5028,6 +5067,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-chst3-loss-of-function" data-dismech-node="Biallelic CHST3 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CHST3 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic pathogenic CHST3 variants abolish or severely reduce the activity of carbohydrate sulfotransferase 3 (chondroitin 6-O-sulfotransferase-1), a Golgi enzyme that transfers sulfate from PAPS to the C-6 position of N-acetylgalactosamine residues in chondroitin. Missense alleles in the PAPS-binding site abolish activity outright; other alleles are hypomorphic and retain partial activity, which may contribute to the observed phenotypic breadth.
 </div>
 
@@ -5232,6 +5272,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-chondroitin-6-o-sulfation" data-dismech-node="Deficient Chondroitin 6-O-Sulfation" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Chondroitin 6-O-Sulfation</div>
 
+
                 <div class="item-desc">Absent or reduced C6ST-1 activity produces a specific but generalized defect of chondroitin sulfate chain sulfation: 6-O-sulfated disaccharides are markedly depleted while 4-O-sulfated disaccharides are relatively increased, with appearance of a disulfated 4,6-species that is undetectable in controls. The defect is demonstrable in patient dermal fibroblasts and in urine, and distinguishes CHST3 deficiency from the global undersulfation of SLC26A2 (DTDST) deficiency.
 </div>
 
@@ -5413,6 +5454,7 @@ This pathophysiological event involves abnormal chondroitin sulfate proteoglycan
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-cartilage-proteoglycan-matrix" data-dismech-node="Altered Cartilage Proteoglycan Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Cartilage Proteoglycan Matrix</div>
+
 
                 <div class="item-desc">Chondroitin sulfate chains carried on cartilage proteoglycans determine the fixed charge density, hydration and growth-factor-binding behaviour of the extracellular matrix. Loss of 6-O-sulfation alters these physical and signalling properties, degrading the ability of chondrocytes to build a competent proteoglycan-rich matrix in hyaline, articular, epiphyseal and vertebral cartilage.
 </div>
@@ -5608,6 +5650,7 @@ This pathophysiological event occurs in articular cartilage, annotated with arti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-plate-and-epiphyseal-cartilage-dysplasia" data-dismech-node="Growth Plate and Epiphyseal Cartilage Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Plate and Epiphyseal Cartilage Dysplasia</div>
+
 
                 <div class="item-desc">Impaired matrix assembly in growth-plate, epiphyseal and vertebral cartilage produces prenatal-onset growth deficiency, epiphyseal dysplasia, flared metaphyses, and characteristic vertebral changes (lumbar vertebral clefting and widened interpedicular distances early; platyspondyly and progressive spinal deformity later). Radiographic vertebral change is the most useful diagnostic clue.
 </div>
@@ -5884,6 +5927,7 @@ This pathophysiological event occurs in growth plate cartilage (UBERON:0004129).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-primary-joint-dysplasia-with-congenital-dislocation" data-dismech-node="Primary Joint Dysplasia with Congenital Dislocation" data-dismech-type="pathophysiology">
                 <div class="item-name">Primary Joint Dysplasia with Congenital Dislocation</div>
 
+
                 <div class="item-desc">Dislocation of the knees, hips and radial heads is present at birth and is interpreted as primary dysplasia of the joint structures themselves rather than generalized ligamentous laxity — the joint surfaces and distal humeri are radiographically malformed (bifid distal humerus with radial head subluxation). Club feet accompany the dislocations.
 </div>
 
@@ -6055,6 +6099,7 @@ This pathophysiological event occurs in knee joint (UBERON:0001485). UBERON:0001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-articular-and-spinal-degeneration" data-dismech-node="Progressive Articular and Spinal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Articular and Spinal Degeneration</div>
 
+
                 <div class="item-desc">Beyond the congenital malformation, the abnormal matrix degenerates progressively: joint pain, premature arthrosis, contractures and increasing limitation of range of motion accumulate, and kyphosis or kyphoscoliosis develops in late childhood and worsens. This progressive arm, not the neonatal dislocations, drives most long-term disability.
 </div>
 
@@ -6221,6 +6266,7 @@ This pathophysiological event occurs in knee joint (UBERON:0001485). UBERON:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-valve-connective-tissue-involvement" data-dismech-node="Cardiac Valve Connective Tissue Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Valve Connective Tissue Involvement</div>
+
 
                 <div class="item-desc">Dysplasia of the cardiac valve leaflets with mitral, tricuspid and/or aortic regurgitation occurs in a minority of patients. Reported valve involvement is clinically minor; lethal cardiac involvement has separately been reported in a CHST3 series without the responsible lesion being specified, and it is that unattributed lethality — not the valve dysplasia itself — that motivates echocardiographic surveillance. Valve leaflets are proteoglycan-rich connective tissue and the C6ST-1 substrate (chondroitin-bearing proteoglycan) is a general connective-tissue constituent, but CHST3-deficient valve tissue has never been examined directly, so the step from deficient 6-O-sulfation to valve dysplasia is uncharacterized.
 </div>
@@ -9058,6 +9104,9 @@ This disease-associated gene is CHST3 (hgnc:1971). hgnc:1971 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9156,6 +9205,7 @@ This disease-associated gene is CHST3 (hgnc:1971). hgnc:1971 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9177,7 +9227,13 @@ This variant is in CHST3 (hgnc:1971). hgnc:1971 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense variant in the conserved 3&#39;-phosphoadenosine 5&#39;-phosphosulfate (PAPS) cosubstrate binding site, identified in two large consanguineous Omani families with spondyloepiphyseal dysplasia Omani type. Recombinant enzyme assays show complete loss of C6ST-1 activity.</div>
@@ -9238,6 +9294,7 @@ This variant is in CHST3 (hgnc:1971). hgnc:1971 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9259,7 +9316,13 @@ This variant is in CHST3 (hgnc:1971). hgnc:1971 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense variant in exon 3 identified in a Turkish family with Omani-type spondyloepiphyseal dysplasia and cardiac valve involvement. In contrast to R304Q this allele is hypomorphic, retaining roughly a quarter of wild-type sulfotransferase activity.</div>
@@ -9320,6 +9383,7 @@ This variant is in CHST3 (hgnc:1971). hgnc:1971 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9341,7 +9405,13 @@ This variant is in CHST3 (hgnc:1971). hgnc:1971 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent missense variant reported predominantly in Turkish patients, suggesting a population-specific recurrent or founder allele.</div>

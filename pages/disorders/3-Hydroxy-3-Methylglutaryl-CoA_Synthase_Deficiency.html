@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4909,6 +4948,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hmgcs2-catalytic-loss" data-dismech-node="HMGCS2 Catalytic Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">HMGCS2 Catalytic Loss</div>
 
+
                 <div class="item-desc">Biallelic pathogenic HMGCS2 variants reduce or abolish mitochondrial hydroxymethylglutaryl-CoA synthase activity, establishing the initiating molecular lesion.</div>
 
 
@@ -5144,6 +5184,7 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatic-ketogenesis" data-dismech-node="Impaired Hepatic Ketogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hepatic Ketogenesis</div>
 
+
                 <div class="item-desc">HMGCS2 normally condenses acetyl-CoA and acetoacetyl-CoA to form HMG-CoA at the first rate-limiting step of ketone-body biosynthesis. Loss of this step prevents an adequate rise in hepatic ketone production during ketogenic stress.</div>
 
 
@@ -5321,6 +5362,7 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-catabolic-stress-unmasked-ketone-body-energy-deficit" data-dismech-node="Catabolic Stress-Unmasked Ketone-Body Energy Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Catabolic Stress-Unmasked Ketone-Body Energy Deficit</div>
 
+
                 <div class="item-desc">Fasting, poor intake, or illness increases dependence on hepatic ketogenesis. Inadequate ketone-body availability then creates a systemic energy deficit and susceptibility to decompensation; glucose concentration can be low, normal, or high at presentation.</div>
 
 
@@ -5421,6 +5463,7 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-hypoketotic-metabolic-decompensation" data-dismech-node="Acute Hypoketotic Metabolic Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Hypoketotic Metabolic Decompensation</div>
+
 
                 <div class="item-desc">The acute crisis can combine inadequate ketosis, metabolic acidosis, vomiting or poor intake, lethargy or encephalopathy, hepatomegaly, transaminase elevation, tachypnea, and—in severe episodes—seizures, shock, or coma. Hypoglycemia is frequent in selected cohorts but is not defining.</div>
 
@@ -5546,6 +5589,7 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preclinical-hepatic-acetyl-coa-and-lipid-handling-changes" data-dismech-node="Preclinical Hepatic Acetyl-CoA and Lipid-Handling Changes" data-dismech-type="pathophysiology">
                 <div class="item-name">Preclinical Hepatic Acetyl-CoA and Lipid-Handling Changes</div>
+
 
                 <div class="item-desc">Neonatal or liver-specific Hmgcs2-deficient mice accumulate hepatic acetyl-CoA, show mitochondrial protein hyperacetylation, and redirect fatty acids toward ACSL1-mediated re-esterification. This is a model-derived branch, not an established human HMGCS2-deficiency mechanism.</div>
 
@@ -7191,6 +7235,9 @@ This disease-associated gene is HMGCS2 (hgnc:5008). hgnc:5008 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -7249,6 +7296,7 @@ This disease-associated gene is HMGCS2 (hgnc:5008). hgnc:5008 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7270,7 +7318,13 @@ This variant is in HMGCS2 (hgnc:5008). hgnc:5008 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Disease-associated HMGCS2 alleles are heterogeneous. Functional assays establish absent, negligible, or reduced enzyme activity for selected variants, so the record models their demonstrated functional effect without assigning every reported allele to one structural variant class. A 2025 patient-level analysis did not establish a genotype-phenotype correlation.</div>

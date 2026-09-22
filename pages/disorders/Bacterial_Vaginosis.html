@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5133,6 +5172,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-lactobacillus-dominance-and-vaginal-acidification" data-dismech-node="Loss of Lactobacillus Dominance and Vaginal Acidification" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Lactobacillus Dominance and Vaginal Acidification</div>
 
+
                 <div class="item-desc">The initiating state change. A healthy premenopausal vagina is dominated by Lactobacillus species whose copious lactic acid holds the lumen below pH 4.5; in BV that community is replaced, lactic acid production falls and pH rises. Two points matter for everything downstream. The species identity is not interchangeable - L. crispatus-dominated communities are the most protective, whereas L. iners, which makes only the L-isomer of lactic acid, sits at an intermediate and unstable position and is the species most associated with transition into and relapse after BV. And the trigger itself is unexplained: what precipitates the shift in an individual woman is the central unanswered question of the field, curated as a knowledge gap below. `GO:0006885 regulation of pH` is deliberately not bound here: the pH claim this node makes is about the chemistry of the vaginal lumen, not about a cellular homeostatic process, and GO annotates the latter. The mechanism that produces the pH change is carried by the lactate term below, and the luminal measurement itself is curated as an Amsel criterion under `definitions`.
 </div>
 
@@ -5321,6 +5361,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polymicrobial-anaerobic-overgrowth" data-dismech-node="Polymicrobial Anaerobic Overgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Polymicrobial Anaerobic Overgrowth</div>
 
+
                 <div class="item-desc">Expansion of a dense, diverse consortium - Gardnerella spp., Prevotella (Hoylesella) spp., Fannyhessea (Atopobium) vaginae, Mobiluncus, Megasphaera, Sneathia and others - to concentrations orders of magnitude above baseline. This node is deliberately named for the community rather than for an organism: no single member reproduces the syndrome on inoculation, and each is recoverable from women without disease. Treating the consortium as the unit is what makes the broad anaerobic coverage of metronidazole and clindamycin the rational therapy, and it is why an organism-specific agent has never been developed.
 </div>
 
@@ -5506,6 +5547,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biogenic-amine-production-and-amplified-lactobacillus-suppression" data-dismech-node="Biogenic Amine Production and Amplified Lactobacillus Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Biogenic Amine Production and Amplified Lactobacillus Suppression</div>
 
+
                 <div class="item-desc">Amino acid decarboxylation by the expanded anaerobes produces putrescine, cadaverine, tyramine and trimethylamine. These are usually treated as a symptom - they are what the whiff test detects and what patients describe as a fishy odour - but the measurements curated here make them a mechanism as well: they inhibit the growth of vaginal lactobacilli and independently reduce their lactic acid output. That closes a positive feedback loop back onto the trigger node, which is why the dysbiotic state is self-reinforcing rather than self-limiting, and it is the reason this node is curated separately from the odour phenotype it produces.
 </div>
 
@@ -5670,6 +5712,7 @@ This pathophysiological event involves increased amine biosynthetic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-adhesion-and-gardnerella-dominated-adherent-biofilm" data-dismech-node="Epithelial Adhesion and Gardnerella-Dominated Adherent Biofilm" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelial Adhesion and Gardnerella-Dominated Adherent Biofilm</div>
+
 
                 <div class="item-desc">Gardnerella adheres to the vaginal epithelium and forms a confluent, structured biofilm into which other consortium members are incorporated. This is the one structural feature that FISH on vaginal biopsies found specific to BV rather than merely more abundant in it, and it is the physical object that makes BV a persistent rather than an episodic condition: a sessile, matrix-embedded community tolerates antimicrobial exposure that clears planktonic organisms. Prevotella (Hoylesella) timonensis adheres comparably well, so adhesion is not a Gardnerella monopoly even though biofilm architecture appears to be.
 </div>
@@ -5963,6 +6006,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exfoliation-of-bacteria-coated-epithelial-cells-clue-cells" data-dismech-node="Exfoliation of Bacteria-Coated Epithelial Cells (Clue Cells)" data-dismech-type="pathophysiology">
                 <div class="item-name">Exfoliation of Bacteria-Coated Epithelial Cells (Clue Cells)</div>
 
+
                 <div class="item-desc">Squamous epithelial cells so heavily coated with adherent organisms that their borders are obscured are shed into the vaginal fluid. Immunofluorescence on clue cells identifies the adherent rods as Gardnerella rather than Mobiluncus, Bacteroides or Fusobacterium, which is the observation that ties the microscopic diagnostic sign to a specific adhesion mechanism rather than to generic anaerobic overgrowth. This node is curated as a cellular event, not as a diagnostic test; the test that reads it is curated under `definitions`.
 </div>
 
@@ -6104,6 +6148,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vaginolysin-mediated-epithelial-pore-formation-and-signalling" data-dismech-node="Vaginolysin-Mediated Epithelial Pore Formation and Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Vaginolysin-Mediated Epithelial Pore Formation and Signalling</div>
+
 
                 <div class="item-desc">Gardnerella secretes vaginolysin, a cholesterol-dependent cytolysin whose receptor is human CD59. Two consequences matter and they are different in kind. At lytic concentrations the toxin kills; at sublytic concentrations - which is the physiological situation - it triggers rapid membrane blebbing, activates epithelial p38 MAPK and induces IL-8. The receptor dependence is the reason BV has no natural animal model: vaginolysin is human-specific because CD59 is, and transfecting human CD59 into non-human cells is what confers susceptibility. That constraint is curated as a human/model mismatch below rather than left implicit.
 </div>
@@ -6340,6 +6385,7 @@ This pathophysiological event involves increased killing of cells of another org
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-sialidase-and-glycosidase-degradation-of-the-mucus-barrier" data-dismech-node="Bacterial Sialidase and Glycosidase Degradation of the Mucus Barrier" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial Sialidase and Glycosidase Degradation of the Mucus Barrier</div>
 
+
                 <div class="item-desc">The consortium secretes sialidases, fucosidases, beta-galactosidase and beta-N-acetylhexosaminidase that strip terminal sugars from cervicovaginal mucins and from the epithelial glycocalyx. This is the arm of BV pathogenesis with the clearest line to hard clinical outcomes, and it has been misattributed for two decades: biochemical work focused on Gardnerella, but vaginal Prevotella species are now shown to be a major and globally conserved source of vaginal sialidase, with P. (Hoylesella) timonensis carrying both sialidases and an unusual complement of fucosidases. Notably, the same 1999 study that found sialidase, beta-galactosidase and beta-N-acetylhexosaminidase elevated in BV found no increase in O-glycanase, proteinase, sulphatase or whole-mucinase activity - the degradation is glycosidic and selective, not general proteolysis, and that distinction is preserved here rather than flattened into &#34;mucinase activity&#34;.
 </div>
 
@@ -6536,6 +6582,7 @@ This pathophysiological event occurs in mucus (UBERON:0000912). UBERON:0000912 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cervicovaginal-mucus-adhesive-barrier-function" data-dismech-node="Loss of Cervicovaginal Mucus Adhesive Barrier Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cervicovaginal Mucus Adhesive Barrier Function</div>
 
+
                 <div class="item-desc">Cervicovaginal mucus normally traps virions and particles. In BV that trapping fails: fluorescently labelled HIV virions move significantly faster through mucus from women with BV than through mucus from L. crispatus-dominant women, whether or not the woman has symptoms. The mechanistically important finding is *how* it fails - electron microscopy and nanoparticle work localise the defect to reduced adhesive interactions, with the physical pore structure of the gel intact. The barrier is not torn open; it stops being sticky. The same loss of trapping is seen with L. iners-dominant mucus, which is why treating BV to a Nugent-normal endpoint does not necessarily restore the barrier.
 </div>
 
@@ -6700,6 +6747,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-barrier-disruption-and-mucosal-immune-activation" data-dismech-node="Epithelial Barrier Disruption and Mucosal Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelial Barrier Disruption and Mucosal Immune Activation</div>
+
 
                 <div class="item-desc">Despite the &#34;-osis&#34; in its name, BV is not immunologically silent. Vaginal IL-1alpha and soluble E-cadherin - a biomarker of epithelial barrier disruption - are elevated, and a lactobacillus-deficient community is accompanied by increased numbers of activated mucosal CD4+ T cells. The causal reading is supported by intervention: repleting L. crispatus with a live biotherapeutic lowered both IL-1alpha and soluble E-cadherin, so the inflammatory state tracks the community rather than merely co-occurring with it. This node is what converts a microbiological state into an HIV-relevant one, because activated mucosal CD4+ T cells are the target cell.
 </div>
@@ -6984,6 +7032,7 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-susceptibility-to-hiv-and-other-genital-tract-infections" data-dismech-node="Increased Susceptibility to HIV and Other Genital Tract Infections" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Susceptibility to HIV and Other Genital Tract Infections</div>
 
+
                 <div class="item-desc">The consequence that dominates BV&#39;s public-health importance. Meta-analysis of incidence studies puts the relative risk of HIV acquisition at 1.6, and a prospective South African cohort found over four-fold higher risk for the most diverse lactobacillus-deficient communities. Two distinct mechanisms feed this node and are curated separately upstream: loss of mucus trapping (a physical barrier failure) and recruitment of activated mucosal CD4+ T cells (target-cell supply). The evidence is not uniform across every downstream infection, and the PID arm in particular is a documented disagreement between two prospective cohorts rather than a settled result. Both are retained below. The Longitudinal Study of Vaginal Flora (N = 2956) found both Nugent-BV (aHR 1.53) and symptomatic Amsel-BV (aHR 2.15) associated with incident PID at the subsequent visit; the two intervals overlap and the study does not test the difference between them, so the figures do not establish a gradient by exposure definition. A community-based cohort found no association between a Gardnerella-dominated microbiome and subsequent PID. The two differ in ascertainment on both sides - Nugent and Amsel criteria against microbiome sequencing for the exposure, and clinic-based tenderness criteria against community follow-up for the outcome - and the negative study reports few PID cases, so this node records the association as contested rather than resolving it in either direction.
 </div>
 
@@ -7136,6 +7185,7 @@ This pathophysiological event involves dysregulated response to bacterium (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ascending-infection-and-adverse-pregnancy-outcomes" data-dismech-node="Ascending Infection and Adverse Pregnancy Outcomes" data-dismech-type="pathophysiology">
                 <div class="item-name">Ascending Infection and Adverse Pregnancy Outcomes</div>
 
+
                 <div class="item-desc">In pregnancy the same barrier failure permits organisms to reach the choriodecidual space, and BV detected early in pregnancy is associated with late miscarriage and preterm delivery independent of prior preterm birth. The enzyme measurement makes this more than an association: among women already in preterm labour with BV or intermediate flora, those with detectable vaginal sialidase had a higher rate of early preterm birth, which links the outcome to the specific molecular activity curated upstream rather than to the Nugent score alone. Screening-and-treatment trials have nonetheless been inconsistent, so this node records a mechanism and a risk association, not a demonstrated preventable fraction.
 </div>
 
@@ -7270,6 +7320,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biofilm-persistence-after-antimicrobial-therapy" data-dismech-node="Biofilm Persistence After Antimicrobial Therapy" data-dismech-type="pathophysiology">
                 <div class="item-name">Biofilm Persistence After Antimicrobial Therapy</div>
+
 
                 <div class="item-desc">The first of two competing accounts of why BV comes back. Metronidazole and clindamycin cure 70-85% of episodes within a month, yet more than half of women relapse within six months. On this account the adherent Gardnerella biofilm survives the antibiotic course and the BV-associated bacteria re-emerge from it - a relapse of the same community rather than a new acquisition. Note what this node does not claim: no assay currently distinguishes a surviving biofilm from a reacquired one in an individual woman, so this is an inference from the biofilm&#39;s demonstrated existence and known antimicrobial tolerance, not a measured event.
 </div>
@@ -7433,6 +7484,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reinfection-from-an-untreated-sexual-partner" data-dismech-node="Reinfection from an Untreated Sexual Partner" data-dismech-type="pathophysiology">
                 <div class="item-name">Reinfection from an Untreated Sexual Partner</div>
 
+
                 <div class="item-desc">The second account. BV-associated bacteria are exchanged between partners during sex, and on this reading a woman cured by antibiotics is reinoculated by an untreated regular partner. Six partner-treatment trials in the 1980s and 1990s were negative and the hypothesis fell out of favour; guidelines do not recommend partner treatment. The 2025 StepUp randomised trial reopened it decisively - it was stopped early by its data and safety monitoring board because treating the woman alone was inferior to treating both partners, with 12-week recurrence 35% versus 63%. This node is therefore curated as a real causal route, not as a historical hypothesis, while the biofilm route is retained alongside it.
 </div>
 
@@ -7582,6 +7634,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-bacterial-vaginosis" data-dismech-node="Recurrent Bacterial Vaginosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Bacterial Vaginosis</div>
 
+
                 <div class="item-desc">Re-establishment of the dysbiotic community after apparently successful treatment - the outcome that defines the clinical problem, since short-term cure is not the difficulty. Both upstream routes converge here and neither can be excluded in an individual woman, because they present identically. That indistinguishability is not a curation shortcut; it is the field&#39;s stated position and is recorded as a knowledge gap below. The node is not a terminal state: a recurrent episode is diagnosed by the same Amsel and Nugent criteria as an incident one, so it re-enters the graph at the trigger node and the entry is a cycle rather than a chain. That is the structural reason short-term cure and sustained cure come apart.
 </div>
 
@@ -7683,6 +7736,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anaerobe-ribosomal-translation-clindamycin-and-tetracycline-target" data-dismech-node="Anaerobe Ribosomal Translation (Clindamycin and Tetracycline Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Anaerobe Ribosomal Translation (Clindamycin and Tetracycline Target)</div>
+
 
                 <div class="item-desc">Protein synthesis in the BV consortium is the molecular target of clindamycin, the lincosamide alternative to metronidazole and the agent applied topically to the penile skin of male partners in the StepUp regimen. It is curated as its own node so that the clindamycin arm of therapy attaches to a mechanism rather than to the disease as a whole - metronidazole, whose nitroimidazole mechanism is reductive DNA damage in anaerobes, does not act here and is deliberately not attached to this node.
 </div>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5820,6 +5859,7 @@ This entry is curated deliberately as a mechanism-gap entry. There is no canonic
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hemostatic-defect-below-the-detection-threshold-of-routine-testing" data-dismech-node="Hemostatic Defect Below the Detection Threshold of Routine Testing" data-dismech-type="pathophysiology">
                 <div class="item-name">Hemostatic Defect Below the Detection Threshold of Routine Testing</div>
 
+
                 <div class="item-desc">The definitional starting point of BDUC. The patient bleeds, but every assay in the recommended panel is normal. This node asserts only what the evidence supports: that a hemostatic abnormality exists which the available assays do not resolve, without committing to which limb of hemostasis is at fault. It is deliberately modeled as a trigger with several parallel, non-exclusive downstream arms rather than as a placeholder for one hidden defect, because the cohort data are most consistent with a multifactorial and heterogeneous origin.
 </div>
 
@@ -6111,6 +6151,13 @@ This pathophysiological event involves decreased hemostasis (GO:0007599). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-occult-platelet-function-and-secretion-defect" data-dismech-node="Occult Platelet Function and Secretion Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Occult Platelet Function and Secretion Defect</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">A platelet-intrinsic defect that routine light transmission aggregometry fails to resolve, or that it resolves only as an unspecific and poorly reproducible alteration. Two orthogonal lines of evidence point here: surface-receptor profiling shows that the immature (RNA-rich) platelet subpopulation carries a distinct and abnormal receptor phenotype while mature platelets appear normal, and platelet lipidomics shows intrinsic lipid shifts that track with impaired aggregation. Both are curated as leads rather than as established BDUC mechanisms: each was measured in patients selected for abnormal aggregometry, which is adjacent to, but formally outside, the BDUC definition.
 </div>
 
@@ -6372,6 +6419,13 @@ This pathophysiological event involves decreased platelet degranulation (GO:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-thrombin-generation" data-dismech-node="Impaired Thrombin Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Thrombin Generation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Reduced thrombin-generating capacity on calibrated global assays despite normal individual coagulation factor activities. This is the most frequently replicated laboratory abnormality in BDUC: the Vienna Bleeding Biobank reported prolonged lag time and time to peak with reduced peak and velocity in 382 patients, and an independent automated assay reproduced the same pattern. It is nonetheless curated as HYPOTHETICAL rather than established, because an independent Rotterdam cohort found no meaningful thrombin generation difference, and because in every cohort the degree of impairment fails to track bleeding severity.
 </div>
 
@@ -6560,6 +6614,13 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-natural-anticoagulant-excess" data-dismech-node="Natural Anticoagulant Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Natural Anticoagulant Excess</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">An excess of physiological anticoagulants rather than a deficiency of procoagulants. Free tissue factor pathway inhibitor alpha is elevated above the 95th percentile disproportionately in the subgroup with no identifiable bleeding disorder, and activated protein C antigen is likewise raised, most markedly in BDUC. This arm is mechanistically attractive because it explains a normal factor panel together with a damped thrombin burst, and it supplies the only currently named druggable target in BDUC. Note that the related soluble thrombomodulin hypothesis was explicitly tested in the same cohort programme and refuted.
 </div>
@@ -6750,6 +6811,13 @@ This pathophysiological event involves increased negative regulation of blood co
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-fibrinolytic-balance" data-dismech-node="Altered Fibrinolytic Balance" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Fibrinolytic Balance</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Dysregulation of the plasminogen activation system, classically framed as accelerated clot breakdown. Support is real but internally inconsistent: tissue plasminogen activator activity is detectable far more often in patients than controls, a tPA-modified thromboelastometry assay classifies roughly a fifth of BDUC patients as hyperfibrinolytic, and adding fibrinolytic assays to the work-up raises diagnostic yield. Against that, direct plasmin generation measurement found reduced, not increased, peak plasmin, and whole-blood viscoelastometry in the largest cohort found reduced rather than enhanced lysis potential. The entry keeps this arm deliberately named for the balance rather than for hyperfibrinolysis, and the direction conflict is recorded as an explicit controversy.
 </div>
 
@@ -6934,6 +7002,13 @@ This pathophysiological event involves fibrinolysis (GO:0042730). GO:0042730 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-fibrin-clot-architecture" data-dismech-node="Altered Fibrin Clot Architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Fibrin Clot Architecture</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">A structural rather than quantitative model: the fibrin network in BDUC forms at a lower rate and with altered fiber morphology, and it is that architecture, not the concentration of any single component, that determines mechanical stability and susceptibility to lysis. Confocal microscopy shows a tendency to thicker fibers that correlates inversely with peak plasmin, and turbidimetric studies show a reduced rate of fibrin formation. The evidence here is mixed: the largest dedicated clot-properties study found the reduced formation rate but no difference in the remaining clot parameters.
 </div>
@@ -7124,6 +7199,13 @@ This pathophysiological event involves abnormal blood coagulation, fibrin clot f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hemostatic-plug-formation-and-clot-stability" data-dismech-node="Impaired Hemostatic Plug Formation and Clot Stability" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hemostatic Plug Formation and Clot Stability</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The shared convergence node. Whichever upstream arm is operative in a given patient, the common consequence is a hemostatic plug that forms too slowly, holds too weakly, or dissolves too early at sites of vascular injury, particularly at mucosal surfaces and surgical wounds where the hemostatic challenge is sustained. Whole-blood viscoelastometry in the largest BDUC cohort captures this as a globally altered clot formation and lysis profile that discriminates patients from controls.
 </div>
 
@@ -7285,6 +7367,13 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucocutaneous-and-post-challenge-bleeding" data-dismech-node="Mucocutaneous and Post-Challenge Bleeding" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucocutaneous and Post-Challenge Bleeding</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical phenotype: spontaneous mucocutaneous bleeding (epistaxis, easy bruising, gingival and oral bleeding, heavy menstrual bleeding) together with excessive bleeding after hemostatic challenges such as surgery, dental extraction, and childbirth. Its severity, as quantified by bleeding assessment tools, is indistinguishable from that of patients who do carry a named diagnosis such as von Willebrand disease or a platelet function defect — which is the central clinical argument that BDUC is a real bleeding phenotype rather than a labeling artifact of over-referral.
 </div>
 
@@ -7420,6 +7509,13 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-blood-loss-and-iron-depletion" data-dismech-node="Chronic Blood Loss and Iron Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Blood Loss and Iron Depletion</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Cumulative iron loss from recurrent mucosal and menstrual bleeding, leading to iron deficiency with or without anemia. Curated with an explicit caveat: although iron deficiency is common in BDUC (39%), the rate was not significantly higher than in matched healthy controls in the one study that included a control arm, and female sex, younger age, and body mass index rather than the bleeding diagnosis were the associated factors. The node is therefore retained as a clinically important consequence to screen for, not as a BDUC-specific finding.
 </div>
 
@@ -7541,6 +7637,13 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-health-related-quality-of-life" data-dismech-node="Impaired Health-Related Quality of Life" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Health-Related Quality of Life</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Measured impairment of both physical and mental health-related quality of life relative to the general population, persisting after adjustment for age and sex. Notably, the impairment is not explained by bleeding severity, and is comparable to that of patients with named bleeding disorders — consistent with diagnostic uncertainty itself, and the long delay preceding it, being part of the burden.
 </div>
 
@@ -7650,7 +7753,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activated Protein C Antigen\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Increased antigen levels in BDUC\", \"specificity\": \"Bounded to the activated protein C limb. In the same study protein S antigen showed no difference between patients and healthy controls overall or by diagnosis, so this is not a general derangement of the protein C/S pathway.\", \"term_id\": \"NCIT:C102272\", \"term_label\": \"Factor XIV Measurement\", \"readouts\": [{\"target\": \"Natural Anticoagulant Excess\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Raised activated protein C degrades factors Va and VIIIa, giving the same net anticoagulant excess as the TFPI limb.\"}]}}, {\"id\": \"Altered Fibrin Clot Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A structural rather than quantitative model: the fibrin network in BDUC forms at a lower rate and with altered fiber morphology, and it is that architecture, not the concentration of any single component, that determines mechanical stability and susceptibility to lysis. Confocal microscopy shows a tendency to thicker fibers that correlates inversely with peak plasmin, and turbidimetric studies show a reduced rate of fibrin formation. The evidence here is mixed: the largest dedicated clot-properties study found the reduced formation rate but no difference in the remaining clot parameters.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"blood coagulation, fibrin clot formation\"]}}, {\"id\": \"Altered Fibrinolytic Balance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulation of the plasminogen activation system, classically framed as accelerated clot breakdown. Support is real but internally inconsistent: tissue plasminogen activator activity is detectable far more often in patients than controls, a tPA-modified thromboelastometry assay classifies roughly a fifth of BDUC patients as hyperfibrinolytic, and adding fibrinolytic assays to the work-up raises diagnostic yield. Against that, direct plasmin generation measurement found reduced, not increased, peak plasmin, and whole-blood viscoelastometry in the largest cohort found reduced rather than enhanced lysis potential. The entry keeps this arm deliberately named for the balance rather than for hyperfibrinolysis, and the direction conflict is recorded as an explicit controversy.\\n\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"fibrinolysis\"]}}, {\"id\": \"Chronic Blood Loss and Iron Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cumulative iron loss from recurrent mucosal and menstrual bleeding, leading to iron deficiency with or without anemia. Curated with an explicit caveat: although iron deficiency is common in BDUC (39%), the rate was not significantly higher than in matched healthy controls in the one study that included a control arm, and female sex, younger age, and body mass index rather than the bleeding diagnosis were the associated factors. The node is therefore retained as a clinically important consequence to screen for, not as a BDUC-specific finding.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"]}}, {\"id\": \"Free Tissue Factor Pathway Inhibitor Alpha\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Elevated above the 95th percentile, disproportionately in the subgroup with no identifiable bleeding disorder\", \"specificity\": \"Subset marker. Raised TFPI activity is reported in a subset of patients, not the whole population, so it partitions BDUC rather than defining it.\", \"term_id\": \"NCIT:C202391\", \"term_label\": \"Free Tissue Factor Pathway Inhibitor Antigen Measurement\", \"readouts\": [{\"target\": \"Natural Anticoagulant Excess\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Free TFPI-alpha is the primary measured quantity behind the natural anticoagulant excess arm.\"}, {\"target\": \"Impaired Thrombin Generation\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Higher free TFPI-alpha is associated with a delayed thrombin burst while routine global clotting tests stay normal, which is the observational link between the two mechanism nodes.\"}]}}, {\"id\": \"Heavy Menstrual Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A leading presenting symptom in the predominantly female BDUC population, and the presentation most often responsible for years of diagnostic delay before referral to a hemostasis service. No published cohort reports the proportion of BDUC patients affected, so no frequency band is asserted.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000132\"}}, {\"id\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The definitional starting point of BDUC. The patient bleeds, but every assay in the recommended panel is normal. This node asserts only what the evidence supports: that a hemostatic abnormality exists which the available assays do not resolve, without committing to which limb of hemostasis is at fault. It is deliberately modeled as a trigger with several parallel, non-exclusive downstream arms rather than as a placeholder for one hidden defect, because the cohort data are most consistent with a multifactorial and heterogeneous origin.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"hemostasis\"], \"role\": \"trigger\"}}, {\"id\": \"Impaired Health-Related Quality of Life\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Measured impairment of both physical and mental health-related quality of life relative to the general population, persisting after adjustment for age and sex. Notably, the impairment is not explained by bleeding severity, and is comparable to that of patients with named bleeding disorders \\u2014 consistent with diagnostic uncertainty itself, and the long delay preceding it, being part of the burden.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared convergence node. Whichever upstream arm is operative in a given patient, the common consequence is a hemostatic plug that forms too slowly, holds too weakly, or dissolves too early at sites of vascular injury, particularly at mucosal surfaces and surgical wounds where the hemostatic challenge is sustained. Whole-blood viscoelastometry in the largest BDUC cohort captures this as a globally altered clot formation and lysis profile that discriminates patients from controls.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"hemostasis\"], \"locations\": [\"blood vessel\"]}}, {\"id\": \"Impaired Thrombin Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced thrombin-generating capacity on calibrated global assays despite normal individual coagulation factor activities. This is the most frequently replicated laboratory abnormality in BDUC: the Vienna Bleeding Biobank reported prolonged lag time and time to peak with reduced peak and velocity in 382 patients, and an independent automated assay reproduced the same pattern. It is nonetheless curated as HYPOTHETICAL rather than established, because an independent Rotterdam cohort found no meaningful thrombin generation difference, and because in every cohort the degree of impairment fails to track bleeding severity.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Levonorgestrel 52-mg Intrauterine System\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hormonal control of heavy menstrual bleeding, addressing the dominant symptom and the principal route of iron loss in this predominantly female population. Evidence is from women with inherited bleeding disorders rather than BDUC specifically.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"levonorgestrel\"]}}, {\"id\": \"Mucocutaneous and Post-Challenge Bleeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical phenotype: spontaneous mucocutaneous bleeding (epistaxis, easy bruising, gingival and oral bleeding, heavy menstrual bleeding) together with excessive bleeding after hemostatic challenges such as surgery, dental extraction, and childbirth. Its severity, as quantified by bleeding assessment tools, is indistinguishable from that of patients who do carry a named diagnosis such as von Willebrand disease or a platelet function defect \\u2014 which is the central clinical argument that BDUC is a real bleeding phenotype rather than a labeling artifact of over-referral.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Natural Anticoagulant Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An excess of physiological anticoagulants rather than a deficiency of procoagulants. Free tissue factor pathway inhibitor alpha is elevated above the 95th percentile disproportionately in the subgroup with no identifiable bleeding disorder, and activated protein C antigen is likewise raised, most markedly in BDUC. This arm is mechanistically attractive because it explains a normal factor panel together with a damped thrombin burst, and it supplies the only currently named druggable target in BDUC. Note that the related soluble thrombomodulin hypothesis was explicitly tested in the same cohort programme and refuted.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"negative regulation of blood coagulation\"]}}, {\"id\": \"Occult Platelet Function and Secretion Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A platelet-intrinsic defect that routine light transmission aggregometry fails to resolve, or that it resolves only as an unspecific and poorly reproducible alteration. Two orthogonal lines of evidence point here: surface-receptor profiling shows that the immature (RNA-rich) platelet subpopulation carries a distinct and abnormal receptor phenotype while mature platelets appear normal, and platelet lipidomics shows intrinsic lipid shifts that track with impaired aggregation. Both are curated as leads rather than as established BDUC mechanisms: each was measured in patients selected for abnormal aggregometry, which is adjacent to, but formally outside, the BDUC definition.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"platelet activation\", \"platelet degranulation\"]}}, {\"id\": \"Periprocedural and Peripartum Hemostatic Prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A management strategy rather than a single agent: administering hemostatic cover before surgery, dental extraction, and delivery. Two independent cohorts support a low threshold for prophylaxis, since untreated procedures and deliveries carry markedly higher bleeding rates \\u2014 though a third cohort found bleeding complications frequent irrespective of prophylaxis, so the strategy reduces but does not abolish risk.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Plasma Clot Lysis Time\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Prolonged relative to controls in the Rotterdam cohort, which is the opposite direction to the accelerated-lysis model\", \"specificity\": \"Direction-conflicted. A prolonged lysis time indicates slower, not faster, clot breakdown, so this result argues against hyperfibrinolysis as the general BDUC mechanism even though fibrinolytic testing improves diagnostic yield in other cohorts.\", \"readouts\": [{\"target\": \"Altered Fibrinolytic Balance\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports on the fibrinolytic arm, but in the direction opposite to the accelerated-lysis reading of that node. Direction is deliberately left unset because the cohorts disagree on sign.\"}]}}, {\"id\": \"Plasmin Generation (Peak Plasmin)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Reduced peak plasmin, counter to the hyperfibrinolysis model\", \"specificity\": \"Mechanistically informative rather than diagnostic; no threshold or per-patient discrimination has been reported.\", \"readouts\": [{\"target\": \"Altered Fibrinolytic Balance\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Directly measures the plasminogen activation output of this node and finds it reduced, which is the principal evidence against naming the node hyperfibrinolysis.\"}, {\"target\": \"Altered Fibrin Clot Architecture\", \"relationship\": \"CORRELATES_WITH\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The authors attribute the reduced peak plasmin to altered clot structure, linking this marker to the clot architecture arm.\"}]}}, {\"id\": \"Postpartum Hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The highest-consequence phenotype in BDUC. Postpartum hemorrhage complicates roughly a quarter to a third of deliveries, occurs despite prophylaxis, and is the management problem most consistently identified as unmet.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011891\"}}, {\"id\": \"Prolonged Bleeding After Surgery\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Post-procedural bleeding is one of the two hemostatic-challenge phenotypes that dominate management, and prior post-interventional bleeding is itself the strongest predictor of future post-interventional bleeding.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004846\"}}, {\"id\": \"Thrombin Generation (Endogenous Thrombin Potential)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"presence\": \"Impaired: prolonged lag time and time to peak with reduced peak, velocity index and area under the curve, on a normal routine coagulation panel\", \"specificity\": \"Not diagnostic. Group-level separation from controls does not translate into a per-patient discriminator, and the degree of impairment does not track bleeding severity in any cohort.\", \"term_id\": \"NCIT:C102266\", \"term_label\": \"Endogenous Thrombin Potential Measurement\", \"readouts\": [{\"target\": \"Impaired Thrombin Generation\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Calibrated thrombin generation is the direct assay readout of this mechanism node; lower thrombin-generating capacity corresponds to the hypothesized defect.\"}]}}, {\"id\": \"Tranexamic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The first-line hemostatic agent in BDUC, used both for heavy menstrual bleeding and as periprocedural prophylaxis, where antifibrinolytic monotherapy is the most commonly advised strategy. Its use in BDUC is largely extrapolated from phenotypically similar bleeding disorders, but it is also the treatment with the clearest mechanistic rationale, since about a fifth of BDUC patients show a hyperfibrinolytic profile.\\n\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"tranexamic acid\"]}}], \"edges\": [{\"source\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"target\": \"Occult Platelet Function and Secretion Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate arm in which the unresolved defect lies in platelet activation, granule secretion, or receptor signaling below the sensitivity of light transmission aggregometry.\", \"hypothesis_groups\": [\"occult_platelet_defect\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"target\": \"Impaired Thrombin Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate arm in which the unresolved defect manifests as reduced thrombin-generating capacity on global assays despite normal individual factor levels.\", \"hypothesis_groups\": [\"impaired_thrombin_generation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"target\": \"Natural Anticoagulant Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate arm in which physiological inhibitors of coagulation are present in excess, damping thrombin generation without any factor deficiency.\", \"hypothesis_groups\": [\"natural_anticoagulant_excess\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"target\": \"Altered Fibrinolytic Balance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate arm in which a formed clot is lysed prematurely, or in which the fibrinolytic system is dysregulated in a direction that is not consistent across cohorts.\", \"hypothesis_groups\": [\"altered_fibrinolysis\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"target\": \"Altered Fibrin Clot Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate arm in which fibrin network structure, rather than the amount of any component, determines clot mechanical stability.\", \"hypothesis_groups\": [\"altered_clot_structure\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Occult Platelet Function and Secretion Defect\", \"target\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced platelet activation and secretion would weaken primary hemostatic plug formation at the site of vascular injury.\", \"hypothesis_groups\": [\"occult_platelet_defect\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Thrombin Generation\", \"target\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower thrombin burst yields slower and less robust fibrin formation and less thrombin-dependent platelet and factor XIII activation.\", \"hypothesis_groups\": [\"impaired_thrombin_generation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Natural Anticoagulant Excess\", \"target\": \"Impaired Thrombin Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess free TFPI-alpha inhibits the tissue factor/factor VIIa initiation complex and factor Xa, delaying and damping the thrombin burst; raised activated protein C degrades factors Va and VIIIa with the same net effect.\", \"hypothesis_groups\": [\"natural_anticoagulant_excess\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Fibrinolytic Balance\", \"target\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature plasmin-mediated dissolution of a formed fibrin clot, or a dysregulated lysis profile, would shorten the durability of hemostasis and produce delayed rather than immediate bleeding.\", \"hypothesis_groups\": [\"altered_fibrinolysis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Fibrin Clot Architecture\", \"target\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A clot that forms more slowly and with altered fiber architecture is mechanically less stable at the injury site.\", \"hypothesis_groups\": [\"altered_clot_structure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"target\": \"Mucocutaneous and Post-Challenge Bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of durable hemostasis at sites of minor and surgical vascular injury produces the clinical bleeding phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucocutaneous and Post-Challenge Bleeding\", \"target\": \"Chronic Blood Loss and Iron Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent bleeding, dominated in this predominantly female population by heavy menstrual bleeding, causes cumulative iron loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucocutaneous and Post-Challenge Bleeding\", \"target\": \"Impaired Health-Related Quality of Life\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The bleeding phenotype, the associated uncertainty, and the long diagnostic delay together impair physical and mental health.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tranexamic Acid\", \"target\": \"Altered Fibrinolytic Balance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levonorgestrel 52-mg Intrauterine System\", \"target\": \"Heavy Menstrual Bleeding\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Periprocedural and Peripartum Hemostatic Prophylaxis\", \"target\": \"Postpartum Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Periprocedural and Peripartum Hemostatic Prophylaxis\", \"target\": \"Prolonged Bleeding After Surgery\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Impaired Thrombin Generation\", \"target\": \"Thrombin Generation (Endogenous Thrombin Potential)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Calibrated thrombin generation is the direct assay readout of this mechanism node; lower thrombin-generating capacity corresponds to the hypothesized defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Natural Anticoagulant Excess\", \"target\": \"Free Tissue Factor Pathway Inhibitor Alpha\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Free TFPI-alpha is the primary measured quantity behind the natural anticoagulant excess arm.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired Thrombin Generation\", \"target\": \"Free Tissue Factor Pathway Inhibitor Alpha\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher free TFPI-alpha is associated with a delayed thrombin burst while routine global clotting tests stay normal, which is the observational link between the two mechanism nodes.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Natural Anticoagulant Excess\", \"target\": \"Activated Protein C Antigen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Raised activated protein C degrades factors Va and VIIIa, giving the same net anticoagulant excess as the TFPI limb.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Altered Fibrinolytic Balance\", \"target\": \"Plasma Clot Lysis Time\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports on the fibrinolytic arm, but in the direction opposite to the accelerated-lysis reading of that node. Direction is deliberately left unset because the cohorts disagree on sign.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Altered Fibrinolytic Balance\", \"target\": \"Plasmin Generation (Peak Plasmin)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Directly measures the plasminogen activation output of this node and finds it reduced, which is the principal evidence against naming the node hyperfibrinolysis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Altered Fibrin Clot Architecture\", \"target\": \"Plasmin Generation (Peak Plasmin)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The authors attribute the reduced peak plasmin to altered clot structure, linking this marker to the clot architecture arm.\", \"relationship\": \"CORRELATES_WITH\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activated Protein C Antigen\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Increased antigen levels in BDUC\", \"specificity\": \"Bounded to the activated protein C limb. In the same study protein S antigen showed no difference between patients and healthy controls overall or by diagnosis, so this is not a general derangement of the protein C/S pathway.\", \"term_id\": \"NCIT:C102272\", \"term_label\": \"Factor XIV Measurement\", \"readouts\": [{\"target\": \"Natural Anticoagulant Excess\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Raised activated protein C degrades factors Va and VIIIa, giving the same net anticoagulant excess as the TFPI limb.\"}]}}, {\"id\": \"Altered Fibrin Clot Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A structural rather than quantitative model: the fibrin network in BDUC forms at a lower rate and with altered fiber morphology, and it is that architecture, not the concentration of any single component, that determines mechanical stability and susceptibility to lysis. Confocal microscopy shows a tendency to thicker fibers that correlates inversely with peak plasmin, and turbidimetric studies show a reduced rate of fibrin formation. The evidence here is mixed: the largest dedicated clot-properties study found the reduced formation rate but no difference in the remaining clot parameters.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"blood coagulation, fibrin clot formation\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Altered Fibrinolytic Balance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulation of the plasminogen activation system, classically framed as accelerated clot breakdown. Support is real but internally inconsistent: tissue plasminogen activator activity is detectable far more often in patients than controls, a tPA-modified thromboelastometry assay classifies roughly a fifth of BDUC patients as hyperfibrinolytic, and adding fibrinolytic assays to the work-up raises diagnostic yield. Against that, direct plasmin generation measurement found reduced, not increased, peak plasmin, and whole-blood viscoelastometry in the largest cohort found reduced rather than enhanced lysis potential. The entry keeps this arm deliberately named for the balance rather than for hyperfibrinolysis, and the direction conflict is recorded as an explicit controversy.\\n\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"fibrinolysis\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Chronic Blood Loss and Iron Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cumulative iron loss from recurrent mucosal and menstrual bleeding, leading to iron deficiency with or without anemia. Curated with an explicit caveat: although iron deficiency is common in BDUC (39%), the rate was not significantly higher than in matched healthy controls in the one study that included a control arm, and female sex, younger age, and body mass index rather than the bleeding diagnosis were the associated factors. The node is therefore retained as a clinically important consequence to screen for, not as a BDUC-specific finding.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Free Tissue Factor Pathway Inhibitor Alpha\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Elevated above the 95th percentile, disproportionately in the subgroup with no identifiable bleeding disorder\", \"specificity\": \"Subset marker. Raised TFPI activity is reported in a subset of patients, not the whole population, so it partitions BDUC rather than defining it.\", \"term_id\": \"NCIT:C202391\", \"term_label\": \"Free Tissue Factor Pathway Inhibitor Antigen Measurement\", \"readouts\": [{\"target\": \"Natural Anticoagulant Excess\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Free TFPI-alpha is the primary measured quantity behind the natural anticoagulant excess arm.\"}, {\"target\": \"Impaired Thrombin Generation\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Higher free TFPI-alpha is associated with a delayed thrombin burst while routine global clotting tests stay normal, which is the observational link between the two mechanism nodes.\"}]}}, {\"id\": \"Heavy Menstrual Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A leading presenting symptom in the predominantly female BDUC population, and the presentation most often responsible for years of diagnostic delay before referral to a hemostasis service. No published cohort reports the proportion of BDUC patients affected, so no frequency band is asserted.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000132\"}}, {\"id\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The definitional starting point of BDUC. The patient bleeds, but every assay in the recommended panel is normal. This node asserts only what the evidence supports: that a hemostatic abnormality exists which the available assays do not resolve, without committing to which limb of hemostasis is at fault. It is deliberately modeled as a trigger with several parallel, non-exclusive downstream arms rather than as a placeholder for one hidden defect, because the cohort data are most consistent with a multifactorial and heterogeneous origin.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"hemostasis\"], \"role\": \"trigger\"}}, {\"id\": \"Impaired Health-Related Quality of Life\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Measured impairment of both physical and mental health-related quality of life relative to the general population, persisting after adjustment for age and sex. Notably, the impairment is not explained by bleeding severity, and is comparable to that of patients with named bleeding disorders \\u2014 consistent with diagnostic uncertainty itself, and the long delay preceding it, being part of the burden.\\n\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared convergence node. Whichever upstream arm is operative in a given patient, the common consequence is a hemostatic plug that forms too slowly, holds too weakly, or dissolves too early at sites of vascular injury, particularly at mucosal surfaces and surgical wounds where the hemostatic challenge is sustained. Whole-blood viscoelastometry in the largest BDUC cohort captures this as a globally altered clot formation and lysis profile that discriminates patients from controls.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"hemostasis\"], \"locations\": [\"blood vessel\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Thrombin Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced thrombin-generating capacity on calibrated global assays despite normal individual coagulation factor activities. This is the most frequently replicated laboratory abnormality in BDUC: the Vienna Bleeding Biobank reported prolonged lag time and time to peak with reduced peak and velocity in 382 patients, and an independent automated assay reproduced the same pattern. It is nonetheless curated as HYPOTHETICAL rather than established, because an independent Rotterdam cohort found no meaningful thrombin generation difference, and because in every cohort the degree of impairment fails to track bleeding severity.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"blood coagulation\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Levonorgestrel 52-mg Intrauterine System\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hormonal control of heavy menstrual bleeding, addressing the dominant symptom and the principal route of iron loss in this predominantly female population. Evidence is from women with inherited bleeding disorders rather than BDUC specifically.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"levonorgestrel\"]}}, {\"id\": \"Mucocutaneous and Post-Challenge Bleeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical phenotype: spontaneous mucocutaneous bleeding (epistaxis, easy bruising, gingival and oral bleeding, heavy menstrual bleeding) together with excessive bleeding after hemostatic challenges such as surgery, dental extraction, and childbirth. Its severity, as quantified by bleeding assessment tools, is indistinguishable from that of patients who do carry a named diagnosis such as von Willebrand disease or a platelet function defect \\u2014 which is the central clinical argument that BDUC is a real bleeding phenotype rather than a labeling artifact of over-referral.\\n\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Natural Anticoagulant Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An excess of physiological anticoagulants rather than a deficiency of procoagulants. Free tissue factor pathway inhibitor alpha is elevated above the 95th percentile disproportionately in the subgroup with no identifiable bleeding disorder, and activated protein C antigen is likewise raised, most markedly in BDUC. This arm is mechanistically attractive because it explains a normal factor panel together with a damped thrombin burst, and it supplies the only currently named druggable target in BDUC. Note that the related soluble thrombomodulin hypothesis was explicitly tested in the same cohort programme and refuted.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"negative regulation of blood coagulation\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Occult Platelet Function and Secretion Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A platelet-intrinsic defect that routine light transmission aggregometry fails to resolve, or that it resolves only as an unspecific and poorly reproducible alteration. Two orthogonal lines of evidence point here: surface-receptor profiling shows that the immature (RNA-rich) platelet subpopulation carries a distinct and abnormal receptor phenotype while mature platelets appear normal, and platelet lipidomics shows intrinsic lipid shifts that track with impaired aggregation. Both are curated as leads rather than as established BDUC mechanisms: each was measured in patients selected for abnormal aggregometry, which is adjacent to, but formally outside, the BDUC definition.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"platelet activation\", \"platelet degranulation\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Periprocedural and Peripartum Hemostatic Prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A management strategy rather than a single agent: administering hemostatic cover before surgery, dental extraction, and delivery. Two independent cohorts support a low threshold for prophylaxis, since untreated procedures and deliveries carry markedly higher bleeding rates \\u2014 though a third cohort found bleeding complications frequent irrespective of prophylaxis, so the strategy reduces but does not abolish risk.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Plasma Clot Lysis Time\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Prolonged relative to controls in the Rotterdam cohort, which is the opposite direction to the accelerated-lysis model\", \"specificity\": \"Direction-conflicted. A prolonged lysis time indicates slower, not faster, clot breakdown, so this result argues against hyperfibrinolysis as the general BDUC mechanism even though fibrinolytic testing improves diagnostic yield in other cohorts.\", \"readouts\": [{\"target\": \"Altered Fibrinolytic Balance\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports on the fibrinolytic arm, but in the direction opposite to the accelerated-lysis reading of that node. Direction is deliberately left unset because the cohorts disagree on sign.\"}]}}, {\"id\": \"Plasmin Generation (Peak Plasmin)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Reduced peak plasmin, counter to the hyperfibrinolysis model\", \"specificity\": \"Mechanistically informative rather than diagnostic; no threshold or per-patient discrimination has been reported.\", \"readouts\": [{\"target\": \"Altered Fibrinolytic Balance\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Directly measures the plasminogen activation output of this node and finds it reduced, which is the principal evidence against naming the node hyperfibrinolysis.\"}, {\"target\": \"Altered Fibrin Clot Architecture\", \"relationship\": \"CORRELATES_WITH\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The authors attribute the reduced peak plasmin to altered clot structure, linking this marker to the clot architecture arm.\"}]}}, {\"id\": \"Postpartum Hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The highest-consequence phenotype in BDUC. Postpartum hemorrhage complicates roughly a quarter to a third of deliveries, occurs despite prophylaxis, and is the management problem most consistently identified as unmet.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011891\"}}, {\"id\": \"Prolonged Bleeding After Surgery\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Post-procedural bleeding is one of the two hemostatic-challenge phenotypes that dominate management, and prior post-interventional bleeding is itself the strongest predictor of future post-interventional bleeding.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004846\"}}, {\"id\": \"Thrombin Generation (Endogenous Thrombin Potential)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"presence\": \"Impaired: prolonged lag time and time to peak with reduced peak, velocity index and area under the curve, on a normal routine coagulation panel\", \"specificity\": \"Not diagnostic. Group-level separation from controls does not translate into a per-patient discriminator, and the degree of impairment does not track bleeding severity in any cohort.\", \"term_id\": \"NCIT:C102266\", \"term_label\": \"Endogenous Thrombin Potential Measurement\", \"readouts\": [{\"target\": \"Impaired Thrombin Generation\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Calibrated thrombin generation is the direct assay readout of this mechanism node; lower thrombin-generating capacity corresponds to the hypothesized defect.\"}]}}, {\"id\": \"Tranexamic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The first-line hemostatic agent in BDUC, used both for heavy menstrual bleeding and as periprocedural prophylaxis, where antifibrinolytic monotherapy is the most commonly advised strategy. Its use in BDUC is largely extrapolated from phenotypically similar bleeding disorders, but it is also the treatment with the clearest mechanistic rationale, since about a fifth of BDUC patients show a hyperfibrinolytic profile.\\n\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"tranexamic acid\"]}}], \"edges\": [{\"source\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"target\": \"Occult Platelet Function and Secretion Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate arm in which the unresolved defect lies in platelet activation, granule secretion, or receptor signaling below the sensitivity of light transmission aggregometry.\", \"hypothesis_groups\": [\"occult_platelet_defect\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"target\": \"Impaired Thrombin Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate arm in which the unresolved defect manifests as reduced thrombin-generating capacity on global assays despite normal individual factor levels.\", \"hypothesis_groups\": [\"impaired_thrombin_generation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"target\": \"Natural Anticoagulant Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate arm in which physiological inhibitors of coagulation are present in excess, damping thrombin generation without any factor deficiency.\", \"hypothesis_groups\": [\"natural_anticoagulant_excess\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"target\": \"Altered Fibrinolytic Balance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate arm in which a formed clot is lysed prematurely, or in which the fibrinolytic system is dysregulated in a direction that is not consistent across cohorts.\", \"hypothesis_groups\": [\"altered_fibrinolysis\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hemostatic Defect Below the Detection Threshold of Routine Testing\", \"target\": \"Altered Fibrin Clot Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate arm in which fibrin network structure, rather than the amount of any component, determines clot mechanical stability.\", \"hypothesis_groups\": [\"altered_clot_structure\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Occult Platelet Function and Secretion Defect\", \"target\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced platelet activation and secretion would weaken primary hemostatic plug formation at the site of vascular injury.\", \"hypothesis_groups\": [\"occult_platelet_defect\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Thrombin Generation\", \"target\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower thrombin burst yields slower and less robust fibrin formation and less thrombin-dependent platelet and factor XIII activation.\", \"hypothesis_groups\": [\"impaired_thrombin_generation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Natural Anticoagulant Excess\", \"target\": \"Impaired Thrombin Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess free TFPI-alpha inhibits the tissue factor/factor VIIa initiation complex and factor Xa, delaying and damping the thrombin burst; raised activated protein C degrades factors Va and VIIIa with the same net effect.\", \"hypothesis_groups\": [\"natural_anticoagulant_excess\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Fibrinolytic Balance\", \"target\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature plasmin-mediated dissolution of a formed fibrin clot, or a dysregulated lysis profile, would shorten the durability of hemostasis and produce delayed rather than immediate bleeding.\", \"hypothesis_groups\": [\"altered_fibrinolysis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Fibrin Clot Architecture\", \"target\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A clot that forms more slowly and with altered fiber architecture is mechanically less stable at the injury site.\", \"hypothesis_groups\": [\"altered_clot_structure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hemostatic Plug Formation and Clot Stability\", \"target\": \"Mucocutaneous and Post-Challenge Bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of durable hemostasis at sites of minor and surgical vascular injury produces the clinical bleeding phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucocutaneous and Post-Challenge Bleeding\", \"target\": \"Chronic Blood Loss and Iron Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent bleeding, dominated in this predominantly female population by heavy menstrual bleeding, causes cumulative iron loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucocutaneous and Post-Challenge Bleeding\", \"target\": \"Impaired Health-Related Quality of Life\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The bleeding phenotype, the associated uncertainty, and the long diagnostic delay together impair physical and mental health.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tranexamic Acid\", \"target\": \"Altered Fibrinolytic Balance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levonorgestrel 52-mg Intrauterine System\", \"target\": \"Heavy Menstrual Bleeding\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Periprocedural and Peripartum Hemostatic Prophylaxis\", \"target\": \"Postpartum Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Periprocedural and Peripartum Hemostatic Prophylaxis\", \"target\": \"Prolonged Bleeding After Surgery\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Impaired Thrombin Generation\", \"target\": \"Thrombin Generation (Endogenous Thrombin Potential)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Calibrated thrombin generation is the direct assay readout of this mechanism node; lower thrombin-generating capacity corresponds to the hypothesized defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Natural Anticoagulant Excess\", \"target\": \"Free Tissue Factor Pathway Inhibitor Alpha\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Free TFPI-alpha is the primary measured quantity behind the natural anticoagulant excess arm.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired Thrombin Generation\", \"target\": \"Free Tissue Factor Pathway Inhibitor Alpha\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher free TFPI-alpha is associated with a delayed thrombin burst while routine global clotting tests stay normal, which is the observational link between the two mechanism nodes.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Natural Anticoagulant Excess\", \"target\": \"Activated Protein C Antigen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Raised activated protein C degrades factors Va and VIIIa, giving the same net anticoagulant excess as the TFPI limb.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Altered Fibrinolytic Balance\", \"target\": \"Plasma Clot Lysis Time\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports on the fibrinolytic arm, but in the direction opposite to the accelerated-lysis reading of that node. Direction is deliberately left unset because the cohorts disagree on sign.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Altered Fibrinolytic Balance\", \"target\": \"Plasmin Generation (Peak Plasmin)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Directly measures the plasminogen activation output of this node and finds it reduced, which is the principal evidence against naming the node hyperfibrinolysis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Altered Fibrin Clot Architecture\", \"target\": \"Plasmin Generation (Peak Plasmin)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The authors attribute the reduced peak plasmin to altered clot structure, linking this marker to the clot architecture arm.\", \"relationship\": \"CORRELATES_WITH\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7667,38 +7770,20 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(9)</span></button>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-increased-mucocutaneous-bleeding-tendency" data-dismech-node="Increased Mucocutaneous Bleeding Tendency" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Increased Mucocutaneous Bleeding Tendency
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+                    <span class="phenotype-freq">OBLIGATE</span>
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Blood
-                    <span class="cat-count">9</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-mucocutaneous-bleeding-tendency" data-dismech-node="Increased Mucocutaneous Bleeding Tendency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased Mucocutaneous Bleeding Tendency
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
+                    <span class="phenotype-category">Clinical</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal bleeding</span>
-
 
 
 
@@ -7710,7 +7795,7 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Increased bleeding tendency, annotated with Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
 
@@ -7758,21 +7843,19 @@ This clinical feature is Increased bleeding tendency, annotated with Abnormal bl
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-heavy-menstrual-bleeding" data-dismech-node="Heavy Menstrual Bleeding" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Heavy Menstrual Bleeding
+            <div class="item-box phenotype-box anchor-target" id="phenotype-heavy-menstrual-bleeding" data-dismech-node="Heavy Menstrual Bleeding" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Heavy Menstrual Bleeding
 
 
+                    <span class="phenotype-category">Clinical</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Menorrhagia</span>
-
 
 
 
@@ -7784,7 +7867,7 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Heavy menstrual bleeding, annotated with Menorrhagia (HP:0000132). HP:0000132 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
 
@@ -7857,19 +7940,19 @@ This clinical feature is Heavy menstrual bleeding, annotated with Menorrhagia (H
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-epistaxis" data-dismech-node="Epistaxis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Epistaxis
+            <div class="item-box phenotype-box anchor-target" id="phenotype-epistaxis" data-dismech-node="Epistaxis" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Epistaxis
 
 
+                    <span class="phenotype-category">Clinical</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -7881,7 +7964,7 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
 
@@ -7929,21 +8012,19 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-easy-bruising-and-spontaneous-hematoma" data-dismech-node="Easy Bruising and Spontaneous Hematoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Easy Bruising and Spontaneous Hematoma
+            <div class="item-box phenotype-box anchor-target" id="phenotype-easy-bruising-and-spontaneous-hematoma" data-dismech-node="Easy Bruising and Spontaneous Hematoma" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Easy Bruising and Spontaneous Hematoma
 
 
+                    <span class="phenotype-category">Clinical</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Bruising susceptibility</span>
-
 
 
 
@@ -7955,7 +8036,7 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
 
@@ -8003,19 +8084,19 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-oral-and-gingival-bleeding" data-dismech-node="Oral and Gingival Bleeding" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Oral and Gingival Bleeding
+            <div class="item-box phenotype-box anchor-target" id="phenotype-oral-and-gingival-bleeding" data-dismech-node="Oral and Gingival Bleeding" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Oral and Gingival Bleeding
 
 
+                    <span class="phenotype-category">Clinical</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -8027,7 +8108,7 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Gingival bleeding (HP:0000225). HP:0000225 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
 
@@ -8075,21 +8156,21 @@ This clinical feature is Gingival bleeding (HP:0000225). HP:0000225 is a phenoty
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-bleeding-after-surgery" data-dismech-node="Prolonged Bleeding After Surgery" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Prolonged Bleeding After Surgery
+            <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-bleeding-after-surgery" data-dismech-node="Prolonged Bleeding After Surgery" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Prolonged Bleeding After Surgery
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
+                    <span class="phenotype-category">Clinical</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -8101,7 +8182,7 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Prolonged bleeding after surgery (HP:0004846). HP:0004846 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
 
@@ -8174,15 +8255,16 @@ This clinical feature is Prolonged bleeding after surgery (HP:0004846). HP:00048
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-postpartum-hemorrhage" data-dismech-node="Postpartum Hemorrhage" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Postpartum Hemorrhage
+            <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-bleeding-after-dental-extraction" data-dismech-node="Prolonged Bleeding After Dental Extraction" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Prolonged Bleeding After Dental Extraction
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
+                    <span class="phenotype-category">Clinical</span>
 
 
 
@@ -8191,16 +8273,89 @@ This clinical feature is Prolonged bleeding after surgery (HP:0004846). HP:00048
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011891" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0011891</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0006298</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
+This clinical feature is Prolonged bleeding after dental extraction (HP:0006298). HP:0006298 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41006857" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41006857" target="_blank">PMID:41006857</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The incidence of bleeding in patients with BDUC following dental surgery can range from 36–84%."</div>
+
+
+                <div class="evidence-explanation">Reported incidence range of 36-84% after dental surgery. The range straddles the FREQUENT/VERY_FREQUENT boundary (80%), so the conservative lower band FREQUENT (30-79%) is used.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-postpartum-hemorrhage" data-dismech-node="Postpartum Hemorrhage" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Postpartum Hemorrhage
+
+                    <span class="phenotype-freq">FREQUENT</span>
+
+
+                    <span class="phenotype-category">Clinical</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011891" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0011891</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
 This clinical feature is Post-partum hemorrhage (HP:0011891). HP:0011891 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
 
@@ -8273,15 +8428,16 @@ This clinical feature is Post-partum hemorrhage (HP:0011891). HP:0011891 is a ph
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-iron-deficiency-anemia" data-dismech-node="Iron Deficiency Anemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Iron Deficiency Anemia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-iron-deficiency-anemia" data-dismech-node="Iron Deficiency Anemia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Iron Deficiency Anemia
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                    <span class="phenotype-freq">OCCASIONAL</span>
 
 
+                    <span class="phenotype-category">Clinical</span>
 
 
 
@@ -8290,16 +8446,15 @@ This clinical feature is Post-partum hemorrhage (HP:0011891). HP:0011891 is a ph
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001891</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001891</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
 
@@ -8347,33 +8502,31 @@ This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a ph
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-bleeding" data-dismech-node="Joint Bleeding" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Joint Bleeding
+            <div class="item-box phenotype-box anchor-target" id="phenotype-joint-bleeding" data-dismech-node="Joint Bleeding" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Joint Bleeding
 
 
+                    <span class="phenotype-category">Clinical</span>
 
 
 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Joint hemorrhage</span>
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0005261" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0005261</a>
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005261" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0005261</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint hemorrhage (HP:0005261). HP:0005261 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
 
@@ -8421,117 +8574,8 @@ This clinical feature is Joint hemorrhage (HP:0005261). HP:0005261 is a phenotyp
 
 
 
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-bleeding-after-dental-extraction" data-dismech-node="Prolonged Bleeding After Dental Extraction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Prolonged Bleeding After Dental Extraction
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006298</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Prolonged bleeding after dental extraction (HP:0006298). HP:0006298 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41006857" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41006857" target="_blank">PMID:41006857</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The incidence of bleeding in patients with BDUC following dental surgery can range from 36–84%."</div>
-
-
-                <div class="evidence-explanation">Reported incidence range of 36-84% after dental surgery. The range straddles the FREQUENT/VERY_FREQUENT boundary (80%), so the conservative lower band FREQUENT (30-79%) is used.</div>
-
-
-
             </div>
 
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 

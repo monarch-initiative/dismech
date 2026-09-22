@@ -744,10 +744,11 @@ verification cache. `geo:` is migrated; the remaining prefixes follow one at a t
   one a reordered paraphrase of a sentence that was in the cache all along
   (`GEO:GSE289185`) and one quoting GEO's uncached "overall design" field
   (`GEO:GSE316127`). KB-wide, 133,610 of 138,867 snippets verify with zero GEO failures.
-- **`cache/dataset_accessions.json` is frozen.** No script, module, test, workflow, or
+- **`cache/dataset_accessions.json` is retired and deleted.** No script, module, test, workflow, or
   recipe reads or writes it, enforced by
-  `test_no_automation_touches_the_frozen_dataset_cache`. It remains in git only until the
-  open PRs carrying edits to it have drained.
+  `test_no_automation_touches_the_frozen_dataset_cache`, which also checks Git's index
+  for reintroduction on every CI run. The temporary freeze has ended. Old PRs must
+  retain its deletion when resolving conflicts, without reading or merging its contents.
 
 **Rationale — the storage shape, not the checking, was the defect.** The old cache was one
 sorted JSON object rewritten *in full* on every run, including a run over a single

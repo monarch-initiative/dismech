@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 26</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Leri-Weill%20Dyschondrosteosis"
@@ -3986,7 +4025,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4007,7 +4046,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">23</div>
+                <div class="stat-value">26</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4016,7 +4055,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4025,7 +4064,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔬</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Variants</div>
             </div>
             </a>
@@ -4311,11 +4350,383 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">4</span>
             </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-deletion-of-shox-downstream-regulatory-dna" data-dismech-node="Deletion of SHOX Downstream Regulatory DNA" data-dismech-type="pathophysiology">
+                <div class="item-name">Deletion of SHOX Downstream Regulatory DNA</div>
+
+
+                <div class="item-desc">Heterozygous deletions remove regulatory DNA downstream of SHOX while leaving the coding gene intact. Reported examples include the ECS4-containing deletion segregating in Fukami et al. family B and the CNE7-CNE8 deletion in Chen et al. Leri-Weill patient 62. The affected elements and deletion extents differ between these alleles.</div>
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">Variant type: deletion</span>
+
+
+        <span class="tag tag-classification">Genomic context: intergenic region</span>
+
+
+        <span class="tag tag-classification">allele_type: downstream regulatory deletions retaining SHOX coding sequence</span>
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+    </div>
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>SHOX downstream cis-regulatory domain in PAR1</strong>
+
+            <span class="tag tag-classification">enhancer</span>
+        </div>
+
+
+
+
+        <div class="item-desc">Gene-poor regulatory domain downstream of SHOX in pseudoautosomal region 1, shared by the X and Y chromosomes. Different deletions remove different conserved elements; the domain is not one patient-specific interval, and downstream does not mean directly abutting SHOX.</div>
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Reduced SHOX Regulatory Input after Enhancer Deletion</span>
+
+	                            <span class="crosslink-desc">Removing downstream regulatory elements is proposed to reduce expression from the intact SHOX allele.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19578035" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19578035" target="_blank">PMID:19578035</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In 58 Leri-Weill syndrome patients, a total of 29 microdeletions were identified; almost half of these (13/29; 45%) involve enhancer sequences and leave the SHOX gene intact."</div>
+
+
+                <div class="evidence-explanation">Establishes a human gene-intact downstream deletion class.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19578035" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19578035" target="_blank">PMID:19578035</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The conserved non-coding elements in the vicinity of the SHOX gene are embedded in a region with characteristics of a gene desert."</div>
+
+
+                <div class="evidence-explanation">Supports the intergenic context of the named regulatory domain.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16385461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16385461" target="_blank">PMID:16385461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a deletion between rs5946324 and rs4504827 was common to the LWD-affected father and daughter in family B"</div>
+
+
+                <div class="evidence-explanation">Identifies the segregating family B allele represented by this trigger.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-shox-regulatory-input-after-enhancer-deletion" data-dismech-node="Reduced SHOX Regulatory Input after Enhancer Deletion" data-dismech-type="pathophysiology">
+                <div class="item-name">Reduced SHOX Regulatory Input after Enhancer Deletion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
+                <div class="item-desc">The regulatory-deletion mechanism is supported by segregation with LWD and by enhancer assays. The ECS4 sequence stimulates a SHOX-promoter reporter in U2OS cells, supporting its ability to supply positive regulatory input. However, endogenous SHOX expression was not measured in the affected tissues of the family B or patient 62 exemplars. In particular, the CNE7-CNE8 interval&#39;s contribution remains less certain than that of the established limb enhancers. Reduced expression is therefore the proposed consequence for these specific alleles; complete or all-tissue transcriptional abolition is not established.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SHOX
+
+
+    <a href="https://bioregistry.io/hgnc:10853" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:10853</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SHOX (hgnc:10853). hgnc:10853 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        SHOX gene expression
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0010467" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0010467</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased SHOX gene expression, annotated with gene expression (GO:0010467). GO:0010467 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">SHOX haploinsufficiency in growth plate chondrocytes</span>
+
+	                            <span class="crosslink-desc">A reduction in SHOX expression would converge on insufficient SHOX dosage during skeletal growth.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16385461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16385461" target="_blank">PMID:16385461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the normalized luciferase activity was found to be significantly increased only when the reporter vector with ECS4 and the SHOX promoter was transfected to U2OS cells"</div>
+
+
+                <div class="evidence-explanation">Demonstrates ECS4 enhancer activity in a reporter, not endogenous expression from patient alleles.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19578035" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19578035" target="_blank">PMID:19578035</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"it also cannot be totally ruled out that the deletion of the CNE7 and CNE8 intervals may have only a minor effect"</div>
+
+
+                <div class="evidence-explanation">The clinical study explicitly limits confidence in the functional contribution of the patient 62 interval.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shox-haploinsufficiency-in-growth-plate-chondrocytes" data-dismech-node="SHOX haploinsufficiency in growth plate chondrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">SHOX haploinsufficiency in growth plate chondrocytes</div>
+
 
                 <div class="item-desc">The SHOX (Short Stature Homeobox) transcription factor is expressed in growth plate chondrocytes, particularly in the hypertrophic zone of the distal radius and ulna. Haploinsufficiency caused by heterozygous deletions or point mutations of SHOX leads to disrupted columnar arrangement of chondrocytes, expansion of the hypertrophic layer, and reduced proliferative zone. This results in premature fusion of the growth plate and disproportionate shortening of the mesomelic segments of the limbs.
 </div>
@@ -4332,11 +4743,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:1000217</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4362,11 +4773,11 @@ This pathophysiological event involves Growth plate chondrocyte, annotated with 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000743" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000743</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000743" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000743</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Hypertrophic chondrocyte (CL:0000743). CL:0000743 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4404,11 +4815,11 @@ This pathophysiological event involves Hypertrophic chondrocyte (CL:0000743). CL
         SHOX
 
 
-    <a href="https://bioregistry.io/hgnc:10853" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:10853</a>
+    <a href="https://bioregistry.io/hgnc:10853" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:10853</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves SHOX (hgnc:10853). hgnc:10853 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4446,11 +4857,11 @@ This pathophysiological event involves SHOX (hgnc:10853). hgnc:10853 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003418" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0003418</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003418" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0003418</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Growth plate chondrocyte differentiation, annotated with growth plate cartilage chondrocyte differentiation (GO:0003418). GO:0003418 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4480,11 +4891,11 @@ This pathophysiological event involves decreased Growth plate chondrocyte differ
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003419" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0003419</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003419" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0003419</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Growth plate chondrocyte proliferation, annotated with growth plate cartilage chondrocyte proliferation (GO:0003419). GO:0003419 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4514,11 +4925,11 @@ This pathophysiological event involves decreased Growth plate chondrocyte prolif
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060350" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0060350</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060350" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0060350</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Endochondral bone morphogenesis (GO:0060350). GO:0060350 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4733,6 +5144,7 @@ This pathophysiological event involves decreased Endochondral bone morphogenesis
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-estrogen-mediated-acceleration-of-premature-epiphyseal-fusion" data-dismech-node="Estrogen-mediated acceleration of premature epiphyseal fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Estrogen-mediated acceleration of premature epiphyseal fusion</div>
 
+
                 <div class="item-desc">Estrogens exert a maturational effect on growth plate cartilage, accelerating the premature epiphyseal fusion caused by SHOX haploinsufficiency. This explains the female-predominant severity of Madelung deformity and the worsening of skeletal features during puberty. Skeletal lesions are rare prepubertally but develop rapidly with rising estrogen levels. Turner syndrome females, who have impaired ovarian function, show relatively milder Madelung deformity despite sharing SHOX haploinsufficiency, further supporting the role of estrogen.
 </div>
 
@@ -4755,11 +5167,11 @@ This pathophysiological event involves decreased Endochondral bone morphogenesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043627" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0043627</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043627" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0043627</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Response to estrogen (GO:0043627). GO:0043627 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4915,7 +5327,7 @@ This pathophysiological event involves Response to estrogen (GO:0043627). GO:004
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cubitus valgus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased carrying angle of the elbow, a recurrent associated skeletal feature in LWD/SHOX haploinsufficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002967\"}}, {\"id\": \"Disproportionate short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature with relatively preserved trunk proportions and disproportionate shortening of the extremities. Increased sitting-height proportion and reduced arm-span proportion are characteristic auxological findings.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003498\"}}, {\"id\": \"Dorsal subluxation of the distal ulna\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dorsal displacement of the distal ulna relative to the radius, producing dorsal wrist prominence and contributing to Madelung deformity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006459\"}}, {\"id\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Estrogens exert a maturational effect on growth plate cartilage, accelerating the premature epiphyseal fusion caused by SHOX haploinsufficiency. This explains the female-predominant severity of Madelung deformity and the worsening of skeletal features during puberty. Skeletal lesions are rare prepubertally but develop rapidly with rising estrogen levels. Turner syndrome females, who have impaired ovarian function, show relatively milder Madelung deformity despite sharing SHOX haploinsufficiency, further supporting the role of estrogen.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to estrogen\"]}}, {\"id\": \"Growth Surveillance and At-Risk Relative Evaluation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children with SHOX deficiency require serial growth monitoring so rhGH can be considered while growth plates remain open. At-risk relatives should be evaluated early because variable expressivity can leave affected relatives, especially males, mildly affected or apparently unaffected.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"High arched palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High palate reported as an associated craniofacial-skeletal feature in some affected individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000218\"}}, {\"id\": \"Limited wrist movement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Restricted wrist range of motion associated with symptomatic Madelung deformity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006248\"}}, {\"id\": \"Madelung deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wrist deformity with bowing and shortening of the distal radius, dorsal subluxation of the distal ulna, and abnormal alignment of the radius, ulna, and carpal bones due to premature fusion of the distal radial growth plate.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003067\"}}, {\"id\": \"Mesomelic short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate shortening of the middle limb segments, especially the forearms and lower legs. Mesomelia may first become evident in school-aged children and becomes more pronounced with age.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008845\"}}, {\"id\": \"Muscle hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apparent muscular hypertrophy of the limbs, reflected clinically by increased limb girth relative to height and used as a screening clue for SHOX deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003712\"}}, {\"id\": \"Radial bowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bowing of the radius as part of the Madelung deformity complex.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002986\"}}, {\"id\": \"Recombinant Growth Hormone Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human growth hormone (rhGH) is used to improve adult height in children with SHOX deficiency, including LWD. Treatment produces a height SD score gain of approximately 1.3 SD, comparable to gains in Turner syndrome. Treatment should be considered in prepubertal children before epiphyseal closure and continued until final height is reached or treatment is otherwise stopped.\\n\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"somatropin\"]}}, {\"id\": \"SHOX deletions and point mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"SHOX\"], \"gene_terms\": [{\"label\": \"SHOX\", \"id\": \"hgnc:10853\"}], \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"SHOX downstream enhancer deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Deletions of cis-regulatory enhancer elements downstream of SHOX that abolish transcription without disrupting the coding sequence.\\n\"}, {\"id\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The SHOX (Short Stature Homeobox) transcription factor is expressed in growth plate chondrocytes, particularly in the hypertrophic zone of the distal radius and ulna. Haploinsufficiency caused by heterozygous deletions or point mutations of SHOX leads to disrupted columnar arrangement of chondrocytes, expansion of the hypertrophic layer, and reduced proliferative zone. This results in premature fusion of the growth plate and disproportionate shortening of the mesomelic segments of the limbs.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\", \"Hypertrophic chondrocyte\"], \"biological_processes\": [\"Growth plate chondrocyte differentiation\", \"Growth plate chondrocyte proliferation\", \"Endochondral bone morphogenesis\"], \"genes\": [\"SHOX\"], \"gene_terms\": [{\"label\": \"SHOX\", \"id\": \"hgnc:10853\"}]}}, {\"id\": \"SHOX intragenic point mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense, nonsense, or frameshift mutations within the SHOX coding region, typically affecting the homeodomain.\\n\"}, {\"id\": \"SHOX whole-gene deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Complete heterozygous deletion of the SHOX gene, the most common molecular cause of LWD.\\n\"}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis reported as an associated skeletal feature in some individuals with LWD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Short 4th metacarpal\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the fourth metacarpal as a recurrent minor hand anomaly in SHOX haploinsufficiency/LWD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010044\"}}, {\"id\": \"Short forearm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Forearm shortening due to reduced growth of the radius and ulna, a major contributor to upper-limb mesomelic disproportion in LWD.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005773\"}}, {\"id\": \"Short tibia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tibial shortening contributing to the lower-leg component of mesomelic disproportion, often accompanied by fibular shortening.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005736\"}}, {\"id\": \"Surgical correction of Madelung deformity\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic Madelung deformity is managed stepwise with wrist splints, supports, ergonomic aids, and activity modification during painful periods. Operative approaches such as Vickers ligament removal with dome osteotomy or distal ulna procedures are reserved for persistent pain, functional limitation, or significant deformity.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Wrist pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mechanical wrist pain associated with symptomatic Madelung deformity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009763\"}}], \"edges\": [{\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Mesomelic short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Madelung deformity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Disproportionate short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth failure is limb-restricted, so stature loss is disproportionate rather than uniform.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Short forearm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The forearm is the upper-limb zeugopod, where SHOX alone patterns growth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Short tibia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lower-limb counterpart of the short forearm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Radial bowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature fusion of the distal radial physis against relatively preserved ulnar growth bows the radius.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Short 4th metacarpal\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acral expression of the same growth plate lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Cubitus valgus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unequal growth of the paired forearm bones alters the carrying angle.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scoliosis is reported in SHOX deficiency but no vertebral growth plate lesion has been described to account for it; the edge records the association without asserting a route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Muscle hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscle bulk is normal in absolute terms but appears increased against shortened limb segments \\u2014 a proportion effect rather than a myopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"High arched palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A recognized minor feature of SHOX deficiency with no established developmental route from the growth plate lesion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"target\": \"Madelung deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pubertal estrogen exposure can accelerate premature distal radial growth plate fusion in SHOX deficiency, worsening Madelung deformity when the radius and ulna grow asymmetrically.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"target\": \"Dorsal subluxation of the distal ulna\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature distal radial fusion with continued ulnar growth drives the ulnar head dorsally \\u2014 the same geometry that defines the deformity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"target\": \"Limited wrist movement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered radiocarpal geometry mechanically restricts range of motion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"target\": \"Wrist pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pain follows the same joint incongruity, which is why it emerges with the deformity in mid-to-late childhood rather than being present from birth.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Recombinant Growth Hormone Therapy\", \"target\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical correction of Madelung deformity\", \"target\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Growth Surveillance and At-Risk Relative Evaluation\", \"target\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SHOX deletions and point mutations\", \"target\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SHOX whole-gene deletion\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SHOX downstream enhancer deletion\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SHOX intragenic point mutations\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chen et al. Leri-Weill patient 62 CNE7-CNE8 deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Patient 62 in the Chen et al. Leri-Weill cohort has an intact SHOX gene and a deletion smaller than 60 kb that includes the CNE7-CNE8 interval. MLPA and FISH support the deletion, with SNP and microsatellite mapping refining its extent. The bounds are not sequence-resolved, and an effect on endogenous SHOX expression was not directly tested in this patient.\", \"meta\": {\"evidence_count\": 3, \"regulatory_target_gene\": {\"label\": \"SHOX\", \"id\": \"hgnc:10853\"}, \"genes\": [\"SHOX\"], \"gene_terms\": [{\"label\": \"SHOX\", \"id\": \"hgnc:10853\"}], \"variant_type\": \"deletion\", \"genomic_contexts\": [\"intergenic region\"], \"affected_regions\": [{\"name\": \"SHOX downstream CNE7-CNE8 interval\", \"description\": \"Conserved noncoding interval downstream of SHOX containing CNE7 and CNE8. It is distinct from the limb enhancer CNE9; the clinical study considers its contribution to SHOX regulation less certain.\"}]}}, {\"id\": \"Cubitus valgus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased carrying angle of the elbow, a recurrent associated skeletal feature in LWD/SHOX haploinsufficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002967\"}}, {\"id\": \"Deletion of SHOX Downstream Regulatory DNA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous deletions remove regulatory DNA downstream of SHOX while leaving the coding gene intact. Reported examples include the ECS4-containing deletion segregating in Fukami et al. family B and the CNE7-CNE8 deletion in Chen et al. Leri-Weill patient 62. The affected elements and deletion extents differ between these alleles.\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"allele_type\": \"downstream regulatory deletions retaining SHOX coding sequence\", \"variant_type\": \"deletion\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"genomic_contexts\": [\"intergenic region\"], \"affected_regions\": [{\"name\": \"SHOX downstream cis-regulatory domain in PAR1\", \"regulatory_element_type\": \"ENHANCER\", \"description\": \"Gene-poor regulatory domain downstream of SHOX in pseudoautosomal region 1, shared by the X and Y chromosomes. Different deletions remove different conserved elements; the domain is not one patient-specific interval, and downstream does not mean directly abutting SHOX.\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Disproportionate short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature with relatively preserved trunk proportions and disproportionate shortening of the extremities. Increased sitting-height proportion and reduced arm-span proportion are characteristic auxological findings.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003498\"}}, {\"id\": \"Dorsal subluxation of the distal ulna\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dorsal displacement of the distal ulna relative to the radius, producing dorsal wrist prominence and contributing to Madelung deformity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006459\"}}, {\"id\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Estrogens exert a maturational effect on growth plate cartilage, accelerating the premature epiphyseal fusion caused by SHOX haploinsufficiency. This explains the female-predominant severity of Madelung deformity and the worsening of skeletal features during puberty. Skeletal lesions are rare prepubertally but develop rapidly with rising estrogen levels. Turner syndrome females, who have impaired ovarian function, show relatively milder Madelung deformity despite sharing SHOX haploinsufficiency, further supporting the role of estrogen.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to estrogen\"]}}, {\"id\": \"Fukami family B SHOX downstream deletion containing ECS4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The LWD-affected father and daughter in family B carry a downstream deletion between the reported flanking markers rs5946324 and rs4504827 while retaining two intact SHOX coding copies. The affected region is inferred to include the ECS4 candidate enhancer. Marker-bounded mapping is retained as reported, without converting it into sequence-resolved breakpoints.\", \"meta\": {\"evidence_count\": 3, \"regulatory_target_gene\": {\"label\": \"SHOX\", \"id\": \"hgnc:10853\"}, \"genes\": [\"SHOX\"], \"gene_terms\": [{\"label\": \"SHOX\", \"id\": \"hgnc:10853\"}], \"variant_type\": \"deletion\", \"genomic_contexts\": [\"intergenic region\"], \"affected_regions\": [{\"name\": \"SHOX downstream evolutionarily conserved sequence ECS4\", \"regulatory_element_type\": \"ENHANCER\", \"description\": \"The ECS4 element lies within the downstream region of overlap defined by the Japanese LWD families and has SHOX-promoter reporter activity. Its inclusion in the family B deletion is inferred from element positions relative to the clinical marker bounds; it is not the complete deletion interval.\"}]}}, {\"id\": \"Growth Surveillance and At-Risk Relative Evaluation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children with SHOX deficiency require serial growth monitoring so rhGH can be considered while growth plates remain open. At-risk relatives should be evaluated early because variable expressivity can leave affected relatives, especially males, mildly affected or apparently unaffected.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"High arched palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High palate reported as an associated craniofacial-skeletal feature in some affected individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000218\"}}, {\"id\": \"Limited wrist movement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Restricted wrist range of motion associated with symptomatic Madelung deformity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006248\"}}, {\"id\": \"Madelung deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wrist deformity with bowing and shortening of the distal radius, dorsal subluxation of the distal ulna, and abnormal alignment of the radius, ulna, and carpal bones due to premature fusion of the distal radial growth plate.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003067\"}}, {\"id\": \"Mesomelic short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate shortening of the middle limb segments, especially the forearms and lower legs. Mesomelia may first become evident in school-aged children and becomes more pronounced with age.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008845\"}}, {\"id\": \"Muscle hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apparent muscular hypertrophy of the limbs, reflected clinically by increased limb girth relative to height and used as a screening clue for SHOX deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003712\"}}, {\"id\": \"Radial bowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bowing of the radius as part of the Madelung deformity complex.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002986\"}}, {\"id\": \"Recombinant Growth Hormone Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human growth hormone (rhGH) is used to improve adult height in children with SHOX deficiency, including LWD. Treatment produces a height SD score gain of approximately 1.3 SD, comparable to gains in Turner syndrome. Treatment should be considered in prepubertal children before epiphyseal closure and continued until final height is reached or treatment is otherwise stopped.\\n\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"somatropin\"]}}, {\"id\": \"Reduced SHOX Regulatory Input after Enhancer Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The regulatory-deletion mechanism is supported by segregation with LWD and by enhancer assays. The ECS4 sequence stimulates a SHOX-promoter reporter in U2OS cells, supporting its ability to supply positive regulatory input. However, endogenous SHOX expression was not measured in the affected tissues of the family B or patient 62 exemplars. In particular, the CNE7-CNE8 interval\u0027s contribution remains less certain than that of the established limb enhancers. Reduced expression is therefore the proposed consequence for these specific alleles; complete or all-tissue transcriptional abolition is not established.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"SHOX gene expression\"], \"genes\": [\"SHOX\"], \"gene_terms\": [{\"label\": \"SHOX\", \"id\": \"hgnc:10853\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"SHOX deletions and point mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"SHOX\"], \"gene_terms\": [{\"label\": \"SHOX\", \"id\": \"hgnc:10853\"}], \"association\": \"Causative\", \"variant_count\": 2}}, {\"id\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The SHOX (Short Stature Homeobox) transcription factor is expressed in growth plate chondrocytes, particularly in the hypertrophic zone of the distal radius and ulna. Haploinsufficiency caused by heterozygous deletions or point mutations of SHOX leads to disrupted columnar arrangement of chondrocytes, expansion of the hypertrophic layer, and reduced proliferative zone. This results in premature fusion of the growth plate and disproportionate shortening of the mesomelic segments of the limbs.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\", \"Hypertrophic chondrocyte\"], \"biological_processes\": [\"Growth plate chondrocyte differentiation\", \"Growth plate chondrocyte proliferation\", \"Endochondral bone morphogenesis\"], \"genes\": [\"SHOX\"], \"gene_terms\": [{\"label\": \"SHOX\", \"id\": \"hgnc:10853\"}]}}, {\"id\": \"SHOX intragenic point mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense, nonsense, or frameshift mutations within the SHOX coding region, typically affecting the homeodomain.\\n\"}, {\"id\": \"SHOX whole-gene deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Complete heterozygous deletion of the SHOX gene, the most common molecular cause of LWD.\\n\"}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis reported as an associated skeletal feature in some individuals with LWD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Short 4th metacarpal\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the fourth metacarpal as a recurrent minor hand anomaly in SHOX haploinsufficiency/LWD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010044\"}}, {\"id\": \"Short forearm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Forearm shortening due to reduced growth of the radius and ulna, a major contributor to upper-limb mesomelic disproportion in LWD.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005773\"}}, {\"id\": \"Short tibia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tibial shortening contributing to the lower-leg component of mesomelic disproportion, often accompanied by fibular shortening.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005736\"}}, {\"id\": \"Surgical correction of Madelung deformity\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic Madelung deformity is managed stepwise with wrist splints, supports, ergonomic aids, and activity modification during painful periods. Operative approaches such as Vickers ligament removal with dome osteotomy or distal ulna procedures are reserved for persistent pain, functional limitation, or significant deformity.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Wrist pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mechanical wrist pain associated with symptomatic Madelung deformity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009763\"}}], \"edges\": [{\"source\": \"Deletion of SHOX Downstream Regulatory DNA\", \"target\": \"Reduced SHOX Regulatory Input after Enhancer Deletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Removing downstream regulatory elements is proposed to reduce expression from the intact SHOX allele.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced SHOX Regulatory Input after Enhancer Deletion\", \"target\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A reduction in SHOX expression would converge on insufficient SHOX dosage during skeletal growth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Mesomelic short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Madelung deformity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Disproportionate short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth failure is limb-restricted, so stature loss is disproportionate rather than uniform.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Short forearm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The forearm is the upper-limb zeugopod, where SHOX alone patterns growth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Short tibia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lower-limb counterpart of the short forearm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Radial bowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature fusion of the distal radial physis against relatively preserved ulnar growth bows the radius.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Short 4th metacarpal\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acral expression of the same growth plate lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Cubitus valgus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unequal growth of the paired forearm bones alters the carrying angle.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scoliosis is reported in SHOX deficiency but no vertebral growth plate lesion has been described to account for it; the edge records the association without asserting a route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"Muscle hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscle bulk is normal in absolute terms but appears increased against shortened limb segments \\u2014 a proportion effect rather than a myopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"target\": \"High arched palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A recognized minor feature of SHOX deficiency with no established developmental route from the growth plate lesion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"target\": \"Madelung deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pubertal estrogen exposure can accelerate premature distal radial growth plate fusion in SHOX deficiency, worsening Madelung deformity when the radius and ulna grow asymmetrically.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"target\": \"Dorsal subluxation of the distal ulna\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature distal radial fusion with continued ulnar growth drives the ulnar head dorsally \\u2014 the same geometry that defines the deformity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"target\": \"Limited wrist movement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered radiocarpal geometry mechanically restricts range of motion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"target\": \"Wrist pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pain follows the same joint incongruity, which is why it emerges with the deformity in mid-to-late childhood rather than being present from birth.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Recombinant Growth Hormone Therapy\", \"target\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical correction of Madelung deformity\", \"target\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Growth Surveillance and At-Risk Relative Evaluation\", \"target\": \"Estrogen-mediated acceleration of premature epiphyseal fusion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SHOX deletions and point mutations\", \"target\": \"Reduced SHOX Regulatory Input after Enhancer Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SHOX deletions and point mutations\", \"target\": \"SHOX haploinsufficiency in growth plate chondrocytes\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SHOX whole-gene deletion\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SHOX intragenic point mutations\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Fukami family B SHOX downstream deletion containing ECS4\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"has_regulatory_target\", \"is_orphan\": false}, {\"source\": \"Chen et al. Leri-Weill patient 62 CNE7-CNE8 deletion\", \"target\": \"SHOX deletions and point mutations\", \"predicate\": \"has_regulatory_target\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4971,10 +5383,10 @@ This pathophysiological event involves Response to estrogen (GO:0043627). GO:004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000218</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000218</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5054,10 +5466,10 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0003067</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003067</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Madelung deformity (HP:0003067). HP:0003067 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5178,10 +5590,10 @@ This clinical feature is Madelung deformity (HP:0003067). HP:0003067 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0005773</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0005773</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short forearm (HP:0005773). HP:0005773 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5275,10 +5687,10 @@ This clinical feature is Short forearm (HP:0005773). HP:0005773 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0005736</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0005736</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short tibia (HP:0005736). HP:0005736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5347,10 +5759,10 @@ This clinical feature is Short tibia (HP:0005736). HP:0005736 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002986" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002986</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002986" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002986</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Radial bowing (HP:0002986). HP:0002986 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5421,10 +5833,10 @@ This clinical feature is Radial bowing (HP:0002986). HP:0002986 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006459" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0006459</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006459" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0006459</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dorsal subluxation of ulna (HP:0006459). HP:0006459 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5493,10 +5905,10 @@ This clinical feature is Dorsal subluxation of ulna (HP:0006459). HP:0006459 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006248" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0006248</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006248" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0006248</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Limited wrist movement (HP:0006248). HP:0006248 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5565,10 +5977,10 @@ This clinical feature is Limited wrist movement (HP:0006248). HP:0006248 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002967</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002967</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cubitus valgus (HP:0002967). HP:0002967 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5637,10 +6049,10 @@ This clinical feature is Cubitus valgus (HP:0002967). HP:0002967 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0010044</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0010044</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short 4th metacarpal (HP:0010044). HP:0010044 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5720,10 +6132,10 @@ This clinical feature is Short 4th metacarpal (HP:0010044). HP:0010044 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003712</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003712</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle hypertrophy, annotated with Skeletal muscle hypertrophy (HP:0003712). HP:0003712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5817,10 +6229,10 @@ This clinical feature is Muscle hypertrophy, annotated with Skeletal muscle hype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5900,10 +6312,10 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0009763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0009763</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Wrist pain, annotated with Limb pain (HP:0009763). HP:0009763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5981,10 +6393,10 @@ This clinical feature is Wrist pain, annotated with Limb pain (HP:0009763). HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003498</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003498</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Disproportionate short stature (HP:0003498). HP:0003498 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6078,10 +6490,10 @@ This clinical feature is Disproportionate short stature (HP:0003498). HP:0003498
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008845</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0008845</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mesomelic short stature (HP:0008845). HP:0008845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6197,7 +6609,7 @@ This clinical feature is Mesomelic short stature (HP:0008845). HP:0008845 is a p
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-shox-deletions-and-point-mutations" data-dismech-node="SHOX deletions and point mutations" data-dismech-type="genetic">
@@ -6218,10 +6630,10 @@ This clinical feature is Mesomelic short stature (HP:0008845). HP:0008845 is a p
                         Gene: SHOX
 
 
-    <a href="https://bioregistry.io/hgnc:10853" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:10853</a>
+    <a href="https://bioregistry.io/hgnc:10853" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:10853</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6229,6 +6641,9 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6325,7 +6740,7 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
 
 
                 <details class="variant-list">
-                    <summary class="variant-list-toggle">Variants (3)</summary>
+                    <summary class="variant-list-toggle">Variants (2)</summary>
 
 
     <div class="item-box variant-box variant-box-nested anchor-target" id="variant-shox-whole-gene-deletion" data-dismech-node="SHOX whole-gene deletion" data-dismech-type="genetic">
@@ -6336,32 +6751,13 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Complete heterozygous deletion of the SHOX gene, the most common molecular cause of LWD.
-</div>
-
-
-
-
-
-
-
-
-
-
-
-    </div>
-
-
-
-    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-shox-downstream-enhancer-deletion" data-dismech-node="SHOX downstream enhancer deletion" data-dismech-type="genetic">
-
-    <div class="item-name">
-        SHOX downstream enhancer deletion
-
-    </div>
-
-
-    <div class="item-desc">Deletions of cis-regulatory enhancer elements downstream of SHOX that abolish transcription without disrupting the coding sequence.
 </div>
 
 
@@ -6386,6 +6782,12 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Missense, nonsense, or frameshift mutations within the SHOX coding region, typically affecting the homeodomain.
 </div>
 
@@ -6396,6 +6798,484 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
 
 
 
+
+
+
+    </div>
+
+
+                </details>
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-shox-downstream-cis-regulatory-domain" data-dismech-node="SHOX downstream cis-regulatory domain" data-dismech-type="genetic">
+                <div class="item-name">
+                    SHOX downstream cis-regulatory domain
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Gene-intact regulatory deletions associated with Leri-Weill dyschondrosteosis)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>SHOX downstream cis-regulatory domain in PAR1</strong>
+
+            <span class="tag tag-classification">enhancer</span>
+        </div>
+
+
+
+
+        <div class="item-desc">A domain of conserved noncoding elements downstream of SHOX in the pseudoautosomal sequence shared by X and Y. Different patient deletions remove different parts of this domain; no single cytoband coordinate interval or gene-boundary adjacency is asserted for all alleles.</div>
+    </div>
+
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19578035" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19578035" target="_blank">PMID:19578035</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In 58 Leri-Weill syndrome patients, a total of 29 microdeletions were identified; almost half of these (13/29; 45%) involve enhancer sequences and leave the SHOX gene intact."</div>
+
+
+                <div class="evidence-explanation">Establishes the regional association independently of SHOX coding deletion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (2)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-fukami-family-b-shox-downstream-deletion-containing-ecs4" data-dismech-node="Fukami family B SHOX downstream deletion containing ECS4" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Fukami family B SHOX downstream deletion containing ECS4
+
+    </div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: SHOX
+
+
+    <a href="https://bioregistry.io/hgnc:10853" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:10853</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant has a reported or proposed regulatory effect on this gene
+This variant has a reported or proposed regulatory effect on SHOX (hgnc:10853). hgnc:10853 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">deletion</span>
+
+
+
+    </div>
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Genomic context:</strong>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">intergenic region</span>
+
+    </div>
+
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>SHOX downstream evolutionarily conserved sequence ECS4</strong>
+
+            <span class="tag tag-classification">enhancer</span>
+        </div>
+
+
+
+
+        <div class="item-desc">The ECS4 element lies within the downstream region of overlap defined by the Japanese LWD families and has SHOX-promoter reporter activity. Its inclusion in the family B deletion is inferred from element positions relative to the clinical marker bounds; it is not the complete deletion interval.</div>
+    </div>
+
+</div>
+
+
+
+    <div class="item-desc">The LWD-affected father and daughter in family B carry a downstream deletion between the reported flanking markers rs5946324 and rs4504827 while retaining two intact SHOX coding copies. The affected region is inferred to include the ECS4 candidate enhancer. Marker-bounded mapping is retained as reported, without converting it into sequence-resolved breakpoints.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">SHOX cis-regulatory control</span>
+
+
+
+
+                <span class="tag" style="background: #fce7f3; color: #9d174d;">ENHANCER</span>
+
+            </div>
+
+
+            <div class="item-desc">ECS4 stimulates a SHOX-promoter luciferase construct in U2OS cells. Deletion is proposed to reduce SHOX regulatory input, but endogenous expression in the affected father and daughter was not measured.</div>
+
+
+            <div class="item-desc"><strong>Mechanism:</strong> Deletion of an ECS4-containing downstream enhancer region</div>
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16385461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16385461" target="_blank">PMID:16385461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a deletion between rs5946324 and rs4504827 was common to the LWD-affected father and daughter in family B"</div>
+
+
+                <div class="evidence-explanation">Identifies the family-specific deletion by the source&#39;s marker bounds.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16385461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16385461" target="_blank">PMID:16385461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ECS3–ECS5 reside between rs5988437 and rs5946533 (UCSC Genome Browser), they should be deleted from the patients in the three families defining the SRO-J"</div>
+
+
+                <div class="evidence-explanation">The authors infer ECS4 containment by comparing genome-browser element positions with the marker-bounded patient deletions. This is positional inference from the clinical mapping, not a separate ECS4 copy-number assay or a nucleotide-resolved breakpoint result.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16385461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16385461" target="_blank">PMID:16385461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the normalized luciferase activity was found to be significantly increased only when the reporter vector with ECS4 and the SHOX promoter was transfected to U2OS cells"</div>
+
+
+                <div class="evidence-explanation">Supports enhancer activity while leaving the endogenous patient expression effect unmeasured.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-chen-et-al-leri-weill-patient-62-cne7-cne8-deletion" data-dismech-node="Chen et al. Leri-Weill patient 62 CNE7-CNE8 deletion" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Chen et al. Leri-Weill patient 62 CNE7-CNE8 deletion
+
+    </div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: SHOX
+
+
+    <a href="https://bioregistry.io/hgnc:10853" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:10853</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant has a reported or proposed regulatory effect on this gene
+This variant has a reported or proposed regulatory effect on SHOX (hgnc:10853). hgnc:10853 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">deletion</span>
+
+
+
+    </div>
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Genomic context:</strong>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">intergenic region</span>
+
+    </div>
+
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>SHOX downstream CNE7-CNE8 interval</strong>
+
+
+        </div>
+
+
+
+
+        <div class="item-desc">Conserved noncoding interval downstream of SHOX containing CNE7 and CNE8. It is distinct from the limb enhancer CNE9; the clinical study considers its contribution to SHOX regulation less certain.</div>
+    </div>
+
+</div>
+
+
+
+    <div class="item-desc">Patient 62 in the Chen et al. Leri-Weill cohort has an intact SHOX gene and a deletion smaller than 60 kb that includes the CNE7-CNE8 interval. MLPA and FISH support the deletion, with SNP and microsatellite mapping refining its extent. The bounds are not sequence-resolved, and an effect on endogenous SHOX expression was not directly tested in this patient.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">Proposed SHOX cis-regulatory control</span>
+
+
+
+
+            </div>
+
+
+            <div class="item-desc">Clinical association supports a possible regulatory contribution, but the study explicitly allows a minor effect from loss of this interval. The deletion is not assigned an all-tissue or complete expression-loss category.</div>
+
+
+            <div class="item-desc"><strong>Mechanism:</strong> Deletion of the conserved CNE7-CNE8 interval</div>
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19578035" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19578035" target="_blank">PMID:19578035</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among the 29 microdeletions of the PAR1 region in LWS patients, one patient (no. 62) included only the enhancer interval CNE7 and CNE8."</div>
+
+
+                <div class="evidence-explanation">Identifies the specific Leri-Weill patient and affected named interval.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19578035" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19578035" target="_blank">PMID:19578035</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In three individuals with ISS and one individual with LWS, a deletion interval smaller than 60 kb was detected that included the CNE7 and CNE8 enhancer interval."</div>
+
+
+                <div class="evidence-explanation">Bounds the deletion size without inventing nucleotide breakpoints.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19578035" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19578035" target="_blank">PMID:19578035</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"it also cannot be totally ruled out that the deletion of the CNE7 and CNE8 intervals may have only a minor effect"</div>
+
+
+                <div class="evidence-explanation">Preserves the source&#39;s uncertainty about the interval&#39;s functional contribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6432,7 +7312,7 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Growth hormone therapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Growth hormone therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Growth hormone therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6474,11 +7354,11 @@ This treatment is Growth hormone therapy, annotated with Hormone Replacement The
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C837" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C837</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C837" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C837</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -6625,7 +7505,7 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Surgical correction of Madelung deformity<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Surgical correction of Madelung deformity<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Surgical correction of Madelung deformity, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6805,7 +7685,7 @@ This treatment is Surgical correction of Madelung deformity, annotated with Surg
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6951,7 +7831,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7134,11 +8014,11 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         clinical imaging procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C17369" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C17369</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17369" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C17369</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7274,11 +8154,11 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7412,11 +8292,11 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7912,11 +8792,11 @@ LWD is the most common mesomelic skeletal dysplasia; its general-population prev
         SHOX2
 
 
-    <a href="https://bioregistry.io/hgnc:10854" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:10854</a>
+    <a href="https://bioregistry.io/hgnc:10854" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:10854</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns SHOX2 (hgnc:10854). hgnc:10854 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -8265,8 +9145,7 @@ diagnosis:
     reference_title: &#34;SHOX Deficiency Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The diagnosis of SHOX deficiency is established in a proband with either a pathogenic SHOX variant or a deletion, duplication, or insertion that can encompass the SHOX coding region and/or
-      the enhancer region regulating SHOX expression.&#34;
+    snippet: &#34;The diagnosis of SHOX deficiency is established in a proband with either a pathogenic SHOX variant or a deletion, duplication, or insertion that can encompass the SHOX coding region and/or the enhancer region regulating SHOX expression.&#34;
     explanation: &gt;-
       GeneReviews defines the molecular diagnostic criteria for SHOX deficiency,
       which underlies Leri-Weill dyschondrosteosis.
@@ -8378,6 +9257,155 @@ progression:
       Characterizes the range of adult height deficit in LWD from a large
       clinical series of 43 affected individuals.
 pathophysiology:
+- name: Deletion of SHOX Downstream Regulatory DNA
+  biological_scale: MOLECULAR
+  role: trigger
+  genetic_context:
+    variant_type: deletion
+    genomic_contexts:
+    - intergenic region
+    affected_regions:
+    - name: SHOX downstream cis-regulatory domain in PAR1
+      regulatory_element_type: ENHANCER
+      description: &gt;-
+        Gene-poor regulatory domain downstream of SHOX in pseudoautosomal
+        region 1, shared by the X and Y chromosomes. Different deletions remove
+        different conserved elements; the domain is not one patient-specific
+        interval, and downstream does not mean directly abutting SHOX.
+    zygosity: HETEROZYGOUS
+    variant_origin: GERMLINE
+    allele_type: downstream regulatory deletions retaining SHOX coding sequence
+  description: &gt;-
+    Heterozygous deletions remove regulatory DNA downstream of SHOX while
+    leaving the coding gene intact. Reported examples include the
+    ECS4-containing deletion segregating in Fukami et al. family B and the
+    CNE7-CNE8 deletion in Chen et al. Leri-Weill patient 62. The affected
+    elements and deletion extents differ between these alleles.
+  evidence:
+  - reference: PMID:19578035
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In 58 Leri-Weill syndrome patients, a total of 29 microdeletions were
+      identified; almost half of these (13/29; 45%) involve enhancer sequences
+      and leave the SHOX gene intact.
+    explanation: Establishes a human gene-intact downstream deletion class.
+  - reference: PMID:19578035
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The conserved non-coding elements in the vicinity of the SHOX gene are
+      embedded in a region with characteristics of a gene desert.
+    explanation: Supports the intergenic context of the named regulatory domain.
+  - reference: PMID:16385461
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      a deletion between rs5946324 and rs4504827 was common to the
+      LWD-affected father and daughter in family B
+    explanation: Identifies the segregating family B allele represented by this trigger.
+  downstream:
+  - target: Reduced SHOX Regulatory Input after Enhancer Deletion
+    causal_link_type: DIRECT
+    description: Removing downstream regulatory elements is proposed to reduce expression from the intact SHOX allele.
+    evidence:
+    - reference: PMID:16385461
+      reference_title: &#34;Transactivation function of an approximately 800-bp evolutionarily conserved sequence at the SHOX 3&#39; region: implication for the downstream enhancer.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      directness: INDIRECT
+      snippet: &gt;-
+        the normalized luciferase activity was found to be significantly
+        increased only when the reporter vector with ECS4 and the SHOX
+        promoter was transfected to U2OS cells
+      explanation: &gt;-
+        ECS4 reporter activity supports the proposal that removing the
+        ECS4-containing family B interval reduces regulatory input. This
+        is not an endogenous SHOX expression assay of the deletion and
+        does not directly test the separate CNE7-CNE8 allele.
+    - reference: PMID:19578035
+      reference_title: &#34;Enhancer deletions of the SHOX gene as a frequent cause of short stature: the essential role of a 250 kb downstream regulatory domain.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      directness: INDIRECT
+      snippet: &gt;-
+        it also cannot be totally ruled out that the deletion of the CNE7 and
+        CNE8 intervals may have only a minor effect
+      explanation: &gt;-
+        The authors qualify the inferred regulatory contribution of the
+        patient 62 interval; the shared edge therefore remains a proposed
+        expression consequence rather than a measured effect in both alleles.
+- name: Reduced SHOX Regulatory Input after Enhancer Deletion
+  biological_scale: MOLECULAR
+  mechanism_confidence: PROVISIONAL
+  description: &gt;-
+    The regulatory-deletion mechanism is supported by segregation with LWD
+    and by enhancer assays. The ECS4 sequence stimulates a SHOX-promoter
+    reporter in U2OS cells, supporting its ability to supply positive regulatory
+    input. However, endogenous SHOX expression was not measured in the
+    affected tissues of the family B or patient 62 exemplars. In particular,
+    the CNE7-CNE8 interval&#39;s contribution remains less certain than that of the
+    established limb enhancers. Reduced expression is therefore the proposed
+    consequence for these specific alleles; complete or all-tissue
+    transcriptional abolition is not established.
+  genes:
+  - preferred_term: SHOX
+    term:
+      id: hgnc:10853
+      label: SHOX
+  biological_processes:
+  - preferred_term: SHOX gene expression
+    term:
+      id: GO:0010467
+      label: gene expression
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:16385461
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    directness: INDIRECT
+    snippet: &gt;-
+      the normalized luciferase activity was found to be significantly increased
+      only when the reporter vector with ECS4 and the SHOX promoter was
+      transfected to U2OS cells
+    explanation: Demonstrates ECS4 enhancer activity in a reporter, not endogenous expression from patient alleles.
+  - reference: PMID:19578035
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: INDIRECT
+    snippet: &gt;-
+      it also cannot be totally ruled out that the deletion of the CNE7 and
+      CNE8 intervals may have only a minor effect
+    explanation: The clinical study explicitly limits confidence in the functional contribution of the patient 62 interval.
+  downstream:
+  - target: SHOX haploinsufficiency in growth plate chondrocytes
+    causal_link_type: DIRECT
+    description: A reduction in SHOX expression would converge on insufficient SHOX dosage during skeletal growth.
+    evidence:
+    - reference: PMID:16385461
+      reference_title: &#34;Transactivation function of an approximately 800-bp evolutionarily conserved sequence at the SHOX 3&#39; region: implication for the downstream enhancer.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      directness: INDIRECT
+      snippet: &gt;-
+        a deletion between rs5946324 and rs4504827 was common to the
+        LWD-affected father and daughter in family B
+      explanation: &gt;-
+        Segregation of the downstream deletion with LWD despite retention of
+        SHOX coding copies supports convergence on SHOX deficiency indirectly;
+        the affected growth plates and endogenous expression were not assayed.
+    - reference: PMID:11677662
+      reference_title: &#34;Histopathological analysis of Leri-Weill dyschondrosteosis: disordered growth plate.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      directness: INDIRECT
+      snippet: &gt;-
+        A widespread disorganisation of physeal anatomy was revealed with
+        disruption of the normal parallel columnar arrangement of chondrocytes.
+      explanation: &gt;-
+        Histopathology links established SHOX abnormalities to the growth-plate
+        substrate of LWD. Applying that mechanism to these enhancer deletions
+        is an extrapolation; this study does not assess either regulatory allele.
 - name: SHOX haploinsufficiency in growth plate chondrocytes
   description: &gt;
     The SHOX (Short Stature Homeobox) transcription factor is expressed in
@@ -8992,10 +10020,6 @@ genetic:
     description: &gt;
       Complete heterozygous deletion of the SHOX gene, the most common
       molecular cause of LWD.
-  - name: SHOX downstream enhancer deletion
-    description: &gt;
-      Deletions of cis-regulatory enhancer elements downstream of SHOX
-      that abolish transcription without disrupting the coding sequence.
   - name: SHOX intragenic point mutations
     description: &gt;
       Missense, nonsense, or frameshift mutations within the SHOX coding
@@ -9083,6 +10107,146 @@ genetic:
     explanation: &gt;-
       Multinational cohort study providing detailed breakdown of SHOX
       mutation spectrum in 68 affected individuals.
+- name: SHOX downstream cis-regulatory domain
+  association: Gene-intact regulatory deletions associated with Leri-Weill dyschondrosteosis
+  relationship_type: CAUSATIVE
+  affected_regions:
+  - name: SHOX downstream cis-regulatory domain in PAR1
+    regulatory_element_type: ENHANCER
+    description: &gt;-
+      A domain of conserved noncoding elements downstream of SHOX in the
+      pseudoautosomal sequence shared by X and Y. Different patient deletions
+      remove different parts of this domain; no single cytoband coordinate
+      interval or gene-boundary adjacency is asserted for all alleles.
+  notes: &gt;-
+    The intact regulatory target is SHOX. These regional records distinguish
+    deletion of regulatory sequence from deletion of SHOX itself and do not
+    assert that every conserved element has the same functional evidence.
+  variants:
+  - name: Fukami family B SHOX downstream deletion containing ECS4
+    variant_type: deletion
+    genomic_contexts:
+    - intergenic region
+    regulatory_target_gene:
+      preferred_term: SHOX
+      term:
+        id: hgnc:10853
+        label: SHOX
+    affected_regions:
+    - name: SHOX downstream evolutionarily conserved sequence ECS4
+      regulatory_element_type: ENHANCER
+      description: &gt;-
+        The ECS4 element lies within the downstream region of overlap defined
+        by the Japanese LWD families and has SHOX-promoter reporter activity.
+        Its inclusion in the family B deletion is inferred from element
+        positions relative to the clinical marker bounds; it is not the
+        complete deletion interval.
+    description: &gt;-
+      The LWD-affected father and daughter in family B carry a downstream
+      deletion between the reported flanking markers rs5946324 and rs4504827
+      while retaining two intact SHOX coding copies. The affected region
+      is inferred to include the ECS4 candidate enhancer. Marker-bounded mapping is retained
+      as reported, without converting it into sequence-resolved breakpoints.
+    functional_effects:
+    - function: SHOX cis-regulatory control
+      regulatory_element_type: ENHANCER
+      regulatory_mechanism: Deletion of an ECS4-containing downstream enhancer region
+      description: &gt;-
+        ECS4 stimulates a SHOX-promoter luciferase construct in U2OS cells.
+        Deletion is proposed to reduce SHOX regulatory input, but endogenous
+        expression in the affected father and daughter was not measured.
+    evidence:
+    - reference: PMID:16385461
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        a deletion between rs5946324 and rs4504827 was common to the
+        LWD-affected father and daughter in family B
+      explanation: Identifies the family-specific deletion by the source&#39;s marker bounds.
+    - reference: PMID:16385461
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      directness: INDIRECT
+      snippet: &gt;-
+        ECS3–ECS5 reside between rs5988437 and rs5946533 (UCSC Genome Browser),
+        they should be deleted from the patients in the three families defining
+        the SRO-J
+      explanation: &gt;-
+        The authors infer ECS4 containment by comparing genome-browser
+        element positions with the marker-bounded patient deletions. This
+        is positional inference from the clinical mapping, not a separate
+        ECS4 copy-number assay or a nucleotide-resolved breakpoint result.
+    - reference: PMID:16385461
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      directness: INDIRECT
+      snippet: &gt;-
+        the normalized luciferase activity was found to be significantly
+        increased only when the reporter vector with ECS4 and the SHOX
+        promoter was transfected to U2OS cells
+      explanation: Supports enhancer activity while leaving the endogenous patient expression effect unmeasured.
+  - name: Chen et al. Leri-Weill patient 62 CNE7-CNE8 deletion
+    variant_type: deletion
+    genomic_contexts:
+    - intergenic region
+    regulatory_target_gene:
+      preferred_term: SHOX
+      term:
+        id: hgnc:10853
+        label: SHOX
+    affected_regions:
+    - name: SHOX downstream CNE7-CNE8 interval
+      description: &gt;-
+        Conserved noncoding interval downstream of SHOX containing CNE7 and
+        CNE8. It is distinct from the limb enhancer CNE9; the clinical study
+        considers its contribution to SHOX regulation less certain.
+    description: &gt;-
+      Patient 62 in the Chen et al. Leri-Weill cohort has an intact SHOX gene
+      and a deletion smaller than 60 kb that includes the CNE7-CNE8 interval.
+      MLPA and FISH support the deletion, with SNP and microsatellite mapping
+      refining its extent. The bounds are not sequence-resolved, and an effect
+      on endogenous SHOX expression was not directly tested in this patient.
+    functional_effects:
+    - function: Proposed SHOX cis-regulatory control
+      regulatory_mechanism: Deletion of the conserved CNE7-CNE8 interval
+      description: &gt;-
+        Clinical association supports a possible regulatory contribution,
+        but the study explicitly allows a minor effect from loss of this
+        interval. The deletion is not assigned an all-tissue or complete
+        expression-loss category.
+    evidence:
+    - reference: PMID:19578035
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Among the 29 microdeletions of the PAR1 region in LWS patients, one
+        patient (no. 62) included only the enhancer interval CNE7 and CNE8.
+      explanation: Identifies the specific Leri-Weill patient and affected named interval.
+    - reference: PMID:19578035
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        In three individuals with ISS and one individual with LWS, a deletion
+        interval smaller than 60 kb was detected that included the CNE7 and
+        CNE8 enhancer interval.
+      explanation: Bounds the deletion size without inventing nucleotide breakpoints.
+    - reference: PMID:19578035
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      directness: INDIRECT
+      snippet: &gt;-
+        it also cannot be totally ruled out that the deletion of the CNE7 and
+        CNE8 intervals may have only a minor effect
+      explanation: Preserves the source&#39;s uncertainty about the interval&#39;s functional contribution.
+  evidence:
+  - reference: PMID:19578035
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In 58 Leri-Weill syndrome patients, a total of 29 microdeletions were
+      identified; almost half of these (13/29; 45%) involve enhancer sequences
+      and leave the SHOX gene intact.
+    explanation: Establishes the regional association independently of SHOX coding deletion.
 animal_models:
 - species: Mouse
   genotype: Shox2 conditional knockout
@@ -9810,7 +10974,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Leri-Weill Dyschondrosteosis", "mondoId": "MONDO:0007481", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Leri-Weill_Dyschondrosteosis", "yamlRevision": "c10d1852b6c3"};
+        const OS_CONFIG = {"diseaseName": "Leri-Weill Dyschondrosteosis", "mondoId": "MONDO:0007481", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Leri-Weill_Dyschondrosteosis", "yamlRevision": "bd758bdbef7f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
