@@ -142,7 +142,11 @@ which meant a repo-wide change was an N-file edit that drifted:
   Named profiles (`slow`/`medium`/`fast`/`fast-weekend`) applied with
   `just cron-profile <name>`.
 - **Model** → [`.github/agent-config.yaml`](https://github.com/monarch-initiative/dismech/blob/main/.github/agent-config.yaml).
-  Each workflow resolves `AGENT_MODEL` at run time via a composite action.
+  Single-model workflows resolve `AGENT_MODEL` via a composite action; the
+  curation scanner resolves its matrix and passes each row's `matrix.model`.
+  Family aliases follow new releases, and every managed agent uses the shared
+  `setup-claude-code` action to install the latest CLI. See
+  [model and runtime maintenance](../agent-config.md#keeping-current-with-minimal-churn).
 
 **Do not hand-edit the `cron:` lines or add a `--model` flag to a workflow.** A
 test (`tests/test_agent_config.py`) enforces the model rule. Edit the config.
