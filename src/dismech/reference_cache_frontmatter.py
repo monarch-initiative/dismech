@@ -123,8 +123,10 @@ class ReferenceCacheFrontmatter(BaseModel):
     extractor_version: int | None = None
     xml_extraction_version: int | None = None
     html_full_text_version: int | None = None
+    absent_content_version: int | None = None
     full_text_declined: str | None = None
     full_text_access_type: str | None = None
+    full_text_source_item_id: str | None = None
     # Local extension (dismech): identifies the source database for cache
     # files derived from a structured knowledge base (Orphanet, OMIM, MONDO,
     # …) rather than from a literature reference. The upstream
