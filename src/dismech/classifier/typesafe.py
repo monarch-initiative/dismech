@@ -99,7 +99,18 @@ class TypeSafeClassifier:
             for p in values
         ):
             raise ValueError("TypeSafe returned invalid probabilities/confidence")
-        if not math.isclose(sum(probabilities.values()), 1, abs_tol=0.001):
+        # The service can round each probability to two decimal places. Allow
+        # at most half a percentage point per rounded value, while retaining
+        # the stricter check for responses carrying more precision. Preserve
+        # the returned probabilities rather than silently renormalizing them.
+        rounded = all(
+            math.isclose(p, round(p, 2), rel_tol=0, abs_tol=1e-12)
+            for p in probabilities.values()
+        )
+        tolerance = 0.005 * len(probabilities) + 1e-12 if rounded else 0.001
+        if not math.isclose(
+            sum(probabilities.values()), 1, rel_tol=0, abs_tol=tolerance
+        ):
             raise ValueError("TypeSafe probabilities do not sum to one")
         label = answer["choice"]
         if label not in probabilities or probabilities[label] < max(

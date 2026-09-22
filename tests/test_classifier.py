@@ -130,6 +130,43 @@ def test_malformed_answer_is_never_a_verdict(change):
         client.classify(evidence_task(item()))
 
 
+@pytest.mark.parametrize(
+    "probabilities,valid",
+    [
+        ({"MATCH": 0.93, "MISMATCH": 0.01, "PARTIAL": 0.05}, True),
+        ({"MATCH": 0.93, "MISMATCH": 0.01, "PARTIAL": 0.07}, True),
+        ({"MATCH": 0.934, "MISMATCH": 0.016, "PARTIAL": 0.05}, True),
+        ({"MATCH": 0.92, "MISMATCH": 0.01, "PARTIAL": 0.05}, False),
+        ({"MATCH": 0.95, "MISMATCH": 0.01, "PARTIAL": 0.06}, False),
+        ({"MATCH": 0.934, "MISMATCH": 0.01, "PARTIAL": 0.05}, False),
+    ],
+)
+def test_probability_rounding_preserves_values_and_rejects_larger_errors(
+    probabilities, valid
+):
+    body = response()
+    body["answers"]["claim_evidence"]["probabilities"] = probabilities
+    task = replace(
+        evidence_task(item()),
+        criteria={
+            "MATCH": "Supported",
+            "MISMATCH": "Unsupported",
+            "PARTIAL": "Partial",
+        },
+    )
+    client = TypeSafeClassifier(
+        api_key="test",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)),
+    )
+    if valid:
+        result = client.classify(task)
+        assert result.label == "MATCH"
+        assert result.probabilities == probabilities
+    else:
+        with pytest.raises(ValueError, match="sum to one"):
+            client.classify(task)
+
+
 def test_missing_key_and_http_failure(monkeypatch):
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     with pytest.raises(ValueError, match="TYPESAFE_API_KEY"):
