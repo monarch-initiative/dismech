@@ -1194,6 +1194,50 @@ window.searchData = [
     "source_file": "kb/disorders/Ulcerative_Colitis.yaml"
   },
   {
+    "model_key": "apparent_mineralocorticoid_excess--computational-model-hsd11b2-homology-and-molecular-dynamics-variant-analysis--0",
+    "name": "HSD11B2 homology and molecular-dynamics variant analysis",
+    "description": "HSD17B1 templates were used to model HSD11B2 residues 81\u2013369, with cortisol docking and 500-ns monomer/dimer simulations. The authors proposed allele-specific effects on cofactor/substrate interactions, dimerization and structural stability. Template homology was limited and previously published activity data informed interpretation; the study did not newly assay all variants or validate an individual prenatal prognostic test.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "HSD17B1 structural templates 1IOL, 1JTV and 1FDV",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:29229831",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "apparent mineralocorticoid excess",
+    "disease_id": "MONDO:0009025",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Biallelic HSD11B2 Dysfunction"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Structural hypotheses are distinct from measured enzyme activity; the reported fetal cell-free-DNA diagnostic example concerns congenital adrenal hyperplasia, not a validated AME application."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:29229831"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-07-24T00:00:00Z",
+    "page_url": "../../pages/disorders/apparent_mineralocorticoid_excess.html#computational-model-hsd11b2-homology-and-molecular-dynamics-variant-analysis",
+    "source_file": "kb/disorders/Apparent_Mineralocorticoid_Excess.yaml"
+  },
+  {
     "model_key": "Conserved_Cellular_Senescence_Module--computational-model-karin-alon-saturating-removal-model-of-senescent-cell-accumulation--1",
     "name": "Karin-Alon Saturating-Removal Model of Senescent Cell Accumulation",
     "description": "Mathematical model of senescent-cell turnover fitted to longitudinal senescent-cell measurements and induction experiments in mice. Senescent cells turn over rapidly in young mice (half-life of days) but slow their own removal rate in old mice (half-life of weeks), producing a critical slowing-down with persistent fluctuations. Modelling death as the first crossing of a senescent-cell threshold quantitatively recapitulates the Gompertz law of mortality in mice and humans, and extends to lifespan-modulating interventions in Drosophila and C. elegans.",
@@ -4900,9 +4944,9 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 104,
-  "total_source_entries": 41,
-  "total_model_types": 8,
+  "total_models": 105,
+  "total_source_entries": 42,
+  "total_model_types": 9,
   "total_runnable": 4,
   "total_with_repository": 43
 };

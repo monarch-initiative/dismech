@@ -84,7 +84,8 @@ just cron-profile-preview <name>
 ## Managed workflows
 
 `curation-scanner`, `pr-shepherd`, `discussion-scanner`, `literature-scan`,
-`knowledge-gap-scan`, `preprint-scan`, `weekly-compliance`, `post-review-agent`.
+`knowledge-gap-scan`, `preprint-scan`, `weekly-compliance`, `post-review-agent`,
+`auto-close-duplicates` (deterministic daily sweep; see [duplicate detection](issue-duplicates.md)).
 
 The page/build crons (`generate-grouping-pages`, `generate-project-pages`,
 `deploy-docs`, `kgx-release`, `pypi-publish`) are deliberately **not** managed —

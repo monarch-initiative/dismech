@@ -82,9 +82,7 @@ def _load_seed_categories() -> dict[str, list[str]]:
         )
         return {}
     if not isinstance(data, dict):
-        print(
-            f"WARNING: {HPO_CATEGORY_CACHE_PATH} is not a JSON object; ignoring it."
-        )
+        print(f"WARNING: {HPO_CATEGORY_CACHE_PATH} is not a JSON object; ignoring it.")
         return {}
     return {
         key: [str(v) for v in value]
@@ -175,15 +173,16 @@ class HPOCategoryResolver:
             self._unresolved.add(hp_id)
             return []
 
-        ancestors = set(adapter.ancestors(
-            hp_id, predicates=["rdfs:subClassOf"]))
+        ancestors = set(adapter.ancestors(hp_id, predicates=["rdfs:subClassOf"]))
         hits = ancestors & _HPO_TOP_LEVEL_IDS
         result = sorted(HPO_TOP_LEVEL_CATEGORIES[h] for h in hits)
         self._cache[hp_id] = result
         return result
 
 
-def _build_adjacency(edges: list[tuple[str, str]]) -> tuple[dict[str, list[str]], set[str]]:
+def _build_adjacency(
+    edges: list[tuple[str, str]],
+) -> tuple[dict[str, list[str]], set[str]]:
     adj: dict[str, list[str]] = {}
     nodes: set[str] = set()
     for source, target in edges:
@@ -293,7 +292,9 @@ class BrowserExporter:
         """Load a single disorder YAML file (shared parse; read-only)."""
         return kb_cache.load_document(file_path)
 
-    def extract_disorder(self, disorder: dict[str, Any], source_file: str) -> dict[str, Any]:
+    def extract_disorder(
+        self, disorder: dict[str, Any], source_file: str
+    ) -> dict[str, Any]:
         """
         Extract a disorder into a single searchable record.
         """
@@ -307,8 +308,11 @@ class BrowserExporter:
             disease_id = disorder["disease_term"]["term"].get("id")
 
         # Subtypes
-        subtypes = [s.get("name", "") for s in (
-            disorder.get("has_subtypes") or []) if s.get("name")]
+        subtypes = [
+            s.get("name", "")
+            for s in (disorder.get("has_subtypes") or [])
+            if s.get("name")
+        ]
 
         # Pathophysiology
         pathophysiology_names = []
@@ -316,18 +320,19 @@ class BrowserExporter:
         cell_type_ids = []
         biological_processes = []
 
-        for patho in (disorder.get("pathophysiology") or []):
+        for patho in disorder.get("pathophysiology") or []:
             if patho.get("name"):
                 pathophysiology_names.append(patho["name"])
-            for ct in (patho.get("cell_types") or []):
-                ct_name = ct.get("preferred_term") or ct.get(
-                    "term", {}).get("label", "")
+            for ct in patho.get("cell_types") or []:
+                ct_name = ct.get("preferred_term") or ct.get("term", {}).get(
+                    "label", ""
+                )
                 if ct_name and ct_name not in cell_types:
                     cell_types.append(ct_name)
                 ct_id = ct.get("term", {}).get("id")
                 if ct_id and ct_id not in cell_type_ids:
                     cell_type_ids.append(ct_id)
-            for bp in (patho.get("biological_processes") or []):
+            for bp in patho.get("biological_processes") or []:
                 bp_name = bp.get("preferred_term", "")
                 if bp_name and bp_name not in biological_processes:
                     biological_processes.append(bp_name)
@@ -339,7 +344,7 @@ class BrowserExporter:
         frequencies = []
         hpo_broad_categories: set[str] = set()
 
-        for pheno in (disorder.get("phenotypes") or []):
+        for pheno in disorder.get("phenotypes") or []:
             if pheno.get("name"):
                 phenotype_names.append(pheno["name"])
             if pheno.get("category") and pheno["category"] not in phenotype_categories:
@@ -352,24 +357,35 @@ class BrowserExporter:
                 if hp_id and hp_id not in phenotype_ids:
                     phenotype_ids.append(hp_id)
                 if hp_id:
-                    hpo_broad_categories.update(
-                        self._hpo_resolver.resolve(hp_id))
+                    hpo_broad_categories.update(self._hpo_resolver.resolve(hp_id))
 
         # Genetic associations
-        genes = [g.get("name", "")
-                 for g in (disorder.get("genetic") or []) if g.get("name")]
+        genes = [
+            g["name"]
+            for g in (disorder.get("genetic") or [])
+            if g.get("name") and (g.get("gene_term") or not g.get("affected_regions"))
+        ]
 
         # Treatments
-        treatments = [t.get("name", "") for t in (
-            disorder.get("treatments") or []) if t.get("name")]
+        treatments = [
+            t.get("name", "")
+            for t in (disorder.get("treatments") or [])
+            if t.get("name")
+        ]
 
         # Environmental factors
-        environmental = [e.get("name", "") for e in (
-            disorder.get("environmental") or []) if e.get("name")]
+        environmental = [
+            e.get("name", "")
+            for e in (disorder.get("environmental") or [])
+            if e.get("name")
+        ]
 
         # Biochemical markers
-        biochemical = [b.get("name", "") for b in (
-            disorder.get("biochemical") or []) if b.get("name")]
+        biochemical = [
+            b.get("name", "")
+            for b in (disorder.get("biochemical") or [])
+            if b.get("name")
+        ]
 
         # Build description from various sources
         description = disorder.get("description", "")
@@ -383,7 +399,8 @@ class BrowserExporter:
         graph = build_causal_graph(disorder)
         causal_edges = len(graph.edges)
         causal_longest_path = _longest_path_length(
-            [(edge.source, edge.target) for edge in graph.edges])
+            [(edge.source, edge.target) for edge in graph.edges]
+        )
         return {
             "name": name,
             "disease_id": disease_id,
@@ -434,7 +451,9 @@ class BrowserExporter:
         stay in lock-step with their dedicated section pages (issue #5567).
         """
         categories = {
-            category.strip() for disorder in disorders if (category := disorder.get("category"))
+            category.strip()
+            for disorder in disorders
+            if (category := disorder.get("category"))
         }
         phenotype_categories = {
             phenotype_category.strip()
@@ -499,7 +518,8 @@ class BrowserExporter:
         with open(cache_path, "w") as f:
             json.dump(self._hpo_resolver._cache, f, indent=2, sort_keys=True)
         print(
-            f"Wrote HPO category cache ({len(self._hpo_resolver._cache)} terms) to {cache_path}")
+            f"Wrote HPO category cache ({len(self._hpo_resolver._cache)} terms) to {cache_path}"
+        )
         unresolved = self._hpo_resolver.unresolved_count
         if unresolved:
             # Say it rather than let the cache quietly shrink. A page build is
@@ -565,17 +585,24 @@ def main():
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Export disorder data for browser")
-    parser.add_argument("--input-dir", "-i", default="kb/disorders",
-                        help="Input directory with YAML files")
+    parser = argparse.ArgumentParser(description="Export disorder data for browser")
     parser.add_argument(
-        "--output", "-o", default="app/data.js", help="Output file path")
+        "--input-dir",
+        "-i",
+        default="kb/disorders",
+        help="Input directory with YAML files",
+    )
     parser.add_argument(
-        "--format", "-f", choices=["json", "js"], default="js", help="Output format")
+        "--output", "-o", default="app/data.js", help="Output file path"
+    )
     parser.add_argument(
-        "--modules-dir", default="kb/modules",
-        help="Directory with mechanism module YAML files (for the module count metric)")
+        "--format", "-f", choices=["json", "js"], default="js", help="Output format"
+    )
+    parser.add_argument(
+        "--modules-dir",
+        default="kb/modules",
+        help="Directory with mechanism module YAML files (for the module count metric)",
+    )
 
     args = parser.parse_args()
 
