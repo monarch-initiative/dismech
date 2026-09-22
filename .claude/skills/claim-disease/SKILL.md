@@ -372,8 +372,11 @@ be the one to discover the packaging is wrong.
 ## After the PRs are open
 
 Opening the PR is not the end of the task. Keep the worktrees in place and stay
-available to respond to review feedback — the automated reviewer usually comments
-within a few minutes, and CI may go red.
+available to respond to review feedback. Follow
+[CLAUDE.md → Reviews](../../../CLAUDE.md#reviews) for the shared push–review
+cycle, expected delays, and when to wait or investigate. Usage-limit failures are
+expected and recovered automatically; leave the PR awaiting review while recovery
+runs, and distinguish that delay from a build/test failure your change caused.
 
 Work each PR until it is **approved**, then stop:
 

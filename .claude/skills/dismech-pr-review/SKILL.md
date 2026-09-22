@@ -10,7 +10,10 @@ description: >
 Use this skill to review or draft curation guidance and to QA disorder entries
 for correctness, specificity, and schema alignment.
 
-Use all appropriate skills. What follows are some specific guidelines
+Use `pathograph` for graph topology and connectivity, `medical-action` for
+clinical actions, and `model-curation` for model evidence and fidelity. Read
+the `initiate-new-disorder-creation` GeneReviews baseline reference for a
+Mendelian entry. Use all appropriate skills. What follows are some specific guidelines
 aimed to catch common suboptimal things we see in PRs a lot. This list
 is not complete and you should always consult skills and comparable entries.
 
@@ -386,7 +389,7 @@ reading it costs nothing. Use it.
    otherwise.
 3. **Publication is on-topic for the disease.** Does the title concern the entry's
    disease, gene, or mechanism? A title about a different disease is the Named Entity
-   Confusion signature (CLAUDE.md §2b) and is blocking.
+   Confusion signature (`dismech-references`, source screening) and is blocking.
 4. **Publication is on-topic for *this* claim.** A real, on-disease paper cited for a
    claim it does not make is the failure mode of issue #7791. Ask: could this title
    plausibly be the source of this specific assertion?

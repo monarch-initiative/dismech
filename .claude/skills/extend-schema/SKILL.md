@@ -78,6 +78,10 @@ answer was that therapeutic_modality already was that discriminator. Do not add 
 
 ## The migration hazard (read before narrowing anything)
 
+Read [retired enum values](../../../docs/explanation/cache-and-validation-maintenance.md#retired-enum-values-dismech10061)
+for the merge-shaped failure, whole-KB gate, and required migration of prose
+that still argues for a retired value.
+
 Additive changes are easier if they are optional or recommended slots. However, anything
 that narrows or invalidates will be hard and needs a proper schema migration path.
 
@@ -125,7 +129,9 @@ TODO. Checklist to confirm and expand:
 - [ ] A test in `tests/` (`test_clinical_burden_schema.py`,
       `test_genetic_schema.py`, `test_medical_action_schema.py` are the
       existing per-area schema tests).
-- [ ] `CLAUDE.md` — curator-facing semantics, if a curator will fill the slot.
+- [ ] The owning curation skill and its references — curator-facing semantics
+      when a curator will fill the slot. Keep only shared rules and a routing
+      summary in `CLAUDE.md`; do not grow another schema tutorial there.
 - [ ] `docs/explanation/design-decisions.md` — if this settles or reopens a
       recorded decision.
 - [ ] **A `history/schema/` record.** The convention is live — `history/schema/`

@@ -33,7 +33,7 @@ verification — the accession resolves perfectly. Two routes lead here:
   data; `Acquired_Partial_Lipodystrophy` attracts *familial* partial
   lipodystrophy data.
 
-This is [Named Entity Confusion](../CLAUDE.md#2b-named-entity-confusion-nec--the-dr-report-describes-the-wrong-disease)
+This is [Named Entity Confusion](https://github.com/monarch-initiative/dismech/blob/main/.claude/skills/dismech-references/SKILL.md#1-screen-deep-research-sources)
 arriving through dataset search rather than through a deep-research report. The
 tooling reduces it (candidates are tagged `DIRECT` / `GENE_ONLY` / `CONFLICT`)
 but cannot eliminate it, so **relevance triage stays a human/model judgement**.
@@ -221,7 +221,7 @@ model to invent:
 
 A dismech evidence item requires an exact quote from the cited abstract.
 Generating those in bulk is exactly where fabrication enters — it is the
-[SOP](../CLAUDE.md#standard-operating-procedure-addingediting-evidence)'s
+[SOP](https://github.com/monarch-initiative/dismech/blob/main/.claude/skills/dismech-references/SKILL.md)'s
 central warning. Bulk-generated dataset records therefore carry `publication:`
 and provenance `notes` instead, and evidence enrichment is left as a deliberate
 follow-up for a curator or a targeted, verified agent pass.

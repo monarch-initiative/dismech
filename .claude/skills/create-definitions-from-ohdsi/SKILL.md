@@ -1,6 +1,6 @@
 ---
 name: create-definitions-from-ohdsi
-description: Generate dismech definitions from OHDSI/ATLAS cohort definitions or other computable phenotype logic. Use when converting OMOP cohort JSON, drafting PheKB-/OHDSI-style phenotype algorithms, or mapping FHIR/CQL/OMOP rules into dismech `definitions` blocks.
+description: Generate dismech definitions from OHDSI/ATLAS cohort definitions or other computable phenotype logic. Use when converting OMOP cohort JSON, drafting PheKB-/OHDSI-style phenotype algorithms, mapping FHIR/CQL/OMOP rules, or recording hypothesis-based phenotype algorithms in dismech `definitions` blocks.
 ---
 
 # Create Definitions From OHDSI
@@ -30,6 +30,10 @@ just validate kb/disorders/<Disease>.yaml
 - Use `minimum_required` for numeric logic; put temporal logic in `description`.
 - Add evidence snippets from abstracts when the algorithm is derived from a publication.
 - Only add `term` objects when the CURIE is in a configured prefix (ICD10CM, NCIT, HP, etc.).
+
+For hypothesis-based or model-derived algorithms, read
+[hypothesis algorithms](references/hypothesis-algorithms.md) before setting
+derivation and validation status. Use `pathograph` for mechanism attachments.
 
 ## References
 

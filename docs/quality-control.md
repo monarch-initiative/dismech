@@ -381,9 +381,10 @@ paths:
 single entry can trip it and a red build means sustained drift across the
 corpus. `test_committed_causal_inlink_floor_is_set_and_never_lowered` blocks
 lowering it, and `null` there silently disables the gate. The sibling
-`genetic[].mechanism_outlink` is deliberately still advisory. CLAUDE.md's
-*A resolving target is not a connected phenotype* carries the current figure and
-how to read a failure; this page deliberately does not restate it.
+`genetic[].mechanism_outlink` is deliberately still advisory. The pathograph
+skill's [connectivity guide](https://github.com/monarch-initiative/dismech/blob/main/.claude/skills/pathograph/references/connectivity.md)
+explains the curation worklist and how to read a failure. Run the recipe for
+current counts rather than relying on a figure in documentation.
 
 ## Adding a new computed metric
 

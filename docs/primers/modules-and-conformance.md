@@ -83,7 +83,9 @@ just list-modules inflamm    # filter by name, description, or node
 
 ## Go deeper
 
-- `CLAUDE.md` → "Mechanism Modules" (conformance mechanics + thematic module families).
+- [Module skill](https://github.com/monarch-initiative/dismech/blob/main/.claude/skills/create-module/SKILL.md) and its
+  [conformance reference](https://github.com/monarch-initiative/dismech/blob/main/.claude/skills/create-module/references/conformance.md)
+  (conformance mechanics, categories, and thematic families).
 - `just list-modules` → the live module catalog with conformance targets.
 - [Schema: Pathophysiology](../schema/classes/Pathophysiology.md) · [CausalEdge](../schema/classes/CausalEdge.md) · [MechanisticHypothesis](../schema/classes/MechanisticHypothesis.md)
 - [Data Model overview](../data-model.md)

@@ -12,7 +12,7 @@ description: >
 # Curate a Disease Grouping
 
 Treat `kb/groupings/` as the source of truth. A grouping is an explicit curated
-union of already-distinct diseases, modules, or other groupings. It validates
+union of already-distinct diseases, named disease subtypes, or other groupings. It validates
 against `Grouping`, not `Disease`, and points down by listing `members`; it does
 not recreate the MONDO hierarchy.
 

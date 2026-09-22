@@ -67,117 +67,19 @@ Do not choose a narrow term merely because it is available. If only a broad
 ontology term fits, bind that term and use `preferred_term` for justified
 human-readable specificity.
 
-### 3a. "Nothing more specific exists" is a checkable claim — write the query (dismech#7835)
+### Verify the claim as well as the identifier
 
-The step above ends in a broad binding often enough that the note explaining it
-has become routine, and that is where this failure mode lives: an entry binds an
-over-broad term and adds a `notes:` sentence asserting a search was run and found
-nothing finer. The binding is wrong **and** its justification is false.
+Read [claim verification](references/claim-verification.md) before writing
+a negative-search justification or adopting a CURIE from a report or review.
+Look up the CURIE in the step that writes it, verify the relation to the
+intended concept, and re-run any query your note claims. Record the actual
+output or a positive reason for rejecting an alternative; do not infer
+absence from the local cache.
 
-**The defect is in the audit trail, not in the data, so nothing catches it.** The
-bound term is real, its label matches, and it is inside the enum root — so
-`just validate-terms` passes, and so does every other check in the stack. The note
-makes it worse rather than better: a bare over-broad binding is a small error a
-reviewer might spot, whereas an over-broad binding plus *"I checked, nothing finer
-exists"* hands the reviewer an explicit reason to skip the one check that would
-catch it. Only a semantic re-check finds it.
-
-Three confirmed instances came out of a single batch of ten freshly curated
-entries. In each, an independent verifier re-ran the search the note claimed had
-been run and found an exact match: `UBERON:0014527` posterior limb of internal
-capsule (bound as the whole capsule `UBERON:0001887`), `NCIT:C80435` (bound as the
-branch root `NCIT:C49236` Therapeutic Procedure), and `HP:0004890` Elevated
-pulmonary artery pressure (asserted to be unavailable). All three were corrected
-before their PRs merged, so `main` has never carried them.
-
-1. **Write the query you ran, verbatim and re-runnable, plus what it returned** —
-   not a bare assertion that searching happened.
-   `KLHL24-Related_Hypertrophic_Cardiomyopathy.yaml` is the worked example: it
-   names ``runoak -i sqlite:obo:ncit search 't~defibrillator'`` and the term that
-   came back, so the next reader re-runs it in one paste instead of guessing what
-   was searched for.
-   Then **re-run it yourself, immediately before you commit the note.** Naming a
-   re-runnable query does not make the note true: the query is the half a reader
-   can check, and its reported output is the half that can be false.
-   `Digitalis_Poisoning` reached review with a note naming five ECTO searches
-   (`l~digitalis`, `l~digoxin`, `l~glycoside`, `l~oleander`, `l~foxglove`) and
-   concluding ECTO had no cardiac-glycoside, digitalis or oleander exposure
-   class — where `l~glycoside`, one of the five, returns `ECTO:9000436 exposure
-   to glycoside`, and `l~digitalin` returns `ECTO:9000003 exposure to digitalin`
-   ([#12307](https://github.com/monarch-initiative/dismech/pull/12307)). The
-   searches had been written down without being read back.
-2. **Prefer no note to an unverified note.** If you did not run the search, silence
-   is the honest output. Never write a verification sentence to satisfy the
-   instruction to document verification.
-3. **State the relation you did check, not the absence you did not.** The strongest
-   form of these notes explains the binding *positively* against the alternative —
-   as in `CDH2-Related_ACOG_Syndrome.yaml`, which records that `HP:0002092` was
-   rejected because OAK shows it descending from `HP:0033578` pre-capillary
-   pulmonary hypertension, a haemodynamic category the source does not establish.
-   That is a claim a reviewer can falsify; "nothing finer exists" is not.
-
-This does **not** withdraw the instruction to document verification — the same
-batch produced genuinely excellent provenance notes, including one naming four
-papers it excluded as off-entity, each of which independently checked out. The
-rule is about what an *unbacked* verification sentence costs, not about whether to
-write notes. Record the reasoning in `notes:` rather than `description:`: the
-description says what the entity is, and why a CURIE was chosen is curation
-provenance.
-
-No lint covers this. Extracting "no more specific term exists"-shaped sentences
-from `notes:` and re-running the OAK search would catch the whole class
-mechanically; that is a follow-on rather than done. Until then a reviewer
-re-running the search is the only thing that finds it — so treat any
-negative-existence sentence in a diff as a prompt to do exactly that.
-
-### 3b. A term suggested by a deep-research report is a lead, not a binding
-
-Reports in `research/` suggest CURIEs because the templates ask them to, and
-they get them wrong in ways that look clean: the CMTX report in
-[#9729](https://github.com/monarch-initiative/dismech/issues/9729) offered
-`MONDO:0010674` (Hunter syndrome) for Charcot-Marie-Tooth X-linked, with 26/26
-of its citations verified.
-
-Since `deep-research-client` 0.2.11 those suggestions are checked as the report
-is generated. Read the report's `## Term Validation` section, or its
-`term_validation:` frontmatter, before lifting any CURIE out of it — and add the
-section to an older report with `just validate-research-terms <report>`.
-
-Two things the section does **not** settle, which is the whole of step 3 above:
-
-- whether the term is reachable from the slot's dynamic-enum root, and
-- whether it is the right term for the claim, as opposed to a real term named
-  consistently.
-
-It *does* flag a near-miss when the report names one — the same CMTX report
-writes "areflexia" beside `HP:0001265`, which HPO calls *Hyporeflexia*
-(*Areflexia* is `HP:0001284`). Read those entries as granularity findings, not
-as paraphrase.
-
-Gene CURIEs are skipped by default there (`HGNC` uppercase does not resolve in
-`sqlite:obo:hgnc`, and `ols:` resolves it to an unrelated term), so verify those
-yourself. See
-[`docs/deep-research-term-validation.md`](../../../docs/deep-research-term-validation.md).
-
-### 3c. A term suggested in a review comment is a lead too
-
-Same footing as 3b, and for the reason the decision register gives: PR comments
-are AI-generated by default in this repo ([design decisions
-§7](../../../docs/explanation/design-decisions.md)), so a reviewer's CURIE is
-another agent's suggestion, not a checked binding. It arrives looking
-more authoritative than a report's because it comes attached to a finding that
-was right.
-
-Verify it as you would any other candidate, and in particular check the
-*relation* it stands in to the term you meant. In
-[#12297](https://github.com/monarch-initiative/dismech/pull/12297) a round-1
-reviewer supplied `HP:0003324`; it existed, `Generalized muscle weakness` was its
-canonical label, and `just validate-terms` passed — while the descriptor's
-`preferred_term`, description, snippet and explanation all said *limb*.
-`HP:0003324` and `HP:0003690` Limb muscle weakness are siblings under
-`HP:0001324` Muscle weakness, not a general and a specific form of one thing, so
-the binding asserted a distribution of weakness the source did not support. It
-cost the PR a round.
+Read a research report's term-validation results before lifting identifiers.
+Those results do not establish disease relevance or dynamic-enum membership;
+HGNC identifiers skipped by the research validator still need verification.
+See [research term validation](../../../docs/deep-research-term-validation.md).
 
 ### 4. Write the descriptor correctly
 
@@ -199,10 +101,10 @@ cell_types:
 Prefer the canonical label as `preferred_term` when no extra nuance is needed.
 Use lowercase `hgnc:` for HGNC gene CURIEs in this repository.
 
-For common clinical post-composition, follow `Descriptor Qualifier Slots` in
-`CLAUDE.md`; do not recreate temporality, course, severity, or onset in a generic
-`qualifiers` list. Follow the root treatment and gain/loss-of-function sections
-for those schema-modeling decisions.
+For common clinical post-composition, read [descriptor qualifiers](references/descriptors.md).
+Use `medical-action` for action/agent/device distinctions and `pathograph`
+for gain/loss-of-function versus quantitative activity states. When adding
+qualifiers or auditing gene identity, read [validation gaps](references/validation-gaps.md).
 
 ### 5. Validate immediately
 

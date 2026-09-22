@@ -4,7 +4,8 @@
 
 The `cache/` directory contains CSV snapshots of ontology term labels (HP, MONDO, GO, CL, CHEBI, etc.) used by the term validator. These are **intentionally committed to the repository**, not generated on the fly.
 
-> This page covers the committed CSV label cache — the layer checked *first*. When a term is **not** in this cache, the validator falls through to OAK, which downloads a full ontology SQLite database. How those downloads are located and cached in CI (and why we are a consumer, not a redistributor, of them) is covered in [OAK Ontology Database Caching (CI)](oak-database-caching.md).
+> This page covers the committed CSV label cache — the layer checked *first*. When a term is **not** in this cache, the validator uses the OAK adapter configured in `conf/oak_config.yaml`: an
+> OLS lookup or a local SQLite build, depending on prefix. How those downloads are located and cached in CI (and why we are a consumer, not a redistributor, of them) is covered in [OAK Ontology Database Caching (CI)](oak-database-caching.md).
 
 ### The problem with live lookups
 
@@ -22,7 +23,8 @@ Committed caches act as a **pinned snapshot** of the ontology labels we validate
 - **Deterministic validation**: Everyone gets the same results, every time
 - **Controlled migrations**: When ontology labels change, we update caches intentionally via `linkml-term-validator migrate-cache --refresh-labels`, review the diffs, and merge as a deliberate PR
 - **Minimal churn**: Cache files use deterministic ordering (sorted by CURIE) and preserve timestamps for unchanged entries, so re-running the validator doesn't produce spurious diffs
-- **Reproducible CI**: Builds are hermetic — no network dependencies for validation
+- **Reproducible CI**: Cached terms validate offline; newly introduced terms
+  may need the configured ontology source.
 
 ### Cache structure
 
