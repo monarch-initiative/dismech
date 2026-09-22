@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4441,6 +4480,13 @@ The disorder is folate-responsive, which is unusual and clinically decisive. Fol
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mthfd1-trifunctional-enzyme-loss-of-function" data-dismech-node="MTHFD1 Trifunctional Enzyme Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">MTHFD1 Trifunctional Enzyme Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic MTHFD1 variants disable the cytoplasmic trifunctional C1-tetrahydrofolate synthase. Reported alleles hit the enzyme in several ways: c.517C&gt;T (p.Arg173Cys) alters a critical arginine in the NADP-binding site, c.727+1G&gt;A and c.1674G&gt;A disrupt splicing, an exon 13 deletion removes coding sequence outright, and c.673G&gt;T (p.Glu225*) truncates the protein. The shared consequence is loss of the enzyme that condenses formate with tetrahydrofolate.</div>
 
 
@@ -4716,6 +4762,13 @@ This pathophysiological event involves 5,10-methenyltetrahydrofolate cyclohydrol
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-the-cytosolic-one-carbon-loaded-folate-pool" data-dismech-node="Depletion of the Cytosolic One-Carbon-Loaded Folate Pool" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of the Cytosolic One-Carbon-Loaded Folate Pool</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">MTHFD1 is the primary entry point for single carbons into cytosolic folate metabolism, condensing formate with tetrahydrofolate to generate 10-formyl- and 5,10-methylenetetrahydrofolate. Losing it starves the downstream folate-dependent pathways of activated one-carbon units. The starvation is not uniform: patient fibroblast flux measurements show it falls hardest on methionine synthesis, next on thymidylate synthesis, and not at all on purine synthesis.</div>
 
 
@@ -4905,6 +4958,13 @@ This pathophysiological event involves decreased one-carbon metabolic process (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nuclear-de-novo-thymidylate-biosynthesis" data-dismech-node="Impaired Nuclear de novo Thymidylate Biosynthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Nuclear de novo Thymidylate Biosynthesis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Nuclear conversion of dUMP to dTMP by thymidylate synthase requires 5,10-methylenetetrahydrofolate, for which MTHFD1 is the main source. Patient fibroblasts show lower de novo dTMP synthesis with a compensatory rise in salvage-pathway dTMP, and MTHFD1 protein becomes enriched in the nucleus at the expense of the cytosol - the cell prioritising thymidylate synthesis over homocysteine remethylation when the enzyme is limiting. That prioritisation is why the methionine deficit is the larger of the two.</div>
 
 
@@ -5034,6 +5094,13 @@ This pathophysiological event involves decreased de novo thymidylate (dTMP) bios
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uracil-misincorporation-into-nuclear-dna" data-dismech-node="Uracil Misincorporation into Nuclear DNA" data-dismech-type="pathophysiology">
                 <div class="item-name">Uracil Misincorporation into Nuclear DNA</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">When dTMP runs short the dUTP/dTTP ratio rises and DNA polymerase incorporates uracil in place of thymine. Uracil in DNA is elevated in patient fibroblasts. Base-excision repair then excises the misincorporated uracil, and when opposing lesions are excised close together the transient abasic sites and nicks are converted into strand breaks.</div>
 
 
@@ -5145,6 +5212,13 @@ This pathophysiological event involves increased base-excision repair of misinco
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genome-instability-with-dna-double-strand-breaks" data-dismech-node="Genome Instability with DNA Double-Strand Breaks" data-dismech-type="pathophysiology">
                 <div class="item-name">Genome Instability with DNA Double-Strand Breaks</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Patient fibroblasts carry more double-stranded DNA breaks than controls. Because the damage is generated during DNA replication, it falls hardest on the two most rapidly proliferating compartments in the body - erythroid precursors and developing lymphocytes - which is what gives this metabolic disorder its haematological and immunological presentation rather than a diffuse one.</div>
 
@@ -5289,6 +5363,13 @@ This pathophysiological event involves increased double-strand break repair burd
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-megaloblastic-erythropoiesis" data-dismech-node="Megaloblastic Erythropoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Megaloblastic Erythropoiesis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Replication-associated DNA damage and nucleotide-pool imbalance in erythroid precursors produce nuclear-cytoplasmic asynchrony: cytoplasmic maturation proceeds while nuclear division stalls, giving the enlarged precursors of megaloblastic marrow and an ineffective, macrocytic anemia.</div>
 
 
@@ -5396,6 +5477,13 @@ This pathophysiological event involves erythroid precursor, annotated with proer
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphocyte-developmental-and-proliferative-failure" data-dismech-node="Lymphocyte Developmental and Proliferative Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphocyte Developmental and Proliferative Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Developing lymphocytes are among the most rapidly dividing cells in the body and depend on de novo thymidylate for clonal expansion, so the same replication-linked DNA damage produces lymphopenia across all subsets and poor proliferative responses. The immune defect is quantitative and metabolic rather than a fixed developmental block: in one family in vitro dendritic cell and lymphocyte function was comparable to healthy volunteers despite lymphopenia and poor vaccine responses, and the whole phenotype reversed on folinic acid.</div>
 
@@ -5573,6 +5661,13 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-homocysteine-remethylation-to-methionine" data-dismech-node="Impaired Homocysteine Remethylation to Methionine" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Homocysteine Remethylation to Methionine</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Remethylation of homocysteine to methionine by methionine synthase requires 5-methyltetrahydrofolate derived from the MTHFD1-generated pool. This is the arm the cell sacrifices when MTHFD1 is limiting, and correspondingly it is the arm with the largest flux deficit - a 90% fall in formate incorporation into methionine. Patient fibroblasts show severely reduced methionine formation that does not respond to cobalamin supplementation but does respond to folic and folinic acid, locating the block on the folate side rather than the cobalamin side.</div>
 
 
@@ -5702,6 +5797,13 @@ This pathophysiological event involves decreased L-methionine biosynthesis by ho
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-homocysteine-accumulation" data-dismech-node="Systemic Homocysteine Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Homocysteine Accumulation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Homocysteine that cannot be remethylated accumulates in blood. It is a frequent but not obligate feature - at least one reported patient with the full haematological and immunological phenotype never became hyperhomocysteinemic, which is the observation the MONDO label&#39;s &#34;with or without&#34; records.</div>
 
 
@@ -5781,6 +5883,13 @@ This pathophysiological event involves decreased L-methionine biosynthesis by ho
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thrombotic-microangiopathy" data-dismech-node="Thrombotic Microangiopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Thrombotic Microangiopathy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Several patients have developed atypical hemolytic uremic syndrome with microangiopathy, the recognised vascular complication of severe remethylation defects. The mechanistic route from hyperhomocysteinemia to endothelial injury is not established in this disorder specifically, so the edge is recorded as indirect. Notably this arm is also the one that can leave permanent damage: in the second reported patient every feature resolved on treatment except the retinopathy.</div>
 
@@ -5878,7 +5987,7 @@ This pathophysiological event involves decreased L-methionine biosynthesis by ho
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autoimmunity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autoimmune disease occurs alongside the immunodeficiency. It is reported in at least two named patients and enumerated at cohort level in the biochemical review, so it is a recurring feature rather than an isolated observation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002960\"}}, {\"id\": \"Betaine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Provides an alternative, folate-independent route for remethylating homocysteine to methionine via betaine-homocysteine methyltransferase, used as part of the combination regimen in the patient with hyperhomocysteinemia and microangiopathy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"betaine\"]}}, {\"id\": \"Combined immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impairment of both cellular and humoral immunity, described in the founding case as severe combined immune deficiency. Unlike most SCID, it is metabolically correctable.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005387\"}}, {\"id\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MTHFD1 is the primary entry point for single carbons into cytosolic folate metabolism, condensing formate with tetrahydrofolate to generate 10-formyl- and 5,10-methylenetetrahydrofolate. Losing it starves the downstream folate-dependent pathways of activated one-carbon units. The starvation is not uniform: patient fibroblast flux measurements show it falls hardest on methionine synthesis, next on thymidylate synthesis, and not at all on purine synthesis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tetrahydrofolate metabolic process\", \"one-carbon metabolic process\"]}}, {\"id\": \"Exon 13 deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A structural deletion invisible to standard exome variant calling, recovered only by manual inspection of per-exon coverage depth. It is the reason this family initially appeared to carry a single heterozygous change.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth, reported alongside recurrent infection and megaloblastic anemia as part of the presenting picture in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Folic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In at least one patient the regimen was successfully reduced to folic acid alone for long-term maintenance, so the fully reduced form is not always required.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"folic acid\"]}}, {\"id\": \"Folinic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reduced folate that bypasses the MTHFD1 block by supplying a one-carbon-loaded folate directly. It is disease-modifying rather than supportive: in one family folinic acid produced immune reconstitution sufficient to discontinue all prophylactic therapy.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"folinic acid\"]}}, {\"id\": \"Genome Instability with DNA Double-Strand Breaks\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts carry more double-stranded DNA breaks than controls. Because the damage is generated during DNA replication, it falls hardest on the two most rapidly proliferating compartments in the body - erythroid precursors and developing lymphocytes - which is what gives this metabolic disorder its haematological and immunological presentation rather than a diffuse one.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"double-strand break repair burden\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is part of the phenotype, and neurologic abnormalities were present in the founding case and in an independent SCID report.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hemolytic-uremic syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atypical hemolytic uremic syndrome with microangiopathy, reported in the founding case and in a second family, and reversible on metabolic treatment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005575\"}}, {\"id\": \"Hydroxocobalamin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Given as part of the combination regimen in the patient with hyperhomocysteinemia and microangiopathy, and with folate in an independent SCID patient. Its role here is empiric and adjunctive rather than mechanistically targeted: the fibroblast studies this entry already cites show methionine formation in patient cells did not increase on cobalamin supplementation but did respond to folate, which places the block on the folate side. It is plausibly given before that localisation is known, since the presenting biochemistry - raised methylmalonic acid and reduced methylcobalamin synthesis - points at a cobalamin disorder.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"hydroxocobalamin\"]}}, {\"id\": \"Hyperhomocysteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood homocysteine from the remethylation block. Frequent but explicitly not obligate; its absence does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002160\"}}, {\"id\": \"Impaired Homocysteine Remethylation to Methionine\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Remethylation of homocysteine to methionine by methionine synthase requires 5-methyltetrahydrofolate derived from the MTHFD1-generated pool. This is the arm the cell sacrifices when MTHFD1 is limiting, and correspondingly it is the arm with the largest flux deficit - a 90% fall in formate incorporation into methionine. Patient fibroblasts show severely reduced methionine formation that does not respond to cobalamin supplementation but does respond to folic and folinic acid, locating the block on the folate side rather than the cobalamin side.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-methionine biosynthesis by homocysteine remethylation\"], \"experimental_models\": [{\"name\": \"MTHFD1-deficient patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"The same system localises the block to folate rather than cobalamin, which is the result that makes folate the rational therapy.\"}]}}, {\"id\": \"Impaired Nuclear de novo Thymidylate Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nuclear conversion of dUMP to dTMP by thymidylate synthase requires 5,10-methylenetetrahydrofolate, for which MTHFD1 is the main source. Patient fibroblasts show lower de novo dTMP synthesis with a compensatory rise in salvage-pathway dTMP, and MTHFD1 protein becomes enriched in the nucleus at the expense of the cytosol - the cell prioritising thymidylate synthesis over homocysteine remethylation when the enzyme is limiting. That prioritisation is why the methionine deficit is the larger of the two.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"de novo thymidylate (dTMP) biosynthesis\"], \"experimental_models\": [{\"name\": \"MTHFD1-deficient patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Patient-derived and human, carrying the disease genotype, so the thymidylate lesion is measured rather than inferred from a surrogate.\"}]}}, {\"id\": \"Lymphocyte Developmental and Proliferative Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developing lymphocytes are among the most rapidly dividing cells in the body and depend on de novo thymidylate for clonal expansion, so the same replication-linked DNA damage produces lymphopenia across all subsets and poor proliferative responses. The immune defect is quantitative and metabolic rather than a fixed developmental block: in one family in vitro dendritic cell and lymphocyte function was comparable to healthy volunteers despite lymphopenia and poor vaccine responses, and the whole phenotype reversed on folinic acid.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\"]}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced lymphocyte counts across all subsets, with poor vaccine responses.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001888\"}}, {\"id\": \"MTHFD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MTHFD1\"], \"gene_terms\": [{\"label\": \"MTHFD1\", \"id\": \"hgnc:7432\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"MTHFD1 Trifunctional Enzyme Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic MTHFD1 variants disable the cytoplasmic trifunctional C1-tetrahydrofolate synthase. Reported alleles hit the enzyme in several ways: c.517C\u003eT (p.Arg173Cys) alters a critical arginine in the NADP-binding site, c.727+1G\u003eA and c.1674G\u003eA disrupt splicing, an exon 13 deletion removes coding sequence outright, and c.673G\u003eT (p.Glu225*) truncates the protein. The shared consequence is loss of the enzyme that condenses formate with tetrahydrofolate.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"5,10-methylenetetrahydrofolate dehydrogenase activity\", \"10-formyltetrahydrofolate synthetase activity\", \"5,10-methenyltetrahydrofolate cyclohydrolase activity\"], \"genes\": [\"MTHFD1\"], \"gene_terms\": [{\"label\": \"MTHFD1\", \"id\": \"hgnc:7432\"}]}}, {\"id\": \"MTHFD1-deficient patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cultured skin fibroblasts from affected patients. Because homozygous Mthfd1 disruption is early embryonic lethal in mouse and the only available mouse line models the common R653Q polymorphism rather than this disease, patient fibroblasts are the sole system in which the mechanism of MTHFD1 deficiency has been measured. Every mechanistic claim in this entry that is not a clinical observation comes from them.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:25548164\"}}, {\"id\": \"Megaloblastic Erythropoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Replication-associated DNA damage and nucleotide-pool imbalance in erythroid precursors produce nuclear-cytoplasmic asynchrony: cytoplasmic maturation proceeds while nuclear division stalls, giving the enlarged precursors of megaloblastic marrow and an ineffective, macrocytic anemia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroid precursor\"]}}, {\"id\": \"Megaloblastic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macrocytic anemia with megaloblastic marrow change, present in every reported patient and usually the presenting problem. It is folate-responsive.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001889\"}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infection is a common presenting event and contributed to the fatal course in the two siblings who died at nine weeks of age.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Systemic Homocysteine Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homocysteine that cannot be remethylated accumulates in blood. It is a frequent but not obligate feature - at least one reported patient with the full haematological and immunological phenotype never became hyperhomocysteinemic, which is the observation the MONDO label\u0027s \\\"with or without\\\" records.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thrombotic Microangiopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Several patients have developed atypical hemolytic uremic syndrome with microangiopathy, the recognised vascular complication of severe remethylation defects. The mechanistic route from hyperhomocysteinemia to endothelial injury is not established in this disorder specifically, so the edge is recorded as indirect. Notably this arm is also the one that can leave permanent damage: in the second reported patient every feature resolved on treatment except the retinopathy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Uracil Misincorporation into Nuclear DNA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When dTMP runs short the dUTP/dTTP ratio rises and DNA polymerase incorporates uracil in place of thymine. Uracil in DNA is elevated in patient fibroblasts. Base-excision repair then excises the misincorporated uracil, and when opposing lesions are excised close together the transient abasic sites and nicks are converted into strand breaks.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"base-excision repair of misincorporated uracil\"]}}, {\"id\": \"c.146C\u003eT (p.Ser49Phe) and c.673G\u003eT (p.Glu225*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The missense plus nonsense pair carried by three affected siblings, two of whom died at nine weeks of age.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.517C\u003eT (p.Arg173Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense change to a critical arginine in the NADP-binding site. Recurrent: it is one of the two alleles in the founding proband and is homozygous in two unrelated Kuwaiti children, so it spans compound-heterozygous and homozygous genotypes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"c.727+1G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Splice donor variant of intron 8, the second allele in the founding proband.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.806C\u003eT (p.Thr296Ile) and c.1674G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The compound-heterozygous pair in the patient who presented with hyperhomocysteinemia, HUS, microangiopathy and retinopathy. The second causes exon skipping.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"MTHFD1 Trifunctional Enzyme Loss of Function\", \"target\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"target\": \"Impaired Nuclear de novo Thymidylate Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"target\": \"Impaired Homocysteine Remethylation to Methionine\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Nuclear de novo Thymidylate Biosynthesis\", \"target\": \"Uracil Misincorporation into Nuclear DNA\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uracil Misincorporation into Nuclear DNA\", \"target\": \"Genome Instability with DNA Double-Strand Breaks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome Instability with DNA Double-Strand Breaks\", \"target\": \"Megaloblastic Erythropoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome Instability with DNA Double-Strand Breaks\", \"target\": \"Lymphocyte Developmental and Proliferative Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Megaloblastic Erythropoiesis\", \"target\": \"Megaloblastic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymphocyte Developmental and Proliferative Failure\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymphocyte Developmental and Proliferative Failure\", \"target\": \"Autoimmunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lymphocyte Developmental and Proliferative Failure\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymphocyte Developmental and Proliferative Failure\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Homocysteine Remethylation to Methionine\", \"target\": \"Systemic Homocysteine Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Homocysteine Accumulation\", \"target\": \"Hyperhomocysteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Homocysteine Accumulation\", \"target\": \"Thrombotic Microangiopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Thrombotic Microangiopathy\", \"target\": \"Hemolytic-uremic syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Folinic Acid\", \"target\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Folic Acid\", \"target\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hydroxocobalamin\", \"target\": \"Impaired Homocysteine Remethylation to Methionine\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Betaine\", \"target\": \"Impaired Homocysteine Remethylation to Methionine\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MTHFD1-deficient patient fibroblasts\", \"target\": \"Impaired Nuclear de novo Thymidylate Biosynthesis\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Patient-derived and human, carrying the disease genotype, so the thymidylate lesion is measured rather than inferred from a surrogate.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are not an affected tissue. The disease manifests in erythroid precursors and developing lymphocytes, and the argument that those compartments are hit hardest because they proliferate fastest is an inference from fibroblast measurements, not something shown in the affected cells.\"}, {\"source\": \"MTHFD1-deficient patient fibroblasts\", \"target\": \"Impaired Homocysteine Remethylation to Methionine\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The same system localises the block to folate rather than cobalamin, which is the result that makes folate the rational therapy.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"A cell-autonomous readout: it says nothing about tissue-level homocysteine handling or about why some patients never become hyperhomocysteinemic.\"}, {\"source\": \"MTHFD1\", \"target\": \"MTHFD1 Trifunctional Enzyme Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.517C\u003eT (p.Arg173Cys)\", \"target\": \"MTHFD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.727+1G\u003eA\", \"target\": \"MTHFD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.806C\u003eT (p.Thr296Ile) and c.1674G\u003eA\", \"target\": \"MTHFD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.146C\u003eT (p.Ser49Phe) and c.673G\u003eT (p.Glu225*)\", \"target\": \"MTHFD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Exon 13 deletion\", \"target\": \"MTHFD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autoimmunity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autoimmune disease occurs alongside the immunodeficiency. It is reported in at least two named patients and enumerated at cohort level in the biochemical review, so it is a recurring feature rather than an isolated observation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002960\"}}, {\"id\": \"Betaine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Provides an alternative, folate-independent route for remethylating homocysteine to methionine via betaine-homocysteine methyltransferase, used as part of the combination regimen in the patient with hyperhomocysteinemia and microangiopathy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"betaine\"]}}, {\"id\": \"Combined immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impairment of both cellular and humoral immunity, described in the founding case as severe combined immune deficiency. Unlike most SCID, it is metabolically correctable.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005387\"}}, {\"id\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MTHFD1 is the primary entry point for single carbons into cytosolic folate metabolism, condensing formate with tetrahydrofolate to generate 10-formyl- and 5,10-methylenetetrahydrofolate. Losing it starves the downstream folate-dependent pathways of activated one-carbon units. The starvation is not uniform: patient fibroblast flux measurements show it falls hardest on methionine synthesis, next on thymidylate synthesis, and not at all on purine synthesis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tetrahydrofolate metabolic process\", \"one-carbon metabolic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Exon 13 deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A structural deletion invisible to standard exome variant calling, recovered only by manual inspection of per-exon coverage depth. It is the reason this family initially appeared to carry a single heterozygous change.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth, reported alongside recurrent infection and megaloblastic anemia as part of the presenting picture in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Folic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In at least one patient the regimen was successfully reduced to folic acid alone for long-term maintenance, so the fully reduced form is not always required.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"folic acid\"]}}, {\"id\": \"Folinic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reduced folate that bypasses the MTHFD1 block by supplying a one-carbon-loaded folate directly. It is disease-modifying rather than supportive: in one family folinic acid produced immune reconstitution sufficient to discontinue all prophylactic therapy.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"folinic acid\"]}}, {\"id\": \"Genome Instability with DNA Double-Strand Breaks\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts carry more double-stranded DNA breaks than controls. Because the damage is generated during DNA replication, it falls hardest on the two most rapidly proliferating compartments in the body - erythroid precursors and developing lymphocytes - which is what gives this metabolic disorder its haematological and immunological presentation rather than a diffuse one.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"double-strand break repair burden\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is part of the phenotype, and neurologic abnormalities were present in the founding case and in an independent SCID report.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hemolytic-uremic syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atypical hemolytic uremic syndrome with microangiopathy, reported in the founding case and in a second family, and reversible on metabolic treatment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005575\"}}, {\"id\": \"Hydroxocobalamin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Given as part of the combination regimen in the patient with hyperhomocysteinemia and microangiopathy, and with folate in an independent SCID patient. Its role here is empiric and adjunctive rather than mechanistically targeted: the fibroblast studies this entry already cites show methionine formation in patient cells did not increase on cobalamin supplementation but did respond to folate, which places the block on the folate side. It is plausibly given before that localisation is known, since the presenting biochemistry - raised methylmalonic acid and reduced methylcobalamin synthesis - points at a cobalamin disorder.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"hydroxocobalamin\"]}}, {\"id\": \"Hyperhomocysteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood homocysteine from the remethylation block. Frequent but explicitly not obligate; its absence does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002160\"}}, {\"id\": \"Impaired Homocysteine Remethylation to Methionine\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Remethylation of homocysteine to methionine by methionine synthase requires 5-methyltetrahydrofolate derived from the MTHFD1-generated pool. This is the arm the cell sacrifices when MTHFD1 is limiting, and correspondingly it is the arm with the largest flux deficit - a 90% fall in formate incorporation into methionine. Patient fibroblasts show severely reduced methionine formation that does not respond to cobalamin supplementation but does respond to folic and folinic acid, locating the block on the folate side rather than the cobalamin side.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-methionine biosynthesis by homocysteine remethylation\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"MTHFD1-deficient patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"The same system localises the block to folate rather than cobalamin, which is the result that makes folate the rational therapy.\"}]}}, {\"id\": \"Impaired Nuclear de novo Thymidylate Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nuclear conversion of dUMP to dTMP by thymidylate synthase requires 5,10-methylenetetrahydrofolate, for which MTHFD1 is the main source. Patient fibroblasts show lower de novo dTMP synthesis with a compensatory rise in salvage-pathway dTMP, and MTHFD1 protein becomes enriched in the nucleus at the expense of the cytosol - the cell prioritising thymidylate synthesis over homocysteine remethylation when the enzyme is limiting. That prioritisation is why the methionine deficit is the larger of the two.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"de novo thymidylate (dTMP) biosynthesis\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"MTHFD1-deficient patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Patient-derived and human, carrying the disease genotype, so the thymidylate lesion is measured rather than inferred from a surrogate.\"}]}}, {\"id\": \"Lymphocyte Developmental and Proliferative Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developing lymphocytes are among the most rapidly dividing cells in the body and depend on de novo thymidylate for clonal expansion, so the same replication-linked DNA damage produces lymphopenia across all subsets and poor proliferative responses. The immune defect is quantitative and metabolic rather than a fixed developmental block: in one family in vitro dendritic cell and lymphocyte function was comparable to healthy volunteers despite lymphopenia and poor vaccine responses, and the whole phenotype reversed on folinic acid.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced lymphocyte counts across all subsets, with poor vaccine responses.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001888\"}}, {\"id\": \"MTHFD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MTHFD1\"], \"gene_terms\": [{\"label\": \"MTHFD1\", \"id\": \"hgnc:7432\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"MTHFD1 Trifunctional Enzyme Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic MTHFD1 variants disable the cytoplasmic trifunctional C1-tetrahydrofolate synthase. Reported alleles hit the enzyme in several ways: c.517C\u003eT (p.Arg173Cys) alters a critical arginine in the NADP-binding site, c.727+1G\u003eA and c.1674G\u003eA disrupt splicing, an exon 13 deletion removes coding sequence outright, and c.673G\u003eT (p.Glu225*) truncates the protein. The shared consequence is loss of the enzyme that condenses formate with tetrahydrofolate.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"5,10-methylenetetrahydrofolate dehydrogenase activity\", \"10-formyltetrahydrofolate synthetase activity\", \"5,10-methenyltetrahydrofolate cyclohydrolase activity\"], \"genes\": [\"MTHFD1\"], \"gene_terms\": [{\"label\": \"MTHFD1\", \"id\": \"hgnc:7432\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"MTHFD1-deficient patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cultured skin fibroblasts from affected patients. Because homozygous Mthfd1 disruption is early embryonic lethal in mouse and the only available mouse line models the common R653Q polymorphism rather than this disease, patient fibroblasts are the sole system in which the mechanism of MTHFD1 deficiency has been measured. Every mechanistic claim in this entry that is not a clinical observation comes from them.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:25548164\"}}, {\"id\": \"Megaloblastic Erythropoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Replication-associated DNA damage and nucleotide-pool imbalance in erythroid precursors produce nuclear-cytoplasmic asynchrony: cytoplasmic maturation proceeds while nuclear division stalls, giving the enlarged precursors of megaloblastic marrow and an ineffective, macrocytic anemia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroid precursor\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Megaloblastic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macrocytic anemia with megaloblastic marrow change, present in every reported patient and usually the presenting problem. It is folate-responsive.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001889\"}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infection is a common presenting event and contributed to the fatal course in the two siblings who died at nine weeks of age.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Systemic Homocysteine Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homocysteine that cannot be remethylated accumulates in blood. It is a frequent but not obligate feature - at least one reported patient with the full haematological and immunological phenotype never became hyperhomocysteinemic, which is the observation the MONDO label\u0027s \\\"with or without\\\" records.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Thrombotic Microangiopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Several patients have developed atypical hemolytic uremic syndrome with microangiopathy, the recognised vascular complication of severe remethylation defects. The mechanistic route from hyperhomocysteinemia to endothelial injury is not established in this disorder specifically, so the edge is recorded as indirect. Notably this arm is also the one that can leave permanent damage: in the second reported patient every feature resolved on treatment except the retinopathy.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Uracil Misincorporation into Nuclear DNA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When dTMP runs short the dUTP/dTTP ratio rises and DNA polymerase incorporates uracil in place of thymine. Uracil in DNA is elevated in patient fibroblasts. Base-excision repair then excises the misincorporated uracil, and when opposing lesions are excised close together the transient abasic sites and nicks are converted into strand breaks.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"base-excision repair of misincorporated uracil\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"c.146C\u003eT (p.Ser49Phe) and c.673G\u003eT (p.Glu225*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The missense plus nonsense pair carried by three affected siblings, two of whom died at nine weeks of age.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.517C\u003eT (p.Arg173Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense change to a critical arginine in the NADP-binding site. Recurrent: it is one of the two alleles in the founding proband and is homozygous in two unrelated Kuwaiti children, so it spans compound-heterozygous and homozygous genotypes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"c.727+1G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Splice donor variant of intron 8, the second allele in the founding proband.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.806C\u003eT (p.Thr296Ile) and c.1674G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The compound-heterozygous pair in the patient who presented with hyperhomocysteinemia, HUS, microangiopathy and retinopathy. The second causes exon skipping.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"MTHFD1 Trifunctional Enzyme Loss of Function\", \"target\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"target\": \"Impaired Nuclear de novo Thymidylate Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"target\": \"Impaired Homocysteine Remethylation to Methionine\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Nuclear de novo Thymidylate Biosynthesis\", \"target\": \"Uracil Misincorporation into Nuclear DNA\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uracil Misincorporation into Nuclear DNA\", \"target\": \"Genome Instability with DNA Double-Strand Breaks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome Instability with DNA Double-Strand Breaks\", \"target\": \"Megaloblastic Erythropoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome Instability with DNA Double-Strand Breaks\", \"target\": \"Lymphocyte Developmental and Proliferative Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Megaloblastic Erythropoiesis\", \"target\": \"Megaloblastic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymphocyte Developmental and Proliferative Failure\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymphocyte Developmental and Proliferative Failure\", \"target\": \"Autoimmunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lymphocyte Developmental and Proliferative Failure\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymphocyte Developmental and Proliferative Failure\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Homocysteine Remethylation to Methionine\", \"target\": \"Systemic Homocysteine Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Homocysteine Accumulation\", \"target\": \"Hyperhomocysteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Homocysteine Accumulation\", \"target\": \"Thrombotic Microangiopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Thrombotic Microangiopathy\", \"target\": \"Hemolytic-uremic syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Folinic Acid\", \"target\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Folic Acid\", \"target\": \"Depletion of the Cytosolic One-Carbon-Loaded Folate Pool\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hydroxocobalamin\", \"target\": \"Impaired Homocysteine Remethylation to Methionine\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Betaine\", \"target\": \"Impaired Homocysteine Remethylation to Methionine\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MTHFD1-deficient patient fibroblasts\", \"target\": \"Impaired Nuclear de novo Thymidylate Biosynthesis\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Patient-derived and human, carrying the disease genotype, so the thymidylate lesion is measured rather than inferred from a surrogate.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are not an affected tissue. The disease manifests in erythroid precursors and developing lymphocytes, and the argument that those compartments are hit hardest because they proliferate fastest is an inference from fibroblast measurements, not something shown in the affected cells.\"}, {\"source\": \"MTHFD1-deficient patient fibroblasts\", \"target\": \"Impaired Homocysteine Remethylation to Methionine\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The same system localises the block to folate rather than cobalamin, which is the result that makes folate the rational therapy.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"A cell-autonomous readout: it says nothing about tissue-level homocysteine handling or about why some patients never become hyperhomocysteinemic.\"}, {\"source\": \"MTHFD1\", \"target\": \"MTHFD1 Trifunctional Enzyme Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.517C\u003eT (p.Arg173Cys)\", \"target\": \"MTHFD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.727+1G\u003eA\", \"target\": \"MTHFD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.806C\u003eT (p.Thr296Ile) and c.1674G\u003eA\", \"target\": \"MTHFD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.146C\u003eT (p.Ser49Phe) and c.673G\u003eT (p.Glu225*)\", \"target\": \"MTHFD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Exon 13 deletion\", \"target\": \"MTHFD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7026,6 +7135,9 @@ This disease-associated gene is MTHFD1 (hgnc:7432). hgnc:7432 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7073,6 +7185,12 @@ This disease-associated gene is MTHFD1 (hgnc:7432). hgnc:7432 is a gene from the
         c.517C&gt;T (p.Arg173Cys)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Missense change to a critical arginine in the NADP-binding site. Recurrent: it is one of the two alleles in the founding proband and is homozygous in two unrelated Kuwaiti children, so it spans compound-heterozygous and homozygous genotypes.</div>
@@ -7185,6 +7303,12 @@ This disease-associated gene is MTHFD1 (hgnc:7432). hgnc:7432 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Splice donor variant of intron 8, the second allele in the founding proband.</div>
 
 
@@ -7268,6 +7392,12 @@ This disease-associated gene is MTHFD1 (hgnc:7432). hgnc:7432 is a gene from the
         c.806C&gt;T (p.Thr296Ile) and c.1674G&gt;A
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The compound-heterozygous pair in the patient who presented with hyperhomocysteinemia, HUS, microangiopathy and retinopathy. The second causes exon skipping.</div>
@@ -7355,6 +7485,12 @@ This disease-associated gene is MTHFD1 (hgnc:7432). hgnc:7432 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The missense plus nonsense pair carried by three affected siblings, two of whom died at nine weeks of age.</div>
 
 
@@ -7438,6 +7574,12 @@ This disease-associated gene is MTHFD1 (hgnc:7432). hgnc:7432 is a gene from the
         Exon 13 deletion
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A structural deletion invisible to standard exome variant calling, recovered only by manual inspection of per-exon coverage depth. It is the reason this family initially appeared to carry a single heterozygous change.</div>

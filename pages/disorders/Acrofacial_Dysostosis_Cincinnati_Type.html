@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5096,6 +5135,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-polr1a-variants" data-dismech-node="Heterozygous POLR1A Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous POLR1A Variants</div>
 
+
                 <div class="item-desc">Germline heterozygous variants are associated with the human disorder. Missense, truncating and in-frame alleles have diverse experimental effects; neither uniform haploinsufficiency nor universal loss of function is established.</div>
 
 
@@ -5174,6 +5214,8 @@ This pathophysiological event involves POLR1A (hgnc:17264). hgnc:17264 is a gene
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5184,6 +5226,9 @@ This pathophysiological event involves POLR1A (hgnc:17264). hgnc:17264 is a gene
 
 
     </div>
+
+
+
 
     <div class="context-detail">De novo or inherited heterozygous POLR1A variants; functional consequences are allele-specific.</div>
 
@@ -5687,6 +5732,7 @@ This pathophysiological event involves POLR1A (hgnc:17264). hgnc:17264 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-pol-i-condensate-formation" data-dismech-node="Abnormal Pol I Condensate Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Pol I Condensate Formation</div>
 
+
                 <div class="item-desc">Inducible p.Glu593Gln POLR1A in HeLa cells produces abnormal nucleolar condensates containing mutant and wild-type polymerase. Single-molecule tracking supports stable mutant association and impaired productive wild-type binding as a dominant-negative model. Expression was approximately twice the endogenous level; this is not a measurement in patient neural crest cells.</div>
 
 
@@ -5826,6 +5872,7 @@ This pathophysiological event involves nucleolus (GO:0005730). GO:0005730 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-pol-i-rrna-transcription" data-dismech-node="Reduced Pol I rRNA Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Pol I rRNA Transcription</div>
+
 
                 <div class="item-desc">Reduced precursor-rRNA output occurs in polr1a-mutant zebrafish and Polr1a-deleted mouse neural crest, and in cells expressing selected human variants. Spacer-region qPCR is a transcription proxy. Mature rRNA abundance can initially remain unchanged; this branch does not apply to every allele.</div>
 
@@ -6122,6 +6169,7 @@ This pathophysiological event involves nucleolus (GO:0005730). GO:0005730 is a c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-pol-i-rrna-transcription" data-dismech-node="Increased Pol I rRNA Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Pol I rRNA Transcription</div>
 
+
                 <div class="item-desc">Nascent nucleolar RNA increases with p.Asp59Val, p.Glu1330del and p.Cys1562Phe in engineered HCT116 cells after endogenous POLR1A depletion. p.Met496Ile and p.Val1241Ile show milder increases. These assays establish neither increased ribosome output in patients nor a causal link to a particular clinical feature.</div>
 
 
@@ -6241,6 +6289,7 @@ This pathophysiological event involves increased transcription by RNA polymerase
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-ribosome-availability" data-dismech-node="Reduced Ribosome Availability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Ribosome Availability</div>
+
 
                 <div class="item-desc">Monosome and polysome profiles are reduced in mutant zebrafish. This is a separate measured consequence from precursor-rRNA abundance and protein translation.</div>
 
@@ -6363,6 +6412,7 @@ This pathophysiological event involves increased transcription by RNA polymerase
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-protein-translation" data-dismech-node="Reduced Protein Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Protein Translation</div>
+
 
                 <div class="item-desc">The zebrafish mutant has impaired protein translation. Mouse neural crest knockout studies also show reduced total protein by silver staining, which does not by itself measure translation rate.</div>
 
@@ -6487,6 +6537,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-rpl5-and-rpl11-binding-to-mdm2" data-dismech-node="Increased RPL5 and RPL11 Binding to MDM2" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased RPL5 and RPL11 Binding to MDM2</div>
 
+
                 <div class="item-desc">Co-immunoprecipitation in tamoxifen-deleted mouse embryonic fibroblasts shows increased binding of Rpl5 and Rpl11 to Mdm2 without a measured increase in their total abundance. Transfer of this interaction mechanism to patient cranial progenitors is inferred.</div>
 
 
@@ -6606,6 +6657,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-mdm2-binding-to-p53" data-dismech-node="Reduced MDM2 Binding to p53" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced MDM2 Binding to p53</div>
 
+
                 <div class="item-desc">Mdm2-p53 co-immunoprecipitation decreases in the knockout fibroblast assay. Reduced degradation is the proposed consequence; the interaction experiment is not a patient-tissue degradation-rate measurement.</div>
 
 
@@ -6724,6 +6776,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-p53-pathway-activity" data-dismech-node="Increased p53 Pathway Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased p53 Pathway Activity</div>
+
 
                 <div class="item-desc">Polr1a loss activates the p53 response in developmental models. Fish p53 assays and genetic inhibition support involvement. In mouse neural crest, p21 rises even though p53 protein elevation is not significant at the sampled stage.</div>
 
@@ -6855,6 +6908,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-neuroepithelial-and-neural-crest-apoptosis" data-dismech-node="Early Neuroepithelial and Neural Crest Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Early Neuroepithelial and Neural Crest Apoptosis</div>
+
 
                 <div class="item-desc">Early neuroepithelial apoptosis in mutant fish reduces the source of cranial neural crest cells; mouse neural crest-restricted Polr1a loss also causes apoptosis. In fish, tp53 inhibition suppresses apoptosis at 24–48 hours but TUNEL labeling returns by 60 hours. Early protection is not permanent abolition of cell death.</div>
 
@@ -7093,6 +7147,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-neural-crest-cell-proliferation" data-dismech-node="Reduced Neural Crest Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Neural Crest Cell Proliferation</div>
 
+
                 <div class="item-desc">In the fish double-mutant experiment, arch neural crest proliferation remains about half of control at 36 hours despite tp53 inhibition. The earlier 24-hour reduction is not significant. This is a proliferation defect rather than proof of an intrinsic migration defect.</div>
 
 
@@ -7248,6 +7303,7 @@ This pathophysiological event involves neural crest cell (CL:0011012). CL:001101
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-cranial-skeletal-precursors" data-dismech-node="Depletion of Cranial Skeletal Precursors" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of Cranial Skeletal Precursors</div>
+
 
                 <div class="item-desc">Loss and insufficient expansion of cranial neural crest-derived precursors reduce the population that forms craniofacial cartilage and bone. This mechanism does not directly explain mesoderm-derived limb malformations.</div>
 
@@ -7451,6 +7507,7 @@ This pathophysiological event involves neural crest cell (CL:0011012). CL:001101
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-later-craniofacial-skeletogenesis" data-dismech-node="Impaired Later Craniofacial Skeletogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Later Craniofacial Skeletogenesis</div>
 
+
                 <div class="item-desc">Ubiquitous R26-CreERT2 deletion of Polr1a induced at E9.0–9.5 and assessed at E12.5 reduces SOX9 signal and disrupts cartilage development. The timing spans late migration and post-migration. Relative transcriptomic cell proportions do not distinguish fate change from differential proliferation or survival.</div>
 
 
@@ -7572,6 +7629,7 @@ This pathophysiological event involves neural crest cell (CL:0011012). CL:001101
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-craniofacial-skeletal-condensations" data-dismech-node="Reduced Craniofacial Skeletal Condensations" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Craniofacial Skeletal Condensations</div>
+
 
                 <div class="item-desc">Temporal Polr1a deletion reduces facial mesenchymal condensations and disrupts Meckel cartilage. Trigeminal ganglion volume is comparatively preserved. These observations do not establish normal neural function or absolute expansion of neuroglial cells.</div>
 
@@ -7738,23 +7796,21 @@ This pathophysiological event involves neural crest cell (CL:0011012). CL:001101
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(11)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Limbs<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Limbs<span class="pill-count">(8)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(8)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -8077,8 +8133,84 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anotia" data-dismech-node="Anotia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anotia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0009892</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anotia (HP:0009892). HP:0009892 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25913037" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25913037" target="_blank">PMID:25913037</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bilateral anotia and severe conductive hearing loss were present. At birth, head circumference was 33 cm (−1.7 SDs), length was 43 cm (−4 SDs), and weight was 2.4 kg (−2.5 SDs)."</div>
+
+
+                <div class="evidence-explanation">Bilateral absence of external ears was documented in the severely affected index infant.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microtia" data-dismech-node="Microtia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -8094,10 +8226,10 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0008551</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0008551</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microtia (HP:0008551). HP:0008551 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8170,10 +8302,10 @@ This clinical feature is Microtia (HP:0008551). HP:0008551 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000405</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8246,10 +8378,10 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8322,10 +8454,10 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000369</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8407,10 +8539,10 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8483,10 +8615,10 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8559,10 +8691,10 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8644,10 +8776,10 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8720,10 +8852,10 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000126</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000126</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8788,7 +8920,7 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">9</span>
+                    <span class="cat-count">11</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-mandibulofacial-dysostosis" data-dismech-node="Mandibulofacial Dysostosis" data-dismech-type="phenotype">
@@ -8805,10 +8937,10 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0005321</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0005321</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mandibulofacial dysostosis (HP:0005321). HP:0005321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8881,10 +9013,10 @@ This clinical feature is Mandibulofacial dysostosis (HP:0005321). HP:0005321 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8959,10 +9091,10 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Malar flattening (HP:0000272). HP:0000272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9035,10 +9167,10 @@ This clinical feature is Malar flattening (HP:0000272). HP:0000272 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9111,10 +9243,10 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000494</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000494</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9173,6 +9305,82 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eyelid-coloboma" data-dismech-node="Eyelid Coloboma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Eyelid Coloboma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000625" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000625</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Eyelid coloboma (HP:0000625). HP:0000625 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25913037" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25913037" target="_blank">PMID:25913037</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individual 1A2, previously described by Wieczorek et al.,22 is a 6-year-old Brazilian female with craniofacial anomalies including short, down-slanting palpebral fissures, upper and lower eyelid clefts, absent medial eyelashes, heminasal aplasia, large ears, and full lips (Figure 2A)."</div>
+
+
+                <div class="evidence-explanation">Upper or lower eyelid clefts occur, with severe bilateral lower eyelid defects in the index infant.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-choanal-atresia" data-dismech-node="Choanal Atresia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Choanal Atresia
@@ -9187,10 +9395,10 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000453</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000453</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9263,10 +9471,10 @@ This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9341,10 +9549,10 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011330" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011330</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011330" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0011330</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Metopic synostosis (HP:0011330). HP:0011330 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9403,6 +9611,84 @@ This clinical feature is Metopic synostosis (HP:0011330). HP:0011330 is a phenot
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acalvaria" data-dismech-node="Acalvaria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acalvaria
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Absent ossification of calvaria</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005623" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0005623</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent ossification of calvaria (HP:0005623). HP:0005623 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf" target="_blank">url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Head CT with 3D reconstruction of Individual 8 demonstrates (B) almost complete acalvaria at 3 days of age and (C) progressive post-natal ossification evident at 26 months of age."</div>
+
+
+                <div class="evidence-explanation">Near-complete lack of calvarial ossification was documented in the p.Met496Ile infant; serial imaging showed progressive postnatal ossification. The 2023 and 2025 publications describe the same individual.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-lip" data-dismech-node="Cleft Lip" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cleft Lip
@@ -9419,10 +9705,10 @@ This clinical feature is Metopic synostosis (HP:0011330). HP:0011330 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000204</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000204</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9487,7 +9773,7 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-femoral-bowing" data-dismech-node="Femoral Bowing" data-dismech-type="phenotype">
@@ -9504,10 +9790,10 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002980</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002980</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Femoral bowing (HP:0002980). HP:0002980 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9582,10 +9868,10 @@ This clinical feature is Femoral bowing (HP:0002980). HP:0002980 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003015</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Flared metaphysis (HP:0003015). HP:0003015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9658,10 +9944,10 @@ This clinical feature is Flared metaphysis (HP:0003015). HP:0003015 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0008807</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0008807</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acetabular dysplasia (HP:0008807). HP:0008807 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9720,6 +10006,84 @@ This clinical feature is Acetabular dysplasia (HP:0008807). HP:0008807 is a phen
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-femoral-epiphyseal-ossification" data-dismech-node="Delayed Femoral Epiphyseal Ossification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed Femoral Epiphyseal Ossification
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Delayed proximal femoral epiphyseal ossification</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0008828</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed proximal femoral epiphyseal ossification (HP:0008828). HP:0008828 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25913037" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25913037" target="_blank">PMID:25913037</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, individual 1A1 had congenital short bowed femurs with metaphyseal flaring, dysplastic acetabulae, and delayed or absent ossification of the capital femoral epiphyses (Figure 1F)."</div>
+
+
+                <div class="evidence-explanation">Ossification of the capital femoral epiphyses was delayed or absent in the founding infant.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-brachydactyly" data-dismech-node="Brachydactyly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Brachydactyly
@@ -9734,10 +10098,10 @@ This clinical feature is Acetabular dysplasia (HP:0008807). HP:0008807 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001156</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9796,6 +10160,84 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-radial-aplasia" data-dismech-node="Radial Aplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Radial Aplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Unilateral radial aplasia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011908" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0011908</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Unilateral radial aplasia (HP:0011908). HP:0011908 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf" target="_blank">url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individual 12 is a 4.25-year-old male with multiple anomalies including left hemifacial microsomia, unilateral radial aplasia (left), several small ventricular septal defects, and pulmonary artery stenosis."</div>
+
+
+                <div class="evidence-explanation">Unilateral radial aplasia was reported in individual 12 with an inherited truncating variant and normal reported development.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-preaxial-hand-polydactyly" data-dismech-node="Preaxial Hand Polydactyly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Preaxial Hand Polydactyly
@@ -9810,10 +10252,10 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001177" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001177</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001177" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001177</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Preaxial hand polydactyly (HP:0001177). HP:0001177 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9888,10 +10330,10 @@ This clinical feature is Preaxial hand polydactyly (HP:0001177). HP:0001177 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001762</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001762</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9973,10 +10415,10 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10049,10 +10491,10 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002061</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002061</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10134,10 +10576,10 @@ This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000238</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10210,10 +10652,10 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0003396</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0003396</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Syringomyelia (HP:0003396). HP:0003396 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10286,10 +10728,10 @@ This clinical feature is Syringomyelia (HP:0003396). HP:0003396 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10362,10 +10804,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10438,10 +10880,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0200134</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0200134</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10514,10 +10956,10 @@ This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001605" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001605</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001605" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001605</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vocal cord paralysis (HP:0001605). HP:0001605 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10619,10 +11061,10 @@ This clinical feature is Vocal cord paralysis (HP:0001605). HP:0001605 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0010535</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0010535</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10695,10 +11137,10 @@ This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10780,10 +11222,10 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10856,10 +11298,10 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10903,401 +11345,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">Poor growth and feeding difficulties requiring enteral support are documented in several children.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eyelid-coloboma" data-dismech-node="Eyelid Coloboma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Eyelid Coloboma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000625" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000625</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Eyelid coloboma (HP:0000625). HP:0000625 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25913037" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25913037" target="_blank">PMID:25913037</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Individual 1A2, previously described by Wieczorek et al.,22 is a 6-year-old Brazilian female with craniofacial anomalies including short, down-slanting palpebral fissures, upper and lower eyelid clefts, absent medial eyelashes, heminasal aplasia, large ears, and full lips (Figure 2A)."</div>
-
-
-                <div class="evidence-explanation">Upper or lower eyelid clefts occur, with severe bilateral lower eyelid defects in the index infant.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anotia" data-dismech-node="Anotia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anotia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0009892</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anotia (HP:0009892). HP:0009892 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25913037" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25913037" target="_blank">PMID:25913037</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Bilateral anotia and severe conductive hearing loss were present. At birth, head circumference was 33 cm (−1.7 SDs), length was 43 cm (−4 SDs), and weight was 2.4 kg (−2.5 SDs)."</div>
-
-
-                <div class="evidence-explanation">Bilateral absence of external ears was documented in the severely affected index infant.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-acalvaria" data-dismech-node="Acalvaria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Acalvaria
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Absent ossification of calvaria</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005623" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0005623</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Absent ossification of calvaria (HP:0005623). HP:0005623 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf" target="_blank">url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Head CT with 3D reconstruction of Individual 8 demonstrates (B) almost complete acalvaria at 3 days of age and (C) progressive post-natal ossification evident at 26 months of age."</div>
-
-
-                <div class="evidence-explanation">Near-complete lack of calvarial ossification was documented in the p.Met496Ile infant; serial imaging showed progressive postnatal ossification. The 2023 and 2025 publications describe the same individual.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-femoral-epiphyseal-ossification" data-dismech-node="Delayed Femoral Epiphyseal Ossification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed Femoral Epiphyseal Ossification
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Delayed proximal femoral epiphyseal ossification</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0008828</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed proximal femoral epiphyseal ossification (HP:0008828). HP:0008828 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25913037" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25913037" target="_blank">PMID:25913037</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In addition, individual 1A1 had congenital short bowed femurs with metaphyseal flaring, dysplastic acetabulae, and delayed or absent ossification of the capital femoral epiphyses (Figure 1F)."</div>
-
-
-                <div class="evidence-explanation">Ossification of the capital femoral epiphyses was delayed or absent in the founding infant.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-radial-aplasia" data-dismech-node="Radial Aplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Radial Aplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Unilateral radial aplasia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011908" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0011908</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Unilateral radial aplasia (HP:0011908). HP:0011908 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf" target="_blank">url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929723000988-mmc1.pdf</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Individual 12 is a 4.25-year-old male with multiple anomalies including left hemifacial microsomia, unilateral radial aplasia (left), several small ventricular septal defects, and pulmonary artery stenosis."</div>
-
-
-                <div class="evidence-explanation">Unilateral radial aplasia was reported in individual 12 with an inherited truncating variant and normal reported development.</div>
 
 
 
@@ -11383,6 +11430,9 @@ This disease-associated gene is POLR1A (hgnc:17264). hgnc:17264 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4504,6 +4543,7 @@ This is a knowledge gap rather than a controversy: nobody has proposed competing
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cd151-loss-of-function" data-dismech-node="CD151 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">CD151 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic CD151 alleles that truncate the protein before or within its large extracellular loop. The reported lesions are a frameshifting single-nucleotide insertion stopping translation at codon 140, a donor splice-site change that removes the whole of exon 5, and the nonsense alleles p.Gln136* and p.Arg165*. What they have in common is loss of the integrin-binding region, so the resulting protein cannot perform the one function CD151 has in this disease.</div>
 
 
@@ -4599,6 +4639,8 @@ This genetic context concerns CD151 (hgnc:1630). hgnc:1630 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4611,6 +4653,9 @@ This genetic context concerns CD151 (hgnc:1630). hgnc:1630 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">All published alleles are truncating and homozygous. No missense or hypomorphic allele has been reported, so there is no allelic series here to grade severity against.</div>
 
@@ -4712,6 +4757,7 @@ This genetic context concerns CD151 (hgnc:1630). hgnc:1630 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilization-of-laminin-binding-integrin-adhesion-complexes" data-dismech-node="Destabilization of Laminin-Binding Integrin Adhesion Complexes" data-dismech-type="pathophysiology">
                 <div class="item-name">Destabilization of Laminin-Binding Integrin Adhesion Complexes</div>
+
 
                 <div class="item-desc">CD151 normally clusters integrin alpha-3/beta-1 and alpha-6/beta-4 laterally and stabilises their engagement with laminin in the underlying basement membrane. In its absence the receptors are still expressed but the adhesion they mediate is weaker and less persistent. This single molecular failure is what makes the disorder multi-organ: the same integrin-laminin axis anchors basal keratinocytes to laminin-332 in skin and podocytes to laminin-521 in the glomerulus.</div>
 
@@ -4941,6 +4987,7 @@ This pathophysiological event involves decreased laminin binding by the CD151-in
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratinocyte-dysadhesion-in-the-lower-epidermis" data-dismech-node="Keratinocyte Dysadhesion in the Lower Epidermis" data-dismech-type="pathophysiology">
                 <div class="item-name">Keratinocyte Dysadhesion in the Lower Epidermis</div>
 
+
                 <div class="item-desc">Basal and lower-epidermal keratinocytes separate from one another and from the matrix under minor mechanical stress. The split is intraepidermal, which is what classifies this as an epidermolysis bullosa simplex rather than a junctional form, and it sits alongside intact keratin-anchored hemidesmosomes - cell-biology work shows those form and persist without CD151.</div>
 
 
@@ -5117,6 +5164,7 @@ This pathophysiological event involves decreased keratinocyte cell-matrix adhesi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glomerular-basement-membrane-disorganization" data-dismech-node="Glomerular Basement Membrane Disorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Glomerular Basement Membrane Disorganization</div>
+
 
                 <div class="item-desc">Podocyte attachment to the glomerular basement membrane is under continuous mechanical load during filtration, so a weakened integrin-laminin bond has structural consequences here that it does not have in quieter tissues. Patient biopsies show a thickened, disorganised GBM with podocyte foot-process effacement - the classical substrate of a glomerular protein leak.</div>
 
@@ -5400,6 +5448,7 @@ This pathophysiological event occurs in glomerular basement membrane (UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-basement-membrane-involvement" data-dismech-node="Cochlear Basement Membrane Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Basement Membrane Involvement</div>
 
+
                 <div class="item-desc">The least directly evidenced arm of the disease. Sensorineural hearing loss is consistent across probands, and CD151 is inferred to be a component of the inner ear, but no human or model cochlear tissue study has been reported, and the Cd151 knockout mouse does not reproduce the deafness. This node is curated because the phenotype is consistent and needs somewhere to attach, not because the mechanism is established.</div>
 
 
@@ -5593,13 +5642,11 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(3)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5823,7 +5870,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nephrotic-range-proteinuria" data-dismech-node="Nephrotic range proteinuria" data-dismech-type="phenotype">
@@ -6004,6 +6051,150 @@ This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:000
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-podocyte-foot-process-effacement" data-dismech-node="Podocyte foot process effacement" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Podocyte foot process effacement
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031266" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0031266</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Podocyte foot process effacement (HP:0031266). HP:0031266 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35278129" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35278129" target="_blank">PMID:35278129</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Electron microscopy imaging of patient kidney tissue showed thickening of GBM and podocyte effacement."</div>
+
+
+                <div class="evidence-explanation">Direct electron-microscopy observation of foot-process effacement in a CD151 patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thickened-glomerular-basement-membrane" data-dismech-node="Thickened glomerular basement membrane" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thickened glomerular basement membrane
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0004722</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thickened glomerular basement membrane (HP:0004722). HP:0004722 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35278129" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35278129" target="_blank">PMID:35278129</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Electron microscopy imaging of patient kidney tissue showed thickening of GBM and podocyte effacement."</div>
+
+
+                <div class="evidence-explanation">The same observation, curated here for the membrane finding specifically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-stage-5-chronic-kidney-disease" data-dismech-node="Stage 5 chronic kidney disease" data-dismech-type="phenotype">
                     <div class="item-name">
                         Stage 5 chronic kidney disease
@@ -6018,10 +6209,10 @@ This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003774</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003774</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6126,10 +6317,10 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006357" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006357" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0006357</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature loss of permanent teeth (HP:0006357). HP:0006357 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6198,10 +6389,10 @@ This clinical feature is Premature loss of permanent teeth (HP:0006357). HP:0006
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0006297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0006297</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6262,8 +6453,107 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pretibial-blistering" data-dismech-node="Pretibial blistering" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pretibial blistering
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012221" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012221</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pretibial blistering (HP:0012221). HP:0012221 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15265795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15265795" target="_blank">PMID:15265795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition to hereditary nephritis the sibs have sensorineural deafness, pretibial epidermolysis bullosa, and beta-thalassemia minor."</div>
+
+
+                <div class="evidence-explanation">Pretibial blistering in the founding pedigree.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35519797" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35519797" target="_blank">PMID:35519797</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"she demonstrated linear pretibial and upper extremity extensor bullae on minimally erythematous bases"</div>
+
+
+                <div class="evidence-explanation">The examination finding in an independently ascertained proband, with the same pretibial and extensor distribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nail-dystrophy" data-dismech-node="Nail dystrophy" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6279,10 +6569,10 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0008404</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008404</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6376,10 +6666,10 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001029" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001029</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001029" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001029</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Poikiloderma (HP:0001029). HP:0001029 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6448,10 +6738,10 @@ This clinical feature is Poikiloderma (HP:0001029). HP:0001029 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001596</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001596</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6491,258 +6781,6 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
                 <div class="evidence-explanation">Early-onset alopecia in the Iranian proband.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pretibial-blistering" data-dismech-node="Pretibial blistering" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pretibial blistering
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012221" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012221</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pretibial blistering (HP:0012221). HP:0012221 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15265795" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15265795" target="_blank">PMID:15265795</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In addition to hereditary nephritis the sibs have sensorineural deafness, pretibial epidermolysis bullosa, and beta-thalassemia minor."</div>
-
-
-                <div class="evidence-explanation">Pretibial blistering in the founding pedigree.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35519797" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35519797" target="_blank">PMID:35519797</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"she demonstrated linear pretibial and upper extremity extensor bullae on minimally erythematous bases"</div>
-
-
-                <div class="evidence-explanation">The examination finding in an independently ascertained proband, with the same pretibial and extensor distribution.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-podocyte-foot-process-effacement" data-dismech-node="Podocyte foot process effacement" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Podocyte foot process effacement
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031266" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0031266</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Podocyte foot process effacement (HP:0031266). HP:0031266 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35278129" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35278129" target="_blank">PMID:35278129</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Electron microscopy imaging of patient kidney tissue showed thickening of GBM and podocyte effacement."</div>
-
-
-                <div class="evidence-explanation">Direct electron-microscopy observation of foot-process effacement in a CD151 patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thickened-glomerular-basement-membrane" data-dismech-node="Thickened glomerular basement membrane" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Thickened glomerular basement membrane
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004722</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thickened glomerular basement membrane (HP:0004722). HP:0004722 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35278129" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35278129" target="_blank">PMID:35278129</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Electron microscopy imaging of patient kidney tissue showed thickening of GBM and podocyte effacement."</div>
-
-
-                <div class="evidence-explanation">The same observation, curated here for the membrane finding specifically.</div>
 
 
 
@@ -6830,6 +6868,9 @@ This disease-associated gene is CD151 (hgnc:1630). hgnc:1630 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
