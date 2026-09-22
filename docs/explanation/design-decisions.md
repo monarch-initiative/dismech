@@ -1502,6 +1502,15 @@ subtype, assay, population and other substantive qualifiers. Supporting only a b
 claim differs from asserting an incompatible result, but neither justifies a complete
 positive assertion. The wrapper derives context; it does not invent evidence strength.
 
+**Node/edge boundary (maintainer clarification, 2026-09-21).** Inlining a
+`CausalEdge` under `Pathophysiology.downstream` does not make it part of the
+node's evidence obligation. Node claim extraction excludes `downstream`, even
+when an edge lacks its own evidence. An edge is assessed from its own evidence
+with the source node as context, matching `CausalEdge.evidence` in the schema.
+All substantive fields within the selected node or edge still need assessment.
+Removing independent edges changes a benchmark input and requires a new case
+revision; recorded runs retain their original inputs and targets.
+
 **Ownership.** Dismech owns the wrapper, extractor and classification task. The private
 benchmark repository owns expectations, reviews and run artifacts, with independent
 metadata schemas. Claim evaluation diagnostics do not extend EvidenceItem direction

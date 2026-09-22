@@ -83,6 +83,19 @@ def without_annotations(value: Any) -> Any:
     return deepcopy(value)
 
 
+def assertion_content(value: dict, class_name: str) -> dict:
+    """Keep the evidence-owning assertion, excluding independently evidenced edges.
+
+    Pathophysiology.downstream contains CausalEdge assertions. They are outside
+    node evidence scope even when their own evidence lists are absent or empty.
+    Other nested terms and qualifiers remain part of the owning assertion.
+    """
+    result = without_annotations(value)
+    if class_name == "Pathophysiology":
+        result.pop("downstream", None)
+    return result
+
+
 def local_context(node: dict, class_name: str) -> dict:
     """Keep ancestor qualifiers, not independent child assertions or their evidence."""
     children = set()
@@ -96,11 +109,15 @@ def local_context(node: dict, class_name: str) -> dict:
     return without_annotations({k: v for k, v in node.items() if k not in children})
 
 
-def extract_claim(document: dict, evidence_path: str, *, context_paths=()) -> dict:
-    """Preserve the entire evidence-owning object; lift disease and ancestor scope.
+def extract_claim(
+    document: dict, evidence_path: str, *, context_paths=(), include_downstream=False
+) -> dict:
+    """Preserve the evidence-owning assertion; lift disease and ancestor scope.
 
     A selected explanation remains stored but is never used to narrow the assertion.
     Subtype foreign keys are resolved exactly; ambiguous or missing names fail closed.
+    include_downstream is only for reconstructing legacy snapshots; current node
+    evaluation excludes those independent edges, regardless of this option.
     """
     parts = pointer_tokens(evidence_path)
     if len(parts) < 3 or parts[-2] != "evidence":
@@ -171,7 +188,11 @@ def extract_claim(document: dict, evidence_path: str, *, context_paths=()) -> di
     return dict(
         about=dict(disease=identity, context=bindings),
         assertion_type=assertion_type,
-        assertion=without_annotations(original),
+        assertion=(
+            without_annotations(original)
+            if include_downstream
+            else assertion_content(original, assertion_type)
+        ),
         selected_evidence=deepcopy(evidence),
         origin=dict(
             assertion_path=assertion_path,

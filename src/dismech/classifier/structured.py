@@ -3,7 +3,7 @@
 from copy import deepcopy
 
 from dismech.classifier.base import ClassificationTask
-from dismech.classifier.claims import without_annotations
+from dismech.classifier.claims import assertion_content, without_annotations
 from dismech.classifier.rubric import CRITERIA, INSTRUCTIONS as RUBRIC_INSTRUCTIONS
 
 INSTRUCTIONS = (
@@ -14,6 +14,10 @@ assay, anatomical, temporal, quantitative and other qualifiers. Do not silently
 replace a specific ontology term with its broader parent or ignore unsupported
 parts of a compound assertion. about identifies the disease and inherited scope;
 it is claim context, not independent evidence.
+Evidence on a Pathophysiology node covers that node's fields. Its independently
+evidenced downstream CausalEdge assertions are excluded, even when edge evidence
+is missing. An edge selected through its own evidence is evaluated separately,
+with the source node as inherited context.
 SUPPORT requires support for the complete assertion, not just a broader or partial
 claim. REFUTE requires a substantive contradiction of the assertion under its
 stated scope; refuting a material conjunct can refute a conjunction. NO_EVIDENCE
@@ -48,6 +52,9 @@ def structured_claim_task(
         raise ValueError("A structured assertion object is required")
     if without_annotations(claim["assertion"]) != claim["assertion"]:
         raise ValueError("Assertion must not contain evidence or review annotations")
+    assertion = assertion_content(claim["assertion"], claim["assertion_type"])
+    if not assertion:
+        raise ValueError("A structured assertion object is required")
     about = claim.get("about", {})
     if not isinstance(about, dict) or not about.get("disease", {}).get("name"):
         raise ValueError("Disease context is required")
@@ -62,7 +69,7 @@ def structured_claim_task(
         dict(
             about=about,
             assertion_type=claim["assertion_type"],
-            assertion=claim["assertion"],
+            assertion=assertion,
             selected_evidence={
                 k: evidence[k]
                 for k in ("snippet", "supports", "directness")
@@ -76,7 +83,7 @@ def structured_claim_task(
         state["source_text"] = source_text
     return ClassificationTask(
         name="whole_claim",
-        version="2",
+        version="3",
         state=state,
         instructions=INSTRUCTIONS,
         criteria=dict(CRITERIA),
@@ -89,7 +96,7 @@ def mismatch_reason_task(
     task = structured_claim_task(claim, source_text)
     return ClassificationTask(
         name="whole_claim_mismatch_reason",
-        version="2",
+        version="3",
         state=task.state,
         instructions=INSTRUCTIONS
         + "\nAssume the primary evaluation is MISMATCH. Select its principal reason; do not change the primary judgment.",

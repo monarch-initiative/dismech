@@ -20,6 +20,9 @@ between incompatible subjects. Other assertion fields are context, not evidence.
 At / evaluate all substantive fields together. At other paths judge only the
 specified aspect. A description may bundle multiple assertions; all substantive
 components need support. A broader faithful abstraction of the excerpt is valid.
+Pathophysiology node evidence does not cover its independent downstream edges.
+They are excluded even when their own evidence is missing. If the selected
+assertion is a CausalEdge, evaluate that edge with its source-node context.
 Reasonable contextual implication is allowed; identical wording is not required.
 Do not confuse a mechanistic hypothesis with a treatment recommendation, or
 demand clinical benefit when the claim only concerns a mechanism. Ontology
@@ -104,4 +107,4 @@ def aspect_output_schema(claim, fields=DEFAULT_FIELDS):
 
 
 def aspect_prompt():
-    return dict(name="claim_aspects", version="2", instructions=INSTRUCTIONS)
+    return dict(name="claim_aspects", version="3", instructions=INSTRUCTIONS)

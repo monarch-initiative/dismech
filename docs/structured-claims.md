@@ -16,9 +16,24 @@ task = structured_claim_task(claim, source_text=source_text)
 
 The assertion retains original names, ontology bindings, subtypes, context,
 quantities, assay details and nested objects. The extractor never turns it into
-an agent-written sentence. It removes only `evidence`, `references` and
-`review_notes`, recursively. Separate nested assertions remain part of a selected
-parent object; selecting an edge instead evaluates that edge with parent context.
+an agent-written sentence. It removes `evidence`, `references` and
+`review_notes`, recursively. A Pathophysiology node also excludes `downstream`:
+those CausalEdge objects have their own evidence scope. This boundary applies
+whether an edge has evidence, an empty list or no evidence field. Missing edge
+evidence does not transfer its obligation to the node citation.
+
+Selecting `/pathophysiology/0/downstream/0/evidence/0` instead produces a
+`CausalEdge` claim with its source node as inherited context. Its target,
+description, causal-link type and intermediates remain part of that edge claim.
+Node descriptions, ontology bindings and modifiers still need support, including
+causal statements written directly in the node description. Other nested fields
+are retained; the extractor does not discard every object that could own evidence.
+
+`include_downstream=True` reconstructs the former extraction for checking frozen
+snapshots. Current classifier state and aspect questions exclude downstream edges
+from node claims even for such a snapshot. Benchmarks must revise affected task
+inputs and reassess their targets before evaluating them under the corrected scope;
+old predictions and targets keep their original meaning.
 
 `assertion_type` is resolved through the main schema's containment slot ranges.
 `assertion` uses the existing LinkML `Any` container to carry those heterogeneous
@@ -49,7 +64,8 @@ assay of the cited paper is not substituted for the claim's population or assay.
 ## Evaluation contract
 
 The whole assertion is evaluated. SUPPORT must cover its substantive content;
-support for only a broader or partial claim is a mismatch. REFUTE remains on the
+incomplete or weak support can be PARTIAL, with MISMATCH reserved for a clear
+failure. REFUTE remains on the
 selected evidence relationship: a material contradiction can refute a conjunction;
 one does not need to contradict every conjunct. NO_EVIDENCE is also preserved.
 Directness is checked if annotated; missing directness stays missing.
@@ -95,7 +111,7 @@ classification remains supported. Review records and target aggregation belong
 to the consuming benchmark, not to this model-input schema.
 
 The current structured-claim and aspect prompts use `three-valued-v1` (prompt
-version 2): MATCH for adequate justification, MISMATCH for a clear failure, and
+version 3, with separate node/edge scope): MATCH for adequate justification, MISMATCH for a clear failure, and
 PARTIAL for incomplete, weak, mixed or unsettled support. PARTIAL is an explicit
 deferral, including when both curator and model choose it. It does not change
 the source evidence direction (SUPPORT/REFUTE/NO_EVIDENCE). Missing assessments

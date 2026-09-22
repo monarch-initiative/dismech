@@ -7,6 +7,7 @@ from jsonschema import Draft7Validator
 
 from dismech.classifier.claims import extract_claim, resolve, schema
 from dismech.classifier.structured import structured_claim_task, mismatch_reason_task
+from dismech.classifier.aspects import aspect_output_schema
 
 
 def document():
@@ -111,6 +112,43 @@ def test_parent_assertion_does_not_drop_child_claim_fields():
     ]
     c = extract_claim(doc, "/biochemical/0/evidence/0")
     assert c["assertion"]["readouts"] == [{"name": "Nested measurement"}]
+
+
+@pytest.mark.parametrize(
+    "edge_evidence", [None, [], [evidence(snippet="EDGE EVIDENCE")]]
+)
+def test_node_evidence_excludes_independent_edges_even_without_edge_evidence(
+    edge_evidence,
+):
+    edge = {"target": "EDGE TARGET", "description": "EDGE DESCRIPTION"}
+    if edge_evidence is not None:
+        edge["evidence"] = edge_evidence
+    node = {
+        "name": "Node",
+        "description": "Node mechanism",
+        "biological_processes": [
+            {"term": {"id": "GO:1", "label": "Process"}, "modifier": "INCREASED"}
+        ],
+        "downstream": [edge],
+        "evidence": [evidence()],
+    }
+    doc = {"name": "D", "pathophysiology": [node]}
+    before = deepcopy(doc)
+    path = "/pathophysiology/0/evidence/0"
+    claim = extract_claim(doc, path)
+    assert "downstream" not in claim["assertion"]
+    assert claim["assertion"]["biological_processes"] == node["biological_processes"]
+    assert claim["origin"]["evidence_path"] == path
+    legacy = extract_claim(doc, path, include_downstream=True)
+    assert legacy["assertion"]["downstream"][0]["target"] == "EDGE TARGET"
+    for candidate in [claim, legacy]:
+        task = structured_claim_task(candidate)
+        assert "EDGE" not in json.dumps(task.state)
+        assert task.state["assertion"] == claim["assertion"]
+        assert not any(
+            "downstream" in p for p in aspect_output_schema(candidate)["properties"]
+        )
+    assert doc == before
 
 
 def test_pointer_escaping_and_invalid_indices():
