@@ -209,14 +209,18 @@ The Claude **model** backing each agentic workflow (curation-scanner,
 discussion-scanner, knowledge-gap-scan, literature-scan, preprint-scan,
 post-review-agent, pr-shepherd, weekly-compliance, claude-code-review, claude)
 is centralized in `.github/agent-config.yaml` — one source of truth instead of a
-`--model` hardcoded per workflow. At run time each workflow's `Resolve agent
+`--model` hardcoded per workflow. For single-model workflows, the `Resolve agent
 config` step (the `.github/actions/resolve-agent-config` composite action) reads
 the config and exports `AGENT_MODEL`; the agent invocation uses `--model ${{
 env.AGENT_MODEL }}`. Resolution order: a `workflow_dispatch` `model:` override >
 the per-workflow `model:` > `default_model`. To bump a model for scheduled runs,
 edit `agent-config.yaml` — do NOT re-add a hardcoded `--model` to a workflow (a
 test enforces this). `curation-scanner`'s per-effort-tier models live in the same
-file as a `matrix:` and drive its strategy matrix via a `setup` job. This
+file as a `matrix:` and drive its strategy matrix via a `setup` job, which calls
+the resolver's `--matrix` mode directly. Each row requires its own `model:`;
+there is no `default_model` fallback or manual model override for the scanner.
+The configured versioned IDs do not automatically follow new releases; upgrading
+requires editing the relevant model values, including matrix rows. This
 complements — and is separate from — cron cadence (cron-profiles.yaml); it covers
 the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #5218.
 
