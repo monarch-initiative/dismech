@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4604,6 +4643,13 @@ What is missing is direct evidence. No study has compared duct histology across 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-residual-function-cftr-genotype" data-dismech-node="Residual-Function CFTR Genotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Residual-Function CFTR Genotype</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A CFTR genotype that reduces chloride and bicarbonate conductance without abolishing it. This is the defining feature of the disease and the reason it is not cystic fibrosis: the same gene, a different point on the residual- function axis. The threshold that matters is tissue-specific, and the mesonephric duct derivatives sit at the sensitive end of it - so a genotype that leaves lung and pancreas essentially normal still fails here.</div>
 
 
@@ -4738,9 +4784,14 @@ This genetic context concerns CFTR (hgnc:1884). hgnc:1884 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4910,6 +4961,13 @@ This pathophysiological event involves decreased chloride channel activity (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-luminal-fluid-and-anion-secretion" data-dismech-node="Impaired Luminal Fluid and Anion Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Luminal Fluid and Anion Secretion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">CFTR in the apical membrane of genital tract epithelium drives anion and therefore water movement into the lumen. With reduced conductance the luminal secretion becomes scanty and viscous. Fluid secretion is required for normal mesonephric duct development, so this is the step at which an ion-transport defect becomes a developmental one.</div>
 
@@ -5103,6 +5161,13 @@ This pathophysiological event occurs in mesonephric duct (UBERON:0003074). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-adgrg2-signalling-in-efferent-ducts" data-dismech-node="Loss of ADGRG2 Signalling in Efferent Ducts" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ADGRG2 Signalling in Efferent Ducts</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The alternative entry point. ADGRG2 is an adhesion GPCR expressed specifically in the epididymis and efferent ducts, where it is required for fluid reabsorption. Hemizygous truncating variants abolish it. That a receptor governing duct fluid handling and a channel governing duct fluid secretion both produce the same anatomical endpoint is the strongest argument that luminal fluid balance, rather than any one gene product, is what the mesonephric duct derivatives depend on.</div>
 
 
@@ -5203,9 +5268,14 @@ This genetic context concerns ADGRG2 (hgnc:4516). hgnc:4516 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5320,6 +5390,13 @@ This pathophysiological event occurs in epididymis (UBERON:0001301). UBERON:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-involution-of-mesonephric-duct-derivatives" data-dismech-node="Progressive Involution of Mesonephric Duct Derivatives" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Involution of Mesonephric Duct Derivatives</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The duct is formed and then lost. Fetal studies report the vas deferens obstructed and degenerating by mucus at 12-18 weeks, with the process worsening as gestation continues - so this is involution of a structure that developed, not failure to develop one. The timing is the load-bearing point of this entry: it distinguishes CFTR- and ADGRG2-related disease from the CAVD that accompanies renal agenesis, where the duct appears never to have formed properly at all.</div>
 
@@ -5572,6 +5649,13 @@ This pathophysiological event occurs in seminal vesicle (UBERON:0000998). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obstructive-azoospermia-with-preserved-spermatogenesis" data-dismech-node="Obstructive Azoospermia with Preserved Spermatogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Obstructive Azoospermia with Preserved Spermatogenesis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint. Spermatozoa are produced normally in the testis but have no route out, so the ejaculate is azoospermic, low in volume, acidic and depleted of the seminal vesicle contribution - fructose in particular. Testis size and FSH are normal or near-normal, which is what separates this biochemically from non-obstructive azoospermia and is why surgical retrieval works.</div>
 
 
@@ -5726,7 +5810,7 @@ This pathophysiological event occurs in vas deferens (UBERON:0001000). UBERON:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADGRG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ADGRG2\"], \"gene_terms\": [{\"label\": \"ADGRG2\", \"id\": \"hgnc:4516\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Adgrg2 (He6/Gpr64) knockout mouse (efferent duct fluid dysregulation)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The original functional evidence for this receptor in male fertility, predating the human ADGRG2-CBAVD discovery (PMID:27476656) by twelve years. Hemizygous knockout males develop age-dependent infertility from dysregulated fluid reabsorption in the efferent ductules, causing dilation and spermatozoal obstruction there and a backup of fluid into the testis - the same tissue-restricted, duct-fluid-handling mechanism this entry attributes to human ADGRG2 loss.\"}, {\"id\": \"CFTR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"CFTR\"], \"gene_terms\": [{\"label\": \"CFTR\", \"id\": \"hgnc:1884\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"CFTR knock-in and partial-knockout mouse (fertile, no vasal phenotype)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A negative result worth recording: mouse models carrying a knock-in allele or a partial Cftr knockout generally stay fertile and do not develop the vasal phenotype, and only complete knockouts show vas deferens atresia, and then only with age. This is the species-and-allele limit on using the mouse for CBAVD, and the reason the rat above is the better reference model.\"}, {\"id\": \"CFTR-knockout rat (bilateral vasal absence and epididymal hypoplasia)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Across the animal models compared in this review, the CFTR-knockout rat is the one that comes closest to the human male reproductive phenotype, showing bilateral absence of the vas deferens together with epididymal hypoplasia. It is the model of the gene that explains the large majority of human CBAVD, and so is the reference point against which the modifier-gene models above should be read.\"}, {\"id\": \"Impaired Luminal Fluid and Anion Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CFTR in the apical membrane of genital tract epithelium drives anion and therefore water movement into the lumen. With reduced conductance the luminal secretion becomes scanty and viscous. Fluid secretion is required for normal mesonephric duct development, so this is the step at which an ion-transport defect becomes a developmental one.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epididymal epithelial cell\"], \"biological_processes\": [\"chloride transmembrane transport\"], \"locations\": [\"mesonephric duct\"]}}, {\"id\": \"Intracytoplasmic Sperm Injection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fertilisation of the partner\u0027s oocytes with the retrieved spermatozoa. Recorded separately from retrieval because the two steps have different determinants: retrieval success depends on residual CFTR activity, while cumulative ICSI success in the same Lille cohort did not differ between cystic fibrosis and CFTR-related disorder groups. Once usable sperm are in hand, the CFTR genotype stops mattering as much.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of ADGRG2 Signalling in Efferent Ducts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative entry point. ADGRG2 is an adhesion GPCR expressed specifically in the epididymis and efferent ducts, where it is required for fluid reabsorption. Hemizygous truncating variants abolish it. That a receptor governing duct fluid handling and a channel governing duct fluid secretion both produce the same anatomical endpoint is the strongest argument that luminal fluid balance, rather than any one gene product, is what the mesonephric duct derivatives depend on.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ADGRG2\"], \"gene_terms\": [{\"label\": \"ADGRG2\", \"id\": \"hgnc:4516\"}], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ADGRG2\", \"id\": \"hgnc:4516\"}]}, \"locations\": [\"epididymis\"]}}, {\"id\": \"Obstructive Azoospermia with Preserved Spermatogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Spermatozoa are produced normally in the testis but have no route out, so the ejaculate is azoospermic, low in volume, acidic and depleted of the seminal vesicle contribution - fructose in particular. Testis size and FSH are normal or near-normal, which is what separates this biochemically from non-obstructive azoospermia and is why surgical retrieval works.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"vas deferens\"]}}, {\"id\": \"Prenatal CFTR Modulator Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one intervention that appears to reach the mechanism rather than bypass it, and it is a single case. A male fetus with cystic fibrosis whose heterozygous carrier mother began elexacaftor/tezacaftor/ivacaftor at 27+4 weeks had bilateral vasa deferentia demonstrable on ultrasound at 8 weeks of age - a structure absent in nearly all males with cystic fibrosis at birth.\\n\\nThe timing is what makes it mechanistically informative rather than merely encouraging. Men already born and taking modulators show no improvement in infertility. A structure that can be preserved at 27 weeks and not recovered afterwards is a structure that is being lost during gestation, which is independent evidence for the progressive-involution model this entry is built on and against fixed early agenesis.\\n\\nn=1, uncontrolled, and the ethical position for a heterozygous fetus - who would not develop the disease - is unresolved. Recorded because of what it establishes about the mechanism, not as a management recommendation.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The duct is formed and then lost. Fetal studies report the vas deferens obstructed and degenerating by mucus at 12-18 weeks, with the process worsening as gestation continues - so this is involution of a structure that developed, not failure to develop one. The timing is the load-bearing point of this entry: it distinguishes CFTR- and ADGRG2-related disease from the CAVD that accompanies renal agenesis, where the duct appears never to have formed properly at all.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chloride transmembrane transport\"], \"locations\": [\"vas deferens\", \"epididymis\", \"seminal vesicle\"], \"animal_models\": [{\"name\": \"Slc9a3 knockout mouse (obstructive azoospermia via CFTR loss)\", \"species\": \"Mouse\", \"genotype\": \"Slc9a3 -/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of Slc9a3 destabilizes CFTR protein in the epididymis and vas deferens, producing the same progressive luminal obstruction and duct compromise seen with direct CFTR or ADGRG2 loss - support for this entry\u0027s claim that ductal fluid handling, not any one gene product, is the shared dependency of the mesonephric duct derivatives.\"}, {\"name\": \"Adgrg2 (He6/Gpr64) knockout mouse (efferent duct fluid dysregulation)\", \"species\": \"Mouse\", \"genotype\": \"He6 (Adgrg2/Gpr64) hemizygous null (7TM-domain deletion)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"An isolated fluid-reabsorption defect in the efferent ductules causing duct dilation, spermatozoal obstruction, and testicular fluid backup - the same class of duct-fluid-handling failure this entry attributes to human ADGRG2 loss, from the mouse ortholog of the same receptor. Partial rather than full recapitulation: the lesion sits in a different duct segment and the duct is not lost.\"}, {\"name\": \"CFTR-knockout rat (bilateral vasal absence and epididymal hypoplasia)\", \"species\": \"Rat\", \"genotype\": \"Cftr -/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Loss of Cftr in the rat reproduces the defining endpoint of this node - bilateral loss of the vas deferens with an underdeveloped epididymis - in the gene that accounts for most human cases.\"}, {\"name\": \"CFTR knock-in and partial-knockout mouse (fertile, no vasal phenotype)\", \"species\": \"Mouse\", \"genotype\": \"Cftr knock-in or partial knockout (hypomorphic residual function)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Residual-function Cftr alleles in the mouse leave fertility intact, so these models do not reproduce the progressive duct involution this node describes.\"}]}}, {\"id\": \"Residual-Function CFTR Genotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A CFTR genotype that reduces chloride and bicarbonate conductance without abolishing it. This is the defining feature of the disease and the reason it is not cystic fibrosis: the same gene, a different point on the residual- function axis. The threshold that matters is tissue-specific, and the mesonephric duct derivatives sit at the sensitive end of it - so a genotype that leaves lung and pancreas essentially normal still fails here.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"genital tract epithelial cell\"], \"biological_processes\": [\"chloride transmembrane transport\"], \"molecular_functions\": [\"chloride channel activity\"], \"genes\": [\"CFTR\"], \"gene_terms\": [{\"label\": \"CFTR\", \"id\": \"hgnc:1884\"}], \"genetic_context\": {\"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"CFTR\", \"id\": \"hgnc:1884\"}]}}}, {\"id\": \"Seminal Fructose\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"presence\": \"Decreased\", \"term_id\": \"CHEBI:28757\", \"term_label\": \"fructose\", \"readouts\": [{\"target\": \"Seminal Vesicle Abnormality\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Undetectable or low seminal fructose is the semen-analysis correlate of seminal vesicle involvement, used alongside low volume and acidic pH to build the CBAVD semen picture.\"}]}}, {\"id\": \"Seminal Vesicle Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrophy, hypoplasia or absence of the seminal vesicles. This is why the ejaculate is low in volume and fructose-poor as well as azoospermic - the seminal vesicles supply most of the volume. An MRI series found only 2 of 51 men with congenital absence of the vas deferens had a normal seminal vesicle.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6000190\"}}, {\"id\": \"Slc9a3 knockout mouse (obstructive azoospermia via CFTR loss)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive Slc9a3 knockout mice develop obstructive azoospermia from progressively worsening luminal secretions and calcification in the efferent ductules, epididymis, and vas deferens, driven by a dramatic loss of CFTR protein in those same tissues. The knockout was generated to study SLC9A3 as a CFTR interactor and genetic modifier rather than to model CBAVD directly, but the phenotype converges on this entry\u0027s endpoint through a third gene.\"}, {\"id\": \"Surgical Sperm Retrieval with ICSI\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The definitive management, and it works because the lesion is obstructive. Sperm are recovered from the epididymis or testis and used for intracytoplasmic sperm injection. Outcomes in isolated CBAVD are notably better than in men with full cystic fibrosis: in a two-centre comparison the CF group had lower retrieved sperm concentration and motile count, needed rescue testicular extraction far more often, and had roughly half the fertilisation rate. That gradient is evidence that CFTR affects sperm function itself and not only the conduit - which qualifies the tidy \\\"obstruction only\\\" account this entry otherwise gives.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Residual-Function CFTR Genotype\", \"target\": \"Impaired Luminal Fluid and Anion Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Luminal Fluid and Anion Secretion\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of ADGRG2 Signalling in Efferent Ducts\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"target\": \"Obstructive Azoospermia with Preserved Spermatogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Surgical Sperm Retrieval with ICSI\", \"target\": \"Obstructive Azoospermia with Preserved Spermatogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intracytoplasmic Sperm Injection\", \"target\": \"Obstructive Azoospermia with Preserved Spermatogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prenatal CFTR Modulator Therapy\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Slc9a3 knockout mouse (obstructive azoospermia via CFTR loss)\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of Slc9a3 destabilizes CFTR protein in the epididymis and vas deferens, producing the same progressive luminal obstruction and duct compromise seen with direct CFTR or ADGRG2 loss - support for this entry\u0027s claim that ductal fluid handling, not any one gene product, is the shared dependency of the mesonephric duct derivatives.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mechanism is indirect: SLC9A3 loss acts by reducing CFTR protein abundance rather than through a CFTR-independent route, and the mouse phenotype requires a homozygous null genotype whereas the human genetic evidence for SLC9A3 is a heterozygous single-copy deletion with no ClinGen assertion.\"}, {\"source\": \"Adgrg2 (He6/Gpr64) knockout mouse (efferent duct fluid dysregulation)\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"An isolated fluid-reabsorption defect in the efferent ductules causing duct dilation, spermatozoal obstruction, and testicular fluid backup - the same class of duct-fluid-handling failure this entry attributes to human ADGRG2 loss, from the mouse ortholog of the same receptor. Partial rather than full recapitulation: the lesion sits in a different duct segment and the duct is not lost.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a constitutive knockout of the murine ortholog (then named He6/Gpr64), not a model of any specific human truncating ADGRG2 allele, and the reported pathology centers on efferent-ductule dilation and testicular fluid backup rather than the progressive vas deferens/epididymis involution described in human CBAVD.\"}, {\"source\": \"CFTR-knockout rat (bilateral vasal absence and epididymal hypoplasia)\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of Cftr in the rat reproduces the defining endpoint of this node - bilateral loss of the vas deferens with an underdeveloped epididymis - in the gene that accounts for most human cases.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rat shows more pronounced hypospermatogenesis than men with CBAVD do, so the model overstates the testicular component of a condition that is otherwise obstructive with preserved spermatogenesis. The cited source is a comparative review rather than the primary description of the model.\"}, {\"source\": \"CFTR knock-in and partial-knockout mouse (fertile, no vasal phenotype)\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Residual-function Cftr alleles in the mouse leave fertility intact, so these models do not reproduce the progressive duct involution this node describes.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The failure is specific to knock-in and partial-knockout alleles: complete Cftr-null mice do develop vas deferens atresia, but late, with aging, rather than as the prenatal-onset involution seen in humans. The cited source is a comparative review rather than the primary description of any one model, and it does not name the individual alleles behind the generalization.\"}, {\"source\": \"Seminal Vesicle Abnormality\", \"target\": \"Seminal Fructose\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Undetectable or low seminal fructose is the semen-analysis correlate of seminal vesicle involvement, used alongside low volume and acidic pH to build the CBAVD semen picture.\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CFTR\", \"target\": \"Residual-Function CFTR Genotype\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ADGRG2\", \"target\": \"Loss of ADGRG2 Signalling in Efferent Ducts\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADGRG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ADGRG2\"], \"gene_terms\": [{\"label\": \"ADGRG2\", \"id\": \"hgnc:4516\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Adgrg2 (He6/Gpr64) knockout mouse (efferent duct fluid dysregulation)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The original functional evidence for this receptor in male fertility, predating the human ADGRG2-CBAVD discovery (PMID:27476656) by twelve years. Hemizygous knockout males develop age-dependent infertility from dysregulated fluid reabsorption in the efferent ductules, causing dilation and spermatozoal obstruction there and a backup of fluid into the testis - the same tissue-restricted, duct-fluid-handling mechanism this entry attributes to human ADGRG2 loss.\"}, {\"id\": \"CFTR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"CFTR\"], \"gene_terms\": [{\"label\": \"CFTR\", \"id\": \"hgnc:1884\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"CFTR knock-in and partial-knockout mouse (fertile, no vasal phenotype)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A negative result worth recording: mouse models carrying a knock-in allele or a partial Cftr knockout generally stay fertile and do not develop the vasal phenotype, and only complete knockouts show vas deferens atresia, and then only with age. This is the species-and-allele limit on using the mouse for CBAVD, and the reason the rat above is the better reference model.\"}, {\"id\": \"CFTR-knockout rat (bilateral vasal absence and epididymal hypoplasia)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Across the animal models compared in this review, the CFTR-knockout rat is the one that comes closest to the human male reproductive phenotype, showing bilateral absence of the vas deferens together with epididymal hypoplasia. It is the model of the gene that explains the large majority of human CBAVD, and so is the reference point against which the modifier-gene models above should be read.\"}, {\"id\": \"Impaired Luminal Fluid and Anion Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CFTR in the apical membrane of genital tract epithelium drives anion and therefore water movement into the lumen. With reduced conductance the luminal secretion becomes scanty and viscous. Fluid secretion is required for normal mesonephric duct development, so this is the step at which an ion-transport defect becomes a developmental one.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epididymal epithelial cell\"], \"biological_processes\": [\"chloride transmembrane transport\"], \"locations\": [\"mesonephric duct\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Intracytoplasmic Sperm Injection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fertilisation of the partner\u0027s oocytes with the retrieved spermatozoa. Recorded separately from retrieval because the two steps have different determinants: retrieval success depends on residual CFTR activity, while cumulative ICSI success in the same Lille cohort did not differ between cystic fibrosis and CFTR-related disorder groups. Once usable sperm are in hand, the CFTR genotype stops mattering as much.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of ADGRG2 Signalling in Efferent Ducts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative entry point. ADGRG2 is an adhesion GPCR expressed specifically in the epididymis and efferent ducts, where it is required for fluid reabsorption. Hemizygous truncating variants abolish it. That a receptor governing duct fluid handling and a channel governing duct fluid secretion both produce the same anatomical endpoint is the strongest argument that luminal fluid balance, rather than any one gene product, is what the mesonephric duct derivatives depend on.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ADGRG2\"], \"gene_terms\": [{\"label\": \"ADGRG2\", \"id\": \"hgnc:4516\"}], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ADGRG2\", \"id\": \"hgnc:4516\"}]}, \"locations\": [\"epididymis\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Obstructive Azoospermia with Preserved Spermatogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Spermatozoa are produced normally in the testis but have no route out, so the ejaculate is azoospermic, low in volume, acidic and depleted of the seminal vesicle contribution - fructose in particular. Testis size and FSH are normal or near-normal, which is what separates this biochemically from non-obstructive azoospermia and is why surgical retrieval works.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"vas deferens\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Prenatal CFTR Modulator Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one intervention that appears to reach the mechanism rather than bypass it, and it is a single case. A male fetus with cystic fibrosis whose heterozygous carrier mother began elexacaftor/tezacaftor/ivacaftor at 27+4 weeks had bilateral vasa deferentia demonstrable on ultrasound at 8 weeks of age - a structure absent in nearly all males with cystic fibrosis at birth.\\n\\nThe timing is what makes it mechanistically informative rather than merely encouraging. Men already born and taking modulators show no improvement in infertility. A structure that can be preserved at 27 weeks and not recovered afterwards is a structure that is being lost during gestation, which is independent evidence for the progressive-involution model this entry is built on and against fixed early agenesis.\\n\\nn=1, uncontrolled, and the ethical position for a heterozygous fetus - who would not develop the disease - is unresolved. Recorded because of what it establishes about the mechanism, not as a management recommendation.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The duct is formed and then lost. Fetal studies report the vas deferens obstructed and degenerating by mucus at 12-18 weeks, with the process worsening as gestation continues - so this is involution of a structure that developed, not failure to develop one. The timing is the load-bearing point of this entry: it distinguishes CFTR- and ADGRG2-related disease from the CAVD that accompanies renal agenesis, where the duct appears never to have formed properly at all.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chloride transmembrane transport\"], \"locations\": [\"vas deferens\", \"epididymis\", \"seminal vesicle\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Slc9a3 knockout mouse (obstructive azoospermia via CFTR loss)\", \"species\": \"Mouse\", \"genotype\": \"Slc9a3 -/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of Slc9a3 destabilizes CFTR protein in the epididymis and vas deferens, producing the same progressive luminal obstruction and duct compromise seen with direct CFTR or ADGRG2 loss - support for this entry\u0027s claim that ductal fluid handling, not any one gene product, is the shared dependency of the mesonephric duct derivatives.\"}, {\"name\": \"Adgrg2 (He6/Gpr64) knockout mouse (efferent duct fluid dysregulation)\", \"species\": \"Mouse\", \"genotype\": \"He6 (Adgrg2/Gpr64) hemizygous null (7TM-domain deletion)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"An isolated fluid-reabsorption defect in the efferent ductules causing duct dilation, spermatozoal obstruction, and testicular fluid backup - the same class of duct-fluid-handling failure this entry attributes to human ADGRG2 loss, from the mouse ortholog of the same receptor. Partial rather than full recapitulation: the lesion sits in a different duct segment and the duct is not lost.\"}, {\"name\": \"CFTR-knockout rat (bilateral vasal absence and epididymal hypoplasia)\", \"species\": \"Rat\", \"genotype\": \"Cftr -/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Loss of Cftr in the rat reproduces the defining endpoint of this node - bilateral loss of the vas deferens with an underdeveloped epididymis - in the gene that accounts for most human cases.\"}, {\"name\": \"CFTR knock-in and partial-knockout mouse (fertile, no vasal phenotype)\", \"species\": \"Mouse\", \"genotype\": \"Cftr knock-in or partial knockout (hypomorphic residual function)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Residual-function Cftr alleles in the mouse leave fertility intact, so these models do not reproduce the progressive duct involution this node describes.\"}]}}, {\"id\": \"Residual-Function CFTR Genotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A CFTR genotype that reduces chloride and bicarbonate conductance without abolishing it. This is the defining feature of the disease and the reason it is not cystic fibrosis: the same gene, a different point on the residual- function axis. The threshold that matters is tissue-specific, and the mesonephric duct derivatives sit at the sensitive end of it - so a genotype that leaves lung and pancreas essentially normal still fails here.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"genital tract epithelial cell\"], \"biological_processes\": [\"chloride transmembrane transport\"], \"molecular_functions\": [\"chloride channel activity\"], \"genes\": [\"CFTR\"], \"gene_terms\": [{\"label\": \"CFTR\", \"id\": \"hgnc:1884\"}], \"genetic_context\": {\"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"CFTR\", \"id\": \"hgnc:1884\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Seminal Fructose\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"presence\": \"Decreased\", \"term_id\": \"CHEBI:28757\", \"term_label\": \"fructose\", \"readouts\": [{\"target\": \"Seminal Vesicle Abnormality\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Undetectable or low seminal fructose is the semen-analysis correlate of seminal vesicle involvement, used alongside low volume and acidic pH to build the CBAVD semen picture.\"}]}}, {\"id\": \"Seminal Vesicle Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrophy, hypoplasia or absence of the seminal vesicles. This is why the ejaculate is low in volume and fructose-poor as well as azoospermic - the seminal vesicles supply most of the volume. An MRI series found only 2 of 51 men with congenital absence of the vas deferens had a normal seminal vesicle.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6000190\"}}, {\"id\": \"Slc9a3 knockout mouse (obstructive azoospermia via CFTR loss)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive Slc9a3 knockout mice develop obstructive azoospermia from progressively worsening luminal secretions and calcification in the efferent ductules, epididymis, and vas deferens, driven by a dramatic loss of CFTR protein in those same tissues. The knockout was generated to study SLC9A3 as a CFTR interactor and genetic modifier rather than to model CBAVD directly, but the phenotype converges on this entry\u0027s endpoint through a third gene.\"}, {\"id\": \"Surgical Sperm Retrieval with ICSI\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The definitive management, and it works because the lesion is obstructive. Sperm are recovered from the epididymis or testis and used for intracytoplasmic sperm injection. Outcomes in isolated CBAVD are notably better than in men with full cystic fibrosis: in a two-centre comparison the CF group had lower retrieved sperm concentration and motile count, needed rescue testicular extraction far more often, and had roughly half the fertilisation rate. That gradient is evidence that CFTR affects sperm function itself and not only the conduit - which qualifies the tidy \\\"obstruction only\\\" account this entry otherwise gives.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Residual-Function CFTR Genotype\", \"target\": \"Impaired Luminal Fluid and Anion Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Luminal Fluid and Anion Secretion\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of ADGRG2 Signalling in Efferent Ducts\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"target\": \"Obstructive Azoospermia with Preserved Spermatogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Surgical Sperm Retrieval with ICSI\", \"target\": \"Obstructive Azoospermia with Preserved Spermatogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intracytoplasmic Sperm Injection\", \"target\": \"Obstructive Azoospermia with Preserved Spermatogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prenatal CFTR Modulator Therapy\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Slc9a3 knockout mouse (obstructive azoospermia via CFTR loss)\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of Slc9a3 destabilizes CFTR protein in the epididymis and vas deferens, producing the same progressive luminal obstruction and duct compromise seen with direct CFTR or ADGRG2 loss - support for this entry\u0027s claim that ductal fluid handling, not any one gene product, is the shared dependency of the mesonephric duct derivatives.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mechanism is indirect: SLC9A3 loss acts by reducing CFTR protein abundance rather than through a CFTR-independent route, and the mouse phenotype requires a homozygous null genotype whereas the human genetic evidence for SLC9A3 is a heterozygous single-copy deletion with no ClinGen assertion.\"}, {\"source\": \"Adgrg2 (He6/Gpr64) knockout mouse (efferent duct fluid dysregulation)\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"An isolated fluid-reabsorption defect in the efferent ductules causing duct dilation, spermatozoal obstruction, and testicular fluid backup - the same class of duct-fluid-handling failure this entry attributes to human ADGRG2 loss, from the mouse ortholog of the same receptor. Partial rather than full recapitulation: the lesion sits in a different duct segment and the duct is not lost.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a constitutive knockout of the murine ortholog (then named He6/Gpr64), not a model of any specific human truncating ADGRG2 allele, and the reported pathology centers on efferent-ductule dilation and testicular fluid backup rather than the progressive vas deferens/epididymis involution described in human CBAVD.\"}, {\"source\": \"CFTR-knockout rat (bilateral vasal absence and epididymal hypoplasia)\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of Cftr in the rat reproduces the defining endpoint of this node - bilateral loss of the vas deferens with an underdeveloped epididymis - in the gene that accounts for most human cases.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rat shows more pronounced hypospermatogenesis than men with CBAVD do, so the model overstates the testicular component of a condition that is otherwise obstructive with preserved spermatogenesis. The cited source is a comparative review rather than the primary description of the model.\"}, {\"source\": \"CFTR knock-in and partial-knockout mouse (fertile, no vasal phenotype)\", \"target\": \"Progressive Involution of Mesonephric Duct Derivatives\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Residual-function Cftr alleles in the mouse leave fertility intact, so these models do not reproduce the progressive duct involution this node describes.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The failure is specific to knock-in and partial-knockout alleles: complete Cftr-null mice do develop vas deferens atresia, but late, with aging, rather than as the prenatal-onset involution seen in humans. The cited source is a comparative review rather than the primary description of any one model, and it does not name the individual alleles behind the generalization.\"}, {\"source\": \"Seminal Vesicle Abnormality\", \"target\": \"Seminal Fructose\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Undetectable or low seminal fructose is the semen-analysis correlate of seminal vesicle involvement, used alongside low volume and acidic pH to build the CBAVD semen picture.\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CFTR\", \"target\": \"Residual-Function CFTR Genotype\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ADGRG2\", \"target\": \"Loss of ADGRG2 Signalling in Efferent Ducts\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6185,6 +6269,9 @@ This disease-associated gene is CFTR (hgnc:1884). hgnc:1884 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -6309,6 +6396,9 @@ This disease-associated gene is ADGRG2 (hgnc:4516). hgnc:4516 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6402,6 +6492,9 @@ This disease-associated gene is SLC9A3 (hgnc:11073). hgnc:11073 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

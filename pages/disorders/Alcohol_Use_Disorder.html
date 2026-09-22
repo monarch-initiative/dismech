@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4456,6 +4495,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-liability" data-dismech-node="Polygenic Liability" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic Liability</div>
 
+
                 <div class="item-desc">Common-variant associations contribute to liability rather than determining disease. The 2023 meta-analysis combines 165,952 AUD or dependence cases, controls and AUDIT problems scores in 1,079,947 participants; it is not a cohort of one million diagnosed cases. The 110 variants are the union of within- and cross-ancestry results, and most data are European ancestry. Specific nonmetabolic variant-to-neural causal routes remain unresolved.</div>
 
 
@@ -4564,6 +4604,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-repeated-ethanol-exposure" data-dismech-node="Repeated Ethanol Exposure" data-dismech-type="pathophysiology">
                 <div class="item-name">Repeated Ethanol Exposure</div>
+
 
                 <div class="item-desc">Repeated alcohol intake supplies the exposure for intoxication, neuroadaptation and medical complications. Dose, timing, host susceptibility and environment influence outcomes; exposure alone does not establish AUD. This exposure node is separate from enzymatic metabolism and from the impaired-control phenotype.</div>
 
@@ -4864,6 +4905,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-adh1b-mediated-ethanol-oxidation" data-dismech-node="Increased ADH1B-Mediated Ethanol Oxidation" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased ADH1B-Mediated Ethanol Oxidation</div>
 
+
                 <div class="item-desc">In carriers of protective high-activity ADH1B alleles, faster enzyme-catalyzed conversion of ethanol to acetaldehyde is proposed to contribute to aversive effects and reduced dependence risk. Purified-enzyme kinetics do not imply the same fold change in whole-body clearance or a universal flushing response.</div>
 
 
@@ -5080,6 +5122,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-aldh2-mediated-acetaldehyde-clearance" data-dismech-node="Reduced ALDH2-Mediated Acetaldehyde Clearance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced ALDH2-Mediated Acetaldehyde Clearance</div>
 
+
                 <div class="item-desc">The ALDH2*2 variant markedly reduces conversion of acetaldehyde to acetate. Under alcohol exposure this favors acetaldehyde accumulation; the allele is protective against dependence rather than a monogenic cause of AUD.</div>
 
 
@@ -5262,6 +5305,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acetaldehyde-accumulation" data-dismech-node="Acetaldehyde Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Acetaldehyde Accumulation</div>
 
+
                 <div class="item-desc">Reduced clearance, or an imbalance between formation and clearance, increases exposure to the toxic ethanol metabolite acetaldehyde. This conditional metabolic branch is especially well supported for reduced ALDH2 activity.</div>
 
 
@@ -5342,6 +5386,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acetaldehyde-associated-aversion" data-dismech-node="Acetaldehyde-Associated Aversion" data-dismech-type="pathophysiology">
                 <div class="item-name">Acetaldehyde-Associated Aversion</div>
 
+
                 <div class="item-desc">Flushing, nausea and tachycardia after acetaldehyde accumulation can discourage drinking. This is a protective modifier pathway, not an obligatory step in the progression of AUD. Disulfiram deliberately engages an aversive response by inhibiting aldehyde clearance.</div>
 
 
@@ -5421,6 +5466,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-gaba-a-signaling-modulation" data-dismech-node="Acute GABA-A Signaling Modulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute GABA-A Signaling Modulation</div>
+
 
                 <div class="item-desc">Acute ethanol can enhance GABAergic inhibition through effects that depend on receptor composition, synaptic compartment, dose and brain region. The review evidence includes rodent and cellular work; it does not establish uniform potentiation at every receptor or a single necessary route to human intoxication. GABAergic neurons supply the inhibitory transmitter; receptor-bearing target neurons need not themselves be GABAergic.</div>
 
@@ -5592,6 +5638,7 @@ This pathophysiological event involves GABA-A receptor activity (GO:0004890). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-nmda-receptor-inhibition" data-dismech-node="Acute NMDA Receptor Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute NMDA Receptor Inhibition</div>
+
 
                 <div class="item-desc">Experimental literature describes inhibition of NMDA-receptor-mediated calcium influx by ethanol. This acute receptor effect is distinct from chronic changes in receptor trafficking, glutamate release and uptake.</div>
 
@@ -5806,6 +5853,7 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alcohol-evoked-endogenous-opioid-signaling" data-dismech-node="Alcohol-Evoked Endogenous Opioid Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Alcohol-Evoked Endogenous Opioid Signaling</div>
 
+
                 <div class="item-desc">Human positron-emission tomography after drinking showed displacement of a mu-opioid radioligand in nucleus accumbens and orbitofrontal cortex, interpreted as endogenous opioid release. This is an indirect release measure; the study did not identify the peptide, resolve a dopamine relay, or test naltrexone efficacy.</div>
 
 
@@ -5958,6 +6006,7 @@ This pathophysiological event occurs in orbitofrontal cortex (UBERON:0004167). U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mesolimbic-dopamine-reinforcement" data-dismech-node="Mesolimbic Dopamine Reinforcement" data-dismech-type="pathophysiology">
                 <div class="item-name">Mesolimbic Dopamine Reinforcement</div>
 
+
                 <div class="item-desc">Mesolimbic dopamine signaling contributes to alcohol reinforcement in the reviewed experimental framework. Dopamine is one contributor among several; the cited human opioid PET result alone does not prove an opioid-to-dopamine causal sequence.</div>
 
 
@@ -6109,6 +6158,7 @@ This pathophysiological event occurs in nucleus accumbens (UBERON:0001882). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alcohol-cue-responsivity" data-dismech-node="Alcohol Cue Responsivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Alcohol Cue Responsivity</div>
+
 
                 <div class="item-desc">Alcohol-associated cues evoke brain responses that can correlate with craving. The meta-analysis included 28 studies of heavy-drinking/AUD samples; within-case ventral-striatal activation was not equivalent to a significant case-versus-control difference. Region-of-interest selection, heterogeneous ascertainment and mainly male samples limit generalization. This is an associative circuit finding, not a validated clinical biomarker.</div>
 
@@ -6264,6 +6314,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gaba-a-receptor-redistribution" data-dismech-node="GABA-A Receptor Redistribution" data-dismech-type="pathophysiology">
                 <div class="item-name">GABA-A Receptor Redistribution</div>
+
 
                 <div class="item-desc">Rodent chronic-intermittent-ethanol studies and cell/slice assays describe time- and compartment-dependent changes in GABA-A receptor surface composition. Reduced tonic ethanol sensitivity can coexist with increased sensitivity of some synaptic currents. Single-dose changes can reverse, while repeated regimens produce longer persistence; endpoint-specific tolerance is not universal receptor loss or proven lifelong human dysfunction. Hippocampal and cortical pyramidal-neuron recordings are among the preparations supporting these changes.</div>
 
@@ -6500,6 +6551,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-glutamate-homeostasis" data-dismech-node="Altered Glutamate Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Glutamate Homeostasis</div>
 
+
                 <div class="item-desc">Repeated ethanol exposure and withdrawal can alter glutamate release, uptake and receptor regulation. Elevated extracellular glutamate is supported in particular rodent dependence models, while human spectroscopy results vary by region and timing and do not all show elevation. The whole process should not be reduced to universal NMDA-receptor upregulation.</div>
 
 
@@ -6685,6 +6737,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-withdrawal-associated-cns-hyperexcitability" data-dismech-node="Withdrawal-Associated CNS Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Withdrawal-Associated CNS Hyperexcitability</div>
 
+
                 <div class="item-desc">Reduction or cessation after sustained heavy exposure in a physiologically dependent person can uncover altered inhibitory/excitatory regulation. This contributes to tremor, insomnia, hallucinations and, in severe cases, seizures or delirium. Withdrawal is neither universal in AUD nor a requirement for diagnosis.</div>
 
 
@@ -6805,6 +6858,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-withdrawal-associated-autonomic-activation" data-dismech-node="Withdrawal-Associated Autonomic Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Withdrawal-Associated Autonomic Activation</div>
 
+
                 <div class="item-desc">Autonomic activation during withdrawal can produce tachycardia, sweating and elevated blood pressure. This component is separated from cortical excitability because controlling heart rate or blood pressure does not prevent withdrawal seizures or delirium.</div>
 
 
@@ -6900,6 +6954,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-crf-associated-stress-signaling" data-dismech-node="CRF-Associated Stress Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">CRF-Associated Stress Signaling</div>
+
 
                 <div class="item-desc">The addiction framework implicates CRF signaling in dependence-related stress and negative affect, with much of the causal evidence from rodent regional pharmacology. This is distinct from the nondependent VTA CRF-binding-protein/CRF2 drinking-in-the-dark experiment; that result is not evidence of central-amygdala CRF1 mediation.</div>
 
@@ -7057,6 +7112,7 @@ This pathophysiological event occurs in bed nucleus of stria terminalis (UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dynorphin-kappa-opioid-signaling" data-dismech-node="Dynorphin–Kappa-Opioid Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Dynorphin–Kappa-Opioid Signaling</div>
 
+
                 <div class="item-desc">Dynorphin and kappa-opioid signaling are implicated in aversion and dependence-related drinking in experimental literature. Effects depend on timing, region, sex and model; knockout findings are not uniform. The conference review contains preliminary reports, and human postmortem expression associations do not prove that blocking this pathway treats AUD.</div>
 
 
@@ -7174,6 +7230,7 @@ This pathophysiological event occurs in bed nucleus of stria terminalis (UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-withdrawal-associated-reward-deficit" data-dismech-node="Withdrawal-Associated Reward Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Withdrawal-Associated Reward Deficit</div>
+
 
                 <div class="item-desc">Reviewed dependence models show reduced dopamine neuronal activity or basal striatal dopamine during withdrawal. These observations support a reward-deficit hypothesis but should not be generalized to every brain region, exposure phase or individual with AUD.</div>
 
@@ -7348,6 +7405,7 @@ This pathophysiological event occurs in dorsal striatum (UBERON:0005382). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-withdrawal-associated-negative-affect" data-dismech-node="Withdrawal-Associated Negative Affect" data-dismech-type="pathophysiology">
                 <div class="item-name">Withdrawal-Associated Negative Affect</div>
 
+
                 <div class="item-desc">Anxiety, dysphoria and other aversive states can motivate renewed drinking for relief. Hyperkatifeia is a cross-drug heuristic framework integrating reward deficits and stress signaling, not a biomarker or a required stage in every patient. Persistent symptoms also require assessment for independent psychiatric illness.</div>
 
 
@@ -7433,6 +7491,7 @@ This pathophysiological event occurs in dorsal striatum (UBERON:0005382). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-habitual-alcohol-seeking" data-dismech-node="Habitual Alcohol Seeking" data-dismech-type="pathophysiology">
                 <div class="item-name">Habitual Alcohol Seeking</div>
+
 
                 <div class="item-desc">In alcohol-preferring male rats, devaluation-insensitive seeking predicted subsequent punishment-resistant seeking and quinine-resistant drinking. The cited abstract supplies behavioral evidence; its background anatomical account is not a new direct assay of dorsal-striatal dopamine or proof of the same causal sequence in humans.</div>
 
@@ -7533,6 +7592,7 @@ This pathophysiological event occurs in dorsal striatum (UBERON:0005382). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-executive-control" data-dismech-node="Impaired Executive Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Executive Control</div>
+
 
                 <div class="item-desc">Reduced inhibitory control and altered decision-making can contribute to difficulty limiting alcohol use in the addiction framework. Cross-sectional MRI differences in AUD provide anatomical associations, not proof that alcohol caused progressive atrophy or that a measured structural difference mediated an executive deficit.</div>
 
@@ -7672,6 +7732,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-control-over-alcohol-use" data-dismech-node="Impaired Control over Alcohol Use" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Control over Alcohol Use</div>
 
+
                 <div class="item-desc">Impaired control and persistent use despite harm are clinical manifestations to which reinforcement, learned cue responses, aversive-state relief and executive-control problems may contribute. These routes can coexist but are not a mandatory ordered sequence, and DSM criteria allow heterogeneous presentations.</div>
 
 
@@ -7766,6 +7827,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thiamine-deficiency" data-dismech-node="Thiamine Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Thiamine Deficiency</div>
 
+
                 <div class="item-desc">Poor intake and alcohol-related interference with thiamine handling can produce deficiency and neurologic complications. Nutritional deficiency is an exposure-associated pathway distinct from reinforcement and receptor adaptation; not everyone with AUD develops it.</div>
 
 
@@ -7853,6 +7915,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tlr4-dependent-inflammatory-signaling" data-dismech-node="TLR4-Dependent Inflammatory Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">TLR4-Dependent Inflammatory Signaling</div>
+
 
                 <div class="item-desc">In female mice exposed to ethanol for five months and in neonatal rodent astrocyte preparations, Tlr4 deletion or knockdown attenuated inflammatory responses. Direct ethanol binding to TLR4 was not established. The constitutive whole-body knockout does not isolate an astrocyte- or microglia-autonomous mechanism in vivo or prove this pathway causes human AUD.</div>
 
@@ -8001,6 +8064,7 @@ This pathophysiological event involves TLR4 (hgnc:11850). hgnc:11850 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-astrocytic-nf-kappa-b-activation" data-dismech-node="Astrocytic NF-kappa-B Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Astrocytic NF-kappa-B Activation</div>
 
+
                 <div class="item-desc">In neonatal rodent astrocyte cultures, ethanol increased nuclear NF-kappa-B p65 signaling, and TLR4 knockdown or deficiency attenuated it. These cell-culture findings are separate from whole-cortex measurements and do not establish a universal patient biomarker.</div>
 
 
@@ -8117,6 +8181,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-inflammatory-mediator-induction" data-dismech-node="Cortical Inflammatory Mediator Induction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Inflammatory Mediator Induction</div>
 
+
                 <div class="item-desc">Chronic ethanol-exposed wild-type mouse cortex showed increased TNF-alpha and IL-1beta protein and IL-6 transcript, with attenuated responses in Tlr4-knockout mice. Whole-tissue measurements do not identify the producing cell type, and transcript and protein readouts are not interchangeable.</div>
 
 
@@ -8222,6 +8287,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-glial-reactivity" data-dismech-node="Cortical Glial Reactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Glial Reactivity</div>
+
 
                 <div class="item-desc">GFAP and CD11b immunoreactivity increased in the cortex of ethanol-exposed wild-type mice. Tlr4 deficiency attenuated these changes, but the residual approximately threefold GFAP increase shows that not all astroglial response was abolished. Immunoreactivity is a marker readout rather than a direct count of newly generated glia.</div>
 
@@ -8329,6 +8395,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-caspase-3-activation" data-dismech-node="Cortical Caspase-3 Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Caspase-3 Activation</div>
 
+
                 <div class="item-desc">Cleaved caspase-3 and immunoreactivity increased in ethanol-exposed wild-type mouse cortex and were attenuated by Tlr4 deficiency. This supports an injury/apoptosis-associated signal, without directly identifying dying neurons, quantifying cognitive impairment, or proving an inflammatory mediator was the necessary intermediate.</div>
 
 
@@ -8434,6 +8501,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vta-crf2-associated-drinking-modulation" data-dismech-node="VTA CRF2-Associated Drinking Modulation" data-dismech-type="pathophysiology">
                 <div class="item-name">VTA CRF2-Associated Drinking Modulation</div>
+
 
                 <div class="item-desc">In male mice, local VTA CRF2 antagonism reduced nondependent drinking-in-the-dark intake; CRF-binding-protein interference added to the effect under tested conditions. The study did not assay dopamine, NMDA currents or physical receptor interactions. CRF-binding-protein blockade was ineffective in central amygdala and in the dependent intermittent-access VTA condition.</div>
 
@@ -10784,6 +10852,9 @@ This disease-associated gene is ADH1B (hgnc:250). hgnc:250 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10887,6 +10958,9 @@ This disease-associated gene is ALDH2 (hgnc:404). hgnc:404 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -10998,6 +11072,9 @@ This disease-associated gene is GABRA2 (hgnc:4076). hgnc:4076 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11101,6 +11178,9 @@ This disease-associated gene is OPRM1 (hgnc:8156). hgnc:8156 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -11241,6 +11321,9 @@ This disease-associated gene is GCKR (hgnc:4196). hgnc:4196 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11315,6 +11398,9 @@ This disease-associated gene is KLB (hgnc:15527). hgnc:15527 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

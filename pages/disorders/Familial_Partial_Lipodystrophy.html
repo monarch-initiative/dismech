@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4742,6 +4781,7 @@ This subtype is caused by variation in PLAAT3 (hgnc:17825). hgnc:17825 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-adipocyte-differentiation-and-adipose-storage-capacity" data-dismech-node="Impaired adipocyte differentiation and adipose storage capacity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired adipocyte differentiation and adipose storage capacity</div>
 
+
                 <div class="item-desc">The unifying defect across FPLD subtypes is failure of subcutaneous adipose tissue to develop and/or store triglycerides normally, owing to disruption of adipogenesis, lipid-droplet biology, or adipocyte maintenance. This produces selective loss of subcutaneous fat from the limbs and gluteal region.</div>
 
 
@@ -4944,6 +4984,7 @@ This pathophysiological event occurs in Subcutaneous adipose tissue (UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lmna-nuclear-lamina-dysfunction-and-adipocyte-loss-fpld2" data-dismech-node="LMNA nuclear-lamina dysfunction and adipocyte loss (FPLD2)" data-dismech-type="pathophysiology">
                 <div class="item-name">LMNA nuclear-lamina dysfunction and adipocyte loss (FPLD2)</div>
+
 
                 <div class="item-desc">In FPLD2 (Dunnigan), pathogenic LMNA variants (commonly codon 482) perturb lamin A/C structure and lamin-chromatin (lamina-associated domain) interactions required for adipocyte differentiation and maintenance, with suppression of lipid-metabolism and mitochondrial programs and an intrinsic inflammatory transcriptional signature. (Adipocyte-specific Lmna-knockout mouse data supporting a cell-autonomous role for lamin A/C in adipocyte maintenance are summarized in the entry notes.)</div>
 
@@ -5204,6 +5245,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-ppargamma-driven-adipogenic-transcription" data-dismech-node="Loss of PPARgamma-driven adipogenic transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of PPARgamma-driven adipogenic transcription</div>
 
+
                 <div class="item-desc">PPARgamma is the master transcriptional regulator of preadipocyte-to-adipocyte differentiation. Two curated routes converge on reduced PPARgamma signaling: loss-of-function PPARG variants themselves (FPLD3), and biallelic PLAAT3 loss (FPLD9), which remodels white adipose membrane phospholipids and strongly lowers PPARgamma signaling without altering PPARG itself.</div>
 
 
@@ -5394,6 +5436,7 @@ This pathophysiological event involves decreased PPARgamma nuclear receptor sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plaat3-loss-and-phospholipid-remodeling-of-white-adipose-tissue" data-dismech-node="PLAAT3 loss and phospholipid remodeling of white adipose tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">PLAAT3 loss and phospholipid remodeling of white adipose tissue</div>
+
 
                 <div class="item-desc">PLAAT3 is a phospholipid-modifying enzyme expressed in neural tissue and white adipose tissue. Biallelic loss of function enriches white adipose membranes in arachidonic-acid-containing phospholipids and strongly lowers PPARgamma signaling, so the lesion is upstream of the adipogenic transcriptional program rather than in it. This is the FPLD9 route.</div>
 
@@ -5610,6 +5653,7 @@ This pathophysiological event involves abnormal membrane phospholipid metabolic 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adipocyte-lipid-droplet-formation-defect" data-dismech-node="Adipocyte lipid-droplet formation defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Adipocyte lipid-droplet formation defect</div>
+
 
                 <div class="item-desc">CIDEC and PLIN1 act at the adipocyte lipid droplet itself. CIDEC is required for unilocular lipid droplet formation and for optimal energy storage in human fat; the truncating allele is mistargeted and fails to increase lipid droplet size, and the patient&#39;s white adipocytes are multiloculated (FPLD5). PLIN1 coats the droplet, and the FPLD4 frameshift alleles extend its C-terminus and act dominant-negatively rather than by haploinsufficiency.</div>
 
@@ -5873,6 +5917,7 @@ This pathophysiological event involves abnormal Lipid droplet organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-adipocyte-triglyceride-lipolysis" data-dismech-node="Dysregulated adipocyte triglyceride lipolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated adipocyte triglyceride lipolysis</div>
+
 
                 <div class="item-desc">Three curated genes disturb the release of stored triglyceride from the adipocyte droplet, in opposite directions, which is why the node is tagged abnormal rather than increased or decreased. PLIN1 frameshift mutants fail to hold ABHD5, so adipose triglyceride lipase is constitutively activated and basal lipolysis runs unchecked (FPLD4). The reported ADRA2A variant removes the presynaptic alpha-2A adrenergic brake on adipocyte cAMP, again raising lipolysis, and is proposed to do so only in some depots (FPLD8). LIPE encodes hormone-sensitive lipase itself, so biallelic loss instead impairs triglyceride mobilization (FPLD6).</div>
 
@@ -6193,6 +6238,7 @@ This pathophysiological event involves abnormal Adipocyte triglyceride lipolysis
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-adipose-insulin-and-pi3k-akt-signaling" data-dismech-node="Impaired adipose insulin and PI3K-AKT signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired adipose insulin and PI3K-AKT signaling</div>
 
+
                 <div class="item-desc">AKT2 is a kinase of the insulin/PI3K-AKT pathway, and ClinGen&#39;s review of the reported evidence records that AKT2 signaling is important for adipocyte differentiation. The reported FPLD allele has little or no kinase activity, so insulin signaling fails in the adipocyte itself rather than only downstream of an adipose deficit.</div>
 
 
@@ -6417,6 +6463,13 @@ This pathophysiological event involves decreased Insulin receptor signaling path
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-notch3-gain-of-function-and-adipose-senescence" data-dismech-node="NOTCH3 gain of function and adipose senescence" data-dismech-type="pathophysiology">
                 <div class="item-name">NOTCH3 gain of function and adipose senescence</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Missense variants clustered in the heterodimerization domain of the NOTCH3 negative regulatory region were reported in three unrelated FPL families. Patient skin fibroblasts show raised NOTCH3 RNA and protein and activation of widespread senescence pathways, which the authors propose as the route from unrestrained NOTCH3 signaling to loss of adipose tissue. This node records a single-publication mechanism; see the notes on the NOTCH3 genetic record.</div>
 
 
@@ -6633,6 +6686,7 @@ This pathophysiological event involves increased Cellular senescence (GO:0090398
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-lipid-deposition-and-systemic-insulin-resistance" data-dismech-node="Ectopic lipid deposition and systemic insulin resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic lipid deposition and systemic insulin resistance</div>
 
+
                 <div class="item-desc">The limited subcutaneous storage capacity forces triglycerides into ectopic sites (liver, muscle, viscera), driving severe insulin resistance, hypertriglyceridemia, type 2 diabetes, hepatic steatosis, and downstream cardiometabolic disease.</div>
 
 
@@ -6809,7 +6863,7 @@ This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adipocyte lipid-droplet formation defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CIDEC and PLIN1 act at the adipocyte lipid droplet itself. CIDEC is required for unilocular lipid droplet formation and for optimal energy storage in human fat; the truncating allele is mistargeted and fails to increase lipid droplet size, and the patient\u0027s white adipocytes are multiloculated (FPLD5). PLIN1 coats the droplet, and the FPLD4 frameshift alleles extend its C-terminus and act dominant-negatively rather than by haploinsufficiency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Lipid droplet organization\"], \"genes\": [\"CIDEC\", \"PLIN1\"], \"gene_terms\": [{\"label\": \"CIDEC\", \"id\": \"hgnc:24229\"}, {\"label\": \"PLIN1\", \"id\": \"hgnc:9076\"}]}}, {\"id\": \"CIDEC biallelic variants (FPLD5)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CIDEC\"], \"gene_terms\": [{\"label\": \"CIDEC\", \"id\": \"hgnc:24229\"}], \"subtypes\": [\"FPLD5\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Dysregulated adipocyte triglyceride lipolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Three curated genes disturb the release of stored triglyceride from the adipocyte droplet, in opposite directions, which is why the node is tagged abnormal rather than increased or decreased. PLIN1 frameshift mutants fail to hold ABHD5, so adipose triglyceride lipase is constitutively activated and basal lipolysis runs unchecked (FPLD4). The reported ADRA2A variant removes the presynaptic alpha-2A adrenergic brake on adipocyte cAMP, again raising lipolysis, and is proposed to do so only in some depots (FPLD8). LIPE encodes hormone-sensitive lipase itself, so biallelic loss instead impairs triglyceride mobilization (FPLD6).\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Adipocyte triglyceride lipolysis\"], \"genes\": [\"PLIN1\", \"LIPE\", \"ADRA2A\"], \"gene_terms\": [{\"label\": \"PLIN1\", \"id\": \"hgnc:9076\"}, {\"label\": \"LIPE\", \"id\": \"hgnc:6621\"}, {\"label\": \"ADRA2A\", \"id\": \"hgnc:281\"}]}}, {\"id\": \"Ectopic lipid deposition and systemic insulin resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The limited subcutaneous storage capacity forces triglycerides into ectopic sites (liver, muscle, viscera), driving severe insulin resistance, hypertriglyceridemia, type 2 diabetes, hepatic steatosis, and downstream cardiometabolic disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Lipid metabolic process\"], \"locations\": [\"Liver\"]}}, {\"id\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The unifying defect across FPLD subtypes is failure of subcutaneous adipose tissue to develop and/or store triglycerides normally, owing to disruption of adipogenesis, lipid-droplet biology, or adipocyte maintenance. This produces selective loss of subcutaneous fat from the limbs and gluteal region.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Fat cell differentiation (adipogenesis)\", \"Regulation of lipid storage\"], \"locations\": [\"Subcutaneous adipose tissue\"]}}, {\"id\": \"Impaired adipose insulin and PI3K-AKT signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AKT2 is a kinase of the insulin/PI3K-AKT pathway, and ClinGen\u0027s review of the reported evidence records that AKT2 signaling is important for adipocyte differentiation. The reported FPLD allele has little or no kinase activity, so insulin signaling fails in the adipocyte itself rather than only downstream of an adipose deficit.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Insulin receptor signaling pathway\"], \"genes\": [\"AKT2\"], \"gene_terms\": [{\"label\": \"AKT2\", \"id\": \"hgnc:392\"}]}}, {\"id\": \"LIPE biallelic variants (FPLD6)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LIPE\"], \"gene_terms\": [{\"label\": \"LIPE\", \"id\": \"hgnc:6621\"}], \"subtypes\": [\"FPLD6\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"LMNA nuclear-lamina dysfunction and adipocyte loss (FPLD2)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In FPLD2 (Dunnigan), pathogenic LMNA variants (commonly codon 482) perturb lamin A/C structure and lamin-chromatin (lamina-associated domain) interactions required for adipocyte differentiation and maintenance, with suppression of lipid-metabolism and mitochondrial programs and an intrinsic inflammatory transcriptional signature. (Adipocyte-specific Lmna-knockout mouse data supporting a cell-autonomous role for lamin A/C in adipocyte maintenance are summarized in the entry notes.)\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Chromatin organization\", \"Lipid metabolic process\", \"Inflammatory response\"], \"genes\": [\"LMNA\"], \"gene_terms\": [{\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}]}}, {\"id\": \"LMNA pathogenic variants (FPLD2/Dunnigan)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"LMNA\"], \"gene_terms\": [{\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}], \"subtypes\": [\"FPLD2\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Loss of PPARgamma-driven adipogenic transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PPARgamma is the master transcriptional regulator of preadipocyte-to-adipocyte differentiation. Two curated routes converge on reduced PPARgamma signaling: loss-of-function PPARG variants themselves (FPLD3), and biallelic PLAAT3 loss (FPLD9), which remodels white adipose membrane phospholipids and strongly lowers PPARgamma signaling without altering PPARG itself.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"PPARgamma nuclear receptor signaling\"], \"genes\": [\"PPARG\"], \"gene_terms\": [{\"label\": \"PPARG\", \"id\": \"hgnc:9236\"}]}}, {\"id\": \"NOTCH3 gain of function and adipose senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Missense variants clustered in the heterodimerization domain of the NOTCH3 negative regulatory region were reported in three unrelated FPL families. Patient skin fibroblasts show raised NOTCH3 RNA and protein and activation of widespread senescence pathways, which the authors propose as the route from unrestrained NOTCH3 signaling to loss of adipose tissue. This node records a single-publication mechanism; see the notes on the NOTCH3 genetic record.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Notch signaling pathway\", \"Cellular senescence\"], \"genes\": [\"NOTCH3\"], \"gene_terms\": [{\"label\": \"NOTCH3\", \"id\": \"hgnc:7883\"}]}}, {\"id\": \"PLAAT3 biallelic loss-of-function variants (FPLD9)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PLAAT3\"], \"gene_terms\": [{\"label\": \"PLAAT3\", \"id\": \"hgnc:17825\"}], \"subtypes\": [\"FPLD9\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PLAAT3 loss and phospholipid remodeling of white adipose tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PLAAT3 is a phospholipid-modifying enzyme expressed in neural tissue and white adipose tissue. Biallelic loss of function enriches white adipose membranes in arachidonic-acid-containing phospholipids and strongly lowers PPARgamma signaling, so the lesion is upstream of the adipogenic transcriptional program rather than in it. This is the FPLD9 route.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"membrane phospholipid metabolic process\"], \"genes\": [\"PLAAT3\"], \"gene_terms\": [{\"label\": \"PLAAT3\", \"id\": \"hgnc:17825\"}]}}, {\"id\": \"PLIN1 pathogenic variants (FPLD4)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PLIN1\"], \"gene_terms\": [{\"label\": \"PLIN1\", \"id\": \"hgnc:9076\"}], \"subtypes\": [\"FPLD4\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PPARG loss-of-function variants (FPLD3)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PPARG\"], \"gene_terms\": [{\"label\": \"PPARG\", \"id\": \"hgnc:9236\"}], \"subtypes\": [\"FPLD3\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}], \"edges\": [{\"source\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"target\": \"Ectopic lipid deposition and systemic insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced subcutaneous storage capacity diverts lipid to ectopic sites, driving systemic insulin resistance.\"}, {\"source\": \"LMNA nuclear-lamina dysfunction and adipocyte loss (FPLD2)\", \"target\": \"Ectopic lipid deposition and systemic insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LMNA-driven adipose dysfunction feeds the shared ectopic-lipid and insulin-resistance cascade.\"}, {\"source\": \"Loss of PPARgamma-driven adipogenic transcription\", \"target\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PPARgamma transcriptional output blocks preadipocyte differentiation, limiting the subcutaneous adipose compartment that can be built and maintained.\"}, {\"source\": \"PLAAT3 loss and phospholipid remodeling of white adipose tissue\", \"target\": \"Loss of PPARgamma-driven adipogenic transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Phospholipid remodeling of white adipose membranes lowers PPARgamma signaling, joining the FPLD3 route at the adipogenic transcription node.\"}, {\"source\": \"Adipocyte lipid-droplet formation defect\", \"target\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adipocytes that cannot build or coat a normal unilocular droplet store triglyceride inefficiently, reducing safe subcutaneous storage capacity.\"}, {\"source\": \"Adipocyte lipid-droplet formation defect\", \"target\": \"Dysregulated adipocyte triglyceride lipolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same droplet-coat defect removes the perilipin-1 brake on lipase access to stored triglyceride.\"}, {\"source\": \"Dysregulated adipocyte triglyceride lipolysis\", \"target\": \"Ectopic lipid deposition and systemic insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Triglyceride that cannot be retained in, or mobilized from, subcutaneous adipocytes reaches ectopic depots.\"}, {\"source\": \"Impaired adipose insulin and PI3K-AKT signaling\", \"target\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of AKT2 kinase output impairs the insulin-driven differentiation and storage program of the adipocyte.\"}, {\"source\": \"Impaired adipose insulin and PI3K-AKT signaling\", \"target\": \"Ectopic lipid deposition and systemic insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A kinase-dead AKT2 also blocks insulin action directly, so the insulin resistance is not solely a consequence of reduced fat mass.\"}, {\"source\": \"NOTCH3 gain of function and adipose senescence\", \"target\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Senescence activation is the proposed route by which unrestrained NOTCH3 signaling depletes the subcutaneous adipose compartment.\"}, {\"source\": \"LMNA pathogenic variants (FPLD2/Dunnigan)\", \"target\": \"LMNA nuclear-lamina dysfunction and adipocyte loss (FPLD2)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPARG loss-of-function variants (FPLD3)\", \"target\": \"Loss of PPARgamma-driven adipogenic transcription\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLIN1 pathogenic variants (FPLD4)\", \"target\": \"Adipocyte lipid-droplet formation defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLIN1 pathogenic variants (FPLD4)\", \"target\": \"Dysregulated adipocyte triglyceride lipolysis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CIDEC biallelic variants (FPLD5)\", \"target\": \"Adipocyte lipid-droplet formation defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIPE biallelic variants (FPLD6)\", \"target\": \"Dysregulated adipocyte triglyceride lipolysis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLAAT3 biallelic loss-of-function variants (FPLD9)\", \"target\": \"PLAAT3 loss and phospholipid remodeling of white adipose tissue\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adipocyte lipid-droplet formation defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CIDEC and PLIN1 act at the adipocyte lipid droplet itself. CIDEC is required for unilocular lipid droplet formation and for optimal energy storage in human fat; the truncating allele is mistargeted and fails to increase lipid droplet size, and the patient\u0027s white adipocytes are multiloculated (FPLD5). PLIN1 coats the droplet, and the FPLD4 frameshift alleles extend its C-terminus and act dominant-negatively rather than by haploinsufficiency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Lipid droplet organization\"], \"genes\": [\"CIDEC\", \"PLIN1\"], \"gene_terms\": [{\"label\": \"CIDEC\", \"id\": \"hgnc:24229\"}, {\"label\": \"PLIN1\", \"id\": \"hgnc:9076\"}]}}, {\"id\": \"CIDEC biallelic variants (FPLD5)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CIDEC\"], \"gene_terms\": [{\"label\": \"CIDEC\", \"id\": \"hgnc:24229\"}], \"subtypes\": [\"FPLD5\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Dysregulated adipocyte triglyceride lipolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Three curated genes disturb the release of stored triglyceride from the adipocyte droplet, in opposite directions, which is why the node is tagged abnormal rather than increased or decreased. PLIN1 frameshift mutants fail to hold ABHD5, so adipose triglyceride lipase is constitutively activated and basal lipolysis runs unchecked (FPLD4). The reported ADRA2A variant removes the presynaptic alpha-2A adrenergic brake on adipocyte cAMP, again raising lipolysis, and is proposed to do so only in some depots (FPLD8). LIPE encodes hormone-sensitive lipase itself, so biallelic loss instead impairs triglyceride mobilization (FPLD6).\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Adipocyte triglyceride lipolysis\"], \"genes\": [\"PLIN1\", \"LIPE\", \"ADRA2A\"], \"gene_terms\": [{\"label\": \"PLIN1\", \"id\": \"hgnc:9076\"}, {\"label\": \"LIPE\", \"id\": \"hgnc:6621\"}, {\"label\": \"ADRA2A\", \"id\": \"hgnc:281\"}]}}, {\"id\": \"Ectopic lipid deposition and systemic insulin resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The limited subcutaneous storage capacity forces triglycerides into ectopic sites (liver, muscle, viscera), driving severe insulin resistance, hypertriglyceridemia, type 2 diabetes, hepatic steatosis, and downstream cardiometabolic disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Lipid metabolic process\"], \"locations\": [\"Liver\"]}}, {\"id\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The unifying defect across FPLD subtypes is failure of subcutaneous adipose tissue to develop and/or store triglycerides normally, owing to disruption of adipogenesis, lipid-droplet biology, or adipocyte maintenance. This produces selective loss of subcutaneous fat from the limbs and gluteal region.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Fat cell differentiation (adipogenesis)\", \"Regulation of lipid storage\"], \"locations\": [\"Subcutaneous adipose tissue\"]}}, {\"id\": \"Impaired adipose insulin and PI3K-AKT signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AKT2 is a kinase of the insulin/PI3K-AKT pathway, and ClinGen\u0027s review of the reported evidence records that AKT2 signaling is important for adipocyte differentiation. The reported FPLD allele has little or no kinase activity, so insulin signaling fails in the adipocyte itself rather than only downstream of an adipose deficit.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Insulin receptor signaling pathway\"], \"genes\": [\"AKT2\"], \"gene_terms\": [{\"label\": \"AKT2\", \"id\": \"hgnc:392\"}]}}, {\"id\": \"LIPE biallelic variants (FPLD6)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LIPE\"], \"gene_terms\": [{\"label\": \"LIPE\", \"id\": \"hgnc:6621\"}], \"subtypes\": [\"FPLD6\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"LMNA nuclear-lamina dysfunction and adipocyte loss (FPLD2)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In FPLD2 (Dunnigan), pathogenic LMNA variants (commonly codon 482) perturb lamin A/C structure and lamin-chromatin (lamina-associated domain) interactions required for adipocyte differentiation and maintenance, with suppression of lipid-metabolism and mitochondrial programs and an intrinsic inflammatory transcriptional signature. (Adipocyte-specific Lmna-knockout mouse data supporting a cell-autonomous role for lamin A/C in adipocyte maintenance are summarized in the entry notes.)\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"Chromatin organization\", \"Lipid metabolic process\", \"Inflammatory response\"], \"genes\": [\"LMNA\"], \"gene_terms\": [{\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}]}}, {\"id\": \"LMNA pathogenic variants (FPLD2/Dunnigan)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"LMNA\"], \"gene_terms\": [{\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}], \"subtypes\": [\"FPLD2\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Loss of PPARgamma-driven adipogenic transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PPARgamma is the master transcriptional regulator of preadipocyte-to-adipocyte differentiation. Two curated routes converge on reduced PPARgamma signaling: loss-of-function PPARG variants themselves (FPLD3), and biallelic PLAAT3 loss (FPLD9), which remodels white adipose membrane phospholipids and strongly lowers PPARgamma signaling without altering PPARG itself.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"PPARgamma nuclear receptor signaling\"], \"genes\": [\"PPARG\"], \"gene_terms\": [{\"label\": \"PPARG\", \"id\": \"hgnc:9236\"}]}}, {\"id\": \"NOTCH3 gain of function and adipose senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Missense variants clustered in the heterodimerization domain of the NOTCH3 negative regulatory region were reported in three unrelated FPL families. Patient skin fibroblasts show raised NOTCH3 RNA and protein and activation of widespread senescence pathways, which the authors propose as the route from unrestrained NOTCH3 signaling to loss of adipose tissue. This node records a single-publication mechanism; see the notes on the NOTCH3 genetic record.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Notch signaling pathway\", \"Cellular senescence\"], \"genes\": [\"NOTCH3\"], \"gene_terms\": [{\"label\": \"NOTCH3\", \"id\": \"hgnc:7883\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"PLAAT3 biallelic loss-of-function variants (FPLD9)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PLAAT3\"], \"gene_terms\": [{\"label\": \"PLAAT3\", \"id\": \"hgnc:17825\"}], \"subtypes\": [\"FPLD9\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PLAAT3 loss and phospholipid remodeling of white adipose tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PLAAT3 is a phospholipid-modifying enzyme expressed in neural tissue and white adipose tissue. Biallelic loss of function enriches white adipose membranes in arachidonic-acid-containing phospholipids and strongly lowers PPARgamma signaling, so the lesion is upstream of the adipogenic transcriptional program rather than in it. This is the FPLD9 route.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Adipocyte\"], \"biological_processes\": [\"membrane phospholipid metabolic process\"], \"genes\": [\"PLAAT3\"], \"gene_terms\": [{\"label\": \"PLAAT3\", \"id\": \"hgnc:17825\"}]}}, {\"id\": \"PLIN1 pathogenic variants (FPLD4)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PLIN1\"], \"gene_terms\": [{\"label\": \"PLIN1\", \"id\": \"hgnc:9076\"}], \"subtypes\": [\"FPLD4\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PPARG loss-of-function variants (FPLD3)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PPARG\"], \"gene_terms\": [{\"label\": \"PPARG\", \"id\": \"hgnc:9236\"}], \"subtypes\": [\"FPLD3\"], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}], \"edges\": [{\"source\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"target\": \"Ectopic lipid deposition and systemic insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced subcutaneous storage capacity diverts lipid to ectopic sites, driving systemic insulin resistance.\"}, {\"source\": \"LMNA nuclear-lamina dysfunction and adipocyte loss (FPLD2)\", \"target\": \"Ectopic lipid deposition and systemic insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LMNA-driven adipose dysfunction feeds the shared ectopic-lipid and insulin-resistance cascade.\"}, {\"source\": \"Loss of PPARgamma-driven adipogenic transcription\", \"target\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PPARgamma transcriptional output blocks preadipocyte differentiation, limiting the subcutaneous adipose compartment that can be built and maintained.\"}, {\"source\": \"PLAAT3 loss and phospholipid remodeling of white adipose tissue\", \"target\": \"Loss of PPARgamma-driven adipogenic transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Phospholipid remodeling of white adipose membranes lowers PPARgamma signaling, joining the FPLD3 route at the adipogenic transcription node.\"}, {\"source\": \"Adipocyte lipid-droplet formation defect\", \"target\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adipocytes that cannot build or coat a normal unilocular droplet store triglyceride inefficiently, reducing safe subcutaneous storage capacity.\"}, {\"source\": \"Adipocyte lipid-droplet formation defect\", \"target\": \"Dysregulated adipocyte triglyceride lipolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same droplet-coat defect removes the perilipin-1 brake on lipase access to stored triglyceride.\"}, {\"source\": \"Dysregulated adipocyte triglyceride lipolysis\", \"target\": \"Ectopic lipid deposition and systemic insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Triglyceride that cannot be retained in, or mobilized from, subcutaneous adipocytes reaches ectopic depots.\"}, {\"source\": \"Impaired adipose insulin and PI3K-AKT signaling\", \"target\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of AKT2 kinase output impairs the insulin-driven differentiation and storage program of the adipocyte.\"}, {\"source\": \"Impaired adipose insulin and PI3K-AKT signaling\", \"target\": \"Ectopic lipid deposition and systemic insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A kinase-dead AKT2 also blocks insulin action directly, so the insulin resistance is not solely a consequence of reduced fat mass.\"}, {\"source\": \"NOTCH3 gain of function and adipose senescence\", \"target\": \"Impaired adipocyte differentiation and adipose storage capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Senescence activation is the proposed route by which unrestrained NOTCH3 signaling depletes the subcutaneous adipose compartment.\"}, {\"source\": \"LMNA pathogenic variants (FPLD2/Dunnigan)\", \"target\": \"LMNA nuclear-lamina dysfunction and adipocyte loss (FPLD2)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPARG loss-of-function variants (FPLD3)\", \"target\": \"Loss of PPARgamma-driven adipogenic transcription\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLIN1 pathogenic variants (FPLD4)\", \"target\": \"Adipocyte lipid-droplet formation defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLIN1 pathogenic variants (FPLD4)\", \"target\": \"Dysregulated adipocyte triglyceride lipolysis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CIDEC biallelic variants (FPLD5)\", \"target\": \"Adipocyte lipid-droplet formation defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIPE biallelic variants (FPLD6)\", \"target\": \"Dysregulated adipocyte triglyceride lipolysis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLAAT3 biallelic loss-of-function variants (FPLD9)\", \"target\": \"PLAAT3 loss and phospholipid remodeling of white adipose tissue\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7744,6 +7798,9 @@ This disease-associated gene is LMNA (hgnc:6636). hgnc:6636 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7874,6 +7931,9 @@ This disease-associated gene is PPARG (hgnc:9236). hgnc:9236 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -8008,6 +8068,9 @@ This disease-associated gene is PLIN1 (hgnc:9076). hgnc:9076 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8131,6 +8194,9 @@ This disease-associated gene is CIDEC (hgnc:24229). hgnc:24229 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8211,6 +8277,9 @@ This disease-associated gene is LIPE (hgnc:6621). hgnc:6621 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8289,6 +8358,9 @@ This disease-associated gene is AKT2 (hgnc:392). hgnc:392 is a gene from the HUG
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8392,6 +8464,9 @@ This disease-associated gene is CAV1 (hgnc:1527). hgnc:1527 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8485,6 +8560,9 @@ This disease-associated gene is MFN2 (hgnc:16877). hgnc:16877 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8612,6 +8690,9 @@ This disease-associated gene is NOTCH3 (hgnc:7883). hgnc:7883 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -8717,6 +8798,9 @@ This disease-associated gene is PLAAT3 (hgnc:17825). hgnc:17825 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8795,6 +8879,9 @@ This disease-associated gene is ADRA2A (hgnc:281). hgnc:281 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

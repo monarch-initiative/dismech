@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4993,6 +5032,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-kiaa0753-loss-of-function-variants" data-dismech-node="Biallelic KIAA0753 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic KIAA0753 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Nonsense, frameshift and splice-altering variants on both KIAA0753 alleles. Truncating alleles predominate. Splice-altering alleles are easy to miss: two Pakistani families sharing an 85 kb homozygous block carried a synonymous c.810C&gt;T change that turned out to activate abnormal splicing, which was only demonstrated by sequencing cDNA.</div>
 
 
@@ -5136,6 +5176,7 @@ This pathophysiological event involves KIAA0753 (hgnc:29110). hgnc:29110 is a ge
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-basal-body-docking-and-ciliogenesis" data-dismech-node="Defective Basal Body Docking and Ciliogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Basal Body Docking and Ciliogenesis</div>
+
 
                 <div class="item-desc">KIAA0753 forms a ternary complex with OFD1 and FOPNL (FOR20) at centrosomes and pericentriolar satellites, and it acts upstream of them: mammalian centrioles need Moonraker to recruit OFD1, FOPNL and CEP90, which then place the distal appendage proteins CEP83, CEP89 and CEP164. Distal appendages are what dock the basal body to the plasma membrane, the step that permits a cilium to be built at all. The protein also has microtubule-stabilising activity. In patients the result is a measurable deficit in ciliation: fibroblasts from affected individuals make fewer primary cilia, and ablating the gene in vitro blocks ciliogenesis outright.
 This node substitutes a docking and appendage-assembly defect for the module&#39;s generic basal body lesion. Intraflagellar transport is not the primary lesion here, which is what separates this disorder from the IFT and dynein-2 forms of short-rib thoracic dysplasia.</div>
@@ -5419,6 +5460,7 @@ This pathophysiological event involves ciliary basal body (GO:0036064). GO:00360
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hedgehog-signal-transduction" data-dismech-node="Impaired Hedgehog Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hedgehog Signal Transduction</div>
 
+
                 <div class="item-desc">KIAA0753-null mouse NIH3T3 cells fail to induce Gli1 after Smoothened agonist treatment. Fibroblasts from the Joubert-presenting patient 1 in the Inskeep series show reduced ciliation and a blunted SHH response with altered aspects of WNT signaling. These results support gene function but are not direct measurements in skeletal-patient growth plates.</div>
 
 
@@ -5603,6 +5645,7 @@ This pathophysiological event involves abnormal Wnt signaling pathway (GO:001605
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-plate-zonal-disorganisation" data-dismech-node="Growth Plate Zonal Disorganisation" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Plate Zonal Disorganisation</div>
+
 
                 <div class="item-desc">The distal femoral growth plate of the affected fetus had disorganized proliferative columns and a broad hypertrophic zone, with absent KIAA0753 staining in proliferative chondrocytes. The authors infer that impaired ciliary and centrosomal function disrupts growth-plate organization and causes abnormal skeletal growth. The contribution of Hedgehog signaling is inferred from other tissues and experimental systems.</div>
 
@@ -5887,6 +5930,7 @@ This pathophysiological event occurs in epiphyseal plate (UBERON:0002516). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-short-ribs-and-thoracic-constriction" data-dismech-node="Short Ribs and Thoracic Constriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Short Ribs and Thoracic Constriction</div>
 
+
                 <div class="item-desc">Short, broad ribs with cupped anterior ends give a narrow thorax; the tubular bones are short with metaphyseal irregularity and cone-shaped epiphyses, and the pelvis shows the trident appearance characteristic of the group. This node substitutes the polydactyly-free presentation for the module&#39;s generic skeletal node: polydactyly is in the module&#39;s node name and is absent here, which is what the disorder&#39;s own name records.</div>
 
 
@@ -6033,6 +6077,7 @@ This pathophysiological event occurs in thoracic rib cage (UBERON:0003252). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-hypoplasia" data-dismech-node="Pulmonary Hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Hypoplasia</div>
 
+
                 <div class="item-desc">Underdeveloped lungs at birth, the developmental consequence of a thorax that is too small during fetal lung growth. It sits between the skeletal lesion and the respiratory failure and is what distinguishes this disorder&#39;s respiratory course from simple mechanical restriction of normal lungs: in the one skeletally-presenting patient reported in detail it required NICU management from birth alongside pulmonary hypertension, and he died at two weeks.</div>
 
 
@@ -6163,6 +6208,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-insufficiency-from-thoracic-restriction" data-dismech-node="Respiratory Insufficiency from Thoracic Restriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Insufficiency from Thoracic Restriction</div>
 
+
                 <div class="item-desc">Thoracic restriction and pulmonary hypoplasia contribute to respiratory insufficiency from birth in severe cases. Reported outcomes also include respiratory failure after infection and neonatal death due to pulmonary hypertension, so thoracic size alone does not establish the terminal mechanism. One skeletal patient additionally had confirmed respiratory ciliary dyskinesia with recurrent chest infections, a separate route to respiratory disease.</div>
 
 
@@ -6265,6 +6311,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-and-cns-involvement" data-dismech-node="Cerebellar and CNS Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar and CNS Involvement</div>
+
 
                 <div class="item-desc">KIAA0753 depletion in mouse cerebellar granule-neuron progenitors impairs differentiation and germinal-zone exit. The authors propose that this contributes to cerebellar hypoplasia in Joubert syndrome. Inferior vermis hypoplasia/dysplasia and molar tooth sign also occur in skeletal patients, supporting an overlapping cerebellar developmental branch. Callosal, ventricular and pituitary anomalies, hypotonia and developmental delay are associated clinical findings whose individual causal routes remain unresolved.</div>
 
@@ -10532,6 +10579,9 @@ This disease-associated gene is KIAA0753 (hgnc:29110). hgnc:29110 is a gene from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10607,6 +10657,7 @@ This disease-associated gene is KIAA0753 (hgnc:29110). hgnc:29110 is a gene from
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10626,11 +10677,17 @@ This variant is in KIAA0753 (hgnc:29110). hgnc:29110 is a gene from the HUGO Gen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A nonsense variant, homozygous in three affected individuals across two separate families of the discovery series, which makes it the one recurrent allele of this disorder. Carrier frequency in gnomAD is 4 in 245,846 heterozygotes, minor allele frequency 1.627e-5, in South Asian and non-Finnish European populations.</div>
@@ -10693,6 +10750,7 @@ This variant is in KIAA0753 (hgnc:29110). hgnc:29110 is a gene from the HUGO Gen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10712,11 +10770,17 @@ This variant is in KIAA0753 (hgnc:29110). hgnc:29110 is a gene from the HUGO Gen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A nonsense variant carried in trans with c.1271del by the affected fetus of the discovery series, and reported homozygous in an unrelated patient with the Jeune presentation. gnomAD carrier frequency 6 in 276,744, minor allele frequency 2.168e-5, non-Finnish European.</div>
@@ -10804,6 +10868,7 @@ This variant is in KIAA0753 (hgnc:29110). hgnc:29110 is a gene from the HUGO Gen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10823,11 +10888,17 @@ This variant is in KIAA0753 (hgnc:29110). hgnc:29110 is a gene from the HUGO Gen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A single-base deletion causing a frameshift, in trans with c.943C&gt;T in the affected fetus. Absent from gnomAD.</div>
@@ -10890,6 +10961,7 @@ This variant is in KIAA0753 (hgnc:29110). hgnc:29110 is a gene from the HUGO Gen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10909,11 +10981,17 @@ This variant is in KIAA0753 (hgnc:29110). hgnc:29110 is a gene from the HUGO Gen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">synonymous</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A synonymous change that in silico tools did not flag and that turned out to activate abnormal splicing, demonstrated by cDNA sequencing. Two apparently unrelated Pakistani families share it within an 85 kb homozygous block, indicating a common ancestor. It is the reason a negative first-pass panel does not exclude this diagnosis.</div>
@@ -11001,6 +11079,7 @@ This variant is in KIAA0753 (hgnc:29110). hgnc:29110 is a gene from the HUGO Gen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11020,11 +11099,17 @@ This variant is in KIAA0753 (hgnc:29110). hgnc:29110 is a gene from the HUGO Gen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A nonsense variant carried in trans with c.943C&gt;T by the skeletally-presenting patient of the KIAA0753 heterogeneity series, who was managed in neonatal intensive care for pulmonary hypoplasia and died at two weeks of severe pulmonary hypertension. Its partner allele is curated above, so leaving this one out would make the allele list read as complete when it is not.</div>

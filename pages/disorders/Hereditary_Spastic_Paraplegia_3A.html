@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5966,6 +6005,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atl1-variant-impairing-the-atlastin-1-gtpase-cycle" data-dismech-node="ATL1 Variant Impairing the Atlastin-1 GTPase Cycle" data-dismech-type="pathophysiology">
                 <div class="item-name">ATL1 Variant Impairing the Atlastin-1 GTPase Cycle</div>
 
+
                 <div class="item-desc">Atlastin-1 is a neuronally enriched, dynamin-like integral-membrane GTPase of the tubular ER, built from an N-terminal GTPase domain, a three-helix bundle, two transmembrane segments and a C-terminal amphipathic tail. GTP-dependent head-to-head dimerisation across apposed membranes, crossover of the three-helix bundles and GTP hydrolysis pull the membranes together. Heterozygous ATL1 missense variants cluster in the GTPase domain and the three-helix bundle and disturb this cycle in allele-specific ways: several reduce GTP hydrolysis and dimerisation, one (F151S) uncouples the catalytic site from nucleotide loading, and others destabilise the GTP-bound crossover dimer or the membrane-embedded helix. Mutant protein forms mixed oligomers with wild-type atlastin-1 and in cells acts in a dominant-negative manner, although in the fly several patient variants behave as plain loss-of-function alleles and biallelic variants cause recessive disease, so the dominant-negative label is recorded here as the best-supported, not the only, mechanism.</div>
 
 
@@ -6070,6 +6110,8 @@ This genetic context concerns ATL1 (hgnc:11231). hgnc:11231 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -6082,6 +6124,9 @@ This genetic context concerns ATL1 (hgnc:11231). hgnc:11231 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">Dominant-negative is the category with the most direct human-variant evidence (mixed oligomer formation, dominant-negative disruption of ER reticularisation and BMPRII trafficking in cells). Loss of function is supported by CRISPR knock-in flies and by the recessive families, and at least two frequent variants have no measurable functional deficit. See the dominant-negative versus loss-of-function discussion.</div>
@@ -6354,6 +6399,7 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-homotypic-er-tubule-fusion" data-dismech-node="Impaired Homotypic ER Tubule Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Homotypic ER Tubule Fusion</div>
 
+
                 <div class="item-desc">Atlastin-1 drives GTP-dependent homotypic fusion of ER tubules: GTP binding reorients the GTPase domain against the three-helix bundle to permit self-association across membranes, and hydrolysis completes the fusion. Human atlastin-1 catalyses lipid mixing directly once its C-terminal autoinhibition is relieved. SPG3A variants that break any step of this cycle leave apposed tubules tethered but unfused, so the three-way junctions that make the tubular ER a continuous network fail to form.</div>
 
 
@@ -6586,6 +6632,7 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-tubular-er-network-in-neurons" data-dismech-node="Disrupted Tubular ER Network in Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Tubular ER Network in Neurons</div>
+
 
                 <div class="item-desc">Without atlastin-1-mediated fusion the peripheral ER of the neuron becomes long, unbranched and poorly interconnected: three-way junctions are lost, the network retracts from distal neurites, and ER-microtubule coordination through the atlastin-1, spastin and REEP1 complex is disturbed. In the corticospinal axons of the Atl1 K80A knock-in, Reep1-null mouse the axonal ER instead expands transversely into a periodic ladder-like structure, dosage-dependently, with fragmented mitochondria and hypophosphorylated neurofilaments in lockstep. Whether the ER of patient corticospinal axons shows either change is not known.</div>
 
@@ -6884,6 +6931,7 @@ This pathophysiological event involves endoplasmic reticulum tubular network (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-bmp-signalling-from-impaired-bmprii-trafficking" data-dismech-node="Dysregulated BMP Signalling from Impaired BMPRII Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated BMP Signalling from Impaired BMPRII Trafficking</div>
 
+
                 <div class="item-desc">Atlastin-1 binds the type II BMP receptor and inhibits BMP signalling, in concert with the other HSP proteins spastin, NIPA1 and spartin. Patient variants R239C and R495W block BMPRII trafficking to the cell surface in a dominant-negative manner and blunt Smad1/5 phosphorylation after BMP4, whereas knockdown of atlastin in zebrafish substantially up-regulates BMP signalling and disorganises spinal motor axons. The direction of the change therefore differs between the human dominant-negative variants and loss-of-function models, which is why the process is recorded as dysregulated rather than increased or decreased.</div>
 
 
@@ -7124,6 +7172,7 @@ This pathophysiological event involves dysregulated BMP signaling pathway (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-astrocyte-lipid-droplet-formation-and-cholesterol-supply-to-neurons" data-dismech-node="Impaired Astrocyte Lipid Droplet Formation and Cholesterol Supply to Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Astrocyte Lipid Droplet Formation and Cholesterol Supply to Neurons</div>
 
+
                 <div class="item-desc">ATL1 variants in human pluripotent stem cell-derived astrocytes dysregulate proteolipid gene expression, shrink lipid droplets and disrupt cholesterol transfer to neurons, leaving co-cultured cortical projection neurons cholesterol-deficient. This is a non-cell-autonomous arm: the neuronal axonal defects are rescued by exogenous cholesterol, by conditioned medium from control astrocytes, or by liver-X-receptor agonists that restore astrocyte cholesterol efflux.</div>
 
 
@@ -7355,6 +7404,7 @@ This pathophysiological event involves decreased cholesterol transport from astr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-axonal-er-distribution-organelle-transport-and-axon-growth" data-dismech-node="Impaired Axonal ER Distribution, Organelle Transport and Axon Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Axonal ER Distribution, Organelle Transport and Axon Growth</div>
+
 
                 <div class="item-desc">Atlastin-1 is enriched in growth cones, axonal varicosities and branch points of cortical neurons, and its knockdown or mutation reduces axon formation and elongation. Human SPG3A neurons show impaired axon growth, altered mitochondrial motility, impaired axonal transport and axonal swellings, and dominant-negative ATL1 blocks NGF-driven neurite outgrowth in PC-12 cells partly by undermining store-operated calcium entry. In the double-mutant mouse, axonal mitochondria fragment and neurofilament H and M become hypophosphorylated in lockstep with the ER change. Because SPG3A begins so early, a developmental component to the axonopathy has been proposed alongside failure of maintenance.</div>
 
@@ -7667,6 +7717,7 @@ This pathophysiological event involves dysregulated mitochondrion organization (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-presynaptic-dysfunction-of-corticospinal-neurons" data-dismech-node="Presynaptic Dysfunction of Corticospinal Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Presynaptic Dysfunction of Corticospinal Neurons</div>
 
+
                 <div class="item-desc">Transcriptomic comparison of SPG3A patient iPSC-derived cortical projection neurons with controls identifies synaptic dysfunction as a top altered pathway beside lipid pathways: synaptic genes and proteins are reduced and calcium activity is diminished in neurons from two patients with different missense variants, and both are restored by the LXR agonist LXR623. In fly motor neurons, atlastin loss depletes presynaptic proteins at terminals and disturbs synaptic vesicle pools, with progressive decline in locomotion.</div>
 
 
@@ -7902,6 +7953,7 @@ This pathophysiological event involves decreased synapse organization (GO:005080
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-length-dependent-corticospinal-axon-degeneration" data-dismech-node="Distal Length-Dependent Corticospinal Axon Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Length-Dependent Corticospinal Axon Degeneration</div>
 
+
                 <div class="item-desc">The corticospinal axons reaching the lumbosacral cord, the longest in the central nervous system, degenerate from their distal ends in a retrograde, length-dependent pattern, so the deficit is maximal in the legs and the arms are largely spared. In SPG3A the corticospinal lesion is clinically evident from early childhood and is reflected in frequently abnormal motor evoked potentials, while the dorsal columns are involved in only a minority. Quantitative post-mortem study of HSP shows reduced corticospinal axon number at every level with the loss most pronounced distally, the signature of a dying-back axonopathy.</div>
 
 
@@ -8104,6 +8156,7 @@ This pathophysiological event involves decreased neuron projection maintenance (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-supraspinal-inhibition-of-the-spinal-stretch-reflex" data-dismech-node="Loss of Supraspinal Inhibition of the Spinal Stretch Reflex" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Supraspinal Inhibition of the Spinal Stretch Reflex</div>
 
+
                 <div class="item-desc">Loss of descending corticospinal input releases the lumbar stretch reflex from supraspinal inhibitory control, producing velocity-dependent hypertonia, hyperreflexia, clonus and extensor plantar responses. The step is the shared HSP mechanism carried by the module and is not separately evidenced for SPG3A.</div>
 
 
@@ -8176,6 +8229,7 @@ This pathophysiological event involves spinal motor neuron, annotated with motor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-lower-limb-spasticity-and-weakness" data-dismech-node="Progressive Lower-Limb Spasticity and Weakness" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Lower-Limb Spasticity and Weakness</div>
+
 
                 <div class="item-desc">Bilateral, largely symmetric spasticity and weakness of the legs presenting as a spastic gait, usually in the first decade, with slow and often near-static progression in SPG3A and preserved ambulation in most.</div>
 
@@ -8307,6 +8361,7 @@ This pathophysiological event involves spinal motor neuron, annotated with motor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-axonal-degeneration-of-peripheral-motor-and-sensory-nerves" data-dismech-node="Distal Axonal Degeneration of Peripheral Motor and Sensory Nerves" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Axonal Degeneration of Peripheral Motor and Sensory Nerves</div>
+
 
                 <div class="item-desc">In the complicated form, and subclinically in further patients, the long peripheral motor and sensory axons also degenerate, producing an axonal sensorimotor neuropathy with lower motor neuron involvement and distal amyotrophy. This is the peripheral counterpart of the corticospinal lesion, conforming to the peripheral module at its axonal-degeneration node; there is no demyelinating component. The allelic disorder HSN1D shows that ATL1 variants can injure long peripheral axons on their own.</div>
 
@@ -10489,6 +10544,9 @@ This disease-associated gene is ATL1 (hgnc:11231). hgnc:11231 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -10588,6 +10646,12 @@ This disease-associated gene is ATL1 (hgnc:11231). hgnc:11231 is a gene from the
         p.Arg239Cys (R239C)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The most frequently identified SPG3A variant, recurring across European and East Asian cohorts. It disrupts BMPRII trafficking in a dominant-negative manner, yet shows wild-type ER network formation, GTPase activity, dimerisation and membrane fusion in every assay, which is the principal evidence that a fusion deficit is not required for disease.</div>
@@ -10699,6 +10763,12 @@ This disease-associated gene is ATL1 (hgnc:11231). hgnc:11231 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The most common ATL1 variant in Taiwan, found in five pedigrees sharing a haplotype consistent with a common ancestor.</div>
 
 
@@ -10756,6 +10826,12 @@ This disease-associated gene is ATL1 (hgnc:11231). hgnc:11231 is a gene from the
         p.Arg118Gln (R118Q), homozygous
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A homozygous GTPase-domain missense variant segregating with early-onset HSP in six members of a consanguineous family; seven heterozygous carriers were clinically unaffected.</div>
@@ -10817,6 +10893,12 @@ This disease-associated gene is ATL1 (hgnc:11231). hgnc:11231 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A variant in the hinge between the GTPase and assembly domains, found in a girl with pure SPG3A and used to derive the first SPG3A patient iPSC neuronal model; the same patient line underlies the later lipid and synaptic studies.</div>
 
 
@@ -10874,6 +10956,12 @@ This disease-associated gene is ATL1 (hgnc:11231). hgnc:11231 is a gene from the
         p.Lys406Glu (K406E), de novo
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A de novo three-helix-bundle variant in one of the three very-early-onset severe complex cases.</div>

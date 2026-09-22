@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4362,6 +4401,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-anti-ro-la-igg-transfer-across-the-placenta" data-dismech-node="Maternal Anti-Ro/La IgG Transfer Across the Placenta" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal Anti-Ro/La IgG Transfer Across the Placenta</div>
 
+
                 <div class="item-desc">Maternal IgG autoantibodies against the Ro/SSA (Ro52/TRIM21 and Ro60) and La/SSB ribonucleoproteins, or against U1-RNP, cross the placenta and enter the fetal circulation. Because placental IgG transport rises through the second and third trimesters, fetal antibody concentration climbs across exactly the gestational window in which the conduction system is vulnerable. This node is the disease&#39;s sole initiating event; everything downstream is a consequence of antibody presence in fetal tissue.</div>
 
 
@@ -4441,6 +4481,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-surface-exposure-of-ro-la-antigens-on-apoptotic-fetal-cardiocytes" data-dismech-node="Surface Exposure of Ro/La Antigens on Apoptotic Fetal Cardiocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Surface Exposure of Ro/La Antigens on Apoptotic Fetal Cardiocytes</div>
+
 
                 <div class="item-desc">Ro and La are normally intracellular ribonucleoproteins and are therefore invisible to circulating antibody. During the physiological apoptosis that accompanies remodelling of the developing atrioventricular conduction system, these antigens translocate to the surface of apoptotic cardiocytes, where the maternal antibodies can reach them. This developmentally timed unmasking is what confines cardiac injury to a narrow gestational window rather than occurring whenever antibody is present.</div>
 
@@ -4626,6 +4667,7 @@ This pathophysiological event occurs in atrioventricular node (UBERON:0002352). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diverted-clearance-of-opsonised-apoptotic-cardiocytes-to-macrophages" data-dismech-node="Diverted Clearance of Opsonised Apoptotic Cardiocytes to Macrophages" data-dismech-type="pathophysiology">
                 <div class="item-name">Diverted Clearance of Opsonised Apoptotic Cardiocytes to Macrophages</div>
+
 
                 <div class="item-desc">Healthy cardiocytes normally phagocytose their apoptotic neighbours silently, a form of efferocytosis that produces no inflammation. Bound anti-Ro/La antibody blocks that uptake, so clearance is diverted to professional Fc-gamma-receptor-bearing phagocytes. The same apoptotic cell is then removed through an inflammatory route instead of a silent one. This diversion, rather than the antibody binding itself, is the step that converts a normal developmental process into tissue injury.</div>
 
@@ -4854,6 +4896,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgf-beta-driven-fibrosis-and-calcification-of-the-conduction-system" data-dismech-node="TGF-beta-Driven Fibrosis and Calcification of the Conduction System" data-dismech-type="pathophysiology">
                 <div class="item-name">TGF-beta-Driven Fibrosis and Calcification of the Conduction System</div>
 
+
                 <div class="item-desc">Macrophages taking up antibody-bound apoptotic cardiocytes secrete pro-inflammatory and pro-fibrosing cytokines, and crosstalk with myofibroblasts drives TGF-beta expression, extensive fibrosis and dystrophic calcification within the atrioventricular node. Conduction tissue is replaced by scar. The claim that this is structural rather than inflammatory carries the entry&#39;s main clinical implication: once replacement is complete the lesion cannot be reversed by suppressing inflammation.</div>
 
 
@@ -5021,6 +5064,7 @@ This pathophysiological event occurs in atrioventricular node (UBERON:0002352). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-irreversible-complete-atrioventricular-block" data-dismech-node="Irreversible Complete Atrioventricular Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Irreversible Complete Atrioventricular Block</div>
 
+
                 <div class="item-desc">Fibrous replacement of the atrioventricular node produces third-degree block: atrial and ventricular activity become fully dissociated and ventricular rate falls to a junctional or ventricular escape rhythm. Most survivors require permanent pacing. Injury may extend beyond the node to the myocardium and endocardium, which is the origin of the late dilated cardiomyopathy and endocardial fibroelastosis seen in some survivors whose in-utero ventricular function was normal.</div>
 
 
@@ -5106,6 +5150,7 @@ This pathophysiological event occurs in atrioventricular node (UBERON:0002352). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-antibody-mediated-injury-of-skin-liver-and-blood-cells" data-dismech-node="Antibody-Mediated Injury of Skin, Liver and Blood Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Antibody-Mediated Injury of Skin, Liver and Blood Cells</div>
+
 
                 <div class="item-desc">In parallel with the cardiac lesion and by a separate, reversible route, maternal antibody produces annular photosensitive skin lesions, cholestatic or transaminitic liver involvement, and peripheral cytopenias. These manifestations share the cardiac trigger but not its outcome: no fibrotic replacement occurs, so all resolve as maternal IgG is catabolised over the first 6-12 months of life. Modelling them as a distinct node rather than as downstream of the cardiac chain is deliberate, since they occur in infants with entirely normal conduction.</div>
 
@@ -6358,6 +6403,9 @@ This disease-associated gene is TRIM21 (hgnc:11312). hgnc:11312 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6430,6 +6478,9 @@ This disease-associated gene is RO60 (hgnc:11313). hgnc:11313 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6498,6 +6549,9 @@ This disease-associated gene is SSB (hgnc:11316). hgnc:11316 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

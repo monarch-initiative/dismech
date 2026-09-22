@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5891,6 +5930,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nr5a1-sequence-alteration" data-dismech-node="NR5A1 sequence alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">NR5A1 sequence alteration</div>
 
+
                 <div class="item-desc">Heterozygous pathogenic NR5A1 variants occur in partial gonadal dysgenesis. Early truncating alleles are predicted to reduce functional SF-1; other alleles have variant-specific effects. Nonsense-mediated decay and splice changes in the cited partial cases were predicted rather than directly measured.</div>
 
 
@@ -6020,6 +6060,7 @@ This pathophysiological event involves NR5A1 (hgnc:7983). hgnc:7983 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-sf-1-transcriptional-activity" data-dismech-node="Reduced SF-1 transcriptional activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced SF-1 transcriptional activity</div>
 
+
                 <div class="item-desc">p.Gly22Asp and p.Leu420Pro reduced Cyp11a1 promoter activation in kidney-derived tsa201 cells. This is an experimental readout of variant-dependent transcriptional function; it does not directly measure fetal Sertoli differentiation or all SF-1 target genes.</div>
 
 
@@ -6140,6 +6181,7 @@ This pathophysiological event involves NR5A1 (hgnc:7983). hgnc:7983 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-map3k1-sequence-alteration" data-dismech-node="MAP3K1 sequence alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">MAP3K1 sequence alteration</div>
+
 
                 <div class="item-desc">Heterozygous MAP3K1 variants are associated with partial and complete gonadal dysgenesis. Functional consequences below are allele- and assay-specific. The p.Arg186Gly family had severe 46,XY DSD with streak gonads or tumors; its cellular results inform a broader gene mechanism rather than prove the mechanism of every partial presentation.</div>
 
@@ -6310,6 +6352,7 @@ This pathophysiological event involves MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-map3k1-rhoa-association" data-dismech-node="Enhanced MAP3K1-RHOA association" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced MAP3K1-RHOA association</div>
 
+
                 <div class="item-desc">Selected MAP3K1 variants increase RHOA association in protein-interaction assays. The p.Arg186Gly study used both NanoBiT and co-immunoprecipitation. Stronger association alone does not prove that RHOA mediates all downstream signaling changes.</div>
 
 
@@ -6466,6 +6509,7 @@ This pathophysiological event involves MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-map3k1-ubiquitination" data-dismech-node="Reduced MAP3K1 ubiquitination" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced MAP3K1 ubiquitination</div>
 
+
                 <div class="item-desc">The p.Arg186Gly MAP3K1 protein showed less ubiquitination than wild type in transfected HEK293T cells. Reduced turnover is a proposed explanation for greater abundance, but protein half-life and dependence on RHOA competition were not directly established.</div>
 
 
@@ -6586,6 +6630,7 @@ This pathophysiological event involves MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-map3k1-protein-abundance" data-dismech-node="Increased MAP3K1 protein abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased MAP3K1 protein abundance</div>
+
 
                 <div class="item-desc">MAP3K1 p.Arg186Gly protein abundance was increased 6.4-fold in KGN and 2.0-fold in NT2/D1 cells relative to wild type. This measured steady-state difference is separated from the unmeasured degradation-rate explanation.</div>
 
@@ -6708,6 +6753,7 @@ This pathophysiological event involves MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-erk1-2-phosphorylation" data-dismech-node="Increased ERK1/2 phosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased ERK1/2 phosphorylation</div>
 
+
                 <div class="item-desc">Serum-refed patient-derived lymphoblastoid cells carrying selected MAP3K1 variants showed increased ERK1/2 phosphorylation. These cells are not fetal gonadal cells, and phosphorylation does not by itself identify the developmental fate change.</div>
 
 
@@ -6828,6 +6874,7 @@ This pathophysiological event involves MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-p38-phosphorylation" data-dismech-node="Increased p38 phosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased p38 phosphorylation</div>
+
 
                 <div class="item-desc">p38 phosphorylation increased in selected MAP3K1 variant assays, including p.Arg186Gly-transfected NT2/D1 and KGN cells. The original lymphoblastoid study did not find the same p38 response for every tested allele.</div>
 
@@ -6985,6 +7032,7 @@ This pathophysiological event involves MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-beta-catenin-dependent-transcription" data-dismech-node="Increased beta-catenin-dependent transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased beta-catenin-dependent transcription</div>
 
+
                 <div class="item-desc">MAP3K1 p.Arg186Gly increased TCF/LEF reporter activity in HEK293T cells. The same study observed GSK3beta phosphorylation, greater WNT4/beta-catenin protein and altered sex-development gene expression. Those parallel measurements suggest an ovarian-signaling bias, but do not establish a necessary linear cascade or ovarian tissue formation in partial human disease.</div>
 
 
@@ -7105,6 +7153,7 @@ This pathophysiological event involves MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-dhh-sequence-alteration" data-dismech-node="Biallelic DHH sequence alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic DHH sequence alteration</div>
+
 
                 <div class="item-desc">Biallelic DHH variants are associated with gonadal dysgenesis and, in some patients, peripheral neuropathy. Initiating-codon translation failure and altered p.Arg124Gln ligand interactions were predicted; a universal complete loss of hedgehog signaling was not directly demonstrated in these cases.</div>
 
@@ -7270,6 +7319,7 @@ This pathophysiological event involves DHH (hgnc:2865). hgnc:2865 is a gene from
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-leydig-cell-maturation" data-dismech-node="Impaired Leydig-cell maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Leydig-cell maturation</div>
 
+
                 <div class="item-desc">In one DHH p.Arg124Gln partial-dysgenesis gonad, CYP17A1-positive Leydig-like nodules were present but mature INSL3-positive Leydig cells were absent from tubular interstitium. This supports abnormal differentiation rather than absence of every steroidogenic cell. The finding is postnatal histology, not a direct fetal hormone measurement.</div>
 
 
@@ -7410,6 +7460,7 @@ This pathophysiological event involves DHH (hgnc:2865). hgnc:2865 is a gene from
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dhx37-sequence-alteration" data-dismech-node="DHX37 sequence alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">DHX37 sequence alteration</div>
 
+
                 <div class="item-desc">Recurrent heterozygous DHX37 variants, including p.Arg308Gln, occur in partial gonadal dysgenesis and testicular regression. Genetic association is established more strongly than the biochemical route. The proposed ribosomopathy mechanism must be distinguished from measured protein abundance and from uncertain variants.</div>
 
 
@@ -7538,6 +7589,7 @@ This pathophysiological event involves DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-dhx37-protein-abundance" data-dismech-node="Reduced DHX37 protein abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced DHX37 protein abundance</div>
+
 
                 <div class="item-desc">In transfected HEK293T cells, p.Arg308Gln and p.Arg671Thr showed lower DHX37 protein expression than wild type. A separate p.Ser408Leu Sertoli-cell assay also found lower transcript and protein abundance. p.Arg671Thr and p.Ser408Leu were listed as VUS in the later study table. These assays do not demonstrate variant-dependent ATPase failure, defective 18S rRNA maturation, or a causal connection from protein reduction to human gonadal dysgenesis.</div>
 
@@ -7695,6 +7747,7 @@ This pathophysiological event involves DHX37 (hgnc:17210). hgnc:17210 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wt1-sequence-alteration" data-dismech-node="WT1 sequence alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">WT1 sequence alteration</div>
 
+
                 <div class="item-desc">Pathogenic heterozygous WT1 variants can cause partial testicular dysgenesis within a variable renal and tumor-predisposition disorder. Effects differ between zinc-finger missense, splice, truncating and deletion alleles; a single generic haploinsufficiency mechanism cannot represent all of them.</div>
 
 
@@ -7831,6 +7884,7 @@ This pathophysiological event involves WT1 (hgnc:12796). hgnc:12796 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-incomplete-testicular-differentiation" data-dismech-node="Incomplete testicular differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Incomplete testicular differentiation</div>
+
 
                 <div class="item-desc">The gonads can contain hypoplastic or disorganized testicular tissue, streak tissue and regressed regions in varying combinations. Sertoli, Leydig and germ-cell compartments need not be affected equally. Preserved testosterone, AMH or spontaneous puberty is compatible with partial dysgenesis and does not demonstrate normal fertility or absence of neoplasia.</div>
 
@@ -8014,6 +8068,7 @@ This pathophysiological event involves abnormal male gonad development (GO:00085
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-fetal-amh-activity" data-dismech-node="Reduced fetal AMH activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced fetal AMH activity</div>
 
+
                 <div class="item-desc">Insufficient anti-Müllerian hormone activity during the fetal differentiation window is a physiological interpretation of Müllerian retention in some partial cases. Other patients lack Müllerian structures, indicating that fetal AMH action may have been sufficient despite later gonadal dysfunction. Postnatal AMH measurements cannot retrospectively quantify the fetal exposure.</div>
 
 
@@ -8091,6 +8146,7 @@ This pathophysiological event involves abnormal male gonad development (GO:00085
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-fetal-androgen-activity" data-dismech-node="Reduced fetal androgen activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced fetal androgen activity</div>
+
 
                 <div class="item-desc">Inadequate testicular androgen action during genital differentiation can produce undervirilized external genital anatomy. The degree and timing vary, and a female external phenotype is possible. Fetal steroid levels were not measured in the cited clinical cohorts.</div>
 
@@ -8185,6 +8241,7 @@ This pathophysiological event involves abnormal male gonad development (GO:00085
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-spermatogenesis" data-dismech-node="Impaired spermatogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired spermatogenesis</div>
+
 
                 <div class="item-desc">Sperm production may be severely reduced or absent despite retained androgen production. Severe oligozoospermia and low motility occurred in the three semen-tested participants of one ten-patient follow-up cohort; azoospermia is documented in individual molecularly characterized partial cases.</div>
 
@@ -8306,6 +8363,7 @@ This pathophysiological event involves abnormal male gonad development (GO:00085
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-gonadal-germ-cell-maturation" data-dismech-node="Delayed gonadal germ-cell maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed gonadal germ-cell maturation</div>
+
 
                 <div class="item-desc">In a partial gonad with a MAP3K1 defect, luminal OCT3/4-positive cells were interpreted as delayed maturation and peripheral cells as preneoplastic. Delayed maturation is not itself synonymous with neoplasia. The molecular steps linking a dysgenetic Y-bearing gonadal environment to a tumor remain incompletely defined.</div>
 
@@ -10363,6 +10421,9 @@ This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10495,6 +10556,9 @@ This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10573,6 +10637,9 @@ This disease-associated gene is PROP1 (hgnc:9455). hgnc:9455 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10647,6 +10714,9 @@ This disease-associated gene is MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10756,6 +10826,9 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10857,6 +10930,9 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10995,6 +11071,9 @@ This disease-associated gene is DHH (hgnc:2865). hgnc:2865 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11096,6 +11175,9 @@ This disease-associated gene is ZFPM2 (hgnc:16700). hgnc:16700 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

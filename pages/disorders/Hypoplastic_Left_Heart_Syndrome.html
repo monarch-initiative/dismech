@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5553,6 +5592,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genetic-lesion-affecting-cardiac-growth-or-valvulogenesis" data-dismech-node="Genetic lesion affecting cardiac growth or valvulogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Genetic lesion affecting cardiac growth or valvulogenesis</div>
 
+
                 <div class="item-desc">Variants in cardiac transcription factors, signalling genes, sarcomeric genes, and chromatin regulators contribute to the disease, but not in the way a Mendelian disorder does. Eight independent mouse lines produce the phenotype, the human genetic architecture combines de novo single-gene and copy-number lesions with lower-penetrance and common variation, and no single gene accounts for more than a small fraction of cases. That architecture is itself a mechanistic claim, because it says the phenotype is a convergence point reachable by many routes rather than the readout of one pathway.
 </div>
 
@@ -5809,6 +5849,7 @@ This pathophysiological event involves decreased heart valve development (GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cardiomyocyte-proliferation-and-differentiation" data-dismech-node="Impaired cardiomyocyte proliferation and differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired cardiomyocyte proliferation and differentiation</div>
 
+
                 <div class="item-desc">Cardiomyocytes in the developing left ventricle proliferate less and differentiate abnormally, with disorganised sarcomeric architecture and altered mitochondrial maturation. This is what the first genetic mouse model of the disease showed, and it is the node that distinguishes an intrinsically small ventricle from a ventricle that is small because it is unused.
 </div>
 
@@ -6020,6 +6061,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obstruction-to-left-heart-inflow-or-outflow" data-dismech-node="Obstruction to left heart inflow or outflow" data-dismech-type="pathophysiology">
                 <div class="item-name">Obstruction to left heart inflow or outflow</div>
 
+
                 <div class="item-desc">Stenosis or atresia of the mitral or aortic valve. In the evolving form this is present in mid-gestation while the left ventricle is still of adequate size, so the obstruction can be observed before the hypoplasia it is proposed to cause.
 </div>
 
@@ -6159,6 +6201,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-flow-through-the-left-heart" data-dismech-node="Reduced flow through the left heart" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced flow through the left heart</div>
+
 
                 <div class="item-desc">Whatever puts it there, reduced flow across the mitral valve and out through the aortic valve is the shared middle of the disease. The claim attached to it is that flow is not merely a consequence of chamber size but an input to chamber growth, so that a left heart carrying less volume grows less. That claim is testable in humans, and it has been tested.
 </div>
@@ -6324,6 +6367,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endocardial-fibroelastosis" data-dismech-node="Endocardial fibroelastosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Endocardial fibroelastosis</div>
 
+
                 <div class="item-desc">A layer of fibroelastic tissue lining the hypoplastic ventricular cavity, further reducing compliance and inflow. It is curated as its own node because it is the specific finding the flow theory is criticised for failing to explain, so collapsing it into the hypoplasia node would hide the weakness in the model.
 </div>
 
@@ -6486,6 +6530,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-hypoplasia-of-left-heart-structures" data-dismech-node="Progressive hypoplasia of left heart structures" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive hypoplasia of left heart structures</div>
+
 
                 <div class="item-desc">By term the mitral valve, left ventricle, aortic valve, and ascending aorta and arch are all markedly undersized or atretic. The word progressive is doing real work here. This is not a malformation fixed at the moment of organogenesis but one that develops across gestation, which is precisely why a mid-gestation intervention is conceivable at all.
 </div>
@@ -6656,6 +6701,7 @@ This pathophysiological event occurs in arch of aorta (UBERON:0001508). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-restrictive-or-intact-atrial-septum" data-dismech-node="Restrictive or intact atrial septum" data-dismech-type="pathophysiology">
                 <div class="item-name">Restrictive or intact atrial septum</div>
 
+
                 <div class="item-desc">The left atrium in this disease receives the entire pulmonary venous return and has no outlet through a hypoplastic or atretic mitral valve, so that blood can only leave across the atrial septum. When the interatrial communication is small or absent the pulmonary veins are obstructed in utero, and the consequence is not merely haemodynamic. Sustained pulmonary venous hypertension remodels the lung itself, producing pulmonary lymphangiectasia, so the child is born with lung disease as well as heart disease. This is why an intact septum converts an operable malformation into an emergency at the moment of delivery, and why it is the single prenatal finding that most changes prognosis.
 </div>
 
@@ -6779,6 +6825,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ductus-dependent-systemic-and-coronary-perfusion" data-dismech-node="Ductus-dependent systemic and coronary perfusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Ductus-dependent systemic and coronary perfusion</div>
+
 
                 <div class="item-desc">After birth the entire systemic output crosses the arterial duct from the pulmonary artery, and the right ventricle supplies both circulations in parallel. In aortic atresia the ascending aorta carries only retrograde flow to the coronary arteries, so the coronary supply is ductal-dependent too. Systemic and pulmonary flow now compete for the same output, which is why a fall in pulmonary vascular resistance after birth paradoxically worsens systemic perfusion by stealing flow into the lungs.
 </div>
@@ -6912,6 +6959,7 @@ This pathophysiological event occurs in ascending aorta (UBERON:0001496). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-circulatory-collapse-on-ductal-closure" data-dismech-node="Circulatory collapse on ductal closure" data-dismech-type="pathophysiology">
                 <div class="item-name">Circulatory collapse on ductal closure</div>
 
+
                 <div class="item-desc">The duct closes over the first days of life and systemic perfusion fails, producing shock, acidosis, and death. This is the reason the disease is uniformly fatal untreated and the reason prostaglandin infusion is the first intervention, since keeping the duct open buys the time in which everything else becomes possible.
 </div>
 
@@ -6993,6 +7041,7 @@ This pathophysiological event occurs in ascending aorta (UBERON:0001496). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-right-ventricle-after-staged-palliation" data-dismech-node="Systemic right ventricle after staged palliation" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic right ventricle after staged palliation</div>
+
 
                 <div class="item-desc">The reconstruction leaves the right ventricle pumping to the body and, after the final stage, venous blood flowing to the lungs without a ventricle behind it. This is not a repair and the entry curates it as a disease state rather than as an outcome. The right ventricle is not built for systemic afterload and eventually fails in a substantial proportion. There is also evidence that this failure is not purely mechanical wear, since recessive sarcomeric variants found in patients who developed late right ventricular dysfunction suggest the same molecular defect that arrested the left ventricle can express itself later as a myopathy of the right. Patients with this disease do worse after the same operation than patients with other single-ventricle anatomies, which is consistent with something intrinsic to the myocardium rather than to the plumbing.
 </div>
@@ -7929,6 +7978,9 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8053,6 +8105,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8127,6 +8182,9 @@ This disease-associated gene is NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8191,6 +8249,9 @@ This disease-associated gene is chromosomal abnormality associated with hypoplas
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8265,6 +8326,9 @@ This disease-associated gene is RBFOX2 (hgnc:9906). hgnc:9906 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
