@@ -111,7 +111,10 @@ split those eight features into their own phenotypes with individually verified 
 **A search run and then misreported.** A curation note said an ECTO query returned "only
 ambient air and water pressure classes". It also returned `ECTO:1000019`, `ECTO:4000025`
 and `ECTO:4000026`, none of which is air- or water-specific. The binding decision stands;
-the summary of the output did not.
+the summary of the output did not. The reviewer graded it non-blocking and approved, and
+I chose not to spend a round on wording alone — so **the inaccurate sentence is still in
+`main`** at `Epidermolysis_Bullosa_Simplex_7_With_Nephropathy_And_Deafness.yaml:131`. It
+is recorded here, not repaired.
 
 That last one is a category of its own. The first two negative-existence failures were
 searches *generalised past their output*. This was a search whose output was read and then
@@ -156,7 +159,9 @@ weigh a claim. Each was found by hitting it, not by looking for it.
 **[#12410](https://github.com/monarch-initiative/dismech/issues/12410) — verification
 depth is not recorded.** A snippet verified against a 200-word abstract and one verified
 against a results section read identically in the YAML. The reference cache knows which
-(`abstract_only` against three full-text forms; 3,703 versus 272 in a 4,000-file sample)
+(`abstract_only` against three full-text forms; 3,703 versus 272 in the 4,000-file sample
+behind #12410 — a sample that skews low, since across all 46,104 `PMID_*.md` caches it is
+33,478 abstract-only against 12,379 full-text, about 27%)
 but the evidence item has no slot for it. This silently shapes what gets curated: the
 founding clinical paper for one of these five diseases is abstract-only, which is *why*
 eight real phenotypes were dropped from that entry, and nothing distinguishes "not
@@ -209,8 +214,11 @@ runtime string is `"You've hit your limit"`. The good message has never once pri
 **[#12414](https://github.com/monarch-initiative/dismech/issues/12414) — an identifier
 check blind to markdown bold.** A preflight warns that a report's OMIM disagrees with the
 ontology, when the report cites the right one three times — always as `**OMIM:**`, which
-its pattern cannot cross. Measured across the corpus: 314 reports use that form, and in 67
-a MIM is invisible to the extractor entirely.
+its pattern cannot cross. Re-measured over the 6,150 `research/*-deep-research-*.md`
+files: 538 carry the bold form, and in 151 of those the extractor's regex finds no MIM
+anywhere in the file. (#12414 itself quotes 314 and 67. I cannot reproduce those under any
+scope I have tried, and the corpus grew by 21 files in the interval, so the difference is
+not growth — the issue's figures are wrong and I have said so on it.)
 
 **[#12415](https://github.com/monarch-initiative/dismech/issues/12415) — a check that is
 wrong five times out of six.** Research-report term validation pairs each identifier with
