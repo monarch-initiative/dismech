@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -6003,6 +6056,7 @@ This subtype is caused by variation in MYOF (hgnc:3656). hgnc:3656 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serping1-c1-inhibitor-deficiency-or-dysfunction" data-dismech-node="SERPING1 C1 inhibitor deficiency or dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">SERPING1 C1 inhibitor deficiency or dysfunction</div>
 
+
                 <div class="item-desc">SERPING1 pathogenic variants cause quantitative C1-INH deficiency in type 1 HAE or qualitative C1-INH dysfunction in type 2 HAE, reducing regulation of complement, coagulation, fibrinolytic, and contact-system cascades.</div>
 
 
@@ -6281,6 +6335,7 @@ This pathophysiological event involves abnormal fibrinolysis (GO:0042730). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unrestrained-factor-xii-activation" data-dismech-node="Unrestrained factor XII activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Unrestrained factor XII activation</div>
 
+
                 <div class="item-desc">With C1-INH absent or dysfunctional, factor XII autoactivates to factor XIIa without adequate inhibition. FXIIa is the apex protease of the plasma contact (kallikrein-kinin) system in HAE, and gain-of-function F12 variants produce the same excess activation in F12-related normal-C1-INH disease. FXIIa is a validated drug target: the anti-FXIIa antibody garadacimab prevents attacks.</div>
 
 
@@ -6463,6 +6518,7 @@ This pathophysiological event involves increased Factor XII activation (GO:00025
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasma-kallikrein-activation" data-dismech-node="Plasma kallikrein activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasma kallikrein activation</div>
 
+
                 <div class="item-desc">Active plasma kallikrein is the central effector protease of the HAE cascade. It cleaves high-molecular-weight kininogen to liberate bradykinin and also reciprocally activates more factor XII, creating a self-amplifying loop that explains the explosive, self-sustaining character of attacks. Plasma kallikrein is the most heavily drugged node in HAE: ecallantide, lanadelumab, berotralstat, and sebetralstat inhibit the active enzyme, while donidalorsen lowers the prekallikrein zymogen pool.</div>
 
 
@@ -6609,6 +6665,7 @@ This pathophysiological event involves increased plasma kallikrein-kinin cascade
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-molecular-weight-kininogen-cleavage-and-bradykinin-liberation" data-dismech-node="High-molecular-weight kininogen cleavage and bradykinin liberation" data-dismech-type="pathophysiology">
                 <div class="item-name">High-molecular-weight kininogen cleavage and bradykinin liberation</div>
+
 
                 <div class="item-desc">Kallikrein-mediated proteolysis of high-molecular-weight kininogen (the KNG1 gene product) releases the nonapeptide bradykinin. Cleaved kininogen is a contact-activation biomarker, and a KNG1 variant altering the N-terminal bradykinin cleavage site causes a normal-C1-INH HAE subtype, placing this step directly on the disease path.</div>
 
@@ -6767,6 +6824,7 @@ This pathophysiological event involves increased bradykinin biosynthetic process
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-c1-inh-intracellular-retention-and-endoplasmic-reticulum-stress" data-dismech-node="C1-INH intracellular retention and endoplasmic reticulum stress" data-dismech-type="pathophysiology">
                 <div class="item-name">C1-INH intracellular retention and endoplasmic reticulum stress</div>
 
+
                 <div class="item-desc">A subset of SERPING1 missense variants are not simply null alleles: the mutant C1-INH protein is retained and aggregates in the endoplasmic reticulum. In a reported Han Chinese family the c.708T&gt;G variant raised intracellular C1-INH, upregulated GRP75, and produced calcium overload, mitochondrial damage, and apoptosis. This arm is a proposed cell-intrinsic contributor and biomarker route rather than an established driver of the swelling itself, which remains bradykinin-mediated.</div>
 
 
@@ -6910,6 +6968,7 @@ This pathophysiological event involves SERPING1 (hgnc:1228). hgnc:1228 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-normal-c1-inh-contact-system-gene-dysregulation" data-dismech-node="Normal C1-INH contact-system gene dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Normal C1-INH contact-system gene dysregulation</div>
+
 
                 <div class="item-desc">Normal-C1-INH HAE includes genetically defined non-mast-cell angioedema families with F12, PLG, KNG1, ANGPT1, HS3ST6, MYOF, or other variants that converge on bradykinin-mediated or contact-system angioedema biology. The subtype genes enter the shared pathograph at different points rather than through one common step: F12 gain of function amplifies contact activation, KNG1 alters the bradykinin cleavage site of its own substrate, PLG variants act through the plasmin arm, and ANGPT1 and HS3ST6 act on the endothelial barrier itself. Whether every normal-C1-INH subtype is strictly bradykinin-mediated is not established.</div>
 
@@ -7320,6 +7379,7 @@ This pathophysiological event involves abnormal regulation of vascular permeabil
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasmin-mediated-contact-system-amplification" data-dismech-node="Plasmin-mediated contact-system amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasmin-mediated contact-system amplification</div>
 
+
                 <div class="item-desc">C1-INH restrains the plasminogen-plasmin (fibrinolytic) system in addition to the contact system, and plasmin can feed back into contact activation and kinin generation. This arm is the mechanistic rationale for the PLG-related normal-C1-INH subtype and for the historical use of the antifibrinolytic tranexamic acid, and it underlies the raised D-dimer seen during attacks.</div>
 
 
@@ -7536,6 +7596,7 @@ This pathophysiological event involves increased positive regulation of plasma k
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excess-bradykinin-signaling" data-dismech-node="Excess bradykinin signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Excess bradykinin signaling</div>
 
+
                 <div class="item-desc">Excess bradykinin is the central mediator of HAE attacks. It acts on the bradykinin B2 receptor on vascular endothelium to increase permeability in superficial tissues and gastrointestinal and respiratory mucosa. The B2 receptor is the target of icatibant; the contribution of the bradykinin B1 receptor remains unresolved and is recorded as a knowledge gap.</div>
 
 
@@ -7707,6 +7768,7 @@ This pathophysiological event involves increased regulation of vascular permeabi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-adherens-junction-destabilization" data-dismech-node="Endothelial adherens junction destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial adherens junction destabilization</div>
+
 
                 <div class="item-desc">The proximate cellular lesion of an HAE attack is loss of interendothelial adherens junction integrity in postcapillary vessels, with reduced VE-cadherin and beta-catenin at the cell surface, F-actin stress-fibre reorganization, and interendothelial gap formation. This node is the point of convergence for the bradykinin-mediated arm and for the normal-C1-INH &#34;endothelial barrier&#34; genes: ANGPT1 haploinsufficiency impairs the Tie2-dependent counter-regulation that normally opposes bradykinin- and VEGF-induced leak, and HS3ST6 loss alters endothelial heparan sulfate involved in cell-surface interactions of angioedema mediators.</div>
 
@@ -8021,6 +8083,7 @@ This pathophysiological event involves increased regulation of vascular permeabi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-permeability-and-recurrent-edema-attacks" data-dismech-node="Vascular permeability and recurrent edema attacks" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular permeability and recurrent edema attacks</div>
+
 
                 <div class="item-desc">Increased vascular permeability causes transitory, recurrent, nonpitting subcutaneous and submucosal edema attacks involving skin, abdomen, genital tissues, pharynx, and larynx. The lesion is interstitial fluid accumulation from postcapillary endothelial leak, not primary tissue destruction, which is why attacks resolve completely and leave no fibrosis or scarring.</div>
 
@@ -8371,6 +8434,9 @@ This clinical feature is Angioedema (HP:0100665), qualified as temporality recur
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8455,6 +8521,9 @@ This clinical feature is Erythema marginatum (HP:6001012), qualified as temporal
 
 
                     </div>
+
+
+
 
 
 
@@ -8558,6 +8627,9 @@ This clinical feature is Intestinal edema (HP:0005225), qualified as temporality
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8647,6 +8719,9 @@ This clinical feature is Diarrhea (HP:0002014), qualified as temporality recurre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8731,6 +8806,9 @@ This clinical feature is Nausea and vomiting (HP:0002017), qualified as temporal
 
 
                     </div>
+
+
+
 
 
 
@@ -8834,6 +8912,9 @@ This clinical feature is Facial edema (HP:0000282), qualified as temporality rec
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8932,6 +9013,9 @@ This clinical feature is Skin rash (HP:0000988), qualified as temporality recurr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9003,6 +9087,9 @@ This clinical feature is Decreased circulating C1-esterase inhibitor concentrati
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9069,6 +9156,9 @@ This clinical feature is Decreased circulating complement C4 concentration (HP:0
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This phenotype is subtype-specific; ORPHA:528647 excludes decreased C4 in normal-C1-INH HAE.</div>
@@ -9174,6 +9264,9 @@ This clinical feature is Serpiginous cutaneous lesion (HP:0025527), qualified as
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9267,6 +9360,9 @@ This clinical feature is Edema of the upper limbs (HP:0010742), qualified as tem
 
 
                     </div>
+
+
+
 
 
 
@@ -9370,6 +9466,9 @@ This clinical feature is Non-pitting edema (HP:6000507), qualified as temporalit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9454,6 +9553,9 @@ This clinical feature is Laryngeal edema (HP:0012027), qualified as temporality 
 
 
                     </div>
+
+
+
 
 
 
@@ -9548,6 +9650,9 @@ This clinical feature is Pharyngeal edema (HP:0011855), qualified as temporality
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9632,6 +9737,9 @@ This clinical feature is Genital edema (HP:0031188), qualified as temporality re
 
 
                     </div>
+
+
+
 
 
 
@@ -9726,6 +9834,9 @@ This clinical feature is Muscular edema (HP:0100748), qualified as temporality r
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9810,6 +9921,9 @@ This clinical feature is Joint swelling (HP:0001386), qualified as temporality r
 
 
                     </div>
+
+
+
 
 
 
@@ -9913,6 +10027,9 @@ This clinical feature is Abdominal pain (HP:0002027), qualified as temporality r
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9997,6 +10114,9 @@ This clinical feature is Pain (HP:0012531), qualified as temporality recurrent. 
 
 
                     </div>
+
+
+
 
 
 
@@ -10115,6 +10235,9 @@ This disease-associated gene is SERPING1 (hgnc:1228). hgnc:1228 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant inheritance</span>
@@ -10220,6 +10343,9 @@ This disease-associated gene is F12 (hgnc:3530). hgnc:3530 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant inheritance</span>
@@ -10298,6 +10424,9 @@ This disease-associated gene is PLG (hgnc:9071). hgnc:9071 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -10387,6 +10516,9 @@ This disease-associated gene is PLG (hgnc:9071). hgnc:9071 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -10682,6 +10814,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10692,6 +10827,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10861,6 +10999,9 @@ This treatment uses icatibant (CHEBI:68556). CHEBI:68556 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10871,6 +11012,9 @@ This treatment uses icatibant (CHEBI:68556). CHEBI:68556 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -11040,6 +11184,9 @@ This treatment uses ecallantide (NCIT:C65505). NCIT:C65505 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11050,6 +11197,9 @@ This treatment uses ecallantide (NCIT:C65505). NCIT:C65505 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -11219,6 +11369,9 @@ This treatment uses sebetralstat (NCIT:C184930). NCIT:C184930 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11229,6 +11382,9 @@ This treatment uses sebetralstat (NCIT:C184930). NCIT:C184930 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -11398,6 +11554,9 @@ This treatment uses lanadelumab (NCIT:C166535). NCIT:C166535 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11408,6 +11567,9 @@ This treatment uses lanadelumab (NCIT:C166535). NCIT:C166535 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -11577,6 +11739,9 @@ This treatment uses berotralstat (NCIT:C169808). NCIT:C169808 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11587,6 +11752,9 @@ This treatment uses berotralstat (NCIT:C169808). NCIT:C169808 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -11756,6 +11924,9 @@ This treatment uses danazol (CHEBI:4315). CHEBI:4315 is a therapeutic agent from
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11766,6 +11937,9 @@ This treatment uses danazol (CHEBI:4315). CHEBI:4315 is a therapeutic agent from
 
 
     </div>
+
+
+
 
 
 
@@ -11925,6 +12099,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11935,6 +12112,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -12069,6 +12249,9 @@ This treatment uses garadacimab (NCIT:C166633). NCIT:C166633 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12079,6 +12262,9 @@ This treatment uses garadacimab (NCIT:C166633). NCIT:C166633 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -12248,6 +12434,9 @@ This treatment uses donidalorsen (NCIT:C177101). NCIT:C177101 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12260,12 +12449,15 @@ This treatment uses donidalorsen (NCIT:C177101). NCIT:C177101 is a therapeutic a
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Ligand conjugate</span>
 
 
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: GalNAc</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: GalNAc</span>
 
 
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: 2′-MOE</span>
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -18109,6 +18301,82 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Augment: Hereditary Angioedema contact-system pathograph, triggers, knowledge gaps</strong> · 2026-07-31T00:55:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hereditary_Angioedema/2026-07-31T005549Z-claude-code-28ece1.yaml">View source</a></p>
+                        <p class="research-review-text">Augmented the existing entry using Edison/Falcon deep research
+[research/Hereditary_Angioedema-deep-research-falcon.md; 30 citations; 576s runtime]
+plus targeted PubMed searches. The entry had previously been built only from a
+deep-research FALLBACK file, so this is its first real DR-backed pass.
+
+Pathophysiology: expanded the pathograph from a shallow 4-node chain into the
+explicit plasma contact / kallikrein-kinin cascade, adding Unrestrained factor
+XII activation, Plasma kallikrein activation including the reciprocal
+kallikrein-to-FXII amplification loop, High-molecular-weight kininogen cleavage
+and bradykinin liberation, Endothelial adherens junction destabilization, and
+Plasmin-mediated contact-system amplification, plus a C1-INH intracellular
+retention / ER-stress arm. Added biological_scale tags. Normal-C1-INH subtype
+genes now enter the graph at their distinct points: F12 at FXII activation, KNG1
+at kininogen cleavage, PLG at the plasmin arm, ANGPT1 and HS3ST6 at the
+endothelial node.
+
+Treatments: retargeted every drug target_mechanism onto the node it actually
+acts on. Ecallantide, lanadelumab, berotralstat, sebetralstat and donidalorsen
+now point at Plasma kallikrein activation; icatibant at bradykinin B2 receptor
+signalling. Added garadacimab, the anti-FXIIa monoclonal antibody, from the
+VANGUARD phase 3 trial PMID:36868261.
+
+Also added: an environmental section covering the clinically critical attack
+triggers - estrogens, ACE inhibitors, trauma and procedures, emotional stress;
+four sourced KNOWLEDGE_GAP discussions with proposed experiments covering the
+initiating trigger of contact activation, the bradykinin B1 receptor role, the
+unexplained phenotypic variability, and the normal-C1-INH definition and
+diagnostic-yield problem; per-gene inheritance evidence; and new top-level
+references.
+
+Prevalence migrated off the deprecated percentage field to structured
+measure_type, prevalence_class and rate_per_100000 slots.
+
+Confirmed that no GeneReviews chapter exists for hereditary angioedema, searched
+by disease name, by SERPING1 and by C1 inhibitor deficiency, and recorded that
+absence in notes. Deliberately did NOT assert conforms_to against the
+antisense_oligonucleotide_therapy module: prekallikrein transcript abundance is
+not abnormal in HAE, so that conformance would misstate the mechanism. Rationale
+recorded in notes.
+
+Validation: linkml-validate clean. linkml-term-validator clean, including all
+newly added GO, NCIT and CL terms. Causal graph clean under validate-graphs.
+Compliance rose from 83.7 to 89.4 percent, with downstream causal-edge evidence
+coverage going from 3 of 22 to 36 of 36.
+
+Reference validation is clean. Note for future curators: linkml-reference-validator
+prints Total checks 0 on a passing file, which reads as though nothing was checked.
+It is a mislabeled counter reporting issues found, not checks performed, as
+documented in issue 7252. The validator does work, confirmed here by injecting a
+fabricated snippet, which it caught with an exact location and an ERROR. An earlier
+revision of this record claimed the validator verified nothing; that was a
+misdiagnosis and is retracted.
+
+As a belt-and-braces check, all 155 evidence snippets and 34 reference
+supporting_text values were additionally verified programmatically as
+whitespace-normalized substrings of their cached sources, 155/155 and 34/34
+passing. One trailing period was normalized away in a PMID:19477491 snippet and
+corrected for exactness; the validator tolerates trailing punctuation, so this was
+a cosmetic fix rather than a caught fabrication.
+
+Separately, both project virtualenvs were repaired from Python 3.14 to 3.12 because
+pyhornedowl and therefore OAK could not import under 3.14, which had been blocking
+all term validation repo-wide. pyproject requires-python is &gt;=3.12,&lt;4.0, which
+permits the broken 3.14 selection.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

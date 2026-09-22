@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4079,6 +4132,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ephrin-b2-b3-receptor-mediated-cell-entry" data-dismech-node="Ephrin-B2/B3 receptor-mediated cell entry" data-dismech-type="pathophysiology">
                 <div class="item-name">Ephrin-B2/B3 receptor-mediated cell entry</div>
 
+
                 <div class="item-desc">The Nipah virus attachment glycoprotein engages the host ephrin-B2 and ephrin-B3 receptors to mediate entry into host cells. Because ephrin-B2 is evolutionarily conserved and widely expressed on vascular endothelium, and ephrin-B3 on neurons, the tissue distribution of these receptors is what determines the endothelial and neuronal tropism that drives the rest of the disease, and also underlies the virus&#39;s broad host-species range.</div>
 
 
@@ -4289,6 +4343,7 @@ This pathophysiological event involves ephrin-B2/B3 acting as the henipavirus en
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-i-interferon-signaling-antagonism" data-dismech-node="Type I interferon signaling antagonism" data-dismech-type="pathophysiology">
                 <div class="item-name">Type I interferon signaling antagonism</div>
 
+
                 <div class="item-desc">Nipah virus accessory proteins expressed from the P gene antagonize type I interferon signaling by binding and sequestering STAT1 and STAT2. The V protein induces cytoplasmic high-molecular-weight STAT-containing complexes, and the phosphoprotein P sequesters STAT1/STAT2 into viral inclusion bodies; both prevent STAT activation and nuclear translocation. Blocking the innate antiviral response is what permits the virus to disseminate systemically before an effective interferon response is mounted.</div>
 
 
@@ -4455,6 +4510,7 @@ This pathophysiological event involves increased negative regulation of type I i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-viral-dissemination-and-febrile-illness" data-dismech-node="Systemic viral dissemination and febrile illness" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic viral dissemination and febrile illness</div>
 
+
                 <div class="item-desc">Unrestrained by the interferon response, the virus replicates in and spreads through highly vascular tissues, producing a widespread multisystemic vasculitis and the non-specific systemic febrile prodrome - fever, headache and vomiting - that precedes organ-specific disease.</div>
 
 
@@ -4557,6 +4613,7 @@ though the authors state the pathology closely resembles human disease.
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-tropism-and-systemic-vasculitis" data-dismech-node="Endothelial tropism and systemic vasculitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial tropism and systemic vasculitis</div>
+
 
                 <div class="item-desc">Nipah virus infects vascular endothelial and smooth muscle cells, producing a systemic vasculitis with thrombosis and parenchymal necrosis, especially in the central nervous system.</div>
 
@@ -4738,6 +4795,7 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-invasion" data-dismech-node="Central nervous system invasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Central nervous system invasion</div>
+
 
                 <div class="item-desc">The virus infects neurons of the central nervous system, producing an acute encephalitis alongside vasculitis-associated injury.</div>
 
@@ -4934,6 +4992,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-syncytium-formation" data-dismech-node="Syncytium formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Syncytium formation</div>
 
+
                 <div class="item-desc">Nipah virus induces fusion of infected cells into multinucleated syncytial giant cells, prominent in affected blood vessels.</div>
 
 
@@ -4994,6 +5053,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-involvement-and-respiratory-tract-infection" data-dismech-node="Pulmonary involvement and respiratory tract infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary involvement and respiratory tract infection</div>
+
 
                 <div class="item-desc">Beyond the encephalitic arm, Nipah virus produces severe pulmonary involvement with respiratory tract infection and vascular injury of the lungs. This arm is clade-dependent and is the principal feature distinguishing the Bangladesh/India clade I outbreaks, in which severe respiratory disease accompanies encephalitis and facilitates person-to-person transmission, from the Malaysian clade II outbreak, which produced a largely pure encephalitic syndrome.</div>
 
@@ -5253,6 +5313,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5334,6 +5397,9 @@ This clinical feature is Encephalitis, annotated with Infectious encephalitis (H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5458,6 +5524,9 @@ This clinical feature is Relapsing and late-onset Nipah encephalitis, annotated 
 
 
                     </div>
+
+
+
 
 
 
@@ -5598,6 +5667,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5710,6 +5782,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5790,6 +5865,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5859,6 +5937,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5935,6 +6016,9 @@ This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6039,6 +6123,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6103,6 +6190,9 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6199,6 +6289,9 @@ This clinical feature is Persistent neurologic deficits, annotated with Abnormal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6281,6 +6374,9 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6349,6 +6445,9 @@ This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6451,6 +6550,9 @@ This clinical feature is Acute respiratory distress syndrome (HP:0033677). HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6584,6 +6686,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6760,6 +6868,9 @@ This treatment uses m102.4, annotated with Monoclonal Antibody (NCIT:C20401). NC
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6770,6 +6881,9 @@ This treatment uses m102.4, annotated with Monoclonal Antibody (NCIT:C20401). NC
 
 
     </div>
+
+
+
 
 
 
@@ -7021,6 +7135,9 @@ This treatment uses remdesivir (CHEBI:145994). CHEBI:145994 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7031,6 +7148,9 @@ This treatment uses remdesivir (CHEBI:145994). CHEBI:145994 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -7183,6 +7303,9 @@ This treatment uses ribavirin (CHEBI:63580). CHEBI:63580 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7193,6 +7316,9 @@ This treatment uses ribavirin (CHEBI:63580). CHEBI:63580 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -10155,6 +10281,39 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Address review round 2: ephrin entry, respiratory arm, m102.4/remdesivir, unused refs</strong> · 2026-08-19T21:48:11Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Nipah_Virus_Disease/2026-08-19T214811Z-claude-code-9588d7.yaml">View source</a></p>
+                        <p class="research-review-text">Second review round on PR 6913. Addressed four deep-research completeness blockers, all from material already in references_cache with no new fetching.
+
+Blocker A - ephrin-B2/B3 receptor-mediated entry was entirely absent. Added a new pathophysiology node &#34;Ephrin-B2/B3 receptor-mediated cell entry&#34; with biological_scale MOLECULAR, GO:0046718 symbiont entry into host cell, and downstream edges to both tropism nodes it explains. This gives the pathograph its first MOLECULAR-scale node; the graph previously began at TISSUE. Evidence from the previously unused full-text cache PMID:39700307.
+
+Blocker B - three cached references were listed but never cited. PMID:39700307, PMID:38185127 and PMID:37896758 now all carry evidence items. Verified programmatically that all 10 listed references are cited and no cited reference is unlisted.
+
+Blocker D - no pulmonary/respiratory pathophysiology node. Added &#34;Pulmonary involvement and respiratory tract infection&#34; with biological_scale TISSUE, downstream to Respiratory distress, Acute respiratory distress syndrome and Cough, and upstream from the endothelial vasculitis node. Five evidence items covering the clade-dependence that distinguishes Bangladesh/India clade I from Malaysian clade II.
+
+Blocker G - m102.4 and remdesivir absent from treatments. Added both using the NCIT action term plus therapeutic_agent pattern. m102.4 uses therapeutic_modality MONOCLONAL_ANTIBODY with NCIT:C20401 Monoclonal Antibody as the agent term, since NCIT has no m102.4-specific concept. Remdesivir uses SMALL_MOLECULE with CHEBI:145994. Ribavirin retained at supports PARTIAL so the evidence hierarchy is no longer inverted.
+
+Blue items also addressed: added a diagnosis section covering nucleic acid testing and the explicit non-use of serology for acute diagnosis; added an animal_models section for the nonhuman primate challenge model with modeled_mechanisms linking to the pulmonary node, which consumes the previously unused PMID:37896758; added a distinct Acute respiratory distress syndrome phenotype on HP:0033677 addressing the specificity nudge while retaining the broader HP:0002098 term; connected the brain-stem triad of myoclonus, areflexia and hypotonia to the CNS invasion node.
+
+Frequency discipline preserved: no new frequency bands were introduced. Respiratory distress keeps its omitted band, and the new ARDS phenotype also omits one, both because the supporting evidence is outbreak-specific.
+
+Validation: just validate passes all three gates with 56/56 snippets verified against cached references, up from 36. check-duplicate-keys, check-snippet-length, check-title-snippets, check-cache-order and check-term-cache-integrity all OK. No cache rows were added, since every ontology term used was already cached.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create Nipah Virus Disease</strong> · 2026-07-24T23:41:01Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Nipah_Virus_Disease/2026-07-24T234101Z-claude-code-b65305.yaml">View source</a></p>
+                        <p class="research-review-text">Curated new Infectious Disease entry for Nipah virus disease MONDO:0020499. Parametric draft enhanced with Edison falcon deep research plus canonical clinical Goh 2000 and Hossain 2008 and pathology Wong 2002 sources. All three validation gates pass; verbatim snippets confirmed as exact abstract substrings.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

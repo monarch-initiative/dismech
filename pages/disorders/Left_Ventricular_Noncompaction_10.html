@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5496,6 +5549,7 @@ Two 2024 human systems surfaced by the same deep-research pass were left out and
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mybpc3-loss-of-function-variant-and-cmybp-c-depletion" data-dismech-node="MYBPC3 Loss-of-Function Variant and cMyBP-C Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">MYBPC3 Loss-of-Function Variant and cMyBP-C Depletion</div>
 
+
                 <div class="item-desc">MYBPC3 encodes cardiac myosin-binding protein C (cMyBP-C), a thick-filament accessory protein of the sarcomeric A band. As in CMH4, most MYBPC3 disease alleles are truncating (frameshift, nonsense, or splice variants), the truncated peptide is not stably detected in patient myocardium, and the operative consequence is reduced functional cMyBP-C protein rather than a dominant-negative poison peptide (see kb/disorders/Hypertrophic_Cardiomyopathy_4.yaml for the detailed nonsense-mediated-decay/proteasomal-degradation mechanism, which is shared with this entry). What differs in LVNC10 is allelic dose: a single truncating allele produces the classic CMH4 haploinsufficiency state (roughly 50% residual protein), while two loss-of-function alleles, or a loss-of-function allele combined with a destabilizing missense allele on the second copy, can reduce residual cMyBP-C to as little as ~20% of normal.</div>
 
 
@@ -5858,6 +5912,7 @@ This pathophysiological event involves Sarcomeric A band, annotated with A band 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dose-dependent-failure-of-myocardial-compaction" data-dismech-node="Dose-Dependent Failure of Myocardial Compaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Dose-Dependent Failure of Myocardial Compaction</div>
 
+
                 <div class="item-desc">When cMyBP-C is reduced to a small fraction of normal by biallelic truncating (or loss-of-function-plus-missense) MYBPC3 genotypes, the fetal myocardium fails to complete the normal trabecular-to-compact remodeling process, leaving a persistently noncompacted, hypertrabeculated ventricular wall. The precise molecular step by which near-complete cMyBP-C loss diverts the myocardium toward a noncompaction phenotype, rather than toward the hypertrophic remodeling seen with partial (monoallelic) haploinsufficiency in CMH4, is not established (see the discussion below).</div>
 
 
@@ -6081,6 +6136,7 @@ This pathophysiological event occurs in left ventricle myocardium (UBERON:000656
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dose-dependent-congenital-septal-and-ductal-structural-defects" data-dismech-node="Dose-Dependent Congenital Septal and Ductal Structural Defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Dose-Dependent Congenital Septal and Ductal Structural Defects</div>
 
+
                 <div class="item-desc">The same severe biallelic MYBPC3 genotype that produces compaction failure is also strongly associated with co-occurring congenital structural anomalies of the cardiac septum and the ductus arteriosus, which accompanied cardiomyopathy in the majority of the pooled biallelic literature cohort. The founding case series and its pooled literature review report these anomalies jointly (&#34;septal defects or a patent ductus arteriosus&#34;) without distinguishing atrial from ventricular septal involvement, so this node is deliberately not more specific than the cited evidence supports.</div>
 
 
@@ -6258,6 +6314,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monoallelic-cmybp-c-deficiency-and-noncompaction-hypertrophy-phenotypic-overlap" data-dismech-node="Monoallelic cMyBP-C Deficiency and Noncompaction-Hypertrophy Phenotypic Overlap" data-dismech-type="pathophysiology">
                 <div class="item-name">Monoallelic cMyBP-C Deficiency and Noncompaction-Hypertrophy Phenotypic Overlap</div>
 
+
                 <div class="item-desc">A single truncating MYBPC3 allele - the CMH4 haploinsufficiency mechanism - produces a milder gene-dosage state that, in a subset of families, is associated with a noncompaction phenotype instead of, or together with, hypertrophic remodeling, and unaffected or hypertrophic-only relatives can carry the identical allele. This phenotypic plasticity supports a continuum-of-sarcomeric-cardiomyopathies model in which the same MYBPC3 lesion can manifest as hypertrophic, noncompaction, or restrictive disease depending on modifying genetic or environmental factors.</div>
 
 
@@ -6415,6 +6472,7 @@ This pathophysiological event involves abnormal Sarcomere Organization (GO:00452
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-structural-cardiac-failure" data-dismech-node="Neonatal Structural Cardiac Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal Structural Cardiac Failure</div>
+
 
                 <div class="item-desc">The severe biallelic MYBPC3-cMyBP-C-deficient phenotype presents in the newborn period with feeding difficulties, failure to thrive, and dyspnea, and progresses to fatal cardiac failure within the first few months of life in the founding case series; heart transplantation has been used as a salvage therapy in an independently reported compound heterozygous case.</div>
 
@@ -6623,6 +6681,9 @@ This clinical feature is Left ventricular noncompaction cardiomyopathy (HP:00116
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6689,6 +6750,9 @@ This clinical feature is Heart septal defect, annotated with Abnormal cardiac se
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6815,6 +6879,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6879,6 +6946,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6978,6 +7048,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7051,6 +7124,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7134,6 +7210,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7207,6 +7286,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7321,6 +7403,9 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -7440,6 +7525,7 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7461,7 +7547,13 @@ This variant is in MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Two Dutch founder truncating alleles - the same c.2373dup allele responsible for roughly a quarter of Dutch heterozygous CMH4 cases, and c.2827C&gt;T - were found together as compound heterozygotes, or each in the homozygous state, in the four neonates of the founding LVNC10 case series, all of whom died of cardiac failure or had severe cardiomyopathy with noncompaction features and septal defects.</div>
@@ -7524,6 +7616,7 @@ This variant is in MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7545,7 +7638,13 @@ This variant is in MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">An independently reported compound heterozygous genotype: a loss-of-function MYBPC3 allele combined in trans with a de novo missense variant on the second allele. The missense allele was associated with an unstable protein product, reducing overall residual cMyBP-C to approximately 20% of control levels in affected cardiac tissue, and produced a severe early-onset noncompaction phenotype that required heart transplantation. The reporting study also recommends considering copy-number variants as an additional route to the same biallelic-dose mechanism, though no specific CNV genotype is documented for this MYBPC3 case in the cited literature.</div>
@@ -7673,6 +7772,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7857,6 +7962,12 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Heart transplantation is used as salvage therapy for the severe biallelic MYBPC3 LVNC phenotype when medical therapy cannot sustain cardiac function.</div>
 
 
@@ -8013,6 +8124,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -13563,6 +13680,172 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">These five references were consulted during curation (from the falcon deep-research pass and follow-up literature search) but are not individually mined for quoted evidence items: each is a broad LVNC genetics/outcome cohort, systematic review, or meta-analysis (van Waning 2018 JACC; van Waning 2019 systematic review; Kayvanpour 2019 meta-analysis; Sedaghat-Hamedani 2017; Arbustini 2014) that documents the general LVNC genetic-architecture and phenotype landscape summarized in the umbrella Left_Ventricular_Noncompaction.yaml entry, rather than a claim specific to MYBPC3/LVNC10 modeled in this entry. They are carried here for provenance and to record that they were reviewed and found non-contradictory to the MYBPC3-specific claims curated above. PMID:33500567 (Mazzarotto 2021, 840 LVNC cases vs. 125,748 gnomAD controls) is mined for a direct MYBPC3-specific qualifying evidence item instead and so is cited in the `genetic` section, not repeated here.
+A second falcon deep-research pass (September 2026) was run with the MONDO ID supplied, which the August 2026 pass lacked; 50 citations, all 18 extracted references resolved, none off topic, `just preflight-dr` PASS with MYBPC3 mentioned 61 times. Its term-validation block reports `needs_review: true` on two label mismatches, both template artifacts rather than bindings: the `mondo_id` placeholder text &#34;(if available)&#34; echoed against MONDO:0014163, and a descriptive phrase written beside HP:0011664. Both CURIEs are the ones this entry already uses and are correct.
+That pass reached the same conclusion recorded in the `lvnc10_no_model_shows_noncompaction` discussion - that no retrieved model reproduces LVNC morphology - and supplied the zebrafish knockout now curated under `animal_models`. One figure it reports was deliberately not used: a claim that 15 of the 21 pooled biallelic patients died before one year. That number is from the Wessels full text rather than the abstract and is absent from the cached reference, so it could not be snippet-verified; the cohort outcome is instead curated from the abstract&#39;s own &#34;within the first few months of life&#34; wording.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Augment: Left Ventricular Noncompaction 10 (model systems, datasets, hypotheses)</strong> · 2026-09-06T14:53:22Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Left_Ventricular_Noncompaction_10/2026-09-06T145322Z-claude-code-38a564.yaml">View source</a></p>
+                        <p class="research-review-text">Augmented the existing LVNC10 entry (created 2026-08-18, #8746). Deep
+research: re-ran `just research-disorder falcon`, this time with the MONDO
+ID supplied, which the August pass lacked. 50 citations (up from 26); all
+18 extracted references resolved, 0 off topic, confabulation_rate 0.0.
+`just preflight-dr research/Left_Ventricular_Noncompaction_10-deep-research-falcon.md
+MONDO:0014163` returned PASS with MYBPC3 mentioned 61 times and no rival-gene
+drift. The report&#39;s term_validation sets needs_review: true on two label
+mismatches; both are template artifacts, not bindings - the &#34;(if available)&#34;
+placeholder echoed against MONDO:0014163, and a descriptive phrase written
+beside HP:0011664. Both CURIEs resolve and are the ones the entry already
+uses. This regenerated report replaces the August one at the same path; the
+superseded version remains in git history.
+
+Model systems were the largest gap and are the substance of this pass. Added
+`animal_models` (5) and `experimental_models` (2), all with typed
+`modeled_mechanisms` links carrying fidelity, model_scale, limitations and
+`divergences`, plus readouts. The scientifically important one is the
+homozygous cMyBP-C-deficient mouse (PMID:26153423): cMyBP-C normally
+inhibits postnatal myocyte cytokinesis, so the null completes an extra round
+of division and enlarges by hyperplasia where the heterozygote enlarges by
+hypertrophy. That is a candidate answer to the dose-phenotype divergence the
+entry had recorded as wholly open, and it is corroborated across species by
+the zebrafish mypbc3 knockout (PMID:36012114), which shows the same
+cardiomyocyte hyperplasia. Also added the Mybpc3-targeted knock-in mouse
+with neonatal AAV-U7-AON exon-skipping rescue (PMID:23716398), the Tet-Off
+conditional cMyBP-C re-expression mouse (PMID:30573635), the compound
+heterozygous cloned pig (PMID:40496056), the biallelic MYBPC3 hiPSC line
+with isogenic control (PMID:34375846), and MYBPC3 premature-termination-codon
+isogenic hiPSC-CMs (PMID:30586709).
+
+Recorded the mismatch those models expose as a HUMAN_MODEL_MISMATCH
+discussion: every model reaches the biallelic genotype and none reaches the
+noncompaction phenotype - the mouse dilates, the pig hypertrophies, the
+zebrafish has no compact layer, the hiPSC line has no assayed phenotype. The
+September deep-research pass reached the same conclusion independently. This
+bounds what the two rescue experiments in the entry can be read to show.
+Added two `mechanistic_hypotheses` (CANONICAL sarcomeric dose continuum,
+EMERGING cytokinesis-brake-release) and opted the compaction edge into both
+via `hypothesis_groups`; extended the pre-existing KNOWLEDGE_GAP discussion
+with the candidate mechanism and gave it evidence, and gave its proposed
+experiment structured perturbations, readouts, would_support/would_refute.
+
+Filled every uncited causal edge: all 5 `pathophysiology[].downstream[]`
+edges and both `treatments[].target_mechanisms[]` links now carry their own
+evidence, with `directness: INDIRECT` where the source establishes sequence
+or co-occurrence within a cohort rather than the causal step.
+
+Added `datasets` (was empty): geo:GSE274124 (biallelic in-trans patient
+hiPSC-CM transcriptome), geo:GSE140965 (isogenic het vs hom MYBPC3 LOF
+edits), geo:GSE262253 (the cMyBP-C(t/t) mouse curated here, against a
+half-dose transgenic). All three are HCM/DCM-labelled, not noncompaction
+datasets; that is recorded in each `notes`. `just verify-datasets` OK 3/3;
+GEO_*.md cache files committed.
+
+Added ClinGen structured-source evidence to `genetic`: MYBPC3-HCM Definitive
+(AD) against MYBPC3-DCM Limited (AR). The AR row is the nearest expert-panel
+verdict on the biallelic regime this entry models, since OMIM files LVNC10
+with CMD1MM, and it corroborates the Mazzarotto caveat already in the notes.
+Added the 2025 autopsy-confirmed compound heterozygous case (PMID:41488457),
+the first in this entry to name which septal defect (atrial); the phenotype
+stays bound at HP:0001671 rather than being narrowed on one case. Added
+`progression` (2 phases) and `clinical_burden` (HIGH).
+
+Cleaned up all four `explanation` strings that still argued for the retired
+`supports: PARTIAL` value (#10003 prose fallout), replacing them with
+`directness: INDIRECT` where that is what was meant. No occurrence of the
+retired value remains in this entry&#39;s prose.
+
+Deliberately not used: the report&#39;s claim that 15/21 pooled biallelic
+patients died before one year. That figure is in the Wessels full text, not
+the abstract, and is absent from the cached reference, so it could not be
+snippet-verified; the cohort outcome is curated from the abstract&#39;s own
+wording instead. Also fetched but not cited: PMID:24047589 (zebrafish
+mybpc3 morpholino knockdown), redundant against the stable knockout, and its
+cache file was removed rather than committed uncited.
+
+A pre-PR red-team review (dismech-pr-review skill, fresh context) found
+fifteen issues, all in curator prose running ahead of the quotes beside it;
+no fabricated snippet, wrong identifier, Named Entity Confusion, or bad
+ontology term. All fifteen were fixed in this same pass. The three that
+mattered:
+
+(1) The zebrafish model description claimed zebrafish &#34;have no compact
+myocardial layer&#34;. That is false, and the paper says the opposite of what
+the entry implied: the mybpc3-knockout ventricle and atrium &#34;became more
+compact&#34; with a thicker wall and smaller chamber diameters. The claim
+appeared three times, escalating from a hedged divergence to a load-bearing
+premise of the HUMAN_MODEL_MISMATCH discussion. Rewritten throughout, and
+the corrected fact is a sharper version of the same argument, so a REFUTE
+readout quoting the &#34;more compact&#34; sentence was added to the zebrafish
+link. Note also that the paper&#39;s abstract misspells the gene &#34;mypbc3&#34; while
+its results use mybpc3; curator-written fields now use mybpc3, snippets
+keep the source spelling, and a note records why.
+
+(2) &#34;Every model curated in this entry reaches the biallelic MYBPC3
+genotype&#34; was contradicted by the entry&#39;s own limitations on the
+heterozygous premature-termination-codon iPSC-CMs. Narrowed.
+
+(3) `progression` asserted &#34;There is no presymptomatic phase to screen for
+once the genotype is biallelic&#34;, which PMID:41488457 - added in this same
+pass - refutes: normal prenatal screening, discharged healthy, collapse at
+two months. Rewritten to the defensible claim, that a window exists and no
+screening interval has been shown to use it.
+
+Also fixed: uncited residual-protein percentages in the CANONICAL
+hypothesis description (the only measured figure in the entry is ~20% in
+one LoF-plus-missense compound heterozygote, not the truncating/truncating
+subtype, and the isogenic iPSC-CM result cuts against the half-dose
+inference); the one link carrying `fidelity: HIGH` with no caveat and an
+organ-level readout under `model_scale: MOLECULAR` (now MODERATE/ORGANISM
+with PROXY_QUANTITY and SPECIES_MISMATCH divergences); a new
+`causal_link_type: DIRECT` edge resting on a cohort co-occurrence statistic
+without `directness: INDIRECT`; the ClinGen MYBPC3-HCM Definitive item
+graded SUPPORT when its own explanation calls it a contrast term (now
+NO_EVIDENCE, kept because omitting it would make the AR/DCM Limited row
+look like the whole ClinGen picture); &#34;the same four neonates in whom
+noncompaction was diagnosed&#34; (three of four); a curator extrapolation
+written as the authors&#39; proposal; `materiality: INVALIDATING` on a
+divergence arguing against a claim its link does not make (QUALIFYING); a
+duplicated snippet on a treatment mechanism link; and a `datasets`
+description calling geo:GSE274124 the configuration that defines the
+subtype when one of its alleles is low-penetrance missense.
+
+The review also flagged that two 2024 human systems from the report were
+dropped without recording why - MYBPC3 p.D389V cardiac organoids with
+mavacamten-reversible hypercontractility, and MYBPC3 c.1377delC iPSC-CM
+metabolic remodeling - and that the organoid one undercuts the discussion&#39;s
+claim that no human system could score compaction. Both decisions, and the
+reason `clinical_trials` stays empty (NCT06024759 is a generic-LVNC
+registry with no MYBPC3 arm), are now recorded in the discussion rationale
+rather than left silent.
+
+Validation: `just validate`, `just validate-terms`, and the batched
+`just validate-disorders` all pass, 84/84 snippets verified against cached
+references (up from 33). `just check-entity-refs`, `check-causal-targets`,
+`check-duplicate-keys`, `check-enum-values`, `check-qualifier-terms`,
+`check-folded-hyphens`, `check-snippet-grading`, `check-title-snippets`,
+`check-snippet-length`, `check-environmental-evidence` all OK; no baseline
+was updated. `just model-scale-audit` reports 0 upward-extrapolating links
+lacking limitations or divergences. Compliance rose from 110/123 satisfied
+checks to 203/230.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Left Ventricular Noncompaction 10 (MYBPC3, LVNC10)</strong> · 2026-08-18T04:31:06Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Left_Ventricular_Noncompaction_10/2026-08-18T043106Z-claude-code-ba2f5b.yaml">View source</a></p>
+                        <p class="research-review-text">Created LVNC10 (MONDO:0014163; OMIM:615396; MYBPC3) resolving issue #8746. Modeled two allelic-dose subtypes: biallelic (homozygous/compound heterozygous) truncating MYBPC3 producing severe lethal neonatal noncompaction with congenital septal defects (Wessels 2015 PMID:25335496, n=21 literature cohort; Kolokotronis 2019 PMID:30924982, ~20% residual cMyBP-C protein, heart transplant case), and monoallelic MYBPC3 producing/co-segregating with a noncompaction phenotype overlapping HCM in relatives (van Waning 2019 JACC PMID:30947911; Blagova 2022 PMID:36011256 familial HCM/LVNC/RCM continuum case). Cross-references the umbrella Left_Ventricular_Noncompaction.yaml (MONDO:0018901) for shared downstream LVNC mechanism and Hypertrophic_Cardiomyopathy_4.yaml (MONDO:0007268, same gene) as key differential diagnosis and for the shared cMyBP-C haploinsufficiency molecular mechanism. Added a KNOWLEDGE_GAP discussion on the unestablished mechanistic step converting cMyBP-C dose deficit into a developmental compaction-failure phenotype versus postnatal hypertrophic remodeling. Deep research: ran falcon (Edison) via just research-disorder; just preflight-dr returned PASS (MYBPC3 mentioned 60 times, no rival-gene drift toward HCM). The report&#39;s headline OpenTargets-sourced claim of a founding p.Arg820Trp/R820W LVNC10 allele was independently checked against its own cited PMIDs (20186049, 27532257 -- neither supports the claim) and against the report&#39;s own aside that R820W is &#39;notable in Ragdoll cats&#39; (a known feline HCM variant), and was judged an unverified/likely-conflated claim and deliberately NOT incorporated into the KB entry. All other report content corroborated the primary-literature mechanism already sourced directly from Wessels 2015 and Kolokotronis 2019. Validation: just validate, just validate-terms, and just validate-disorders all pass (33/33 snippets verified against cached references); pytest tests/test_data.py passes (only a non-blocking missing-subtype_term warning, consistent with the HCM4 sibling entry).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

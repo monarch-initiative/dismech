@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4852,6 +4905,13 @@ The second account has one cell-based study behind it and no measurement in an R
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-rdh12-loss-of-function" data-dismech-node="Biallelic RDH12 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic RDH12 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion. RDH12 is a small gene on chromosome 14 encoding a member of the short-chain dehydrogenase/reductase superfamily, highly expressed in photoreceptor inner segments.
 Loss of function here is not always loss of catalysis, and that is worth stating because it changes how a missense variant should be read. Two disease-associated mutants, T49M and I51N, retain significant residual activity in vitro and still fail in cells - because their affinity for NADPH is dramatically reduced and their protein expression levels are much lower. An in vitro activity assay on purified protein can therefore look reassuring for an allele that is functionally null in a photoreceptor.</div>
 
@@ -4913,6 +4973,8 @@ This pathophysiological event involves RDH12 (hgnc:19977). hgnc:19977 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4923,6 +4985,9 @@ This pathophysiological event involves RDH12 (hgnc:19977). hgnc:19977 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Curated as loss of function on the combined evidence of allele spectrum and cellular phenotype. Zygosity is left unset at disease level because reported patients are variously homozygous and compound heterozygous; the natural-history cohort&#39;s criterion was simply two likely disease-causing variants.</div>
 
@@ -5018,6 +5083,13 @@ This pathophysiological event involves RDH12 (hgnc:19977). hgnc:19977 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-all-trans-retinal-clearance-in-the-photoreceptor-inner-segment" data-dismech-node="Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The step that defines the disease, and the one that separates it from every visual-cycle LCA. Photoactivated rhodopsin releases all-trans-retinal in the outer segment, where RDH8 reduces it; that is the visual cycle. Under continuous illumination some of that retinal leaks into the inner segment, and clearing it there is RDH12&#39;s job.
 Single-cell imaging in knockout mice separated the two enzymes cleanly. Rdh8-deficient outer segments failed to reduce all-trans-retinal; Rdh12-deficient outer segments were unaffected. The leak of retinoids from outer to inner segment occurs in wild-type cells too, but in cells lacking either enzyme it is mainly all-trans-retinal rather than retinol. And wild-type rods could reduce moderate retinal loads inside the cell, an ability lost by cells deficient in either enzyme.
@@ -5302,6 +5374,13 @@ This pathophysiological event occurs in photoreceptor inner segment layer (UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinaldehyde-and-aldehyde-toxicity-in-the-inner-segment" data-dismech-node="Retinaldehyde and Aldehyde Toxicity in the Inner Segment" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinaldehyde and Aldehyde Toxicity in the Inner Segment</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Unreduced all-trans-retinal is a reactive aldehyde, and it accumulates in the compartment that holds the photoreceptor&#39;s mitochondria and endoplasmic reticulum. RDH12 also reduces C9 aldehydes - lipid peroxidation products - so the same loss removes a second arm of aldehyde defence, and at saturating peroxidic-aldehyde concentrations in cells under oxidative stress this may be a substantial part of its role.
 The light dependence follows directly. Rdh12-null mice show increased susceptibility to light-induced photoreceptor apoptosis, and the authors of that study concluded that the severe visual impairment of humans with null RDH12 mutations may likely be caused by light damage.
 That mouse inference needs a caveat stated here and not only in the discussion it attaches to: Rdh12-null mice do not develop retinal degeneration. Two knockout lines were made and both have normal retinal histology. So the model supports the *susceptibility* claim - accumulated all-trans-retinal, slower ERG recovery after bleaching, more light damage - and does not support the step from susceptibility to the degeneration humans have. The node is graded PROVISIONAL for that reason.</div>
@@ -5545,6 +5624,13 @@ This pathophysiological event involves dysregulated cellular response to light s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-and-oxidative-stress" data-dismech-node="Endoplasmic Reticulum and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoplasmic Reticulum and Oxidative Stress</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">What the accumulated aldehyde does to the cell, and the arm with the clearest therapeutic handle. In HEK-293 lines expressing wild-type RDH12, the enzyme protects against all-trans-retinal toxicity and oxidative stress. Lines expressing mutant RDH12 have reduced protein expression and activity, cannot protect, and instead show oxidative and endoplasmic reticulum stress with upregulation of sXBP1, CHOP and ATF4 - the IRE1, ATF6 and PERK arms of the unfolded protein response respectively, and CHOP in particular is the pro-apoptotic output of that response.
 Graded PROVISIONAL: this is a heterologous expression system, not a photoreceptor, and the transcriptional response has not been demonstrated in an RDH12-deficient retina. It is curated as a distinct node rather than folded into the aldehyde toxicity above because it is the step pregabalin acts on, and because its addition is what stops the two-way question about which toxic species kills the cell from reading as a false binary - stress signalling is the shared downstream consequence either way.</div>
 
@@ -5768,6 +5854,13 @@ This pathophysiological event involves increased response to oxidative stress (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinoic-acid-overproduction" data-dismech-node="Retinoic Acid Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinoic Acid Overproduction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A second, non-obvious consequence of the same enzymatic loss, and a candidate mechanism of cell death in its own right. In living cells RDH12 acts exclusively as a retinaldehyde *reductase*, despite being bidirectional in vitro - so it pulls retinoid homeostasis toward retinol and away from all-trans-retinal, which is the substrate for retinoic acid synthesis. Losing it lets bioactive retinoic acid rise.
 The evidence that this is not incidental: the reductase activity protects cells from retinaldehyde-induced death specifically at high retinaldehyde concentrations, and the protective effect correlates with lower retinoic acid levels in RDH12-expressing cells.
 Graded PROVISIONAL rather than ESTABLISHED because it rests on one cell-based study and no one has measured retinoic acid in an RDH12-deficient retina.</div>
@@ -5906,6 +5999,13 @@ This pathophysiological event involves dysregulated retinoid metabolic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-degeneration" data-dismech-node="Photoreceptor Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor Degeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Progressive loss of rod and cone photoreceptors. Functionally it is complete early: scotopic and photopic electroretinography was markedly reduced in every subject of the natural-history cohort, with a non-recordable ERG documented at one year of age.
 The word to hold onto is *progressive*. The gene-discovery series described a severe yet progressive rod-cone dystrophy, and the natural-history data show reduced but often useful vision retained into adolescence before severe loss of function and structure after age ten. That trajectory is what makes treatment timing the central clinical question here.</div>
@@ -6133,6 +6233,13 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-macular-atrophy" data-dismech-node="Early Macular Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Early Macular Atrophy</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The feature that makes this genotype therapeutically distinct, curated as its own node for that reason rather than folded into the degeneration above. Macular atrophy was universal in the natural-history cohort - all 57 subjects - and was seen in children as young as two. It takes a characteristic form: petal-shaped and coloboma-like, with a variegated watercolour-like pattern on widefield imaging in 13 of 23 imaged subjects, and peripapillary sparing in 18 of 23.
 Its consequence is that gene supplementation, which works for RPE65 because macular structure there is relatively preserved, has to reach this retina before the macula is gone. Other LCA forms often look relatively normal on fundoscopy in childhood despite severe visual dysfunction; this one does not.</div>
 
@@ -6288,7 +6395,7 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV Gene Supplementation (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A gene therapy vector for RDH12-associated retinal dystrophy has been developed, and preclinical work plus a prospective natural-history study are described as preparing the foundation for trials. Nothing has been shown to work in patients.\\nThe specific obstacle for this genotype is timing rather than vector design. Macular atrophy is universal and documented from age two; supplementation can only preserve photoreceptors that still exist. That is the reason the natural-history studies exist at all - to identify outcome measures, since the ERG is already non-recordable and visual acuity does not fall until later.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Biallelic RDH12 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. RDH12 is a small gene on chromosome 14 encoding a member of the short-chain dehydrogenase/reductase superfamily, highly expressed in photoreceptor inner segments.\\nLoss of function here is not always loss of catalysis, and that is worth stating because it changes how a missense variant should be read. Two disease-associated mutants, T49M and I51N, retain significant residual activity in vitro and still fail in cells - because their affinity for NADPH is dramatically reduced and their protein expression levels are much lower. An in vitro activity assay on purified protein can therefore look reassuring for an allele that is functionally null in a photoreceptor.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"RDH12\"], \"gene_terms\": [{\"label\": \"RDH12\", \"id\": \"hgnc:19977\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Curated as loss of function on the combined evidence of allele spectrum and cellular phenotype. Zygosity is left unset at disease level because reported patients are variously homozygous and compound heterozygous; the natural-history cohort\u0027s criterion was simply two likely disease-causing variants.\"}, \"role\": \"trigger\"}}, {\"id\": \"Early Macular Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The feature that makes this genotype therapeutically distinct, curated as its own node for that reason rather than folded into the degeneration above. Macular atrophy was universal in the natural-history cohort - all 57 subjects - and was seen in children as young as two. It takes a characteristic form: petal-shaped and coloboma-like, with a variegated watercolour-like pattern on widefield imaging in 13 of 23 imaged subjects, and peripapillary sparing in 18 of 23.\\nIts consequence is that gene supplementation, which works for RPE65 because macular structure there is relatively preserved, has to reach this retina before the macula is gone. Other LCA forms often look relatively normal on fundoscopy in childhood despite severe visual dysfunction; this one does not.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\", \"locations\": [\"macula lutea\"]}}, {\"id\": \"Endoplasmic Reticulum and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"What the accumulated aldehyde does to the cell, and the arm with the clearest therapeutic handle. In HEK-293 lines expressing wild-type RDH12, the enzyme protects against all-trans-retinal toxicity and oxidative stress. Lines expressing mutant RDH12 have reduced protein expression and activity, cannot protect, and instead show oxidative and endoplasmic reticulum stress with upregulation of sXBP1, CHOP and ATF4 - the IRE1, ATF6 and PERK arms of the unfolded protein response respectively, and CHOP in particular is the pro-apoptotic output of that response.\\nGraded PROVISIONAL: this is a heterologous expression system, not a photoreceptor, and the transcriptional response has not been demonstrated in an RDH12-deficient retina. It is curated as a distinct node rather than folded into the aldehyde toxicity above because it is the step pregabalin acts on, and because its addition is what stops the two-way question about which toxic species kills the cell from reading as a false binary - stress signalling is the shared downstream consequence either way.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"response to oxidative stress\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"HEK-293 lines expressing wild-type and mutant RDH12\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The stress response to unhandled all-trans-retinal, with a wild-type control.\"}]}}, {\"id\": \"Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that defines the disease, and the one that separates it from every visual-cycle LCA. Photoactivated rhodopsin releases all-trans-retinal in the outer segment, where RDH8 reduces it; that is the visual cycle. Under continuous illumination some of that retinal leaks into the inner segment, and clearing it there is RDH12\u0027s job.\\nSingle-cell imaging in knockout mice separated the two enzymes cleanly. Rdh8-deficient outer segments failed to reduce all-trans-retinal; Rdh12-deficient outer segments were unaffected. The leak of retinoids from outer to inner segment occurs in wild-type cells too, but in cells lacking either enzyme it is mainly all-trans-retinal rather than retinol. And wild-type rods could reduce moderate retinal loads inside the cell, an ability lost by cells deficient in either enzyme.\\nBiochemically RDH12 is well suited to it: purified human RDH12 has its highest catalytic efficiency for all-trans-retinal, and it also recognises C9 aldehydes - lipid peroxidation products - as substrates.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"photoreceptor cell\"], \"biological_processes\": [\"retinal metabolic process\"], \"molecular_functions\": [\"all-trans-retinol dehydrogenase (NADP+) activity\"], \"role\": \"central_effector\", \"locations\": [\"photoreceptor inner segment layer\"], \"animal_models\": [{\"name\": \"Rdh12-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Rdh12-/- (targeted deletion)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The enzymatic deficit itself is faithfully reproduced - slowed all-trans-retinal reduction and altered retinoid flow in the inner segment.\"}]}}, {\"id\": \"HEK-293 lines expressing wild-type and mutant RDH12\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A heterologous expression system, and the source of the entry\u0027s ER and oxidative stress node and of the pregabalin result. Wild-type lines protect against all-trans-retinal toxicity; mutant lines do not, and instead show oxidative and ER stress with sXBP1, CHOP and ATF4 upregulated.\\nIts limitation is structural rather than technical: HEK-293 cells are not photoreceptors, have no outer segment, no visual cycle and no light exposure, so the system can show that mutant RDH12 fails to protect a cell from all-trans-retinal, and cannot show that this is what kills a photoreceptor.\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"Light Exposure Reduction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A mechanistically motivated intervention with no clinical evidence behind it. The Rdh12-null mouse is highly susceptible to light-induced photoreceptor apoptosis, and the authors of that study concluded that the severe visual impairment of humans with null RDH12 mutations may likely be caused by light damage - because the retinal that overwhelms the inner segment is generated by illumination.\\nNo human study has tested whether reducing light exposure alters the course. It is recorded here because the mechanistic case is unusually direct and because tinted lenses are low-risk; it should not be presented to a family as established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of rod and cone photoreceptors. Functionally it is complete early: scotopic and photopic electroretinography was markedly reduced in every subject of the natural-history cohort, with a non-recordable ERG documented at one year of age.\\nThe word to hold onto is *progressive*. The gene-discovery series described a severe yet progressive rod-cone dystrophy, and the natural-history data show reduced but often useful vision retained into adolescence before severe loss of function and structure after age ten. That trajectory is what makes treatment timing the central clinical question here.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"role\": \"consequence\", \"locations\": [\"retina\"], \"animal_models\": [{\"name\": \"Rdh12-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Rdh12-/- (targeted deletion)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The model does not develop retinal degeneration. Two knockout lines were generated and both showed normal retinal histology with no apparent signs of degeneration - against a human disease defined by universal macular atrophy from age two and a non-recordable ERG from age one.\"}, {\"name\": \"Zebrafish rdh12 CRISPR mutant\", \"species\": \"Zebrafish\", \"genotype\": \"rdh12u533 c.17_23del p.(Val6AlafsTer5), CRISPR-Cas9\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Early degenerative changes in a rod-predominant pattern, at 12 months post-fertilisation.\"}]}}, {\"id\": \"Pregabalin (Investigational Retinal Scavenger)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one therapeutic candidate in this literature that targets the toxic species rather than the missing gene. Pregabalin is a retinaldehyde scavenger, and in the mutant RDH12 cell lines it attenuated all-trans-retinal-induced ER stress.\\nTwo limits on how far to read that. The experiment is in HEK-293 cells expressing mutant RDH12, not in photoreceptors; and the endpoint is a stress marker, not photoreceptor survival. It is included because a scavenger strategy is genotype-agnostic in a way gene supplementation is not - it does not depend on delivering a transgene to photoreceptors that may already be lost - which is exactly the constraint the macular-atrophy timing imposes on the gene-therapy route.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pregabalin\"]}}, {\"id\": \"RDH12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"RDH12\"], \"gene_terms\": [{\"label\": \"RDH12\", \"id\": \"hgnc:19977\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Rdh12-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model most of this disease\u0027s mechanistic literature runs through, and the one whose limitation is easiest to lose. Two independent knockout lines were made. Both have normal retinal histology and no retinal degeneration, which is the defining human phenotype.\\nWhat the model does show is the biochemistry: slower kinetics of all-trans-retinal reduction with delayed dark adaptation, accelerated 11-cis-retinal production, accumulated all-trans-retinal, slower ERG recovery after bleaching, and markedly increased susceptibility to light-induced photoreceptor apoptosis. So it is a good model of the enzymatic deficit and not a model of the disease.\"}, {\"id\": \"Retinaldehyde and Aldehyde Toxicity in the Inner Segment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unreduced all-trans-retinal is a reactive aldehyde, and it accumulates in the compartment that holds the photoreceptor\u0027s mitochondria and endoplasmic reticulum. RDH12 also reduces C9 aldehydes - lipid peroxidation products - so the same loss removes a second arm of aldehyde defence, and at saturating peroxidic-aldehyde concentrations in cells under oxidative stress this may be a substantial part of its role.\\nThe light dependence follows directly. Rdh12-null mice show increased susceptibility to light-induced photoreceptor apoptosis, and the authors of that study concluded that the severe visual impairment of humans with null RDH12 mutations may likely be caused by light damage.\\nThat mouse inference needs a caveat stated here and not only in the discussion it attaches to: Rdh12-null mice do not develop retinal degeneration. Two knockout lines were made and both have normal retinal histology. So the model supports the *susceptibility* claim - accumulated all-trans-retinal, slower ERG recovery after bleaching, more light damage - and does not support the step from susceptibility to the degeneration humans have. The node is graded PROVISIONAL for that reason.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"aldehyde metabolic process\", \"cellular response to light stimulus\"], \"role\": \"effector\"}}, {\"id\": \"Retinoic Acid Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, non-obvious consequence of the same enzymatic loss, and a candidate mechanism of cell death in its own right. In living cells RDH12 acts exclusively as a retinaldehyde *reductase*, despite being bidirectional in vitro - so it pulls retinoid homeostasis toward retinol and away from all-trans-retinal, which is the substrate for retinoic acid synthesis. Losing it lets bioactive retinoic acid rise.\\nThe evidence that this is not incidental: the reductase activity protects cells from retinaldehyde-induced death specifically at high retinaldehyde concentrations, and the protective effect correlates with lower retinoic acid levels in RDH12-expressing cells.\\nGraded PROVISIONAL rather than ESTABLISHED because it rests on one cell-based study and no one has measured retinoic acid in an RDH12-deficient retina.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"retinoid metabolic process\"], \"role\": \"effector\"}}, {\"id\": \"Zebrafish rdh12 CRISPR mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Made because the mouse does not degenerate, and the first model to show degenerative changes. At 12 months post-fertilisation the mutants have disrupted phagocytosis with increased phagosome size on electron microscopy, rhodopsin mislocalisation, and reduced atg12 and sod2 expression - which the authors read as early signs of a rod-predominant degeneration.\\n\\\"Early signs\\\" is the operative phrase and is not smoothed over here: this is not the severe early-onset blinding disease humans have, and no visual outcome is reported. It is a better model than the mouse for the degeneration question and still not a model of the human phenotype.\"}], \"edges\": [{\"source\": \"Biallelic RDH12 Loss of Function\", \"target\": \"Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment\", \"target\": \"Retinaldehyde and Aldehyde Toxicity in the Inner Segment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment\", \"target\": \"Retinoic Acid Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinaldehyde and Aldehyde Toxicity in the Inner Segment\", \"target\": \"Endoplasmic Reticulum and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinaldehyde and Aldehyde Toxicity in the Inner Segment\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endoplasmic Reticulum and Oxidative Stress\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinoic Acid Overproduction\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Early Macular Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AAV Gene Supplementation (Investigational)\", \"target\": \"Biallelic RDH12 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pregabalin (Investigational Retinal Scavenger)\", \"target\": \"Endoplasmic Reticulum and Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Light Exposure Reduction\", \"target\": \"Retinaldehyde and Aldehyde Toxicity in the Inner Segment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HEK-293 lines expressing wild-type and mutant RDH12\", \"target\": \"Endoplasmic Reticulum and Oxidative Stress\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The stress response to unhandled all-trans-retinal, with a wild-type control.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"A non-retinal cell line with no outer segment, visual cycle, or light exposure. Fidelity is graded LOW for that reason despite the result being clean and internally controlled.\"}, {\"source\": \"Rdh12-null mouse\", \"target\": \"Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The enzymatic deficit itself is faithfully reproduced - slowed all-trans-retinal reduction and altered retinoid flow in the inner segment.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Faithful for the biochemistry only. Nothing about this link should be read as support for the downstream degeneration, which the model does not have.\"}, {\"source\": \"Rdh12-null mouse\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The model does not develop retinal degeneration. Two knockout lines were generated and both showed normal retinal histology with no apparent signs of degeneration - against a human disease defined by universal macular atrophy from age two and a non-recordable ERG from age one.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is the central translational problem for RDH12 and it constrains everything preclinical. The gene-therapy vector study says so in its own abstract: efficacy was demonstrated in an animal model that does not exhibit a retinal degeneration phenotype, with reconstituted reductase activity and reduced light-damage susceptibility as the endpoints rather than rescue of degeneration. Any efficacy claim derived from this model is a claim about biochemistry, not about vision.\"}, {\"source\": \"Zebrafish rdh12 CRISPR mutant\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Early degenerative changes in a rod-predominant pattern, at 12 months post-fertilisation.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Early signs only, in a long-lived adult fish, against a human disease that is blinding in early childhood. Autophagy and oxidative-stress markers are transcriptional readouts rather than measures of photoreceptor loss.\"}, {\"source\": \"RDH12\", \"target\": \"Biallelic RDH12 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV Gene Supplementation (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A gene therapy vector for RDH12-associated retinal dystrophy has been developed, and preclinical work plus a prospective natural-history study are described as preparing the foundation for trials. Nothing has been shown to work in patients.\\nThe specific obstacle for this genotype is timing rather than vector design. Macular atrophy is universal and documented from age two; supplementation can only preserve photoreceptors that still exist. That is the reason the natural-history studies exist at all - to identify outcome measures, since the ERG is already non-recordable and visual acuity does not fall until later.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Biallelic RDH12 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. RDH12 is a small gene on chromosome 14 encoding a member of the short-chain dehydrogenase/reductase superfamily, highly expressed in photoreceptor inner segments.\\nLoss of function here is not always loss of catalysis, and that is worth stating because it changes how a missense variant should be read. Two disease-associated mutants, T49M and I51N, retain significant residual activity in vitro and still fail in cells - because their affinity for NADPH is dramatically reduced and their protein expression levels are much lower. An in vitro activity assay on purified protein can therefore look reassuring for an allele that is functionally null in a photoreceptor.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"RDH12\"], \"gene_terms\": [{\"label\": \"RDH12\", \"id\": \"hgnc:19977\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Curated as loss of function on the combined evidence of allele spectrum and cellular phenotype. Zygosity is left unset at disease level because reported patients are variously homozygous and compound heterozygous; the natural-history cohort\u0027s criterion was simply two likely disease-causing variants.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Early Macular Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The feature that makes this genotype therapeutically distinct, curated as its own node for that reason rather than folded into the degeneration above. Macular atrophy was universal in the natural-history cohort - all 57 subjects - and was seen in children as young as two. It takes a characteristic form: petal-shaped and coloboma-like, with a variegated watercolour-like pattern on widefield imaging in 13 of 23 imaged subjects, and peripapillary sparing in 18 of 23.\\nIts consequence is that gene supplementation, which works for RPE65 because macular structure there is relatively preserved, has to reach this retina before the macula is gone. Other LCA forms often look relatively normal on fundoscopy in childhood despite severe visual dysfunction; this one does not.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\", \"locations\": [\"macula lutea\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Endoplasmic Reticulum and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"What the accumulated aldehyde does to the cell, and the arm with the clearest therapeutic handle. In HEK-293 lines expressing wild-type RDH12, the enzyme protects against all-trans-retinal toxicity and oxidative stress. Lines expressing mutant RDH12 have reduced protein expression and activity, cannot protect, and instead show oxidative and endoplasmic reticulum stress with upregulation of sXBP1, CHOP and ATF4 - the IRE1, ATF6 and PERK arms of the unfolded protein response respectively, and CHOP in particular is the pro-apoptotic output of that response.\\nGraded PROVISIONAL: this is a heterologous expression system, not a photoreceptor, and the transcriptional response has not been demonstrated in an RDH12-deficient retina. It is curated as a distinct node rather than folded into the aldehyde toxicity above because it is the step pregabalin acts on, and because its addition is what stops the two-way question about which toxic species kills the cell from reading as a false binary - stress signalling is the shared downstream consequence either way.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"response to oxidative stress\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"HEK-293 lines expressing wild-type and mutant RDH12\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The stress response to unhandled all-trans-retinal, with a wild-type control.\"}]}}, {\"id\": \"Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that defines the disease, and the one that separates it from every visual-cycle LCA. Photoactivated rhodopsin releases all-trans-retinal in the outer segment, where RDH8 reduces it; that is the visual cycle. Under continuous illumination some of that retinal leaks into the inner segment, and clearing it there is RDH12\u0027s job.\\nSingle-cell imaging in knockout mice separated the two enzymes cleanly. Rdh8-deficient outer segments failed to reduce all-trans-retinal; Rdh12-deficient outer segments were unaffected. The leak of retinoids from outer to inner segment occurs in wild-type cells too, but in cells lacking either enzyme it is mainly all-trans-retinal rather than retinol. And wild-type rods could reduce moderate retinal loads inside the cell, an ability lost by cells deficient in either enzyme.\\nBiochemically RDH12 is well suited to it: purified human RDH12 has its highest catalytic efficiency for all-trans-retinal, and it also recognises C9 aldehydes - lipid peroxidation products - as substrates.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"photoreceptor cell\"], \"biological_processes\": [\"retinal metabolic process\"], \"molecular_functions\": [\"all-trans-retinol dehydrogenase (NADP+) activity\"], \"role\": \"central_effector\", \"locations\": [\"photoreceptor inner segment layer\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Rdh12-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Rdh12-/- (targeted deletion)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The enzymatic deficit itself is faithfully reproduced - slowed all-trans-retinal reduction and altered retinoid flow in the inner segment.\"}]}}, {\"id\": \"HEK-293 lines expressing wild-type and mutant RDH12\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A heterologous expression system, and the source of the entry\u0027s ER and oxidative stress node and of the pregabalin result. Wild-type lines protect against all-trans-retinal toxicity; mutant lines do not, and instead show oxidative and ER stress with sXBP1, CHOP and ATF4 upregulated.\\nIts limitation is structural rather than technical: HEK-293 cells are not photoreceptors, have no outer segment, no visual cycle and no light exposure, so the system can show that mutant RDH12 fails to protect a cell from all-trans-retinal, and cannot show that this is what kills a photoreceptor.\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"Light Exposure Reduction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A mechanistically motivated intervention with no clinical evidence behind it. The Rdh12-null mouse is highly susceptible to light-induced photoreceptor apoptosis, and the authors of that study concluded that the severe visual impairment of humans with null RDH12 mutations may likely be caused by light damage - because the retinal that overwhelms the inner segment is generated by illumination.\\nNo human study has tested whether reducing light exposure alters the course. It is recorded here because the mechanistic case is unusually direct and because tinted lenses are low-risk; it should not be presented to a family as established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of rod and cone photoreceptors. Functionally it is complete early: scotopic and photopic electroretinography was markedly reduced in every subject of the natural-history cohort, with a non-recordable ERG documented at one year of age.\\nThe word to hold onto is *progressive*. The gene-discovery series described a severe yet progressive rod-cone dystrophy, and the natural-history data show reduced but often useful vision retained into adolescence before severe loss of function and structure after age ten. That trajectory is what makes treatment timing the central clinical question here.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"role\": \"consequence\", \"locations\": [\"retina\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Rdh12-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Rdh12-/- (targeted deletion)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The model does not develop retinal degeneration. Two knockout lines were generated and both showed normal retinal histology with no apparent signs of degeneration - against a human disease defined by universal macular atrophy from age two and a non-recordable ERG from age one.\"}, {\"name\": \"Zebrafish rdh12 CRISPR mutant\", \"species\": \"Zebrafish\", \"genotype\": \"rdh12u533 c.17_23del p.(Val6AlafsTer5), CRISPR-Cas9\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Early degenerative changes in a rod-predominant pattern, at 12 months post-fertilisation.\"}]}}, {\"id\": \"Pregabalin (Investigational Retinal Scavenger)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one therapeutic candidate in this literature that targets the toxic species rather than the missing gene. Pregabalin is a retinaldehyde scavenger, and in the mutant RDH12 cell lines it attenuated all-trans-retinal-induced ER stress.\\nTwo limits on how far to read that. The experiment is in HEK-293 cells expressing mutant RDH12, not in photoreceptors; and the endpoint is a stress marker, not photoreceptor survival. It is included because a scavenger strategy is genotype-agnostic in a way gene supplementation is not - it does not depend on delivering a transgene to photoreceptors that may already be lost - which is exactly the constraint the macular-atrophy timing imposes on the gene-therapy route.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pregabalin\"]}}, {\"id\": \"RDH12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"RDH12\"], \"gene_terms\": [{\"label\": \"RDH12\", \"id\": \"hgnc:19977\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Rdh12-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model most of this disease\u0027s mechanistic literature runs through, and the one whose limitation is easiest to lose. Two independent knockout lines were made. Both have normal retinal histology and no retinal degeneration, which is the defining human phenotype.\\nWhat the model does show is the biochemistry: slower kinetics of all-trans-retinal reduction with delayed dark adaptation, accelerated 11-cis-retinal production, accumulated all-trans-retinal, slower ERG recovery after bleaching, and markedly increased susceptibility to light-induced photoreceptor apoptosis. So it is a good model of the enzymatic deficit and not a model of the disease.\"}, {\"id\": \"Retinaldehyde and Aldehyde Toxicity in the Inner Segment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unreduced all-trans-retinal is a reactive aldehyde, and it accumulates in the compartment that holds the photoreceptor\u0027s mitochondria and endoplasmic reticulum. RDH12 also reduces C9 aldehydes - lipid peroxidation products - so the same loss removes a second arm of aldehyde defence, and at saturating peroxidic-aldehyde concentrations in cells under oxidative stress this may be a substantial part of its role.\\nThe light dependence follows directly. Rdh12-null mice show increased susceptibility to light-induced photoreceptor apoptosis, and the authors of that study concluded that the severe visual impairment of humans with null RDH12 mutations may likely be caused by light damage.\\nThat mouse inference needs a caveat stated here and not only in the discussion it attaches to: Rdh12-null mice do not develop retinal degeneration. Two knockout lines were made and both have normal retinal histology. So the model supports the *susceptibility* claim - accumulated all-trans-retinal, slower ERG recovery after bleaching, more light damage - and does not support the step from susceptibility to the degeneration humans have. The node is graded PROVISIONAL for that reason.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"aldehyde metabolic process\", \"cellular response to light stimulus\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Retinoic Acid Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, non-obvious consequence of the same enzymatic loss, and a candidate mechanism of cell death in its own right. In living cells RDH12 acts exclusively as a retinaldehyde *reductase*, despite being bidirectional in vitro - so it pulls retinoid homeostasis toward retinol and away from all-trans-retinal, which is the substrate for retinoic acid synthesis. Losing it lets bioactive retinoic acid rise.\\nThe evidence that this is not incidental: the reductase activity protects cells from retinaldehyde-induced death specifically at high retinaldehyde concentrations, and the protective effect correlates with lower retinoic acid levels in RDH12-expressing cells.\\nGraded PROVISIONAL rather than ESTABLISHED because it rests on one cell-based study and no one has measured retinoic acid in an RDH12-deficient retina.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"retinoid metabolic process\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Zebrafish rdh12 CRISPR mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Made because the mouse does not degenerate, and the first model to show degenerative changes. At 12 months post-fertilisation the mutants have disrupted phagocytosis with increased phagosome size on electron microscopy, rhodopsin mislocalisation, and reduced atg12 and sod2 expression - which the authors read as early signs of a rod-predominant degeneration.\\n\\\"Early signs\\\" is the operative phrase and is not smoothed over here: this is not the severe early-onset blinding disease humans have, and no visual outcome is reported. It is a better model than the mouse for the degeneration question and still not a model of the human phenotype.\"}], \"edges\": [{\"source\": \"Biallelic RDH12 Loss of Function\", \"target\": \"Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment\", \"target\": \"Retinaldehyde and Aldehyde Toxicity in the Inner Segment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment\", \"target\": \"Retinoic Acid Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinaldehyde and Aldehyde Toxicity in the Inner Segment\", \"target\": \"Endoplasmic Reticulum and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinaldehyde and Aldehyde Toxicity in the Inner Segment\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endoplasmic Reticulum and Oxidative Stress\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinoic Acid Overproduction\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Early Macular Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AAV Gene Supplementation (Investigational)\", \"target\": \"Biallelic RDH12 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pregabalin (Investigational Retinal Scavenger)\", \"target\": \"Endoplasmic Reticulum and Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Light Exposure Reduction\", \"target\": \"Retinaldehyde and Aldehyde Toxicity in the Inner Segment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HEK-293 lines expressing wild-type and mutant RDH12\", \"target\": \"Endoplasmic Reticulum and Oxidative Stress\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The stress response to unhandled all-trans-retinal, with a wild-type control.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"A non-retinal cell line with no outer segment, visual cycle, or light exposure. Fidelity is graded LOW for that reason despite the result being clean and internally controlled.\"}, {\"source\": \"Rdh12-null mouse\", \"target\": \"Failure of All-Trans-Retinal Clearance in the Photoreceptor Inner Segment\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The enzymatic deficit itself is faithfully reproduced - slowed all-trans-retinal reduction and altered retinoid flow in the inner segment.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Faithful for the biochemistry only. Nothing about this link should be read as support for the downstream degeneration, which the model does not have.\"}, {\"source\": \"Rdh12-null mouse\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The model does not develop retinal degeneration. Two knockout lines were generated and both showed normal retinal histology with no apparent signs of degeneration - against a human disease defined by universal macular atrophy from age two and a non-recordable ERG from age one.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is the central translational problem for RDH12 and it constrains everything preclinical. The gene-therapy vector study says so in its own abstract: efficacy was demonstrated in an animal model that does not exhibit a retinal degeneration phenotype, with reconstituted reductase activity and reduced light-damage susceptibility as the endpoints rather than rescue of degeneration. Any efficacy claim derived from this model is a claim about biochemistry, not about vision.\"}, {\"source\": \"Zebrafish rdh12 CRISPR mutant\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Early degenerative changes in a rod-predominant pattern, at 12 months post-fertilisation.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Early signs only, in a long-lived adult fish, against a human disease that is blinding in early childhood. Autophagy and oxidative-stress markers are transcriptional readouts rather than measures of photoreceptor loss.\"}, {\"source\": \"RDH12\", \"target\": \"Biallelic RDH12 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6347,6 +6454,9 @@ This clinical feature is Macular atrophy (HP:0007401). HP:0007401 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6441,6 +6551,9 @@ This clinical feature is Rod-cone dystrophy (HP:0000510), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6507,6 +6620,9 @@ This clinical feature is Undetectable electroretinogram (HP:0000550). HP:0000550
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6596,6 +6712,9 @@ This clinical feature is Severely reduced visual acuity (HP:0001141), qualified 
 
 
                     </div>
+
+
+
 
 
 
@@ -6699,6 +6818,9 @@ This clinical feature is Spicular pigmentation of the retina (HP:0007737). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6797,6 +6919,9 @@ This clinical feature is Mild hypermetropia (HP:0031728). HP:0031728 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6855,6 +6980,9 @@ This clinical feature is Mild hypermetropia (HP:0031728). HP:0031728 is a phenot
 
 
                     </div>
+
+
+
 
 
 
@@ -6971,6 +7099,9 @@ This disease-associated gene is RDH12 (hgnc:19977). hgnc:19977 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7182,6 +7313,12 @@ This disease-associated gene is RDH12 (hgnc:19977). hgnc:19977 is a gene from th
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">There is currently no treatment for RDH12-associated retinal degeneration. Curated as an explicit entry rather than an empty section, because the absence is the clinically relevant fact and because it sits against a background where one LCA genotype - RPE65 - does have an approved therapy, which patients and families reasonably ask about.</div>
 
 
@@ -7271,6 +7408,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7281,6 +7421,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -7468,6 +7611,9 @@ This treatment uses pregabalin (CHEBI:64356). CHEBI:64356 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7478,6 +7624,9 @@ This treatment uses pregabalin (CHEBI:64356). CHEBI:64356 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7592,6 +7741,9 @@ This treatment is behavioral intervention (NCIT:C15184). NCIT:C15184 is a clinic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7602,6 +7754,9 @@ This treatment is behavioral intervention (NCIT:C15184). NCIT:C15184 is a clinic
 
 
     </div>
+
+
+
 
 
 
@@ -10488,6 +10643,73 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated from a Perplexity deep-research report plus independent PubMed searching. The report was used for framing only, and its term validation is the reason. It reported 25 of 44 checked labels mismatched - the worst of the five reports produced in this curation batch - and the mismatches were of the most dangerous kind, real HPO terms paired with the wrong names. It offered HP:0000639 as &#34;visual impairment&#34; when HPO calls it Nystagmus, and HP:0000556 as &#34;nystagmus&#34; when HPO calls it Retinal dystrophy - the two labels are swapped between two real terms, so neither the CURIE nor the name looks wrong on its own. No CURIE was taken from the report; every binding here was resolved against the committed term caches and OLS.
+The GeneReviews overview of nonsyndromic LCA/EOSRD (PMID:30285347) is cited as the expert baseline. It is an overview chapter covering the whole disease class rather than an RDH12-specific one, so it is not used as an evidence source for this genotype&#39;s phenotypes; those come from the two natural-history studies.
+Two decisions made in review are recorded here because they are absences a reader would otherwise read as omissions.
+No clinical_trials section. A prospective natural-history study is described as ongoing in the 2022 review, and no interventional trial for RDH12 retinopathy is identified in any source cited here. A ClinicalTrials.gov identifier was not invented to fill the section.
+PMID:29398085 is in references_cache but is deliberately uncited: it is a CEP290 natural-history study, cached because the deep-research report&#39;s citation list resolved it, and it has no RDH12 content. Recorded so a later reader does not add it as a plausible-looking LCA citation.
+A nomenclature trap is recorded in the genetic notes: the 2005 biochemical paper refers to RDH12 as linked to &#34;Leber&#39;s congenital amaurosis 3&#34;, not 13. LCA3 is now assigned to SPATA7.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: address ai4c-reviewer items on PR 10027</strong> · 2026-08-29T07:46:40Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Leber_Congenital_Amaurosis_13/2026-08-29T074640Z-claude-code-e5af1b.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed all five IMPORTANT items and four of five suggestions from the automated review of PR 10027. Item 1 was a substantive correction, not a polish item, and it changed how several other things in the entry are graded.
+
+Item 1, the undisclosed human/model mismatch. Rdh12-null mice do not develop retinal degeneration. Two independent knockout lines were generated and both have normal retinal histology. I had cited that mouse for the light-susceptibility claim without recording that it fails to reproduce the defining human phenotype, and the entry&#39;s Light Exposure Reduction treatment rested entirely on it. Three consequences. A HUMAN_MODEL_MISMATCH discussion attaching to five places - two pathophysiology nodes, the animal model, the gene-therapy treatment and the light-avoidance treatment - because the mismatch constrains all of them. The Retinaldehyde and Aldehyde Toxicity node downgraded from ESTABLISHED to PROVISIONAL, since its step to degeneration rests on a model that does not degenerate. And the top-level description rewritten: it previously said the therapeutic window closes in early childhood, which is more pessimistic than the sources support, and it now states the constraint without asserting a closing age, plus the model limitation.
+
+Item 2, the ER and oxidative stress arm. PMID:34445569 was cached and cited nowhere. Added as its own PROVISIONAL node - mutant RDH12 cell lines cannot protect against all-trans-retinal and mount an ER and oxidative stress response with sXBP1, CHOP and ATF4 upregulated, against a wild-type control that does protect. The reviewer&#39;s point that its absence made the which-toxic-species knowledge gap read as a false binary is right, and that discussion&#39;s rationale now says explicitly that stress signalling is the shared downstream consequence of either candidate, so the question is about which upstream species drives it rather than a two-way choice about what kills the cell.
+
+Item 3, pregabalin. Added as an investigational treatment targeting the new stress node. It is the only candidate in this literature that acts on the toxic species rather than on the missing gene, which matters because a scavenger strategy does not depend on delivering a transgene to photoreceptors that may already be lost. The limits are stated in the entry: HEK-293 cells rather than photoreceptors, and a stress marker rather than photoreceptor survival as the endpoint.
+
+Item 4, PMID:31237438 listed but unused. Now carries two evidence items on the gene-therapy treatment, one for the vector and its safety result and one, graded PARTIAL, for the efficacy claim with the authors&#39; own limiting clause attached - efficacy demonstrated in an animal model that does not exhibit a retinal degeneration phenotype.
+
+Item 5, the inverted peripapillary binding. Removed HP:0500087 Peripapillary atrophy entirely. The reviewer&#39;s argument is the general one worth keeping: a PARTIAL grade and an explanatory description do not survive KGX or BioLink export, so the graph would have asserted peripapillary atrophy where the finding is sparing. The phenotype now carries a free-text preferred_term with no term binding, and the evidence is regraded SUPPORT because it now supports what the phenotype actually says.
+
+Suggestions taken. Added animal_models with the Rdh12-null mouse - RECAPITULATES for the enzymatic deficit at HIGH fidelity, FAILS_TO_RECAPITULATE for degeneration at LOW, with an UNCHANGED readout for normal retinal histology recorded as the real negative result it is - and the zebrafish CRISPR mutant as PARTIALLY_RECAPITULATES, with the authors&#39; hedge about early signs intact. Added experimental_models with the HEK-293 lines at LOW fidelity, since a cell with no outer segment, visual cycle or light exposure can show that mutant RDH12 fails to protect a cell and cannot show that this kills a photoreceptor. Renamed Absence of Marked Hyperopia to Mild Hyperopia, with a note that the schema has no phenotype-negation slot and the discriminating information is in the absence of the marked form, which the entry can only state in prose. Softened the therapeutic-window claim as above. Cited two of the four uncited cohorts: PMID:37240262 for RDH12&#39;s share of a German cohort, which is the clearest available illustration of why these fractions should not be pooled - 13 per cent across LCA-associated genes and 7 per cent restricted to a clinical LCA diagnosis, a two-fold spread inside one cohort from the inclusion criterion alone - and PMID:38371258 for thirteen patients sharing one variant with varying clinical characteristics, graded REFUTE as evidence against a simple allele-to-severity rule.
+
+Two deliberate absences are now recorded in notes so a later reader does not read them as omissions. No clinical_trials section: an ongoing prospective natural-history study is described but no interventional trial is identified in any cited source, and no identifier was invented to fill the section. And PMID:29398085 is left uncited because it is a CEP290 natural-history study, cached because the deep-research report&#39;s citation list resolved it, with no RDH12 content.
+
+Separately, running the model-link pytest lanes on this branch surfaced a pre-existing failure on main that is not from this PR: test_failure_to_recapitulate_links_are_substantiated fails on Polycystic_Kidney_Disease_3.yaml, whose animal model link has no evidence. Filed as issue 10028 after checking for duplicates; the file is untouched by this branch.
+
+Validation after changes. Schema validation passes; 56 of 56 evidence snippets verified, up from 36; term validation, entity-ref and duplicate-key checks pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Leber Congenital Amaurosis 13 (MONDO:0012990, RDH12)</strong> · 2026-08-29T07:03:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Leber_Congenital_Amaurosis_13/2026-08-29T070358Z-claude-code-2ac257.yaml">View source</a></p>
+                        <p class="research-review-text">New disorder entry for Leber congenital amaurosis 13, the RDH12-associated early-onset severe retinal dystrophy.
+
+Lump/split decision. Curated as its own kb/disorders entry, following the per-gene retinopathy pattern the KB already uses - Leber_Congenital_Amaurosis_10, RPE65-Related_Retinopathy, AIPL1-Related_Retinopathy, CRB1_Retinal_Dystrophies. The justification here is stronger than pattern-matching: RDH12 is the LCA gene whose mechanism sits outside the visual cycle, and that difference has direct therapeutic consequences.
+
+Curation inputs. One Perplexity deep-research run, committed alongside, plus independent PubMed E-utilities searching. The report was used for framing only, and its term validation is why. It reported 25 of 44 checked labels mismatched, the worst of the five reports in this curation batch, and the mismatches were of the most dangerous kind - real HPO terms paired with the wrong names. It offered HP:0000639 as visual impairment when HPO calls it Nystagmus, and HP:0000556 as nystagmus when HPO calls it Retinal dystrophy. The two labels are swapped between two real terms, so neither the CURIE nor the name looks wrong in isolation. Its reference validation was clean, 8 of 8 resolving and all on topic, which is a good illustration that the two validators measure different things.
+
+GeneReviews baseline. The nonsyndromic LCA/EOSRD overview, PMID:30285347, is cited and tagged. It covers the disease class rather than this genotype, so it is not used as an evidence source for phenotypes; those come from the two natural-history studies, which between them cover 57 and 134 individually reported subjects.
+
+Structure. Six pathophysiology nodes: biallelic RDH12 loss of function, failure of all-trans-retinal clearance in the photoreceptor inner segment, then two parallel toxic consequences - retinaldehyde and aldehyde toxicity, and retinoic acid overproduction - converging on photoreceptor degeneration and early macular atrophy.
+
+The compartment distinction is the substantive content. RDH8 does the visual-cycle reduction in the outer segment; RDH12 clears the all-trans-retinal that leaks into the inner segment under continuous illumination, and also reduces lipid peroxidation products. Single-cell imaging in knockout mice separates the two cleanly. That is why RPE65 is a poor analogue: RPE65 disease is a functional visual-cycle defect with relatively preserved macular structure, while RDH12 disease destroys the macula early, and gene supplementation cannot restore atrophied photoreceptors.
+
+Early macular atrophy is curated as its own node rather than folded into the degeneration, because it is the feature that makes the genotype therapeutically distinct.
+
+Two discussions, both KNOWLEDGE_GAP. The first is the therapeutic window: macular atrophy is universal from age two and the ERG is non-recordable from age one, yet useful vision is retained until adolescence, so there is a decade with something to preserve and no validated outcome measure to detect preservation - the ERG is already at floor. The second is which toxic species drives cell death, aldehyde or retinoic acid; the cited work supports each without discriminating, which is why the aldehyde node is ESTABLISHED and the retinoic acid node PROVISIONAL, and it matters because the two accounts imply different drugs.
+
+Two variant-interpretation points are recorded in the genetic notes because they are traps. Residual in vitro activity does not exclude pathogenicity - T49M and I51N retain significant activity on purified protein and still fail in cells, through reduced NADPH affinity and lower expression. And the 2005 biochemical paper refers to RDH12 as linked to Leber&#39;s congenital amaurosis 3, not 13; LCA3 is now assigned to SPATA7, so a search on the old designation returns the wrong gene.
+
+One phenotype carries a term-binding compromise stated in place: peripapillary sparing is bound to HP:0500087 Peripapillary atrophy, the nearest anatomical anchor, because HPO has no term for peripapillary sparing. The evidence item is graded PARTIAL and the description states the actual finding.
+
+Validation. Schema validation passed on the first run; 36 of 36 evidence snippets verified against cached primary references; term validation, duplicate-key and entity-ref checks pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

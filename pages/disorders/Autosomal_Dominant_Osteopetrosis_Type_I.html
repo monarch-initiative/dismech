@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4314,6 +4367,7 @@ Because of this mechanism the disorder was formally reclassified out of the oste
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lrp5-first-beta-propeller-missense-substitution" data-dismech-node="LRP5 First Beta-Propeller Missense Substitution" data-dismech-type="pathophysiology">
                 <div class="item-name">LRP5 First Beta-Propeller Missense Substitution</div>
 
+
                 <div class="item-desc">Heterozygous missense substitutions land in the amino-terminal first beta-propeller of LRP5, before the first EGF-like domain. The clustering is the mechanistic clue: this region is not the Wnt-binding or signal-transducing part of the receptor but the docking surface for the secreted inhibitors sclerostin and DKK1. Substitutions here therefore do not make the receptor intrinsically more active; they make it unavailable to the physiological brake.
 </div>
 
@@ -4467,6 +4521,7 @@ This pathophysiological event involves LRP5 (hgnc:6697). hgnc:6697 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-canonical-wnt-signaling-in-osteoblasts" data-dismech-node="Constitutive Canonical Wnt Signaling in Osteoblasts" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Canonical Wnt Signaling in Osteoblasts</div>
+
 
                 <div class="item-desc">Canonical Wnt/beta-catenin signalling in the osteoblast lineage runs above its normal set point. This is a qualitative change, not merely a quantitative one: the pathway is no longer under the control of the sclerostin feedback loop by which osteocytes normally restrain formation in response to mechanical and endocrine cues.
 </div>
@@ -4624,6 +4679,7 @@ This pathophysiological event involves canonical Wnt signaling pathway (GO:00600
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-osteoblastic-bone-formation" data-dismech-node="Increased Osteoblastic Bone Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Osteoblastic Bone Formation</div>
 
+
                 <div class="item-desc">Bone matrix is deposited at an increased rate, measurable as an increased mineralizing surface index on histomorphometry. Formation predominantly thickens the endosteal surface and the cranial vault rather than expanding the metaphyses, which is why ADO1 lacks the Erlenmeyer flask deformity of the resorption-failure osteopetroses.
 </div>
 
@@ -4770,6 +4826,7 @@ This pathophysiological event involves increased bone mineralization (GO:0030282
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-osteoclast-number-and-resorptive-response" data-dismech-node="Reduced Osteoclast Number and Resorptive Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Osteoclast Number and Resorptive Response</div>
+
 
                 <div class="item-desc">Osteoclast numbers are low in vivo and the resorptive response to a stimulus is blunted, yet osteoclasts taken from the same patients behave normally in culture. Osteoclastogenesis, marker expression, morphology, localisation of ClC-7 and cathepsin K, and the ability to resorb bone are all preserved in vitro. The defect is therefore in the bone microenvironment, not in the osteoclast.
 </div>
@@ -4946,6 +5003,7 @@ This pathophysiological event involves decreased bone resorption (GO:0045453). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-osteosclerosis" data-dismech-node="Generalized Osteosclerosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized Osteosclerosis</div>
 
+
                 <div class="item-desc">Diffusely increased bone density, most pronounced at the cranial vault and the endosteal surfaces of the long bones. Unlike the resorption-failure osteopetroses the accumulated bone is architecturally competent, so it does not carry the fracture, marrow-failure and extramedullary-haematopoiesis consequences that follow from dense but brittle bone.
 </div>
 
@@ -5029,6 +5087,7 @@ This pathophysiological event involves decreased bone resorption (GO:0045453). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-foramina-narrowing" data-dismech-node="Cranial Foramina Narrowing" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial Foramina Narrowing</div>
+
 
                 <div class="item-desc">Progressive bony encroachment on the cranial foramina compresses the nerves passing through them. This is the main route by which an otherwise well-tolerated increase in bone mass becomes symptomatic disease, and it is the reason the neurological features are late and slowly progressive rather than congenital.
 </div>
@@ -5233,6 +5292,9 @@ This clinical feature is Hearing impairment (HP:0000365), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5336,6 +5398,9 @@ This clinical feature is Papilledema (HP:0001085). HP:0001085 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5416,6 +5481,9 @@ This clinical feature is Craniofacial hyperostosis (HP:0004493). HP:0004493 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5482,6 +5550,9 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5567,6 +5638,9 @@ This clinical feature is Elevated circulating alkaline phosphatase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5647,6 +5721,9 @@ This clinical feature is Generalized osteosclerosis (HP:0005789). HP:0005789 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5713,6 +5790,9 @@ This clinical feature is Increased bone mineral density (HP:0011001). HP:0011001
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5786,6 +5866,9 @@ This clinical feature is Increased susceptibility to fractures (HP:0002659). HP:
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5871,6 +5954,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5940,6 +6026,9 @@ This clinical feature is Increased intracranial pressure (HP:0002516). HP:000251
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6004,6 +6093,9 @@ This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6089,6 +6181,9 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6147,6 +6242,9 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
                     </div>
+
+
+
 
 
 
@@ -6263,6 +6361,9 @@ This disease-associated gene is LRP5 (hgnc:6697). hgnc:6697 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6411,6 +6512,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8468,6 +8575,43 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">On naming. The MONDO term for this entry is &#34;autosomal dominant osteopetrosis 1&#34;, and the entry is filed under it, but the name is now regarded as a misnomer in the clinical literature. The disorder is a bone-formation disease, not a bone-resorption disease, and the identification of LRP5 gain of function prompted a formal reclassification of ADO1 out of osteopetrosis and into the high-bone-mass group (PMID:20855225). The 2023 historical review argues for &#34;LRP5 high bone mass&#34; as the correct designation (PMID:37659026). Both names are carried in synonyms so that either search finds the entry.
+On the boundary with the LRP5 high-bone-mass literature. ADO1, Worth-type endosteal hyperostosis, autosomal dominant osteosclerosis and the high bone mass trait were described separately and later shown to be the same LRP5 disorder. This entry treats them as one disease, which is why evidence from papers using the other names is cited here. That decision follows the reclassification review rather than MONDO, which still keeps some of these as distinct terms.
+On what is deliberately absent. There is no datasets block: no expression or omics dataset specific to ADO1 was identified, and a search on the LRP5 gene symbol alone would return the osteoporosis and FEVR literature, which is the Named Entity Confusion trap. The widely used Lrp5 knockout is deliberately not listed as a model: it reproduces the allelic loss-of-function disease with the opposite bone phenotype, so it bounds the direction of effect but does not model this disease.
+On the prevalence figure. The only population estimate available, 5.5/100,000 from Funen County, is for autosomal dominant osteopetrosis as a whole in a 1986 survey that predates both the type I/type II radiological split and the identification of LRP5. Since the common dominant form is CLCN7-related type II, most of that figure is not this disease. It is recorded as an upper bound with that caveat stated in the record&#39;s own notes, and a deep-research report that presented it as an ADO1 prevalence was not followed on this point.
+On GeneReviews. A PubMed search of the GeneReviews book collection was run for this entry and returns no chapter covering LRP5 high bone mass or ADO1. The two chapters carrying &#34;osteopetrosis&#34; in the title are CLCN7-Related Osteopetrosis (PMID:20301306), which covers ADO2 and the CLCN7 recessive form, and TCIRG1-Related Osteopetrosis (PMID:40875877), which covers a further recessive form; searching the collection for LRP5 or for high bone mass returns nothing. Recorded here so the absence reads as a completed search rather than an omission.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autosomal Dominant Osteopetrosis Type I (MONDO:0011877)</strong> · 2026-09-06T16:07:19Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Dominant_Osteopetrosis_Type_I/2026-09-06T160719Z-claude-code-347ca5.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of ADO1 / LRP5 high bone mass.
+
+Lump/split: curated as a DISEASE rather than a has_subtypes row on Osteopetrosis. ADO1 is mechanistically the inverse of the other osteopetroses (osteoblastic bone formation excess via LRP5 gain of function, not osteoclastic resorption failure), and the literature formally reclassified it out of the osteopetrosis group into the high-bone-mass diseases (PMID:20855225). Autosomal_Dominant_Osteopetrosis_Type_II and Autosomal_Recessive_Osteopetrosis already exist as separate entries, so a separate ADO1 entry matches the established shape. No kb entry carried hgnc:6697 for a bone phenotype before this one.
+
+Pathograph: LRP5 first-beta-propeller substitution -&gt; constitutive canonical Wnt signalling in osteoblasts -&gt; increased osteoblastic formation and (indirectly) reduced osteoclast number -&gt; generalized osteosclerosis -&gt; cranial foramina narrowing -&gt; hearing loss, headache, anosmia. The osteoblast-to-osteoclast edge is recorded INDIRECT_KNOWN_INTERMEDIATES with directness: INDIRECT because the only source states it as an explicit speculation.
+
+Notable negative: &#39;Absence of increased fracture rate&#39; is curated as a phenotype with frequency EXCLUDED. It is the discriminating feature against ADO2 and is a positive claim about this disease rather than missing data.
+
+Deep research: one openscientist report (research/Autosomal_Dominant_Osteopetrosis_Type_I-deep-research-openscientist.md), 30/30 references resolved, 13/13 quoted claims verified, 0 unresolved terms. preflight-dr PASS on identity (LRP5 x42, OMIM 607634 matches MONDO). Its &#39;rival gene HBM&#39; warning is a false positive: HBM is the high-bone-mass abbreviation, not a rival gene.
+
+Two report leads changed the entry. It surfaced Lrp5 p.G171V and p.A214V knock-in mice (PMID:25808845), which falsified a claim in an earlier draft of notes that no ADO1 model existed; two animal_models with modeled_mechanisms were added and the note corrected. It also surfaced a 5.5/100,000 population prevalence (PMID:3829443) which the report presented as an ADO-I figure. That attribution was NOT followed: the 1986 Funen County survey predates both the type I/II split and the LRP5 discovery, so its dominant-osteopetrosis cohort is mostly what is now ADO2. The figure is recorded as an explicit upper bound with that caveat.
+
+Validation: just validate passes schema plus 46/46 snippets verified against cached references; validate-terms, check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values all pass.
+
+Note for tooling: CLAUDE.md documents a Prevalence slot rate_denominator that does not exist in src/dismech/schema/dismech.yaml; using it as documented fails schema validation.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4818,6 +4871,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coq4-loss-of-function-and-coq-synthome-destabilization" data-dismech-node="COQ4 Loss of Function and CoQ Synthome Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">COQ4 Loss of Function and CoQ Synthome Destabilization</div>
 
+
                 <div class="item-desc">Biallelic COQ4 variants reduce or abolish COQ4 protein. COQ4 has no demonstrated catalytic step of its own; the yeast orthologue acts as a structural scaffold stabilizing the multiheteromeric complex that assembles most of the CoQ biosynthetic enzymes, so loss of COQ4 destabilizes the whole biosynthetic machine. Missense, nonsense, frameshift and in-frame deletion alleles have all been reported, and patient fibroblasts show markedly reduced COQ4 protein levels. Note that the molecular-function term below is a curator inference: the cited source states that the precise catalytic function of human COQ4 is unknown and describes it as playing a structural, complex-stabilizing role, for which the adaptor-activity term is the closest available GO proxy.
 </div>
 
@@ -5027,6 +5081,7 @@ This pathophysiological event involves decreased protein-macromolecule adaptor a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coenzyme-q10-biosynthetic-failure" data-dismech-node="Coenzyme Q10 Biosynthetic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Coenzyme Q10 Biosynthetic Failure</div>
 
+
                 <div class="item-desc">Loss of COQ4 collapses de novo CoQ10 synthesis. Because dietary contribution to cellular CoQ10 is negligible, tissue CoQ10 falls steeply: muscle and fibroblast CoQ10 are severely reduced in affected neonates. The pathway intermediate 6-demethoxyubiquinone accumulates in patient cells, a metabolic signature of COQ4 deficiency that localises the block within the pathway.
 </div>
 
@@ -5167,6 +5222,7 @@ This pathophysiological event involves decreased ubiquinone biosynthetic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-coq10-dependent-respiratory-chain-electron-transfer" data-dismech-node="Impaired CoQ10-Dependent Respiratory Chain Electron Transfer" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CoQ10-Dependent Respiratory Chain Electron Transfer</div>
+
 
                 <div class="item-desc">CoQ10 is the lipophilic mobile carrier that shuttles electrons from complex I and complex II (and from other flavoprotein dehydrogenases) to complex III. Its depletion produces a combined, CoQ10-specific respiratory-chain lesion: the coupled complex I+III and complex II+III activities fall while the individual complexes are often preserved, which is the biochemical fingerprint that distinguishes a CoQ10 biosynthesis defect from an assembly defect of a single complex. Maximal respiratory rates are reduced in patient fibroblasts.
 </div>
@@ -5367,6 +5423,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-of-high-energy-demand-tissues" data-dismech-node="Bioenergetic Failure of High-Energy-Demand Tissues" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure of High-Energy-Demand Tissues</div>
+
 
                 <div class="item-desc">Organs with the highest oxidative workload - in the cited source the heart, kidneys and brain - carry the highest CoQ10 concentrations and fail first. In the neonatal COQ4 phenotype the injury falls on heart, brain and skeletal muscle, with renal function repeatedly reported as spared, distinguishing COQ4 from the renal-predominant COQ2/COQ6/COQ8B forms. The fulminant course of the neonatal form can mask multisystem involvement, so individual infants may appear predominantly cardiac or predominantly neurological. The specific cardiac and neural tissue lesions produced are curated under `histopathology`.
 </div>
@@ -5645,6 +5702,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rapidly-progressive-lactic-acidosis-and-multiorgan-failure" data-dismech-node="Rapidly Progressive Lactic Acidosis and Multiorgan Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Rapidly Progressive Lactic Acidosis and Multiorgan Failure</div>
 
+
                 <div class="item-desc">With oxidative phosphorylation blocked, pyruvate is shunted to lactate and blood lactate rises steeply in the first hours to days of life. Severe lactic acidosis in combination with cardiac and respiratory failure determines the fatal outcome of the classic neonatal presentation.
 </div>
 
@@ -5785,6 +5843,7 @@ This pathophysiological event involves increased lactate metabolic process (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-neurodegeneration-and-cerebral-volume-loss" data-dismech-node="Progressive Neurodegeneration and Cerebral Volume Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Neurodegeneration and Cerebral Volume Loss</div>
+
 
                 <div class="item-desc">Autopsy in the defining cohort showed neuron loss with reactive astrocytosis, and serial MRI in an affected infant showed progressive cerebral volume loss with rising lactate peaks - the structural substrate of the neurological phenotypes. Thalamic hypoplasia and scattered white matter cavitations widen the injury beyond the cerebellum. The relative contributions of prenatal maldevelopment and postnatal degeneration are unresolved (see the antenatal-lesion knowledge gap in `discussions`); this node models the documented postnatal degenerative component.
 </div>
@@ -6105,6 +6164,7 @@ This pathophysiological event involves increased reactive astrocytosis, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-bioenergetic-failure-and-hypertrophic-remodeling" data-dismech-node="Myocardial Bioenergetic Failure and Hypertrophic Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial Bioenergetic Failure and Hypertrophic Remodeling</div>
+
 
                 <div class="item-desc">Cardiomyocytes have an exceptionally high ATP demand and fail early: affected neonates show markedly reduced left ventricular motility with ejection fractions of 20-25%, fetal-onset hypertrophic cardiomyopathy that evolves into fatal heart failure, and autopsy shows biventricular hypertrophy with swollen, cristae-depleted cardiomyocyte mitochondria while kidney and liver mitochondria are spared.
 </div>
@@ -6558,6 +6618,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6622,6 +6685,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6746,6 +6812,9 @@ This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6819,6 +6888,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6927,6 +6999,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7007,6 +7082,9 @@ This clinical feature is Bilateral horizontal nystagmus, annotated with Horizont
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7071,6 +7149,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7149,6 +7230,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7245,6 +7329,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7355,6 +7442,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7460,6 +7550,9 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7554,6 +7647,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7636,6 +7732,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7700,6 +7799,9 @@ This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7801,6 +7903,9 @@ This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7892,6 +7997,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7995,6 +8103,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321), qualified as antena
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8084,6 +8195,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8185,6 +8299,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8251,6 +8368,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8331,6 +8451,9 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8425,6 +8548,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8528,6 +8654,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8673,6 +8802,9 @@ This disease-associated gene is COQ4 (hgnc:19693). hgnc:19693 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8795,6 +8927,9 @@ This disease-associated gene is COQ4 (hgnc:19693). hgnc:19693 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8888,6 +9023,9 @@ This disease-associated gene is COQ4 (hgnc:19693). hgnc:19693 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -9010,6 +9148,9 @@ This disease-associated gene is COQ4 (hgnc:19693). hgnc:19693 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -9166,6 +9307,9 @@ This treatment uses coenzyme Q10 (CHEBI:46245). CHEBI:46245 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9176,6 +9320,9 @@ This treatment uses coenzyme Q10 (CHEBI:46245). CHEBI:46245 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -9368,6 +9515,9 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9378,6 +9528,9 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -9495,6 +9648,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9505,6 +9661,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -12708,6 +12867,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: COQ4-Related Neonatal Encephalomyopathy</strong> · 2026-08-01T19:41:32Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/COQ4-Related_Neonatal_Encephalomyopathy/2026-08-01T194132Z-claude-code-e79c83.yaml">View source</a></p>
+                        <p class="research-review-text">Created a new dismech entry for neonatal encephalomyopathy-cardiomyopathy-respiratory distress syndrome / primary coenzyme Q10 deficiency-7 / COQ10D7, MONDO:0014562, OMIM:616276. Causal gene COQ4, hgnc:19693, established BEFORE deep research from the MONDO structured gene relationship RO:0004003 plus the OMIM xref, and cross-checked against primary literature. NEC preflight passed on gene, OMIM and synonyms. Duplicate preflight found no existing entry for MONDO:0014562; the entry is positioned as the gene- and onset-specific child of the existing umbrella entry Primary_Coenzyme_Q10_Deficiency MONDO:0018151, and is mechanistically distinct from the concurrently curated MTO1 and MRPL44 mitochondrial-translation defects and from SLC25A3 phosphate-carrier disease. Deep research used the Edison/falcon provider via just research-disorder falcon; the report was read in full and treated as leads only. Edison asserted OMIM 616227 for the disease, which is wrong and was rejected in favour of the MONDO-xref value 616276. Two Edison leads were independently resolved and used: the exon-dependent genotype-phenotype gradient and the specialist-cohort treatment data. Curation content: a five-node pathophysiology chain from COQ4 loss and CoQ synthome destabilization through CoQ10 biosynthetic failure, impaired CoQ10-dependent electron transfer, tissue bioenergetic failure, to lactic acidosis and multiorgan failure; 19 phenotypes with HPO terms; 4 biochemical markers; 2 histopathology findings; 4 genetic records including both founder alleles and the exon gradient; 2 diagnostic modalities; 3 treatments; 3 knowledge-gap discussions. GeneReviews baseline PMID:28125198 was fetched, tagged in the top-level references block, and mined for two evidence items. Validation: just validate passed, just validate-terms passed, just validate-references verified 97 of 97 snippets against cached references. A red-team review pass was run before opening the PR and its findings were addressed, including rebinding cardiomyopathy to the generic HP term to match the cited counts, downgrading the hearing phenotype to the generic term, adding four missing phenotypes, adding idebenone and CoQ10 dosing, correcting an unsourced OMIM claim and an unsourced case count in prose, and downgrading several overstated evidence-strength tags.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

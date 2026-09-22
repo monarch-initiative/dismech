@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5286,6 +5339,7 @@ ASH1L directly methylates H3K36. Experimental loss also changes transcription an
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-ash1l-loss-of-function" data-dismech-node="Heterozygous ASH1L Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous ASH1L Loss of Function</div>
 
+
                 <div class="item-desc">Heterozygous truncating or deletion alleles can reduce ASH1L function and cause the dominant neurodevelopmental disorder. Missense alleles require variant-specific interpretation; their effects are not assumed to equal haploinsufficiency.</div>
 
 
@@ -5493,6 +5547,13 @@ This pathophysiological event involves ASH1L (hgnc:19088). hgnc:19088 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-ash1l-histone-methyltransferase-activity" data-dismech-node="Reduced ASH1L Histone Methyltransferase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced ASH1L Histone Methyltransferase Activity</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">ASH1L is an H3K36-specific histone methyltransferase. Loss of functional dosage is predicted to reduce ASH1L-dependent catalytic output. The decrease in promoter H3K4me3 observed after severe mouse PFC knockdown is an associated chromatin consequence, not proof of direct H3K4 catalysis by ASH1L.</div>
 
 
@@ -5607,6 +5668,13 @@ This pathophysiological event involves decreased histone H3K36 methyltransferase
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-activating-chromatin-marks-at-neurodevelopmental-gene-promoters" data-dismech-node="Loss of Activating Chromatin Marks at Neurodevelopmental Gene Promoters" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Activating Chromatin Marks at Neurodevelopmental Gene Promoters</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Severe juvenile PFC Ash1l knockdown reduces H3K4me3 occupancy at selected synaptic-gene promoters. Bulk H3K36me2/me3 was unchanged in that experiment. Lower H3K4me3 in idiopathic-ASD postmortem PFC is contextual human evidence, not a measurement in genetically confirmed ASH1L patients.</div>
 
 
@@ -5716,6 +5784,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-downregulation-of-synaptic-and-neurodevelopmental-gene-programs" data-dismech-node="Downregulation of Synaptic and Neurodevelopmental Gene Programs" data-dismech-type="pathophysiology">
                 <div class="item-name">Downregulation of Synaptic and Neurodevelopmental Gene Programs</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">ASH1L loss dysregulates neurodevelopmental and synaptic transcription in distinct experimental systems. Selected genes decrease in severe PFC knockdown, haploinsufficient gene-trap mice and homozygous neural conditional deletion; these datasets are not equivalent to one uniform human transcriptional defect.</div>
 
@@ -5938,6 +6013,13 @@ This pathophysiological event involves decreased regulation of transcription by 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-pruning-failure" data-dismech-node="Synaptic Pruning Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Synaptic Pruning Failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Developmental synapse elimination fails and excess synapses persist. In haploinsufficient mice this is traced to loss of Eph receptor A7 expression through EZH2-mediated H3K27me3 accumulation in its gene body, and restoring EphA7 signalling with its ligand ephrin-A5 restores pruning. This node captures the single concept of the pruning deficit.</div>
 
 
@@ -6131,6 +6213,13 @@ This pathophysiological event involves decreased synapse pruning (GO:0098883). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-excitation-inhibition-imbalance" data-dismech-node="Cortical Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Excitation-Inhibition Imbalance</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Mouse PFC experiments show diminished GABAergic inhibition and enhanced glutamatergic transmission after Ash1l loss. The resulting synaptic excitation-inhibition imbalance is a proposed contributor to human epilepsy and autistic features, with model-specific dosage and rescue differences.</div>
 
 
@@ -6278,6 +6367,13 @@ This pathophysiological event involves decreased gamma-aminobutyric acid signali
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pyramidal-neuron-hyperexcitability" data-dismech-node="Pyramidal Neuron Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Pyramidal Neuron Hyperexcitability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Cortical pyramidal neurons become hyperexcitable through altered intrinsic properties as well as the synaptic shift. This node captures the single concept of network hyperexcitability and conforms to the shared epilepsy final common pathway.</div>
 
@@ -6463,6 +6559,13 @@ This pathophysiological event involves increased action potential (GO:0001508). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cortical-neuron-specification-and-lamination" data-dismech-node="Disrupted Cortical Neuron Specification and Lamination" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Cortical Neuron Specification and Lamination</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Homozygous germline or cortex-specific Ash1l deletion alters cortical neuron specification and lamination in mice. SATB2-positive projection neurons are ectopically placed and show altered differentiation trajectories. This is an experimental developmental mechanism, not an observed lesion in human ASH1L patients.</div>
 
 
@@ -6616,6 +6719,13 @@ This pathophysiological event involves abnormal cerebral cortex neuron different
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-craniofacial-development" data-dismech-node="Impaired Craniofacial Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Craniofacial Development</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Ash1l-null embryos and neural-lineage conditional knockout mice have shortened nasal bones. The neural conditional study proposes abnormal development of NESTIN-positive neural-crest derivatives as a cause. This experimental route does not establish the causes of the heterogeneous human genital, skeletal and facial findings.</div>
 
 
@@ -6696,6 +6806,13 @@ This pathophysiological event involves abnormal cerebral cortex neuron different
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-neuronal-arborization" data-dismech-node="Reduced Neuronal Arborization" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Neuronal Arborization</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Acute ASH1L knockdown in stem-cell-derived human cortical excitatory neurons reduces neurite length and branching. Reduced NTRK2 expression and antagonistic PRC2 activity are implicated; EZH2 inhibition partially rescues morphogenesis, while added BDNF does not. These are engineered immature neurons, not clinical neuropathology.</div>
 
@@ -6815,6 +6932,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proposed-hypothalamic-circuit-dysfunction" data-dismech-node="Proposed Hypothalamic Circuit Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Proposed Hypothalamic Circuit Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">The neural Ash1l-null mouse study proposes that impaired development of hypothalamic circuits could disturb feeding behavior and early postnatal growth. This hypothesis was motivated by neonatal survival and growth findings; hypothalamic pathology and a corresponding human lesion were not demonstrated.</div>
 
 
@@ -6923,7 +7047,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASH1L\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ASH1L\"], \"gene_terms\": [{\"label\": \"ASH1L\", \"id\": \"hgnc:19088\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Absence Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized non-motor (absence) seizure was reported in BGR 3, whose epilepsy was resistant to clonazepam.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002121\"}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety was reported among BGR participants, but the combined anxiety/depression summary does not identify an anxiety-specific denominator.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Ash1l gene-trap haploinsufficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A heterozygous gene-trap knockout, and the model whose genotype most closely matches human patients. It shows social deficits, increased self-grooming and cognitive impairment, absence-like epileptiform discharge on EEG, increased susceptibility to chemically provoked convulsive seizures, and prefrontal pyramidal hyperexcitability.\"}, {\"id\": \"Ash1l heterozygous knockout mouse (EphA7 pruning model)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Haploinsufficient mice show anxiety, repetitive behaviour and altered social behaviour with intact learning but impaired discrimination. Neuronal Ash1l deletion produces excess synapses through a pruning deficit, traced to silencing of Eph receptor A7 by EZH2-deposited H3K27me3; supplying the EphA7 ligand ephrin-A5 restores pruning and rescues the discrimination deficit.\"}, {\"id\": \"Autism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder is reported in a majority of probands assessed.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"Cortex-specific Ash1l conditional knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Tamoxifen-induced cortical deletion from E10.5 misspecifies cortical projection neurons: SATB2-expressing neurons increase in number, spread through the cortical plate, and appear ectopically in deep layers, with an altered differentiation trajectory on single-cell RNA sequencing. The germline null is present at expected proportions at E18.5 but absent at birth, and has shortened nasal bones.\"}, {\"id\": \"Cortical Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mouse PFC experiments show diminished GABAergic inhibition and enhanced glutamatergic transmission after Ash1l loss. The resulting synaptic excitation-inhibition imbalance is a proposed contributor to human epilepsy and autistic features, with model-specific dosage and rescue differences.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"GABAergic neuron\"], \"biological_processes\": [\"gamma-aminobutyric acid signaling pathway\"], \"role\": \"mediator\"}}, {\"id\": \"Disrupted Cortical Neuron Specification and Lamination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous germline or cortex-specific Ash1l deletion alters cortical neuron specification and lamination in mice. SATB2-positive projection neurons are ectopically placed and show altered differentiation trajectories. This is an experimental developmental mechanism, not an observed lesion in human ASH1L patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical projection neuron\"], \"biological_processes\": [\"cerebral cortex neuron differentiation\"], \"role\": \"mediator\", \"animal_models\": [{\"name\": \"Cortex-specific Ash1l conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ash1l exon 4 conditional deletion (p.V1693Afs*2), Emx1-Cre-ERT2 induced at E10.5; and Ash1l germline null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cortical Ash1l deletion produces excess and ectopically placed SATB2-expressing projection neurons with an altered differentiation trajectory, establishing a requirement for ASH1L in projection neuron specification.\"}]}}, {\"id\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASH1L loss dysregulates neurodevelopmental and synaptic transcription in distinct experimental systems. Selected genes decrease in severe PFC knockdown, haploinsufficient gene-trap mice and homozygous neural conditional deletion; these datasets are not equivalent to one uniform human transcriptional defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"role\": \"central_effector\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties in infancy are reported in half of probands assessed.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Growth Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth delay was reported in the Okamoto p.Ala2786Pro missense case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Heterozygous ASH1L Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous truncating or deletion alleles can reduce ASH1L function and cause the dominant neurodevelopmental disorder. Missense alleles require variant-specific interpretation; their effects are not assumed to equal haploinsufficiency.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"ASH1L\"], \"gene_terms\": [{\"label\": \"ASH1L\", \"id\": \"hgnc:19088\"}], \"role\": \"trigger\"}}, {\"id\": \"Impaired Craniofacial Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ash1l-null embryos and neural-lineage conditional knockout mice have shortened nasal bones. The neural conditional study proposes abnormal development of NESTIN-positive neural-crest derivatives as a cause. This experimental route does not establish the causes of the heterogeneous human genital, skeletal and facial findings.\", \"meta\": {\"evidence_count\": 1, \"role\": \"mediator\", \"animal_models\": [{\"name\": \"Cortex-specific Ash1l conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ash1l exon 4 conditional deletion (p.V1693Afs*2), Emx1-Cre-ERT2 induced at E10.5; and Ash1l germline null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The germline null dies perinatally and has shortened nasal bones, demonstrating a requirement for Ash1l in craniofacial development outside the brain.\"}]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability ranges from mild to severe in reported ASH1L cases. It is not obligatory: BGR 2 had average measured cognition despite autism and other findings.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of Activating Chromatin Marks at Neurodevelopmental Gene Promoters\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe juvenile PFC Ash1l knockdown reduces H3K4me3 occupancy at selected synaptic-gene promoters. Bulk H3K36me2/me3 was unchanged in that experiment. Lower H3K4me3 in idiopathic-ASD postmortem PFC is contextual human evidence, not a measurement in genetically confirmed ASH1L patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Memory Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor memory was reported in a 23-year-old woman with mild ID and maternally inherited p.Lys827*.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002354\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly was reported in the Okamoto p.Ala2786Pro missense case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Obsessive-Compulsive Traits\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obsessive behaviors were reported in BGR 1 and BGR 2. The literature summary includes obsessive or compulsive traits, including trichotillomania, without establishing an obsessive-compulsive disorder diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008770\"}}, {\"id\": \"Proposed Hypothalamic Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neural Ash1l-null mouse study proposes that impaired development of hypothalamic circuits could disturb feeding behavior and early postnatal growth. This hypothesis was motivated by neonatal survival and growth findings; hypothalamic pathology and a corresponding human lesion were not demonstrated.\", \"meta\": {\"evidence_count\": 1, \"role\": \"mediator\"}}, {\"id\": \"Pyramidal Neuron Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cortical pyramidal neurons become hyperexcitable through altered intrinsic properties as well as the synaptic shift. This node captures the single concept of network hyperexcitability and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pyramidal neuron\"], \"biological_processes\": [\"action potential\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Ash1l gene-trap haploinsufficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Ash1l+/GT (targeted gene-trap knockout, heterozygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Whole-cell recording in prefrontal cortex demonstrates increased pyramidal excitability arising from intrinsic property changes plus enhanced glutamatergic and diminished GABAergic transmission, in a heterozygous animal matching the human genotype.\"}]}}, {\"id\": \"Reduced ASH1L Histone Methyltransferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASH1L is an H3K36-specific histone methyltransferase. Loss of functional dosage is predicted to reduce ASH1L-dependent catalytic output. The decrease in promoter H3K4me3 observed after severe mouse PFC knockdown is an associated chromatin consequence, not proof of direct H3K4 catalysis by ASH1L.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"histone H3K36 methyltransferase activity\"], \"role\": \"mediator\"}}, {\"id\": \"Reduced Neuronal Arborization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute ASH1L knockdown in stem-cell-derived human cortical excitatory neurons reduces neurite length and branching. Reduced NTRK2 expression and antagonistic PRC2 activity are implicated; EZH2 inhibition partially rescues morphogenesis, while added BDNF does not. These are engineered immature neurons, not clinical neuropathology.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in roughly half of probands, spanning febrile, focal motor, absence and myoclonic types; one reported proband\u0027s epilepsy was drug-resistant.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\", \"animal_models\": [{\"name\": \"Ash1l gene-trap haploinsufficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Ash1l+/GT (targeted gene-trap knockout, heterozygous)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The model has an electrographic seizure phenotype and increased susceptibility to provoked convulsive seizures.\"}]}}, {\"id\": \"Synaptic Pruning Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental synapse elimination fails and excess synapses persist. In haploinsufficient mice this is traced to loss of Eph receptor A7 expression through EZH2-mediated H3K27me3 accumulation in its gene body, and restoring EphA7 signalling with its ligand ephrin-A5 restores pruning. This node captures the single concept of the pruning deficit.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse pruning\"], \"role\": \"mediator\", \"animal_models\": [{\"name\": \"Ash1l heterozygous knockout mouse (EphA7 pruning model)\", \"species\": \"Mouse\", \"genotype\": \"Ash1l+/- germline heterozygous knockout, and neuron-specific Ash1l deletion\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Excess synapses persist because developmental pruning fails, and the responsible gene, Eph receptor A7, is identified together with the repressive-mark mechanism silencing it.\"}]}}], \"edges\": [{\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Reduced ASH1L Histone Methyltransferase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Predicted truncation/deletion reduces functional enzyme dosage; the effect of every clinical allele has not been directly assayed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Impaired Craniofacial Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Experimental loss of Ash1l impairs craniofacial development, with a proposed neural-crest route in the neural conditional model. Translation from homozygous model dosage to human heterozygous dysmorphism is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional translation of the mouse finding that Ash1l haploinsufficiency causally produces anxiety and repetitive behavior. The intermediate circuit is unresolved; mouse grooming is an analogue of the compulsive component, not proof of human obsessional thoughts.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Obsessive-Compulsive Traits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional translation of the mouse finding that Ash1l haploinsufficiency causally produces anxiety and repetitive behavior. The intermediate circuit is unresolved; mouse grooming is an analogue of the compulsive component, not proof of human obsessional thoughts.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Memory Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional translation of memory deficits following neural Ash1l deletion. Homozygous neural deletion affects recognition memory, whereas the heterozygous gene-trap study found spatial-memory impairment with preserved object recognition; a single human memory substrate is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Proposed Hypothalamic Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothetical translation from homozygous neural deletion and global-null phenotypes; loss of one ASH1L copy has not been shown to impair human hypothalamic circuits.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced ASH1L Histone Methyltransferase Activity\", \"target\": \"Loss of Activating Chromatin Marks at Neurodevelopmental Gene Promoters\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional indirect route from loss of ASH1L function to lower promoter H3K4me3. The severe PFC-knockdown study found unchanged bulk H3K36me2/me3; it does not show ASH1L directly depositing H3K4me3.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Activating Chromatin Marks at Neurodevelopmental Gene Promoters\", \"target\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors link reduced promoter H3K4me3 to transcriptional loss of selected synaptic genes in mouse PFC; this is a proposed chromatin-to-transcription relation rather than proof that all affected genes use the same route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Synaptic Pruning Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the haploinsufficient model, reduced EphA7 signaling mediates pruning failure; ephrin-A5 supplementation rescues pruning and discrimination.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synaptic-gene expression is proposed to depress inhibition and increase excitation in PFC; synaptic and intrinsic contributions differ between experimental manipulations.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Disrupted Cortical Neuron Specification and Lamination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors propose reduced developmental-gene expression, including Emx2, as a route to delayed cortical lamination in homozygous deletion. No corresponding human cellular lesion has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional translation of the authors\\u2019 hypothesis that reduced developmental-gene expression disrupts brain development and contributes to ASD/ID. Intervening human circuitry is unresolved, and homozygous neural deletion is more severe than typical human dosage.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional translation of the authors\\u2019 hypothesis that reduced developmental-gene expression disrupts brain development and contributes to ASD/ID. Intervening human circuitry is unresolved, and homozygous neural deletion is more severe than typical human dosage.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Reduced Neuronal Arborization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced NTRK2/TrkB expression is proposed to contribute to impaired arborization; incomplete rescue and altered isoform expression indicate other pathways may contribute.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Pyramidal Neuron Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe-knockdown study also proposes downregulated ion-channel, transporter and ATPase genes as contributors to intrinsic excitability, independent of the synaptic E/I route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Synaptic Pruning Failure\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional human translation of the mouse pruning hypothesis. EphA7 rescue demonstrates pruning and discrimination effects; it does not prove every human behavioral feature arises from pruning failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Pyramidal Neuron Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The synaptic shift increases excitatory drive onto PFC pyramidal neurons. Intrinsic excitability changes are an additional contribution, not a consequence established solely by E/I imbalance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pyramidal Neuron Hyperexcitability\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional clinical translation of the heterozygous gene-trap rescue experiment. PFC inhibition improved social behavior and abolished absence-like seizures; this does not demonstrate a single circuit for all human seizure semiologies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pyramidal Neuron Hyperexcitability\", \"target\": \"Absence Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional clinical translation of the heterozygous gene-trap rescue experiment. PFC inhibition improved social behavior and abolished absence-like seizures; this does not demonstrate a single circuit for all human seizure semiologies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pyramidal Neuron Hyperexcitability\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional clinical translation of the heterozygous gene-trap rescue experiment. PFC inhibition improved social behavior and abolished absence-like seizures; this does not demonstrate a single circuit for all human seizure semiologies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Neuronal Arborization\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional hypothesis that impaired neurite development compromises connectivity and contributes to autism in ASH1L patients; functional synapses were not yet mature in the experimental cultures.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Neuronal Arborization\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional arborization hypothesis for the reported postnatal microcephaly. The clinical report concerns a missense allele whereas the cellular experiment uses acute knockdown; gliogenesis and other explanations remain possible.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed Hypothalamic Circuit Dysfunction\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors propose hypothalamic dysfunction as a possible explanation for feeding behavior and postnatal growth; no patient-specific causal attribution is established. Human growth delay was reported in a missense case, further limiting dosage and allele translation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed Hypothalamic Circuit Dysfunction\", \"target\": \"Growth Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors propose hypothalamic dysfunction as a possible explanation for feeding behavior and postnatal growth; no patient-specific causal attribution is established. Human growth delay was reported in a missense case, further limiting dosage and allele translation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ash1l gene-trap haploinsufficient mouse\", \"target\": \"Pyramidal Neuron Hyperexcitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Whole-cell recording in prefrontal cortex demonstrates increased pyramidal excitability arising from intrinsic property changes plus enhanced glutamatergic and diminished GABAergic transmission, in a heterozygous animal matching the human genotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured only in prefrontal cortex; the human seizure semiologies include focal motor and myoclonic seizures whose generators are not necessarily prefrontal, and no human electrophysiological or tissue correlate exists.\"}, {\"source\": \"Ash1l gene-trap haploinsufficient mouse\", \"target\": \"Seizures\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model has an electrographic seizure phenotype and increased susceptibility to provoked convulsive seizures.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The spontaneous phenotype is absence-like epileptiform discharge, whereas the reported human semiologies are febrile, focal motor, absence and myoclonic seizures; convulsive seizures in the model appear only on pentylenetetrazole challenge. The model therefore reproduces a seizure tendency, not the human epilepsy.\"}, {\"source\": \"Ash1l heterozygous knockout mouse (EphA7 pruning model)\", \"target\": \"Synaptic Pruning Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Excess synapses persist because developmental pruning fails, and the responsible gene, Eph receptor A7, is identified together with the repressive-mark mechanism silencing it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Synapse counts and pruning have not been measured in human ASH1L patients or tissue, and the pruning defect is most evident post-learning in a specific paradigm; the EPHA7 route is one identified mechanism, not necessarily the only one.\"}, {\"source\": \"Cortex-specific Ash1l conditional knockout mouse\", \"target\": \"Disrupted Cortical Neuron Specification and Lamination\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cortical Ash1l deletion produces excess and ectopically placed SATB2-expressing projection neurons with an altered differentiation trajectory, establishing a requirement for ASH1L in projection neuron specification.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a homozygous conditional deletion, not the usual human heterozygous dosage. The reviewed human cases do not establish an equivalent cortical lamination lesion; delayed white-matter myelination in one missense case is a different finding.\"}, {\"source\": \"Cortex-specific Ash1l conditional knockout mouse\", \"target\": \"Impaired Craniofacial Development\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The germline null dies perinatally and has shortened nasal bones, demonstrating a requirement for Ash1l in craniofacial development outside the brain.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The mouse finding is a specific craniofacial measurement in homozygous nulls; the human extraneural phenotype is dominated by genital and musculoskeletal anomalies with no consistent facial gestalt, and human heterozygotes survive. The two do not correspond feature for feature.\"}, {\"source\": \"ASH1L\", \"target\": \"Heterozygous ASH1L Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASH1L\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ASH1L\"], \"gene_terms\": [{\"label\": \"ASH1L\", \"id\": \"hgnc:19088\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Absence Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized non-motor (absence) seizure was reported in BGR 3, whose epilepsy was resistant to clonazepam.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002121\"}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety was reported among BGR participants, but the combined anxiety/depression summary does not identify an anxiety-specific denominator.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Ash1l gene-trap haploinsufficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A heterozygous gene-trap knockout, and the model whose genotype most closely matches human patients. It shows social deficits, increased self-grooming and cognitive impairment, absence-like epileptiform discharge on EEG, increased susceptibility to chemically provoked convulsive seizures, and prefrontal pyramidal hyperexcitability.\"}, {\"id\": \"Ash1l heterozygous knockout mouse (EphA7 pruning model)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Haploinsufficient mice show anxiety, repetitive behaviour and altered social behaviour with intact learning but impaired discrimination. Neuronal Ash1l deletion produces excess synapses through a pruning deficit, traced to silencing of Eph receptor A7 by EZH2-deposited H3K27me3; supplying the EphA7 ligand ephrin-A5 restores pruning and rescues the discrimination deficit.\"}, {\"id\": \"Autism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder is reported in a majority of probands assessed.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"Cortex-specific Ash1l conditional knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Tamoxifen-induced cortical deletion from E10.5 misspecifies cortical projection neurons: SATB2-expressing neurons increase in number, spread through the cortical plate, and appear ectopically in deep layers, with an altered differentiation trajectory on single-cell RNA sequencing. The germline null is present at expected proportions at E18.5 but absent at birth, and has shortened nasal bones.\"}, {\"id\": \"Cortical Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mouse PFC experiments show diminished GABAergic inhibition and enhanced glutamatergic transmission after Ash1l loss. The resulting synaptic excitation-inhibition imbalance is a proposed contributor to human epilepsy and autistic features, with model-specific dosage and rescue differences.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"GABAergic neuron\"], \"biological_processes\": [\"gamma-aminobutyric acid signaling pathway\"], \"role\": \"mediator\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Disrupted Cortical Neuron Specification and Lamination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous germline or cortex-specific Ash1l deletion alters cortical neuron specification and lamination in mice. SATB2-positive projection neurons are ectopically placed and show altered differentiation trajectories. This is an experimental developmental mechanism, not an observed lesion in human ASH1L patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical projection neuron\"], \"biological_processes\": [\"cerebral cortex neuron differentiation\"], \"role\": \"mediator\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Cortex-specific Ash1l conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ash1l exon 4 conditional deletion (p.V1693Afs*2), Emx1-Cre-ERT2 induced at E10.5; and Ash1l germline null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cortical Ash1l deletion produces excess and ectopically placed SATB2-expressing projection neurons with an altered differentiation trajectory, establishing a requirement for ASH1L in projection neuron specification.\"}]}}, {\"id\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASH1L loss dysregulates neurodevelopmental and synaptic transcription in distinct experimental systems. Selected genes decrease in severe PFC knockdown, haploinsufficient gene-trap mice and homozygous neural conditional deletion; these datasets are not equivalent to one uniform human transcriptional defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties in infancy are reported in half of probands assessed.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Growth Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth delay was reported in the Okamoto p.Ala2786Pro missense case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Heterozygous ASH1L Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous truncating or deletion alleles can reduce ASH1L function and cause the dominant neurodevelopmental disorder. Missense alleles require variant-specific interpretation; their effects are not assumed to equal haploinsufficiency.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"ASH1L\"], \"gene_terms\": [{\"label\": \"ASH1L\", \"id\": \"hgnc:19088\"}], \"role\": \"trigger\"}}, {\"id\": \"Impaired Craniofacial Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ash1l-null embryos and neural-lineage conditional knockout mice have shortened nasal bones. The neural conditional study proposes abnormal development of NESTIN-positive neural-crest derivatives as a cause. This experimental route does not establish the causes of the heterogeneous human genital, skeletal and facial findings.\", \"meta\": {\"evidence_count\": 1, \"role\": \"mediator\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Cortex-specific Ash1l conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ash1l exon 4 conditional deletion (p.V1693Afs*2), Emx1-Cre-ERT2 induced at E10.5; and Ash1l germline null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The germline null dies perinatally and has shortened nasal bones, demonstrating a requirement for Ash1l in craniofacial development outside the brain.\"}]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability ranges from mild to severe in reported ASH1L cases. It is not obligatory: BGR 2 had average measured cognition despite autism and other findings.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of Activating Chromatin Marks at Neurodevelopmental Gene Promoters\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe juvenile PFC Ash1l knockdown reduces H3K4me3 occupancy at selected synaptic-gene promoters. Bulk H3K36me2/me3 was unchanged in that experiment. Lower H3K4me3 in idiopathic-ASD postmortem PFC is contextual human evidence, not a measurement in genetically confirmed ASH1L patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"role\": \"mediator\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Memory Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor memory was reported in a 23-year-old woman with mild ID and maternally inherited p.Lys827*.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002354\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly was reported in the Okamoto p.Ala2786Pro missense case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Obsessive-Compulsive Traits\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obsessive behaviors were reported in BGR 1 and BGR 2. The literature summary includes obsessive or compulsive traits, including trichotillomania, without establishing an obsessive-compulsive disorder diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008770\"}}, {\"id\": \"Proposed Hypothalamic Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neural Ash1l-null mouse study proposes that impaired development of hypothalamic circuits could disturb feeding behavior and early postnatal growth. This hypothesis was motivated by neonatal survival and growth findings; hypothalamic pathology and a corresponding human lesion were not demonstrated.\", \"meta\": {\"evidence_count\": 1, \"role\": \"mediator\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Pyramidal Neuron Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cortical pyramidal neurons become hyperexcitable through altered intrinsic properties as well as the synaptic shift. This node captures the single concept of network hyperexcitability and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pyramidal neuron\"], \"biological_processes\": [\"action potential\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Ash1l gene-trap haploinsufficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Ash1l+/GT (targeted gene-trap knockout, heterozygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Whole-cell recording in prefrontal cortex demonstrates increased pyramidal excitability arising from intrinsic property changes plus enhanced glutamatergic and diminished GABAergic transmission, in a heterozygous animal matching the human genotype.\"}]}}, {\"id\": \"Reduced ASH1L Histone Methyltransferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASH1L is an H3K36-specific histone methyltransferase. Loss of functional dosage is predicted to reduce ASH1L-dependent catalytic output. The decrease in promoter H3K4me3 observed after severe mouse PFC knockdown is an associated chromatin consequence, not proof of direct H3K4 catalysis by ASH1L.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"histone H3K36 methyltransferase activity\"], \"role\": \"mediator\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reduced Neuronal Arborization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute ASH1L knockdown in stem-cell-derived human cortical excitatory neurons reduces neurite length and branching. Reduced NTRK2 expression and antagonistic PRC2 activity are implicated; EZH2 inhibition partially rescues morphogenesis, while added BDNF does not. These are engineered immature neurons, not clinical neuropathology.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"role\": \"mediator\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in roughly half of probands, spanning febrile, focal motor, absence and myoclonic types; one reported proband\u0027s epilepsy was drug-resistant.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\", \"animal_models\": [{\"name\": \"Ash1l gene-trap haploinsufficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Ash1l+/GT (targeted gene-trap knockout, heterozygous)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The model has an electrographic seizure phenotype and increased susceptibility to provoked convulsive seizures.\"}]}}, {\"id\": \"Synaptic Pruning Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental synapse elimination fails and excess synapses persist. In haploinsufficient mice this is traced to loss of Eph receptor A7 expression through EZH2-mediated H3K27me3 accumulation in its gene body, and restoring EphA7 signalling with its ligand ephrin-A5 restores pruning. This node captures the single concept of the pruning deficit.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse pruning\"], \"role\": \"mediator\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Ash1l heterozygous knockout mouse (EphA7 pruning model)\", \"species\": \"Mouse\", \"genotype\": \"Ash1l+/- germline heterozygous knockout, and neuron-specific Ash1l deletion\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Excess synapses persist because developmental pruning fails, and the responsible gene, Eph receptor A7, is identified together with the repressive-mark mechanism silencing it.\"}]}}], \"edges\": [{\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Reduced ASH1L Histone Methyltransferase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Predicted truncation/deletion reduces functional enzyme dosage; the effect of every clinical allele has not been directly assayed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Impaired Craniofacial Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Experimental loss of Ash1l impairs craniofacial development, with a proposed neural-crest route in the neural conditional model. Translation from homozygous model dosage to human heterozygous dysmorphism is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional translation of the mouse finding that Ash1l haploinsufficiency causally produces anxiety and repetitive behavior. The intermediate circuit is unresolved; mouse grooming is an analogue of the compulsive component, not proof of human obsessional thoughts.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Obsessive-Compulsive Traits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional translation of the mouse finding that Ash1l haploinsufficiency causally produces anxiety and repetitive behavior. The intermediate circuit is unresolved; mouse grooming is an analogue of the compulsive component, not proof of human obsessional thoughts.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Memory Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional translation of memory deficits following neural Ash1l deletion. Homozygous neural deletion affects recognition memory, whereas the heterozygous gene-trap study found spatial-memory impairment with preserved object recognition; a single human memory substrate is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous ASH1L Loss of Function\", \"target\": \"Proposed Hypothalamic Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothetical translation from homozygous neural deletion and global-null phenotypes; loss of one ASH1L copy has not been shown to impair human hypothalamic circuits.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced ASH1L Histone Methyltransferase Activity\", \"target\": \"Loss of Activating Chromatin Marks at Neurodevelopmental Gene Promoters\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional indirect route from loss of ASH1L function to lower promoter H3K4me3. The severe PFC-knockdown study found unchanged bulk H3K36me2/me3; it does not show ASH1L directly depositing H3K4me3.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Activating Chromatin Marks at Neurodevelopmental Gene Promoters\", \"target\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors link reduced promoter H3K4me3 to transcriptional loss of selected synaptic genes in mouse PFC; this is a proposed chromatin-to-transcription relation rather than proof that all affected genes use the same route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Synaptic Pruning Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the haploinsufficient model, reduced EphA7 signaling mediates pruning failure; ephrin-A5 supplementation rescues pruning and discrimination.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synaptic-gene expression is proposed to depress inhibition and increase excitation in PFC; synaptic and intrinsic contributions differ between experimental manipulations.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Disrupted Cortical Neuron Specification and Lamination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors propose reduced developmental-gene expression, including Emx2, as a route to delayed cortical lamination in homozygous deletion. No corresponding human cellular lesion has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional translation of the authors\\u2019 hypothesis that reduced developmental-gene expression disrupts brain development and contributes to ASD/ID. Intervening human circuitry is unresolved, and homozygous neural deletion is more severe than typical human dosage.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional translation of the authors\\u2019 hypothesis that reduced developmental-gene expression disrupts brain development and contributes to ASD/ID. Intervening human circuitry is unresolved, and homozygous neural deletion is more severe than typical human dosage.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Reduced Neuronal Arborization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced NTRK2/TrkB expression is proposed to contribute to impaired arborization; incomplete rescue and altered isoform expression indicate other pathways may contribute.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Downregulation of Synaptic and Neurodevelopmental Gene Programs\", \"target\": \"Pyramidal Neuron Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe-knockdown study also proposes downregulated ion-channel, transporter and ATPase genes as contributors to intrinsic excitability, independent of the synaptic E/I route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Synaptic Pruning Failure\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional human translation of the mouse pruning hypothesis. EphA7 rescue demonstrates pruning and discrimination effects; it does not prove every human behavioral feature arises from pruning failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Pyramidal Neuron Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The synaptic shift increases excitatory drive onto PFC pyramidal neurons. Intrinsic excitability changes are an additional contribution, not a consequence established solely by E/I imbalance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pyramidal Neuron Hyperexcitability\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional clinical translation of the heterozygous gene-trap rescue experiment. PFC inhibition improved social behavior and abolished absence-like seizures; this does not demonstrate a single circuit for all human seizure semiologies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pyramidal Neuron Hyperexcitability\", \"target\": \"Absence Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional clinical translation of the heterozygous gene-trap rescue experiment. PFC inhibition improved social behavior and abolished absence-like seizures; this does not demonstrate a single circuit for all human seizure semiologies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pyramidal Neuron Hyperexcitability\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional clinical translation of the heterozygous gene-trap rescue experiment. PFC inhibition improved social behavior and abolished absence-like seizures; this does not demonstrate a single circuit for all human seizure semiologies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Neuronal Arborization\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional hypothesis that impaired neurite development compromises connectivity and contributes to autism in ASH1L patients; functional synapses were not yet mature in the experimental cultures.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Neuronal Arborization\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional arborization hypothesis for the reported postnatal microcephaly. The clinical report concerns a missense allele whereas the cellular experiment uses acute knockdown; gliogenesis and other explanations remain possible.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed Hypothalamic Circuit Dysfunction\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors propose hypothalamic dysfunction as a possible explanation for feeding behavior and postnatal growth; no patient-specific causal attribution is established. Human growth delay was reported in a missense case, further limiting dosage and allele translation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed Hypothalamic Circuit Dysfunction\", \"target\": \"Growth Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors propose hypothalamic dysfunction as a possible explanation for feeding behavior and postnatal growth; no patient-specific causal attribution is established. Human growth delay was reported in a missense case, further limiting dosage and allele translation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ash1l gene-trap haploinsufficient mouse\", \"target\": \"Pyramidal Neuron Hyperexcitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Whole-cell recording in prefrontal cortex demonstrates increased pyramidal excitability arising from intrinsic property changes plus enhanced glutamatergic and diminished GABAergic transmission, in a heterozygous animal matching the human genotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured only in prefrontal cortex; the human seizure semiologies include focal motor and myoclonic seizures whose generators are not necessarily prefrontal, and no human electrophysiological or tissue correlate exists.\"}, {\"source\": \"Ash1l gene-trap haploinsufficient mouse\", \"target\": \"Seizures\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model has an electrographic seizure phenotype and increased susceptibility to provoked convulsive seizures.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The spontaneous phenotype is absence-like epileptiform discharge, whereas the reported human semiologies are febrile, focal motor, absence and myoclonic seizures; convulsive seizures in the model appear only on pentylenetetrazole challenge. The model therefore reproduces a seizure tendency, not the human epilepsy.\"}, {\"source\": \"Ash1l heterozygous knockout mouse (EphA7 pruning model)\", \"target\": \"Synaptic Pruning Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Excess synapses persist because developmental pruning fails, and the responsible gene, Eph receptor A7, is identified together with the repressive-mark mechanism silencing it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Synapse counts and pruning have not been measured in human ASH1L patients or tissue, and the pruning defect is most evident post-learning in a specific paradigm; the EPHA7 route is one identified mechanism, not necessarily the only one.\"}, {\"source\": \"Cortex-specific Ash1l conditional knockout mouse\", \"target\": \"Disrupted Cortical Neuron Specification and Lamination\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cortical Ash1l deletion produces excess and ectopically placed SATB2-expressing projection neurons with an altered differentiation trajectory, establishing a requirement for ASH1L in projection neuron specification.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a homozygous conditional deletion, not the usual human heterozygous dosage. The reviewed human cases do not establish an equivalent cortical lamination lesion; delayed white-matter myelination in one missense case is a different finding.\"}, {\"source\": \"Cortex-specific Ash1l conditional knockout mouse\", \"target\": \"Impaired Craniofacial Development\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The germline null dies perinatally and has shortened nasal bones, demonstrating a requirement for Ash1l in craniofacial development outside the brain.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The mouse finding is a specific craniofacial measurement in homozygous nulls; the human extraneural phenotype is dominated by genital and musculoskeletal anomalies with no consistent facial gestalt, and human heterozygotes survive. The two do not correspond feature for feature.\"}, {\"source\": \"ASH1L\", \"target\": \"Heterozygous ASH1L Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7002,6 +7126,9 @@ This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024).
                     </div>
 
 
+
+
+
                     <div class="item-desc">The 2024 discussion and Table 1 report gastrointestinal disturbances in 6/8 assessed probands, but the labelled supplementary table places unspecified nighttime incontinence among gastrointestinal findings. The original Stessman narrative explicitly reports no gastrointestinal disturbance in that patient. This imperfect aggregate is preserved as a source report without assigning a gastrointestinal frequency band.</div>
 
 
@@ -7073,6 +7200,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent.</div>
@@ -7149,6 +7279,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7213,6 +7346,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7293,6 +7429,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </div>
 
 
+
+
+
                     <div class="item-desc">BGR 3 also carried POU4F3 and ATP2B2 missense VUS in genes associated with hearing loss, so ASH1L-specific attribution is unresolved. The generic hearing count is 4/9 in the 2024 discussion versus 3/8 in Table 1; Supplemental Table 1 includes hyperacusis among hearing findings. Neither aggregate supplies a sensorineural-loss frequency.</div>
 
 
@@ -7362,6 +7501,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7440,6 +7582,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The original narrative and Table 21 both say hypothyroidism. Cordova’s later Supplemental Table 1 transcribes this as hyperthyroidism; that secondary transcription is not followed.</div>
@@ -7526,6 +7671,9 @@ This clinical feature is Abnormality of the eye (HP:0000478). HP:0000478 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent.</div>
 
 
@@ -7602,6 +7750,9 @@ This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7666,6 +7817,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7740,6 +7894,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7809,6 +7966,9 @@ This clinical feature is Astigmatism (HP:0000483). HP:0000483 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7873,6 +8033,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7957,6 +8120,9 @@ This clinical feature is Abnormality of the genital system (HP:0000078). HP:0000
                     </div>
 
 
+
+
+
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent.</div>
 
 
@@ -8033,6 +8199,9 @@ This clinical feature is Torsion of the penis (HP:0030263). HP:0030263 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8097,6 +8266,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8179,6 +8351,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">The 2024 discussion gives 9/13 (69%) whereas its published Table 1 gives 8/10 (80%); these cross frequency-enum boundaries, so no band is assigned. BGR 1 and BGR 2 were systematically assessed and nondysmorphic. The literature has no consistent facial gestalt.</div>
 
 
@@ -8248,6 +8423,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">A finding in this missense case does not establish penetrance in truncating-variant carriers. The source’s growth failure is not equated with undernutrition, and delayed myelination is not permanent hypomyelination.</div>
@@ -8324,6 +8502,9 @@ This clinical feature is Smooth philtrum (HP:0000319). HP:0000319 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8388,6 +8569,9 @@ This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Missense pathogenicity and mechanism require separate evaluation; these findings are retained as case-scoped observations.</div>
@@ -8470,6 +8654,9 @@ This clinical feature is Internal tibial torsion (HP:0034372). HP:0034372 is a p
                     </div>
 
 
+
+
+
                     <div class="item-desc">BGR 3 also carried MED12, POU4F3 and ATP2B2 VUS; the report did not resolve their contributions.</div>
 
 
@@ -8539,6 +8726,9 @@ This clinical feature is Scapular winging (HP:0003691). HP:0003691 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Missense pathogenicity and mechanism require separate evaluation; these findings are retained as case-scoped observations.</div>
@@ -8623,6 +8813,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent. The 2024 discussion gives 4/7 (57%) and its published Table 1 gives 4/8 (50%); both fall in FREQUENT. The discrepancy is retained rather than choosing a reconstructed denominator.</div>
 
 
@@ -8696,6 +8889,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent.</div>
 
 
@@ -8765,6 +8961,9 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The pooled pectus carinatum/excavatum figure of 2/7 is not a carinatum-specific frequency. The labelled Supplemental Table 1 attributes carinatum to the de Ligt p.Ala724Ser case and excavatum to the Shen frameshift case; missense pathogenicity and mechanism require separate evaluation.</div>
@@ -8841,6 +9040,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8912,6 +9114,9 @@ This clinical feature is Fused cervical vertebrae (HP:0002949). HP:0002949 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8976,6 +9181,9 @@ This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Missense pathogenicity and mechanism require separate evaluation; these findings are retained as case-scoped observations.</div>
@@ -9056,6 +9264,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The 2024 summary reports ID or developmental delay in 15/16 assessed probands; this combined denominator does not establish an intellectual-disability-only frequency. Borderline test scores in some reports are not equated with a formal ID diagnosis.</div>
@@ -9154,6 +9365,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </div>
 
 
+
+
+
                     <div class="item-desc">The 6/7 (86%) summary combines ADHD with hyperactivity and cannot supply an ADHD-specific frequency.</div>
 
 
@@ -9225,6 +9439,9 @@ This clinical feature is Obsessive-compulsive trait (HP:0008770). HP:0008770 is 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent.</div>
@@ -9325,6 +9542,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
                     </div>
 
 
+
+
+
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent.</div>
 
 
@@ -9396,6 +9616,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent.</div>
@@ -9473,6 +9696,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </div>
 
 
+
+
+
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent.</div>
 
 
@@ -9544,6 +9770,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent.</div>
@@ -9619,6 +9848,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent.</div>
 
 
@@ -9692,6 +9924,9 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">The reported proportion comes from selected published cases plus three registry participants, among those assessed or described for this feature. It is not population prevalence or penetrance; unreported findings were not counted as absent. BGR 2 also carried research-only biallelic TNR missense VUS and a TSHZ3 VUS. BGR 3 carried MED12, POU4F3 and ATP2B2 VUS. Their contributions remain uncertain; an ataxic-gait frequency cannot be inferred from the combined 2/4 abnormal-gait count.</div>
 
 
@@ -9761,6 +9996,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The pooled mood/anxiety-or-depression count of 2/4 cannot establish a depression-specific frequency.</div>
@@ -9834,6 +10072,9 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">BGR 2 also carried unconfirmed research biallelic TNR missense VUS and a TSHZ3 VUS; their contributions to the motor phenotype remain unresolved. No cerebellar lesion is inferred from these signs.</div>
 
 
@@ -9905,6 +10146,9 @@ This clinical feature is Dysmetria (HP:0001310). HP:0001310 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">BGR 2 also carried unconfirmed research biallelic TNR missense VUS and a TSHZ3 VUS; their contributions to the motor phenotype remain unresolved. No cerebellar lesion is inferred from these signs.</div>
 
 
@@ -9974,6 +10218,9 @@ This clinical feature is Incoordination (HP:0002311). HP:0002311 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">BGR 2 also carried unconfirmed research biallelic TNR missense VUS and a TSHZ3 VUS; their contributions to the motor phenotype remain unresolved. No cerebellar lesion is inferred from these signs.</div>
@@ -10052,6 +10299,9 @@ This clinical feature is Receptive language delay (HP:0010863). HP:0010863 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10118,6 +10368,9 @@ This clinical feature is Febrile seizure (within the age range of 3 months to 6 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10191,6 +10444,9 @@ This clinical feature is Generalized non-motor (absence) seizure (HP:0002121). H
                     </div>
 
 
+
+
+
                     <div class="item-desc">BGR 3 also carried a MED12 VUS, as well as POU4F3 and ATP2B2 VUS; their contributions were unresolved. A mouse absence-like phenotype is not evidence that all human seizure types share an identical circuit.</div>
 
 
@@ -10260,6 +10516,9 @@ This clinical feature is Focal motor seizure (HP:0011153). HP:0011153 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">BGR 3 also carried a MED12 VUS, as well as POU4F3 and ATP2B2 VUS; their contributions were unresolved. A mouse absence-like phenotype is not evidence that all human seizure types share an identical circuit.</div>
@@ -10333,6 +10592,9 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">BGR 3 also carried a MED12 VUS, as well as POU4F3 and ATP2B2 VUS; their contributions were unresolved. A mouse absence-like phenotype is not evidence that all human seizure types share an identical circuit.</div>
 
 
@@ -10404,6 +10666,9 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
                     </div>
 
 
+
+
+
                     <div class="item-desc">A finding in this missense case does not establish penetrance in truncating-variant carriers. The source’s growth failure is not equated with undernutrition, and delayed myelination is not permanent hypomyelination.</div>
 
 
@@ -10473,6 +10738,9 @@ This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Additional ACTL6B, COQ8A, DPP6 and SETD1B VUS were reported. Structural predictions in this paper are computational, not a functional assay of the patient’s enzyme.</div>
@@ -10549,6 +10817,9 @@ This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10618,6 +10889,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10682,6 +10956,9 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This patient carried the p.Arg2391His missense variant of unknown inheritance. Pathogenicity and mechanism are less secure than for established LoF alleles; no frequency is transferred from the combined ADHD/hyperactivity tally.</div>
@@ -10758,6 +11035,9 @@ This clinical feature is Excessive daytime somnolence (HP:0001262). HP:0001262 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10822,6 +11102,9 @@ This clinical feature is Sleep walking (HP:0025236). HP:0025236 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10902,6 +11185,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">A finding in this missense case does not establish penetrance in truncating-variant carriers. The source’s growth failure is not equated with undernutrition, and delayed myelination is not permanent hypomyelination.</div>
 
 
@@ -10980,6 +11266,9 @@ This clinical feature is Loss of acquired spoken language (HP:6001483). HP:60014
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The p.Arg2391His missense variant was of unknown inheritance; a mechanism equivalent to LoF is not established.</div>
@@ -11096,6 +11385,9 @@ This disease-associated gene is ASH1L (hgnc:19088). hgnc:19088 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -11225,6 +11517,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11235,6 +11530,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -11329,6 +11627,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11339,6 +11640,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -15284,6 +15588,84 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Intellectual Disability Autosomal Dominant 52 (ASH1L)</strong> · 2026-08-27T03:05:15Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Intellectual_Disability_Autosomal_Dominant_52/2026-08-27T030515Z-claude-code-db880f.yaml">View source</a></p>
+                        <p class="research-review-text">De novo creation of the MRD52 / ASH1L entry from the stub
+stubs/Intellectual_Disability_Autosomal_Dominant_52.yaml, closing issue #9580.
+
+Entry-type decision: Disease. The stub carries no mondo_descendant_count, and
+`runoak -i sqlite:obo:mondo info MONDO:0030918 -O obo` returns a leaf term with
+one RO:0004003 causal-gene relationship (HGNC:19088, ASH1L) and an OMIM:617796
+xref.
+
+Naming note recorded in the entry description rather than acted on: the
+OMIM/MONDO label names only the cognitive component, while the entity ClinGen
+curated (and classified Definitive) is a syndromic complex neurodevelopmental
+disorder. The entry curates the broader phenotype under the MONDO identifier the
+stub supplied, and lists the ASH1L-related names as synonyms.
+
+Curated from primary literature: PMID:38674358 (Brain Gene Registry review with
+the phenotype-frequency tabulation and denominators), PMID:28191889 (Stessman
+2017 gene delineation), PMID:34373061 and PMID:39902220 (further patients plus
+genotype-phenotype review), PMID:34782621 (prefrontal knockdown, chromatin and
+electrophysiology), PMID:35081333 (haploinsufficient mouse, EPHA7 pruning),
+PMID:34145365 (developing-brain knockout), PMID:38943682 (cortical patterning and
+craniofacial), PMID:39766886 (gene-trap haploinsufficient model).
+
+Mechanism model: 12 pathophysiology nodes, 14 edges, one root, no unreachable
+node. Chain runs heterozygous ASH1L loss of function -&gt; reduced methyltransferase
+activity -&gt; loss of activating promoter marks -&gt; downregulated synaptic and
+neurodevelopmental gene programmes, which is the branch point. Three arms
+descend from it: synaptic pruning failure (EPHA7/EZH2 route), cortical
+excitation-inhibition imbalance conforming to three nodes of
+kb/modules/epilepsy_excitation_inhibition_imbalance.yaml, and disrupted cortical
+neuron specification. An extraneural arm carries the genital, musculoskeletal and
+craniofacial findings.
+
+Phenotype frequency bands are all carried by explicit denominators from the 2024
+review&#39;s tabulation, and every explanation states the fraction, the resulting
+percentage, and the band it maps to. The denominators are small (4-16) and the
+explanations say so; the facial-dysmorphism explanation additionally records the
+source&#39;s own warning that the figure is likely inflated by unreported negative
+assessments.
+
+Deliberately not curated: no genotype-phenotype subtype split on missense versus
+truncating alleles (two sources take opposite positions and no functional assay
+exists for any human missense allele) - recorded as a KNOWLEDGE_GAP. No single
+histone mark asserted as the disease-relevant one; both H3K36 and H3K4 are
+curated on the enzyme node with the discrepancy carried as a KNOWLEDGE_GAP. No
+treatment claim beyond empirical antiseizure medication and supportive
+developmental care; the diazepam/chemogenetic rescue is model-only and lives in
+the HUMAN_MODEL_MISMATCH discussion rather than in `treatments`.
+
+Deep research: `just research-disorder falcon` run, report committed. NEC
+preflight PASS (ASH1L=34 mentions). Nothing was curated from the report. Two
+provider defects observed and not propagated: the report gives ASH1L as
+HGNC:19208 (the correct identifier is HGNC:19088), and its evidence base is one
+PMID plus a bioRxiv preprint, missing the entire clinical phenotyping literature
+including PMID:38674358; only 1 of its 4 references was scored on topic.
+
+Validation actually run and read:
+  just validate &lt;file&gt;                                -&gt; passed
+  just validate-disorders &lt;file&gt;                      -&gt; passed, &#34;Snippets checked: 66/66 verified against cached references&#34;
+  just check-duplicate-keys &lt;file&gt;                    -&gt; OK
+  just check-title-snippets                           -&gt; OK
+  scripts/check_snippet_length.py --against-ref origin/main -&gt; OK (initially failed on 17 table-cell snippets; each was re-quoted as the full sentence clause from the source rather than baselined)
+  scripts/check_folded_hyphens.py --check             -&gt; OK
+  just check-cache-order                              -&gt; OK
+  just check-term-cache-integrity                     -&gt; OK
+Cache additions are limited to MONDO:0030918 and hgnc:19088 plus the
+diseaseterm enum-membership row.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

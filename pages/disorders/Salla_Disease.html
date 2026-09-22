@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4381,6 +4434,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc17a5-gene-mutation" data-dismech-node="SLC17A5 Gene Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">SLC17A5 Gene Mutation</div>
 
+
                 <div class="item-desc">Biallelic pathogenic variants in SLC17A5 disrupt the coding or regulatory regions necessary for sialin protein function. The c.115C&gt;T (p.Arg39Cys) Finnish founder mutation is the most common variant in Salla disease.</div>
 
 
@@ -4522,6 +4576,7 @@ This pathophysiological event involves SLC17A5 (hgnc:10933). hgnc:10933 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-sialin-protein-function" data-dismech-node="Loss of Sialin Protein Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Sialin Protein Function</div>
+
 
                 <div class="item-desc">SLC17A5 mutations result in loss or substantial reduction of sialin protein expression or function. Sialin is a 12-transmembrane transporter required for proton-coupled export of free sialic acid (Neu5Ac) from lysosomes to cytosol. Mutations can occur as de novo, inherited biallelic variants, or in mosaic patterns affecting specific tissues.</div>
 
@@ -4725,6 +4780,7 @@ This pathophysiological event involves decreased sialic acid transmembrane trans
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-free-sialic-acid-accumulation" data-dismech-node="Lysosomal Free Sialic Acid Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Free Sialic Acid Accumulation</div>
 
+
                 <div class="item-desc">Loss of sialin function impairs export of free N-acetylneuraminic acid (Neu5Ac) from lysosomes. Neu5Ac accumulates in lysosomes, leading to lysosomal enlargement, dysfunction, and cellular stress. This is the hallmark biochemical feature of FSASD including Salla disease. Cellular imaging shows prominent cytoplasmic vacuolation in fibroblasts from affected individuals.</div>
 
 
@@ -4841,6 +4897,7 @@ This pathophysiological event involves decreased sialic acid transmembrane trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glycosphingolipid-metabolic-dysregulation" data-dismech-node="Glycosphingolipid Metabolic Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Glycosphingolipid Metabolic Dysregulation</div>
+
 
                 <div class="item-desc">Impaired sialic acid export triggers secondary alterations in glycosphingolipid (GSL) metabolism in neural cells. Elevated lysosomal glycohydrolase activities and altered GSL composition observed in patient-derived iPSC neural models and in CSF and plasma of patients. Mature astrocytes show the most pronounced alterations.</div>
 
@@ -5109,6 +5166,7 @@ This pathophysiological event involves Myelination (GO:0042552). GO:0042552 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligodendroglial-dysfunction-and-hypomyelination" data-dismech-node="Oligodendroglial Dysfunction and Hypomyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Oligodendroglial Dysfunction and Hypomyelination</div>
 
+
                 <div class="item-desc">Oligodendrocytes vulnerable to sialic acid accumulation and GSL dysregulation. This leads to impaired myelin formation and white matter hypomyelination, reflected in corpus callosum hypoplasia and white matter abnormalities on MRI.</div>
 
 
@@ -5323,6 +5381,7 @@ This pathophysiological event involves CNS myelination, annotated with central n
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-dysfunction-and-neurodegeneration" data-dismech-node="Neuronal Dysfunction and Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Dysfunction and Neurodegeneration</div>
+
 
                 <div class="item-desc">Neurons accumulate free sialic acid and display altered GSL composition. Biochemical changes contribute to progressive neurodegeneration, manifesting as developmental delay, cognitive impairment, and progressive neurological regression.</div>
 
@@ -5667,6 +5726,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5745,6 +5807,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5809,6 +5874,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5892,6 +5960,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5958,6 +6029,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6032,6 +6106,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6096,6 +6173,9 @@ This clinical feature is Athetosis (HP:0002305). HP:0002305 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6195,6 +6275,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6259,6 +6342,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6335,6 +6421,9 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6406,6 +6495,9 @@ This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6470,6 +6562,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6546,6 +6641,9 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6615,6 +6713,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6679,6 +6780,9 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6797,6 +6901,9 @@ This disease-associated gene is SLC17A5 (hgnc:10933). hgnc:10933 is a gene from 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6931,6 +7038,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Management of symptoms and prevention of complications through multidisciplinary approach including physical therapy, occupational therapy, speech therapy, and educational support. Treatment is primarily symptomatic as no causal therapies are currently available.</div>
 
 
@@ -7020,6 +7133,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7030,6 +7146,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -8742,6 +8861,67 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Salla Disease (Changes required)</strong> · 2026-05-31T03:02:06Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Salla_Disease/2026-05-31T030206Z-github-review-3591.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3591
+Issue state: OPEN
+Issue created: 2026-05-31T03:02:06Z
+Issue updated: 2026-05-31T03:02:06Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Salla Disease**
+- Entry: `kb/disorders/Salla_Disease.yaml`
+- Selection basis: #123 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Blocking: the entry has no `diagnosis` section. Add disease-specific diagnostic criteria, recommended tests/imaging/biochemical markers, and molecular confirmation strategy for Salla Disease; this is necessary for curators to evaluate whether the modeled mechanism and phenotype scope match the intended disease.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Subtype completeness: `has_subtypes` is present (Intermediate-Severe Salla Disease). Verify that subtype-specific phenotypes, mechanisms, treatments, diagnosis, and genetic contexts are attached to the correct subtype rather than left as broad disease-level claims.
+4. Pathophysiology review: the main modeled mechanisms include SLC17A5 Gene Mutation, Loss of Sialin Protein Function, Lysosomal Free Sialic Acid Accumulation, Glycosphingolipid Metabolic Dysregulation. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment/trial alignment: both `treatments` and `clinical_trials` are present. Verify that trial interventions, phases/statuses, target phenotypes, and treatment entries agree, and distinguish approved/standard care from investigational or case-report therapy.
+6. Evidence/reference check: top references include PMID:37713976, PMID:28662915, PMID:33862140, PMID:29875421. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: review major phenotypes such as Intellectual Disability, Developmental Delay, Hypotonia, Ataxia, Nystagmus.
+- Subtype completeness: subtypes present; verify subtype-specific anchoring.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: gap noted; diagnosis absent.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Salla_Disease-deep-research-falcon.md`
+- Local research artifact: `research/Salla_Disease-deep-research-cyberian-codex.md`
+- PMID:37713976: https://pubmed.ncbi.nlm.nih.gov/37713976/
+- PMID:28662915: https://pubmed.ncbi.nlm.nih.gov/28662915/
+- PMID:33862140: https://pubmed.ncbi.nlm.nih.gov/33862140/
+- PMID:29875421: https://pubmed.ncbi.nlm.nih.gov/29875421/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

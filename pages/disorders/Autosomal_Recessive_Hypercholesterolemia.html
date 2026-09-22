@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4221,6 +4274,7 @@ This entry is scoped to the LDLRAP1 / ARH recessive mechanism and is kept separa
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ldlrap1-loss-of-function" data-dismech-node="Biallelic LDLRAP1 Loss-of-Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic LDLRAP1 Loss-of-Function</div>
 
+
                 <div class="item-desc">Homozygous or compound-heterozygous loss-of-function variants in LDLRAP1 at 1p35, the causal lesion of ARH. The gene encodes the LDL receptor adaptor protein (ARH). Causative alleles are heterogeneous but are all predicted to be loss-of-function, and the Sardinian founder alleles ARH1 and ARH2 account for most reported cases.</div>
 
 
@@ -4316,6 +4370,8 @@ This genetic context concerns LDLRAP1 (hgnc:18640). hgnc:18640 is a gene from th
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4328,6 +4384,9 @@ This genetic context concerns LDLRAP1 (hgnc:18640). hgnc:18640 is a gene from th
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic loss-of-function is required; heterozygotes are unaffected. Recorded on the genetic context because the claim is about the consequence of the alleles. Compound-heterozygous genotypes are also seen; HOMOZYGOUS is used here for the common founder-allele case.</div>
 
@@ -4446,6 +4505,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-arh-adaptor-bridging-of-the-ldl-receptor-to-clathrin" data-dismech-node="Loss of ARH Adaptor Bridging of the LDL Receptor to Clathrin" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ARH Adaptor Bridging of the LDL Receptor to Clathrin</div>
+
 
                 <div class="item-desc">The ARH protein normally uses its PTB domain to bind the FDNPVY / NPxY motif in the LDL receptor cytoplasmic tail, and separate clathrin-box and AP-2 binding regions to tether the bound receptor to clathrin and AP-2. When ARH is lost, this molecular bridge is absent. Crucially the LDL receptor protein itself is intact and normally expressed - the defect is in the cytosolic adaptor, not the receptor.</div>
 
@@ -4653,6 +4713,7 @@ This pathophysiological event involves decreased low-density lipoprotein particl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-clathrin-mediated-endocytosis-of-the-hepatocyte-ldl-receptor" data-dismech-node="Impaired Clathrin-Mediated Endocytosis of the Hepatocyte LDL Receptor" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Clathrin-Mediated Endocytosis of the Hepatocyte LDL Receptor</div>
+
 
                 <div class="item-desc">In hepatocytes, LDL-bound receptor fails to cluster into clathrin-coated pits and is not internalized. The defect is cell-type specific: LDL receptor endocytosis is impaired in the liver but not in fibroblasts, where the redundant adaptor Dab2 substitutes for ARH. This tissue specificity is the signature of ARH and explains why the systemic LDL clearance defect is driven by the hepatic compartment even though the receptor is normal everywhere.</div>
 
@@ -4902,6 +4963,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatic-clearance-of-plasma-ldl" data-dismech-node="Impaired Hepatic Clearance of Plasma LDL" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hepatic Clearance of Plasma LDL</div>
 
+
                 <div class="item-desc">Because hepatic LDL receptors perform most clearance of circulating LDL and the liver is the compartment where ARH is required, loss of hepatic receptor internalization lengthens LDL residence time in plasma.</div>
 
 
@@ -5037,6 +5099,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lifelong-elevation-of-plasma-ldl-cholesterol" data-dismech-node="Lifelong Elevation of Plasma LDL Cholesterol" data-dismech-type="pathophysiology">
                 <div class="item-name">Lifelong Elevation of Plasma LDL Cholesterol</div>
 
+
                 <div class="item-desc">The defining biochemical phenotype: markedly and persistently elevated plasma LDL cholesterol, at levels comparable to receptor-defective homozygous FH. Because conventional receptor-dependent therapies act by increasing LDL receptor number, and the ARH receptor cannot internalize LDL regardless of number, LDL-C in ARH patients typically remains far from target on statin, ezetimibe, and apheresis therapy.</div>
 
 
@@ -5146,6 +5209,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-atherosclerotic-cardiovascular-disease" data-dismech-node="Premature Atherosclerotic Cardiovascular Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Atherosclerotic Cardiovascular Disease</div>
 
+
                 <div class="item-desc">Accelerated atherosclerosis of the coronary arteries and proximal aorta, plus aortic valve stenosis, developing decades earlier than in the general population. ARH is considered a phenocopy of homozygous FH for cardiovascular risk, and the risk of aortic valve stenosis is a recognized feature. The distal LDL-to-plaque cascade is not re-derived here; this node conforms to the shared atherogenesis module&#39;s clinical end state, into which the lifelong LDL-C elevation feeds.</div>
 
 
@@ -5250,6 +5314,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extravascular-cholesterol-deposition" data-dismech-node="Extravascular Cholesterol Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Extravascular Cholesterol Deposition</div>
+
 
                 <div class="item-desc">Deposition of LDL-derived cholesterol outside the vasculature, producing tendon xanthomas (present in ~90% of an ARH cohort), xanthelasma, and corneal arcus.</div>
 
@@ -5437,6 +5502,9 @@ This clinical feature is Coronary artery atherosclerosis (HP:0001677), qualified
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5506,6 +5574,9 @@ This clinical feature is Myocardial infarction (HP:0001658). HP:0001658 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5570,6 +5641,9 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5653,6 +5727,9 @@ This clinical feature is Corneal arcus (HP:0001084). HP:0001084 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5726,6 +5803,9 @@ This clinical feature is Xanthelasma (HP:0001114). HP:0001114 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5831,6 +5911,9 @@ This clinical feature is Tendon xanthomatosis (HP:0010874), qualified as course 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5929,6 +6012,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124), qualified as tempora
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6015,6 +6101,9 @@ This clinical feature is Increased LDL cholesterol concentration (HP:0003141), q
 
 
                     </div>
+
+
+
 
 
 
@@ -6158,6 +6247,9 @@ This disease-associated gene is LDLRAP1 (hgnc:18640). hgnc:18640 is a gene from 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6357,6 +6449,9 @@ This treatment uses ezetimibe (CHEBI:49040). CHEBI:49040 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6367,6 +6462,9 @@ This treatment uses ezetimibe (CHEBI:49040). CHEBI:49040 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -6538,6 +6636,9 @@ This treatment uses lomitapide (CHEBI:72297). CHEBI:72297 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6548,6 +6649,9 @@ This treatment uses lomitapide (CHEBI:72297). CHEBI:72297 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -6723,6 +6827,9 @@ This treatment is lipoprotein apheresis, annotated with Therapeutic Apheresis (N
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6733,6 +6840,9 @@ This treatment is lipoprotein apheresis, annotated with Therapeutic Apheresis (N
 
 
     </div>
+
+
+
 
 
 
@@ -6915,6 +7025,12 @@ This treatment is cardiovascular imaging surveillance, annotated with Diagnostic
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Because ARH carries an ASCVD and aortic-valve-stenosis risk comparable to homozygous FH, GeneReviews recommends that autosomal recessive FH be monitored with imaging (echocardiogram, CT angiogram, and cardiac catheterization). The echocardiogram in particular tracks the aortic valve stenosis this entry models. This is surveillance, not a mechanism-directed therapy, so it carries no target_mechanisms link.
 </div>
 
@@ -7026,6 +7142,9 @@ This treatment uses PCSK9 inhibitor (NCIT:C190797). NCIT:C190797 is a therapeuti
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7036,6 +7155,9 @@ This treatment uses PCSK9 inhibitor (NCIT:C190797). NCIT:C190797 is a therapeuti
 
 
     </div>
+
+
+
 
 
 
@@ -8945,6 +9067,26 @@ animal_models:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope and lump/split: curated as a standalone Disease (entry_type DISEASE, claim issue #10721) rather than folded into the dominant FH entries. ARH is a distinct recessive Mendelian entity (MONDO:0011374, OMIM:603813), caused by a different gene (LDLRAP1) acting by a different mechanism (loss of the adaptor that couples a structurally normal LDL receptor to clathrin-mediated endocytosis) from the receptor-side (LDLR), ligand-side (APOB) and PCSK9 dominant forms. It is referenced only in passing in the dominant-FH entries; this entry curates its mechanism graph in full. The relationship to the FH umbrella is recorded via parents (Familial Hypercholesterolemia).
+Deep-research note: the standard `just research-disorder claude_code` run for this disorder could not complete a written report - the shared build host root filesystem was at 100% capacity (a sibling curation session was running its own deep-research at the same time) and the report write failed with ENOSPC. In place of the automated report, a manual PubMed sweep was performed (E-utilities esearch/esummary) and every cited reference was fetched with `just fetch-reference` and quoted from its cached abstract or full text. The fallback and the reference set are recorded in research/Autosomal_Recessive_Hypercholesterolemia-deep-research-claude_code.md.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autosomal Recessive Hypercholesterolemia</strong> · 2026-09-03T15:26:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Hypercholesterolemia/2026-09-03T152633Z-claude-code-028fe2.yaml">View source</a></p>
+                        <p class="research-review-text">Created the LDLRAP1/ARH recessive hypercholesterolemia entry (MONDO:0011374) end-to-end. entry_type DISEASE: distinct recessive gene (LDLRAP1) and mechanism (loss of the cytosolic adaptor bridging a structurally normal LDL receptor to clathrin-mediated endocytosis), kept separate from the dominant FH entries (LDLR/APOB/PCSK9). Curated a full pathophysiology chain (biallelic LDLRAP1 LOF -&gt; loss of ARH adaptor bridging -&gt; impaired hepatocyte LDLR clathrin-mediated endocytosis, liver-restricted -&gt; impaired hepatic LDL clearance -&gt; lifelong LDL-C elevation -&gt; premature ASCVD and extravascular cholesterol deposition), 8 phenotypes (hypercholesterolemia, increased LDL-C, tendon xanthoma, premature coronary atherosclerosis, MI, aortic valve stenosis, xanthelasma, corneal arcus), LDLRAP1 genetic block with AR inheritance and Sardinian ARH1/ARH2 founder alleles, structured prevalence (ultra-rare; Sardinia/Sicily founder), LDL-C biomarker, and four treatments (statin+ezetimibe, lomitapide, lipoprotein apheresis, PCSK9 inhibitor) with target_mechanisms and therapeutic_modality. Evidence: PMID:11326085 (Garcia 2001 gene discovery), PMID:16179341 (adaptor/clathrin mechanism), PMID:32011344 (ARH 2020 review), PMID:36072671 (Pan-European lomitapide subanalysis), PMID:27079874 (PCSK9i in ARH), PMID:29153781 (Sicily/Sardinia epidemiology), PMID:24404629 (FH GeneReviews, class-level, tagged GeneReviews). Deep-research fallback: automated claude_code run produced no report (host filesystem ENOSPC, concurrent sibling run); performed a manual PubMed sweep instead, recorded in research/. Validated to green: just validate (49/49 snippets), validate-terms, validate-disorders, check-causal-targets, check-duplicate-keys, check-entity-refs, check-qualifier-terms, check-enum-values, snippet-grading/length/title/folded-hyphens all pass. Closes #10721; deletes stub.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

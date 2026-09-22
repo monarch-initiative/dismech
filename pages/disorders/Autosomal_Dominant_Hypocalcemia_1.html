@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4657,6 +4710,13 @@ A third differential is acquired rather than inherited: activating autoantibodie
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-casr-gain-of-function-variant" data-dismech-node="Heterozygous CASR Gain-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous CASR Gain-of-Function Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A missense variant, most often in the large extracellular domain, that makes the receptor easier to activate. The protein is expressed and trafficked normally; what changes is the calcium concentration at which it signals.</div>
 
 
@@ -4714,9 +4774,14 @@ This genetic context concerns CASR (hgnc:1514). hgnc:1514 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4823,6 +4888,13 @@ This pathophysiological event involves calcium-sensing receptor activity, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-shifted-calcium-set-point" data-dismech-node="Left-Shifted Calcium Set Point" data-dismech-type="pathophysiology">
                 <div class="item-name">Left-Shifted Calcium Set Point</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The receptor now reaches half-maximal signalling at a lower extracellular calcium concentration than the wild-type receptor does. Every downstream consequence follows from this one quantitative change, in whichever tissue the receptor is expressed.</div>
 
@@ -4965,6 +5037,13 @@ This pathophysiological event involves increased calcium-sensing receptor signal
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suppressed-parathyroid-hormone-secretion" data-dismech-node="Suppressed Parathyroid Hormone Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppressed Parathyroid Hormone Secretion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Parathyroid chief cells read the prevailing calcium as adequate and withhold PTH. Secretion is reduced, not abolished - measured PTH is typically low-normal rather than undetectable, which is precisely why the finding is described as inappropriate rather than absent.</div>
 
@@ -5127,6 +5206,13 @@ This pathophysiological event involves decreased parathyroid hormone secretion (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-renal-tubular-calcium-reabsorption" data-dismech-node="Impaired Renal Tubular Calcium Reabsorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Renal Tubular Calcium Reabsorption</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The over-sensitive receptor in the renal tubule reduces calcium reabsorption directly. This is the limb that separates ADH1 from other causes of hypoparathyroidism, and it is why raising the filtered calcium load makes the renal picture worse rather than better.
 A route from the receptor to the transport defect has been traced. Claudin-14 is a negative regulator of the paracellular calcium pathway in the thick ascending limb, held in check by miR-9 and miR-374. ADH1 receptor variants repress transcription of those two microRNAs, which lifts the brake on claudin-14 and closes the paracellular route. The step is evidenced in cell and animal models rather than in patients, and is recorded here at that strength.</div>
@@ -5344,6 +5430,13 @@ This pathophysiological event involves decreased renal tubular calcium ion trans
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-vasopressin-dependent-water-reabsorption" data-dismech-node="Impaired Vasopressin-Dependent Water Reabsorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Vasopressin-Dependent Water Reabsorption</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Receptor activation in the collecting duct opposes vasopressin by driving down aquaporin-2. In a CaSR knock-in mouse modelling this disease the route was traced - less total AQP2, more AQP2 phosphorylated at the degradation site Ser261, higher phosphorylated p38MAPK and ATF1 upstream of it, and more of the AQP2-targeting miR-137 - and a calcilytic reversed it. This is the mechanism behind the urinary concentrating defect and the polyuria of the Bartter-type-V presentation. PROVISIONAL because the chain is established in the mouse and has not been demonstrated in patients.</div>
 
 
@@ -5511,6 +5604,13 @@ This pathophysiological event involves decreased renal water homeostasis (GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypocalcemia-with-inappropriately-low-pth" data-dismech-node="Hypocalcemia with Inappropriately Low PTH" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypocalcemia with Inappropriately Low PTH</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The defining biochemical signature. The pairing matters more than either number: hypocalcaemia with a PTH that is merely low-normal is the finding that points at the receptor rather than at the gland.</div>
 
 
@@ -5593,6 +5693,13 @@ This pathophysiological event involves decreased renal water homeostasis (GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-calcium-wasting" data-dismech-node="Renal Calcium Wasting" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Calcium Wasting</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Urinary calcium excretion is high relative to a serum calcium that is already low. Two independent inputs converge here - the absent PTH signal and the tubular receptor - which is why the hypercalciuria of ADH1 exceeds that of other hypoparathyroidisms and why it is hard to treat.</div>
 
 
@@ -5669,6 +5776,13 @@ This pathophysiological event involves decreased renal water homeostasis (GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperphosphatemia" data-dismech-node="Hyperphosphatemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperphosphatemia</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Raised serum phosphate, the expected consequence of withdrawing a phosphaturic hormone.</div>
 
 
@@ -5729,6 +5843,13 @@ This pathophysiological event involves decreased renal water homeostasis (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuromuscular-irritability" data-dismech-node="Neuromuscular Irritability" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuromuscular Irritability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Reduced ionised calcium lowers the threshold for nerve and muscle depolarisation, giving paraesthesiae, carpopedal spasm, tetany and seizures. Severity is not simply a function of how low the calcium is: in one kindred four of seven affected members were symptomatic and the symptoms were explicitly unrelated to the degree of hypocalcaemia.</div>
 
@@ -5815,6 +5936,13 @@ This pathophysiological event involves decreased renal water homeostasis (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-calcification" data-dismech-node="Ectopic Calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Calcification</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Deposition of calcium salts outside bone - in the renal medulla as nephrocalcinosis and stones, and intracranially in the basal ganglia and cerebral cortex. PROVISIONAL because the renal and intracranial deposits do not share a single established mechanism: the renal deposits follow directly from supersaturated tubular fluid, while the intracranial ones accompany chronic hypocalcaemia and hyperphosphataemia without a resolved pathway, and conventional treatment contributes to the renal component.</div>
 
@@ -5919,7 +6047,7 @@ This pathophysiological event involves decreased renal water homeostasis (GO:000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Calcilytic (Negative Allosteric Modulator of the CaSR)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The approach directed at the lesion itself: a negative allosteric modulator pushes the receptor\u0027s dose-response curve back towards normal, so it acts upstream of both limbs at once rather than on either output.\\nThe evidence has two generations and they say different things. NPSP795, in five adults over three days, raised PTH dose-dependently but did not significantly change fractional calcium excretion - proof of mechanism only. Encaleret, an oral calcilytic, was then given to 13 adults in an open-label phase 2b study and corrected hypocalcaemia and reduced hypercalciuria together, over 24 outpatient weeks. That second result is the one that matters for this entry\u0027s argument: it is the only intervention here that moves both sides of the trade-off in the same direction. It remains an open-label study of 13 patients, not a controlled trial.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Calcitriol and Calcium Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The conventional treatment, and the one whose limitation defines the field. It raises serum calcium without touching the receptor, so it drives more calcium through a tubule that is already wasting it. Guidelines still recommend it, and the practical aim is a low-normal serum calcium that relieves symptoms rather than a normal one.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"calcitriol\"]}}, {\"id\": \"Ectopic Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deposition of calcium salts outside bone - in the renal medulla as nephrocalcinosis and stones, and intracranially in the basal ganglia and cerebral cortex. PROVISIONAL because the renal and intracranial deposits do not share a single established mechanism: the renal deposits follow directly from supersaturated tubular fluid, while the intracranial ones accompany chronic hypocalcaemia and hyperphosphataemia without a resolved pathway, and conventional treatment contributes to the renal component.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Nuf mouse (Casr Leu723Gln)\", \"species\": \"Mouse\", \"genotype\": \"Casr Leu723Gln (Nuf), heterozygous and homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The allele was originally found in a screen for eye mutants, and the mouse carries lens opacities and ectopic calcification alongside the mineral abnormalities - so it reproduces the entry\u0027s deposition node as well as its set-point node.\"}]}}, {\"id\": \"Heterozygous CASR Gain-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A missense variant, most often in the large extracellular domain, that makes the receptor easier to activate. The protein is expressed and trafficked normally; what changes is the calcium concentration at which it signals.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"calcium-sensing receptor activity\"], \"genetic_context\": {\"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"CASR\", \"id\": \"hgnc:1514\"}]}}}, {\"id\": \"Hyperphosphatemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised serum phosphate accompanying the low PTH, part of the standard hypoparathyroid biochemistry.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002905\"}}, {\"id\": \"Hypocalcemia with Inappropriately Low PTH\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining biochemical signature. The pairing matters more than either number: hypocalcaemia with a PTH that is merely low-normal is the finding that points at the receptor rather than at the gland.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Renal Tubular Calcium Reabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The over-sensitive receptor in the renal tubule reduces calcium reabsorption directly. This is the limb that separates ADH1 from other causes of hypoparathyroidism, and it is why raising the filtered calcium load makes the renal picture worse rather than better.\\nA route from the receptor to the transport defect has been traced. Claudin-14 is a negative regulator of the paracellular calcium pathway in the thick ascending limb, held in check by miR-9 and miR-374. ADH1 receptor variants repress transcription of those two microRNAs, which lifts the brake on claudin-14 and closes the paracellular route. The step is evidenced in cell and animal models rather than in patients, and is recorded here at that strength.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"renal tubular calcium ion transport\"], \"genes\": [\"CLDN14\"], \"gene_terms\": [{\"label\": \"CLDN14\", \"id\": \"hgnc:2035\"}]}}, {\"id\": \"Impaired Vasopressin-Dependent Water Reabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Receptor activation in the collecting duct opposes vasopressin by driving down aquaporin-2. In a CaSR knock-in mouse modelling this disease the route was traced - less total AQP2, more AQP2 phosphorylated at the degradation site Ser261, higher phosphorylated p38MAPK and ATF1 upstream of it, and more of the AQP2-targeting miR-137 - and a calcilytic reversed it. This is the mechanism behind the urinary concentrating defect and the polyuria of the Bartter-type-V presentation. PROVISIONAL because the chain is established in the mouse and has not been demonstrated in patients.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"renal water homeostasis\"], \"genes\": [\"AQP2\"], \"gene_terms\": [{\"label\": \"AQP2\", \"id\": \"hgnc:634\"}]}}, {\"id\": \"Intact parathyroid hormone\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"NCIT:C41027\", \"term_label\": \"Parathyroid Hormone\", \"readouts\": [{\"target\": \"Suppressed Parathyroid Hormone Secretion\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports the parathyroid limb of the receptor lesion.\"}]}}, {\"id\": \"Left-Shifted Calcium Set Point\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The receptor now reaches half-maximal signalling at a lower extracellular calcium concentration than the wild-type receptor does. Every downstream consequence follows from this one quantitative change, in whichever tissue the receptor is expressed.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"calcium-sensing receptor signalling\"], \"animal_models\": [{\"name\": \"Nuf mouse (Casr Leu723Gln)\", \"species\": \"Mouse\", \"genotype\": \"Casr Leu723Gln (Nuf), heterozygous and homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"A germline activating Casr variant producing the same set-point lesion, in which pharmacological reversal of the shift can be tested directly.\"}]}}, {\"id\": \"Neuromuscular Irritability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced ionised calcium lowers the threshold for nerve and muscle depolarisation, giving paraesthesiae, carpopedal spasm, tetany and seizures. Severity is not simply a function of how low the calcium is: in one kindred four of seven affected members were symptomatic and the symptoms were explicitly unrelated to the degree of hypocalcaemia.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nuf mouse (Casr Leu723Gln)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A spontaneous activating Casr allele giving hypocalcaemia, used as the ADH1 model in which the calcilytic was tested alongside the human study.\"}, {\"id\": \"Palopegteriparatide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A long-acting PTH(1-34) prodrug giving continuous rather than pulsatile exposure. Reported in a paediatric ADH1 patient refractory to conventional therapy; the evidence base in this disease is a case report rather than a trial, and it is recorded at that strength.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recombinant Human PTH(1-84)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replaces the hormone the receptor is suppressing, addressing one of the two limbs. Patients with CASR variants were excluded from the pivotal hypoparathyroidism trials on the reasoning that the extra renal limb would blunt the effect on urinary calcium; a later case series found that it nevertheless improved hypercalciuria relative to conventional therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"recombinant parathyroid hormone\"]}}, {\"id\": \"Renal Calcium Wasting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Urinary calcium excretion is high relative to a serum calcium that is already low. Two independent inputs converge here - the absent PTH signal and the tubular receptor - which is why the hypercalciuria of ADH1 exceeds that of other hypoparathyroidisms and why it is hard to treat.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Serum ionised calcium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Hypocalcemia with Inappropriately Low PTH\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports the set-point shift as it appears in the circulation.\"}]}}, {\"id\": \"Suppressed Parathyroid Hormone Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Parathyroid chief cells read the prevailing calcium as adequate and withhold PTH. Secretion is reduced, not abolished - measured PTH is typically low-normal rather than undetectable, which is precisely why the finding is described as inappropriate rather than absent.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"parathyroid chief cell\"], \"biological_processes\": [\"parathyroid hormone secretion\"]}}, {\"id\": \"Thiazide Diuretic\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The adjunct that acts on the renal limb. Thiazides enhance distal tubular calcium reabsorption, which is precisely the process the over-sensitive receptor impairs, and they are singled out as being of particular benefit in activating calcium-sensing receptor mutations rather than in hypoparathyroidism generally.\\nIts presence is the reason the calcilytic entry below is described as acting on the receptor itself rather than as the only thing reaching the kidney: a thiazide reaches the renal limb, but downstream of the lesion and without touching the set point.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"thiazide diuretic\"]}}, {\"id\": \"Urinary calcium excretion\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Renal Calcium Wasting\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Reports the renal limb, and tracks whether treatment is aggravating it.\"}]}}], \"edges\": [{\"source\": \"Heterozygous CASR Gain-of-Function Variant\", \"target\": \"Left-Shifted Calcium Set Point\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-Shifted Calcium Set Point\", \"target\": \"Suppressed Parathyroid Hormone Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the parathyroid chief cell, where receptor activation is the signal to stop secreting.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-Shifted Calcium Set Point\", \"target\": \"Impaired Renal Tubular Calcium Reabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the renal tubule, where the same receptor independently reduces calcium reabsorption. This limb does not require the parathyroid limb.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Suppressed Parathyroid Hormone Secretion\", \"target\": \"Hypocalcemia with Inappropriately Low PTH\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Suppressed Parathyroid Hormone Secretion\", \"target\": \"Renal Calcium Wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PTH removes the hormone\u0027s own stimulus to distal tubular calcium reabsorption. This is the limb ADH1 shares with every other hypoparathyroidism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Suppressed Parathyroid Hormone Secretion\", \"target\": \"Hyperphosphatemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PTH is phosphaturic, so withholding it raises serum phosphate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Renal Tubular Calcium Reabsorption\", \"target\": \"Renal Calcium Wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Renal Tubular Calcium Reabsorption\", \"target\": \"Impaired Vasopressin-Dependent Water Reabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same receptor is expressed in the collecting duct, where its activation opposes vasopressin action. This is a second renal consequence, parallel to the calcium one rather than downstream of it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypocalcemia with Inappropriately Low PTH\", \"target\": \"Neuromuscular Irritability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypocalcemia with Inappropriately Low PTH\", \"target\": \"Ectopic Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hypocalcaemia with hyperphosphataemia is associated with intracranial calcification, but the step from the disturbed calcium-phosphate product to deposition at specific sites is not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Renal Calcium Wasting\", \"target\": \"Ectopic Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hypercalciuria supersaturates the tubular fluid, giving nephrocalcinosis and stones.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Calcitriol and Calcium Supplementation\", \"target\": \"Hypocalcemia with Inappropriately Low PTH\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Human PTH(1-84)\", \"target\": \"Suppressed Parathyroid Hormone Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Palopegteriparatide\", \"target\": \"Suppressed Parathyroid Hormone Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thiazide Diuretic\", \"target\": \"Renal Calcium Wasting\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Calcilytic (Negative Allosteric Modulator of the CaSR)\", \"target\": \"Left-Shifted Calcium Set Point\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nuf mouse (Casr Leu723Gln)\", \"target\": \"Left-Shifted Calcium Set Point\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"A germline activating Casr variant producing the same set-point lesion, in which pharmacological reversal of the shift can be tested directly.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A single missense allele rather than the human allelic spectrum, so it cannot address the variability in clinical response between genotypes that the human study found. The mouse also corrected its plasma calcium on the calcilytic where the human study\u0027s calcium endpoints did not move, so the model is more responsive on that endpoint than the patients were.\"}, {\"source\": \"Nuf mouse (Casr Leu723Gln)\", \"target\": \"Ectopic Calcification\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The allele was originally found in a screen for eye mutants, and the mouse carries lens opacities and ectopic calcification alongside the mineral abnormalities - so it reproduces the entry\u0027s deposition node as well as its set-point node.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse\u0027s ectopic calcification and cataracts were characterised as part of the strain description rather than in a study designed to ask where and why deposition occurs, so the model corroborates that the phenotype follows from receptor activation without illuminating the mechanism this entry grades PROVISIONAL.\"}, {\"source\": \"Hypocalcemia with Inappropriately Low PTH\", \"target\": \"Serum ionised calcium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the set-point shift as it appears in the circulation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Suppressed Parathyroid Hormone Secretion\", \"target\": \"Intact parathyroid hormone\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the parathyroid limb of the receptor lesion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Renal Calcium Wasting\", \"target\": \"Urinary calcium excretion\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the renal limb, and tracks whether treatment is aggravating it.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Calcilytic (Negative Allosteric Modulator of the CaSR)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The approach directed at the lesion itself: a negative allosteric modulator pushes the receptor\u0027s dose-response curve back towards normal, so it acts upstream of both limbs at once rather than on either output.\\nThe evidence has two generations and they say different things. NPSP795, in five adults over three days, raised PTH dose-dependently but did not significantly change fractional calcium excretion - proof of mechanism only. Encaleret, an oral calcilytic, was then given to 13 adults in an open-label phase 2b study and corrected hypocalcaemia and reduced hypercalciuria together, over 24 outpatient weeks. That second result is the one that matters for this entry\u0027s argument: it is the only intervention here that moves both sides of the trade-off in the same direction. It remains an open-label study of 13 patients, not a controlled trial.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Calcitriol and Calcium Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The conventional treatment, and the one whose limitation defines the field. It raises serum calcium without touching the receptor, so it drives more calcium through a tubule that is already wasting it. Guidelines still recommend it, and the practical aim is a low-normal serum calcium that relieves symptoms rather than a normal one.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"calcitriol\"]}}, {\"id\": \"Ectopic Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deposition of calcium salts outside bone - in the renal medulla as nephrocalcinosis and stones, and intracranially in the basal ganglia and cerebral cortex. PROVISIONAL because the renal and intracranial deposits do not share a single established mechanism: the renal deposits follow directly from supersaturated tubular fluid, while the intracranial ones accompany chronic hypocalcaemia and hyperphosphataemia without a resolved pathway, and conventional treatment contributes to the renal component.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Nuf mouse (Casr Leu723Gln)\", \"species\": \"Mouse\", \"genotype\": \"Casr Leu723Gln (Nuf), heterozygous and homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The allele was originally found in a screen for eye mutants, and the mouse carries lens opacities and ectopic calcification alongside the mineral abnormalities - so it reproduces the entry\u0027s deposition node as well as its set-point node.\"}]}}, {\"id\": \"Heterozygous CASR Gain-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A missense variant, most often in the large extracellular domain, that makes the receptor easier to activate. The protein is expressed and trafficked normally; what changes is the calcium concentration at which it signals.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"calcium-sensing receptor activity\"], \"genetic_context\": {\"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"CASR\", \"id\": \"hgnc:1514\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hyperphosphatemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised serum phosphate accompanying the low PTH, part of the standard hypoparathyroid biochemistry.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002905\"}}, {\"id\": \"Hypocalcemia with Inappropriately Low PTH\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining biochemical signature. The pairing matters more than either number: hypocalcaemia with a PTH that is merely low-normal is the finding that points at the receptor rather than at the gland.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Renal Tubular Calcium Reabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The over-sensitive receptor in the renal tubule reduces calcium reabsorption directly. This is the limb that separates ADH1 from other causes of hypoparathyroidism, and it is why raising the filtered calcium load makes the renal picture worse rather than better.\\nA route from the receptor to the transport defect has been traced. Claudin-14 is a negative regulator of the paracellular calcium pathway in the thick ascending limb, held in check by miR-9 and miR-374. ADH1 receptor variants repress transcription of those two microRNAs, which lifts the brake on claudin-14 and closes the paracellular route. The step is evidenced in cell and animal models rather than in patients, and is recorded here at that strength.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"renal tubular calcium ion transport\"], \"genes\": [\"CLDN14\"], \"gene_terms\": [{\"label\": \"CLDN14\", \"id\": \"hgnc:2035\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Vasopressin-Dependent Water Reabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Receptor activation in the collecting duct opposes vasopressin by driving down aquaporin-2. In a CaSR knock-in mouse modelling this disease the route was traced - less total AQP2, more AQP2 phosphorylated at the degradation site Ser261, higher phosphorylated p38MAPK and ATF1 upstream of it, and more of the AQP2-targeting miR-137 - and a calcilytic reversed it. This is the mechanism behind the urinary concentrating defect and the polyuria of the Bartter-type-V presentation. PROVISIONAL because the chain is established in the mouse and has not been demonstrated in patients.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"renal water homeostasis\"], \"genes\": [\"AQP2\"], \"gene_terms\": [{\"label\": \"AQP2\", \"id\": \"hgnc:634\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Intact parathyroid hormone\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"NCIT:C41027\", \"term_label\": \"Parathyroid Hormone\", \"readouts\": [{\"target\": \"Suppressed Parathyroid Hormone Secretion\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports the parathyroid limb of the receptor lesion.\"}]}}, {\"id\": \"Left-Shifted Calcium Set Point\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The receptor now reaches half-maximal signalling at a lower extracellular calcium concentration than the wild-type receptor does. Every downstream consequence follows from this one quantitative change, in whichever tissue the receptor is expressed.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"calcium-sensing receptor signalling\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Nuf mouse (Casr Leu723Gln)\", \"species\": \"Mouse\", \"genotype\": \"Casr Leu723Gln (Nuf), heterozygous and homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"A germline activating Casr variant producing the same set-point lesion, in which pharmacological reversal of the shift can be tested directly.\"}]}}, {\"id\": \"Neuromuscular Irritability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced ionised calcium lowers the threshold for nerve and muscle depolarisation, giving paraesthesiae, carpopedal spasm, tetany and seizures. Severity is not simply a function of how low the calcium is: in one kindred four of seven affected members were symptomatic and the symptoms were explicitly unrelated to the degree of hypocalcaemia.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Nuf mouse (Casr Leu723Gln)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A spontaneous activating Casr allele giving hypocalcaemia, used as the ADH1 model in which the calcilytic was tested alongside the human study.\"}, {\"id\": \"Palopegteriparatide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A long-acting PTH(1-34) prodrug giving continuous rather than pulsatile exposure. Reported in a paediatric ADH1 patient refractory to conventional therapy; the evidence base in this disease is a case report rather than a trial, and it is recorded at that strength.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recombinant Human PTH(1-84)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replaces the hormone the receptor is suppressing, addressing one of the two limbs. Patients with CASR variants were excluded from the pivotal hypoparathyroidism trials on the reasoning that the extra renal limb would blunt the effect on urinary calcium; a later case series found that it nevertheless improved hypercalciuria relative to conventional therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"recombinant parathyroid hormone\"]}}, {\"id\": \"Renal Calcium Wasting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Urinary calcium excretion is high relative to a serum calcium that is already low. Two independent inputs converge here - the absent PTH signal and the tubular receptor - which is why the hypercalciuria of ADH1 exceeds that of other hypoparathyroidisms and why it is hard to treat.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Serum ionised calcium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Hypocalcemia with Inappropriately Low PTH\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports the set-point shift as it appears in the circulation.\"}]}}, {\"id\": \"Suppressed Parathyroid Hormone Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Parathyroid chief cells read the prevailing calcium as adequate and withhold PTH. Secretion is reduced, not abolished - measured PTH is typically low-normal rather than undetectable, which is precisely why the finding is described as inappropriate rather than absent.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"parathyroid chief cell\"], \"biological_processes\": [\"parathyroid hormone secretion\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Thiazide Diuretic\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The adjunct that acts on the renal limb. Thiazides enhance distal tubular calcium reabsorption, which is precisely the process the over-sensitive receptor impairs, and they are singled out as being of particular benefit in activating calcium-sensing receptor mutations rather than in hypoparathyroidism generally.\\nIts presence is the reason the calcilytic entry below is described as acting on the receptor itself rather than as the only thing reaching the kidney: a thiazide reaches the renal limb, but downstream of the lesion and without touching the set point.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"thiazide diuretic\"]}}, {\"id\": \"Urinary calcium excretion\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Renal Calcium Wasting\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Reports the renal limb, and tracks whether treatment is aggravating it.\"}]}}], \"edges\": [{\"source\": \"Heterozygous CASR Gain-of-Function Variant\", \"target\": \"Left-Shifted Calcium Set Point\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-Shifted Calcium Set Point\", \"target\": \"Suppressed Parathyroid Hormone Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the parathyroid chief cell, where receptor activation is the signal to stop secreting.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-Shifted Calcium Set Point\", \"target\": \"Impaired Renal Tubular Calcium Reabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the renal tubule, where the same receptor independently reduces calcium reabsorption. This limb does not require the parathyroid limb.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Suppressed Parathyroid Hormone Secretion\", \"target\": \"Hypocalcemia with Inappropriately Low PTH\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Suppressed Parathyroid Hormone Secretion\", \"target\": \"Renal Calcium Wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PTH removes the hormone\u0027s own stimulus to distal tubular calcium reabsorption. This is the limb ADH1 shares with every other hypoparathyroidism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Suppressed Parathyroid Hormone Secretion\", \"target\": \"Hyperphosphatemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PTH is phosphaturic, so withholding it raises serum phosphate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Renal Tubular Calcium Reabsorption\", \"target\": \"Renal Calcium Wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Renal Tubular Calcium Reabsorption\", \"target\": \"Impaired Vasopressin-Dependent Water Reabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same receptor is expressed in the collecting duct, where its activation opposes vasopressin action. This is a second renal consequence, parallel to the calcium one rather than downstream of it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypocalcemia with Inappropriately Low PTH\", \"target\": \"Neuromuscular Irritability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypocalcemia with Inappropriately Low PTH\", \"target\": \"Ectopic Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hypocalcaemia with hyperphosphataemia is associated with intracranial calcification, but the step from the disturbed calcium-phosphate product to deposition at specific sites is not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Renal Calcium Wasting\", \"target\": \"Ectopic Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hypercalciuria supersaturates the tubular fluid, giving nephrocalcinosis and stones.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Calcitriol and Calcium Supplementation\", \"target\": \"Hypocalcemia with Inappropriately Low PTH\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Human PTH(1-84)\", \"target\": \"Suppressed Parathyroid Hormone Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Palopegteriparatide\", \"target\": \"Suppressed Parathyroid Hormone Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thiazide Diuretic\", \"target\": \"Renal Calcium Wasting\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Calcilytic (Negative Allosteric Modulator of the CaSR)\", \"target\": \"Left-Shifted Calcium Set Point\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nuf mouse (Casr Leu723Gln)\", \"target\": \"Left-Shifted Calcium Set Point\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"A germline activating Casr variant producing the same set-point lesion, in which pharmacological reversal of the shift can be tested directly.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A single missense allele rather than the human allelic spectrum, so it cannot address the variability in clinical response between genotypes that the human study found. The mouse also corrected its plasma calcium on the calcilytic where the human study\u0027s calcium endpoints did not move, so the model is more responsive on that endpoint than the patients were.\"}, {\"source\": \"Nuf mouse (Casr Leu723Gln)\", \"target\": \"Ectopic Calcification\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The allele was originally found in a screen for eye mutants, and the mouse carries lens opacities and ectopic calcification alongside the mineral abnormalities - so it reproduces the entry\u0027s deposition node as well as its set-point node.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse\u0027s ectopic calcification and cataracts were characterised as part of the strain description rather than in a study designed to ask where and why deposition occurs, so the model corroborates that the phenotype follows from receptor activation without illuminating the mechanism this entry grades PROVISIONAL.\"}, {\"source\": \"Hypocalcemia with Inappropriately Low PTH\", \"target\": \"Serum ionised calcium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the set-point shift as it appears in the circulation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Suppressed Parathyroid Hormone Secretion\", \"target\": \"Intact parathyroid hormone\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the parathyroid limb of the receptor lesion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Renal Calcium Wasting\", \"target\": \"Urinary calcium excretion\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the renal limb, and tracks whether treatment is aggravating it.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5986,6 +6114,9 @@ This clinical feature is Hypoparathyroidism (HP:0000829). HP:0000829 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6071,6 +6202,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6151,6 +6285,9 @@ This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6217,6 +6354,9 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6361,6 +6501,9 @@ This clinical feature is Nephrolithiasis (HP:0000787), qualified as course progr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6475,6 +6618,9 @@ This clinical feature is Chronic kidney disease (HP:0012622), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6580,6 +6726,9 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6651,6 +6800,9 @@ This clinical feature is Hyperphosphatemia (HP:0002905). HP:0002905 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6717,6 +6869,9 @@ This clinical feature is Hypomagnesemia (HP:0002917). HP:0002917 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6813,6 +6968,9 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6916,6 +7074,9 @@ This clinical feature is Tetany (HP:0001281), qualified as temporality recurrent
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7002,6 +7163,9 @@ This clinical feature is Basal ganglia calcification (HP:0002135), qualified as 
 
 
                     </div>
+
+
+
 
 
 
@@ -7130,6 +7294,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7196,6 +7363,9 @@ This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7310,6 +7480,9 @@ This disease-associated gene is CASR (hgnc:1514). hgnc:1514 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -7488,6 +7661,9 @@ This treatment uses calcitriol (CHEBI:17823). CHEBI:17823 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7498,6 +7674,9 @@ This treatment uses calcitriol (CHEBI:17823). CHEBI:17823 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7632,6 +7811,9 @@ This treatment uses recombinant parathyroid hormone (NCIT:C62555). NCIT:C62555 i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7642,6 +7824,9 @@ This treatment uses recombinant parathyroid hormone (NCIT:C62555). NCIT:C62555 i
 
 
     </div>
+
+
+
 
 
 
@@ -7754,6 +7939,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7764,6 +7952,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7898,6 +8089,9 @@ This treatment uses thiazide diuretic (NCIT:C49185). NCIT:C49185 is a therapeuti
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7908,6 +8102,9 @@ This treatment uses thiazide diuretic (NCIT:C49185). NCIT:C49185 is a therapeuti
 
 
     </div>
+
+
+
 
 
 
@@ -8021,6 +8218,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8031,6 +8231,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -11191,6 +11394,39 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry covers ADH1 (CASR) only. ADH2 (GNA11) is a separate MONDO term with a different gene and is treated here as a differential, not as a subtype - the two share a biochemical phenotype but not a lesion. The Bartter-type-V presentation is curated as a has_subtypes entry rather than being folded into the existing Bartter_Syndrome entry, because its primary lesion is the same receptor as the rest of ADH1 and it appears among this MONDO term&#39;s own synonyms.
+Gain of function, in two senses. Both schema slots are used here and they make different claims. The variant node carries genetic_context with functional_impact_category GAIN_OF_FUNCTION, because that is the consequence of the variant. The descriptor modifiers are separate: the receptor node uses GAIN_OF_FUNCTION because the receptor is signalling outside its normal regulatory constraint, while the downstream signalling node uses the quantitative INCREASED, since what is claimed there is an amount of signalling for a given calcium concentration.
+evidence_source rule used here. CLAUDE.md says the slot classifies the cited publication, so that is the rule applied throughout: a case series is HUMAN_CLINICAL for every sentence quoted from it, including its background paragraphs, and a mouse study is MODEL_ORGANISM for the same reason. An earlier version of this entry graded background sentences from a case series as OTHER on a per-sentence reading; that was internally inconsistent with how a mouse paper&#39;s background sentence was graded in the same file, and PR review caught it. OTHER is now reserved for sources that are not primary studies at all - a review, a systematic literature review, a trial registration record.
+Molecular function term. GO has no &#34;calcium-sensing receptor activity&#34; term. The receptor node is bound to GO:0004930 (G protein-coupled receptor activity), which is accurate but less specific than the claim; preferred_term carries the specific reading. The same applies to GO:0006816 for the renal node, where GO has no term for renal tubular calcium reabsorption specifically.
+Nephrolithiasis label. HP:0000787 is carried here as &#34;Nephrolithiasis&#34;, the label in this repository&#39;s HP cache. A live OLS lookup during curation returned &#34;Kidney stone&#34; for the same CURIE, so the two disagree; the cached label is what term validation checks against and is used.
+Prevalence. The 3.9 per 100,000 figure is quoted from a paper&#39;s introduction rather than from a primary epidemiological study, and the evidence item is graded OTHER for that reason.
+CLDN14. The descriptor on the renal node was added during the first review response on the strength of a deep-research lead, with no citation - which contradicted this entry&#39;s own rule that a report is a lead. Review flagged it as non-blocking; it is fixed rather than left, because an uncited gene assertion in a knowledge base is worse than an extra review cycle. PMID:25071082 is ADH1-specific and supplies both the mechanism and a rescue.
+Reference consumption. The first version of this entry cited 11 of the 33 references its deep-research run had fetched, and PR review established that several of the unused ones carried content the entry needed - the thiazide adjunct, ADH1-specific denominators for phenotype frequencies, hypomagnesaemia as cardinal rather than subtype-specific biochemistry, the AQP2 mechanism behind the concentrating defect, and the encaleret result. All were added from caches already committed, plus two new fetches for encaleret. The lesson is that a reference cache fetched during research is a reading list, not a by-product: leaving it uncited is a claim that it holds nothing, and here that claim was wrong.
+Deep research. An openscientist deep-research run was commissioned for this entry. The pathograph and the first eight references were built independently from PubMed before the report returned; the report was then read as a source of leads and contributed four further references (PMID:20374733, PMID:39658204, PMID:40086735 and the differentials they support). Every PMID was fetched with just fetch-reference and every snippet verified against the fetched cache rather than against the report&#39;s own quotation of it - which mattered, because three snippets initially taken from an abstract-metadata service did not match the fetched cache text word for word.
+What the report got wrong. Its term-validation section flagged one confabulated CL identifier (CL:1000456, named as a collecting-duct cell but actually a peritoneal mesothelial cell) among the terms it proposed; that term is not used here. It also gave MONDO:0008833 as this disease&#39;s identifier, where the curation stub and MONDO give MONDO:0011013 for &#34;autosomal dominant hypocalcemia 1&#34;; the stub&#39;s identifier is used.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Cite the CLDN14 descriptor rather than leaving it on a deep-research lead</strong> · 2026-08-28T18:00:11Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Dominant_Hypocalcemia_1/2026-08-28T180011Z-claude-code-e0c980.yaml">View source</a></p>
+                        <p class="research-review-text">PR review flagged as non-blocking that the CLDN14 gene descriptor on the renal node had no citation - its only source was the deep-research report, which this entry&#39;s own notes say are leads rather than evidence. Fixed rather than left, because an uncited gene assertion is worse than an extra review cycle. PMID:25071082 is ADH1-specific, shows that ADH receptor variants repress miR-9 and miR-374 and thereby lift the brake on claudin-14, and reports an HDAC-inhibitor rescue in cell and animal models. The node description now states the route and its evidential strength. Snippets 67 to 69, all verified.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autosomal Dominant Hypocalcemia 1</strong> · 2026-08-28T16:48:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Dominant_Hypocalcemia_1/2026-08-28T164824Z-claude-code-dd5e45.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of ADH1, MONDO:0011013, as a CASR gain-of-function set-point disorder. The pathograph models the parathyroid and renal limbs as parallel downstream arms of one left-shifted calcium set point, because that convergence is what explains why conventional calcium and calcitriol treatment aggravates the renal lesion rather than relieving it. Twelve references, all located through PubMed and fetched with just fetch-reference; an openscientist deep-research run was commissioned and used as a source of leads for four of them after the independent model had been built. Three snippets initially taken from an abstract-metadata service did not match the fetched cache text word for word and were corrected against the cache. Validated: schema, terms, 44 of 44 reference snippets, plus the duplicate-key, entity-ref, folded-hyphen, snippet-length, title-snippet, snippet-grading and environmental-evidence gates.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

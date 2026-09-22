@@ -26,9 +26,20 @@ remain authoritative for day-to-day curation mechanics.
 Claude Code skills are available in `.claude/skills/`:
 
 - **dismech-terms**: Use when selecting, validating, or repairing ontology bindings and term caches.
+- **[mapping-analysis](.claude/skills/mapping-analysis/SKILL.md)**: Use for mapping
+  scope and alignment investigations, Boomer results, proxy merges, and source
+  correction reports with entity tables and competing solutions.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
+  Use when curating noncoding variant effects, including regulatory structural
+  variants, expression changes, and target-gene relationships.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
+- **extend-schema**: Use when adding, narrowing, deprecating, or removing a
+  class, slot, or enum in `src/dismech/schema/`, or when deciding whether a
+  curation need warrants a schema change at all.
+- **coarse-phenotype-bindings**: Use when choosing, reviewing, or repairing a
+  `coarse_binding_basis` on a phenotype bound to a coarse HPO term.
 
 **A skill file that is misnamed or missing its frontmatter is not an error — it
 is a skill that never loads.** Claude Code discovers a skill by looking for
@@ -499,9 +510,24 @@ same way a PMID is: by fetching the record into `references_cache/`.
 ```bash
 just datasets-coverage                    # which entries still need datasets
 just discover-datasets Asthma             # real candidates from the GEO index
+just discover-dbgap-immport Asthma        # dbGaP + ImmPort, keyed on MONDO->MeSH
 just verify-datasets kb/disorders/Asthma.yaml   # resolve accessions (run before commit)
 just research-datasets openscientist Marfan_Syndrome  # non-GEO repositories
 ```
+
+`discover-dbgap-immport` is the only **coded-disease** route: dbGaP and ImmPort
+publish MeSH/disease fields, so it queries the entry's MONDO→MeSH xref instead
+of its name. It tiers hits as `TITLE_MATCH`, `VARIABLE_MATCH` (the study's own
+dbGaP data dictionary records the disease as an outcome variable — both
+auto-approved), `SUBJECT_ONLY` (coded but neither of the above; never
+auto-approved) and `CONFLICT` (sibling disease, vetoed). **dbGaP variables are a
+triage signal, never KB content** — do not ingest data dictionaries into
+`Dataset` records, and never read `*.var_report.xml`, whose statistics are
+disease-cohort distributions rather than the clinical normal intervals
+`reference_ranges` means. Use the
+repositories' own APIs, **not** `datasetcatalog.nlm.nih.gov`, which mirrors the
+same records with more noise and fewer fields — see
+[`docs/reports/nlm-dataset-catalog-evaluation-2026-08-07.md`](docs/reports/nlm-dataset-catalog-evaluation-2026-08-07.md).
 
 **Always run `just verify-datasets` on any file whose `datasets:` block you
 touched.** An offline pytest guard catches malformed/mis-prefixed accessions;
@@ -537,13 +563,15 @@ always *was* a reference slot, and `geo:` is now treated as one end to end:
   `REFERENCE_CACHED_PREFIXES` in `scripts/verify_dataset_accessions.py`,
   backfilling the cache, and fixing what the newly-enabled checks surface.
 
-**`cache/dataset_accessions.json` is frozen. Never read, write, or edit it.**
+**`cache/dataset_accessions.json` is retired and deleted. Never recreate it.**
 It was a single shared JSON blob rewritten in full by every verifier run — so
 every curation PR touching a `datasets:` block churned the same 1.8 MB file, and
 PRs adding neighbouring `geo:` keys collided. Nothing reads or writes it any
-more (`test_no_automation_touches_the_frozen_dataset_cache` enforces this). It
-stays in git only until the open PRs carrying edits to it have drained; do not
-add it to a commit, and do not "helpfully" regenerate it.
+more (`test_no_automation_touches_the_frozen_dataset_cache` enforces this and
+checks that the path stays untracked on every CI run). It was frozen temporarily
+to let old PRs drain; that transition is over. If an old PR still carries it,
+keep its deletion when resolving conflicts without reading or merging its
+contents. Do not restore or regenerate it.
 
 **The check that tooling cannot do for you:** verification proves a dataset
 *exists*, never that it is about the right disease. Searching a causal gene
@@ -1786,6 +1814,25 @@ again.
 
 See `docs/history.md` and `src/dismech/schema/history.yaml` for the full format.
 
+**Reading the ledger back — "when was this entry last really curated?"**
+`history/` is what answers that; git cannot, because a whole-KB slot migration and a
+genuine re-curation are the same kind of touch in `git log`. But a bulk sweep writes a
+history record too (one identical `Backfill therapeutic_modality` record sits on 700
+entries), so the newest record is not the answer either.
+
+```bash
+just last-pass-report                       # summary + stalest 25, as a worklist
+just last-pass-report --status NO_HISTORY   # entries with no history record at all
+just last-pass-report --model sonnet-4      # everything last passed by an older model
+just last-pass-report --list-bulk           # audit which summaries counted as sweeps
+```
+
+It classifies each entry `PASSED` / `BULK_ONLY` / `NO_HISTORY`, flags `PASSED` entries
+whose *newest* record is a sweep, and orders stalest-first. The report is only as
+complete as the ledger — a real pass whose PR forgot its history record reads as stale
+— which is another reason to add the record. See
+[`docs/last-pass-report.md`](docs/last-pass-report.md) and issue #5334.
+
 Quick classification rules (use these before tagging):
 - HUMAN_CLINICAL: human patients, cohorts, case reports, clinical trials (NCT), epidemiology.
 - MODEL_ORGANISM: any in vivo animal data (mouse, zebrafish, dog/cat/horse veterinary case series, primate, or other non-human animals), even if observational and not interventional.
@@ -1819,6 +1866,20 @@ ontology bindings. Keep these session-wide invariants in mind:
   consistently; it does not say the term is right for your claim, and it does
   not check dynamic-enum membership. See
   [`docs/deep-research-term-validation.md`](docs/deep-research-term-validation.md).
+- A CURIE offered in a **review comment** is a lead on exactly the same footing,
+  and for the reason design decision §7 (`docs/explanation/design-decisions.md`)
+  records: PR comments are AI-generated by default here, so a reviewer's CURIE is
+  another agent's suggestion rather than a checked binding. Look it up, and check
+  what relation it stands in to the term
+  you meant. On #12297 a reviewer supplied `HP:0003324`; it verified clean — the
+  CURIE exists and `Generalized muscle weakness` is its canonical label — and it
+  was still wrong, because the descriptor's `preferred_term`, description,
+  snippet and explanation all said *limb*. `HP:0003324` and `HP:0003690` Limb
+  muscle weakness are **siblings** under `HP:0001324` Muscle weakness, not a
+  general and a specific form of one thing, so the binding asserted a
+  distribution of weakness its own source did not. That is the
+  self-consistent-but-wrong shape *A Gene Binding Only Has To Be
+  Self-Consistent* documents, landing on a phenotype instead of a gene.
 
 ```yaml
 cell_types:
@@ -1865,6 +1926,41 @@ binding is right, so a fabricated CURIE landing inside its enum produces the
 An absent binding with a recorded reason is a curation gap someone can close. A
 fabricated one that validates is a false statement about an ontology.
 
+**But that recorded reason is itself a claim, and it is the one nothing checks.**
+Writing "no more specific term exists" without having run the search produces an
+over-broad binding whose false justification tells the next reviewer to skip the
+one check that would catch it — three such bindings came out of a single batch of
+ten entries (dismech#7835), each refuted by re-running the search the note said
+had been run. Write the query verbatim and what it returned, or write no note:
+an unexplained over-broad binding is a smaller defect than one carrying a false
+justification. Step 3a of the `dismech-terms` skill has the rule and the worked
+examples.
+
+**Naming the query does not make the note true; re-running it does.** The rule
+above is satisfied on its face by a note that cites a re-runnable query and then
+misreports what came back, and that is the form the failure has since taken.
+`Digitalis_Poisoning` reached review carrying a note that named five ECTO
+searches — `l~digitalis`, `l~digoxin`, `l~glycoside`, `l~oleander`, `l~foxglove`
+— and concluded that ECTO had no cardiac-glycoside, digitalis or oleander
+exposure class. Re-run, `l~glycoside` returns `ECTO:9000436 exposure to
+glycoside`, so the note was refuted by one of the queries it cited; one further
+word, `l~digitalin`, returns `ECTO:9000003 exposure to digitalin`. Both terms
+were then rejected on stated positive grounds and the note rewritten, so the
+binding (`ECTO:0000537`) never moved — only its justification did, from false to
+true. Two more of the same shape came out of the same run of entries.
+`ECTO:9001524 exposure to Ricin` was called absent because nothing in the KB had
+bound it yet and so `cache/ecto/terms.csv` had no row for it: the cache-first
+contract read backwards, since an empty cache is silence rather than a negative
+answer. `ECTO:9001759 exposure to local anaesthetic` was missed by searching only
+the American spelling — `l~anesthetic` returns `ECTO:2000059 exposure to
+anesthetics` and stops there, where `l~anaesthetic` returns five terms.
+
+So **re-run every search a note claims, against the source the note names, and
+read the output rather than your expectation of it, immediately before you commit
+the note.** Step 3a leaves that re-run to a reviewer because a reviewer is
+currently the only one who performs it. The searches cost seconds, and a
+negative-existence claim is the one assertion in an entry that no gate can reach.
+
 **The same rule governs citation strings**, which have the same failure shape:
 `reference_title` is copied from the `title:` frontmatter of the
 `references_cache/` file, never written from having read the abstract. A title
@@ -1879,6 +1975,33 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `skos:exactMatch` or `skos:narrowMatch`; `broadMatch`, `closeMatch`, and
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
+
+### Coarse Phenotype Bindings Must Say Why
+
+A phenotype bound to a **coarse HPO term** — `HP:0000478` *Abnormality of the
+eye*, `HP:0002664` *Neoplasm*, `HP:0000077` *Abnormality of the kidney* — passes
+every other gate while saying almost nothing. Such a binding is not forbidden,
+but it must **say why**, via `coarse_binding_basis` on the descriptor:
+`VARIABLE_SPECTRUM`, `SOURCE_UNSPECIFIED`, `NO_HPO_TERM`, or `PATHOGRAPH_HUB`.
+
+```bash
+just check-coarse-phenotypes                    # gate (offline, in `just qc`)
+just list-coarse-phenotypes                     # census by term and file
+just update-coarse-phenotype-baseline           # only ever to SHRINK
+```
+
+**This is not a rule to prefer narrow terms.** Manufacturing a specificity the
+source does not support is a worse defect than a coarse binding, and the
+[Ontology Term Contract](#ontology-term-contract) forbids it. The coarse set is
+56 hand-reviewed terms across two `meaning:`-bound schema enums, not a depth or
+information-content metric.
+
+Use the **`coarse-phenotype-bindings` skill** when choosing, reviewing, or
+repairing a basis — it covers picking between the four values, the
+spectrum-vs-unspecified line, why a hub is defined by its incoming edges and how
+to tell convergence from fan-out, and the baseline's shrink-only rule. See also
+[`docs/coarse-phenotype-bindings.md`](docs/coarse-phenotype-bindings.md).
+
 
 ### Terms Inside `qualifiers` Are Not Covered by `validate-terms`
 
@@ -2585,6 +2708,97 @@ Argonaute-2 cleavage). A disorder whose entry models the therapy itself should
 `conforms_to` the one matching its drug; they are not interchangeable.
 `ATTR_Amyloidosis` is the worked RNAi conformer.
 
+### Delivery Systems — What Carries a Drug (`delivery_system`)
+
+A treatment's **carrier** goes in a `delivery_system` block on the `Treatment`,
+for **any** modality — not only oligonucleotides:
+
+```yaml
+treatments:
+- name: Vutrisiran
+  therapeutic_modality: SIRNA
+  delivery_system:
+    delivery_platform: CONJUGATE
+    targeting_ligand: GALNAC
+    targeting_receptor:
+      preferred_term: ASGR1
+      term:
+        id: hgnc:742
+        label: ASGR1
+    target_cell_types:
+    - preferred_term: hepatocyte
+      term:
+        id: CL:0000182
+        label: hepatocyte
+```
+
+**Do not reach for `oligonucleotide_details` to record a carrier.** That is where
+`delivery_platform` and `conjugation` used to live, which put the carrier axis
+inside the payload chemistry and left every non-oligonucleotide nanomedicine
+with nowhere to state its carrier. The KB shows the damage: `nab-sirolimus`
+(`Perivascular_Epithelioid_Cell_Neoplasm`, FDA-approved, `SMALL_MOLECULE`) and
+liposomal irinotecan in NALIRIFOX (`Pancreatic_Ductal_Adenocarcinoma`) both
+carried the fact only in a free-text `preferred_term`, and `MRNA_THERAPY` — a
+modality *defined* by its carrier — has zero uses across the whole KB.
+
+| Slot | Claim |
+|---|---|
+| `delivery_platform` | What carries the agent at all (`DeliveryPlatformEnum`) |
+| `targeting_ligand` | What is on the carrier, or the agent, that drives uptake (`TargetingLigandEnum`) |
+| `targeting_receptor` | The receptor or antigen that ligand binds, bindable to HGNC |
+| `target_cell_types` | The cell type the carrier is aimed at, bindable to CL |
+
+- **Platform and ligand are orthogonal in both directions.** Patisiran is
+  `UNCONJUGATED` *and* `LIPID_NANOPARTICLE`; vutrisiran is `GALNAC` *and*
+  `CONJUGATE`. A nanoparticle can also carry a ligand on its own surface — an
+  antibody-coated mRNA-LNP is `ANTIBODY` *and* `LIPID_NANOPARTICLE` — which is
+  why the ligand slot is no longer scoped to covalent attachment to an
+  oligonucleotide.
+- **`LIPOSOME` is not a spelling of `LIPID_NANOPARTICLE`.** The ionizable lipid
+  in an LNP releases a nucleic-acid payload from the endosome; a PEGylated
+  bilayer vesicle carrying an already cell-permeant cytotoxic changes
+  biodistribution and toxicity instead. Picking the wrong one erases the reason
+  the other exists.
+- **An untargeted carrier is a normal record.** A PEGylated liposome accumulates
+  passively — no ligand, no receptor, no target cell. Leave those slots absent
+  rather than asserting a target the formulation does not have. A
+  `targeting_receptor` alongside `targeting_ligand: UNCONJUGATED` is a
+  contradiction and is gated.
+- **`targeting_receptor` is the receptor, not the ligand.** A receptor may be
+  reachable by more than one ligand.
+- **Dosing interval stays on `Treatment`.** It applies to any treatment — but
+  read it next to the carrier, which is usually *why* the interval is what it
+  is.
+
+**`oligonucleotide_details.delivery_platform` and `.conjugation` are still
+valid**, kept rather than retired for the reason the *Retired Enum Values*
+section above records: retiring a spelling invalidates every in-flight PR using
+it, and ~44 oligonucleotide entries carry these slots. `conjugation` is
+deprecated in favour of `targeting_ligand`. Both render, with the Treatment-level
+block resolved first.
+
+```bash
+just check-delivery-system                 # gate (runs in `just qc`)
+just check-delivery-system --format list   # full census, including the worklist
+```
+
+It gates on `CONFLICT` (the same fact in both homes with different values — one
+is wrong and the renderer silently hides the nested one), `EMPTY` (a block
+carrying no carrier fact), and `LIGANDLESS_TARGET`. It **reports without
+gating** on `DUPLICATE` and on `LEGACY` — the nested-only records, currently 81,
+which are the migration worklist. Gating `LEGACY` would turn every
+oligonucleotide entry red for a change none of their curators made.
+
+Worked examples: `ATTR_Amyloidosis` Vutrisiran (all four slots, migrated off the
+nested spelling — the only entry migrated on purpose),
+`Pancreatic_Ductal_Adenocarcinoma` NALIRIFOX (`LIPOSOME` on a regimen where only
+one component is carried), `Perivascular_Epithelioid_Cell_Neoplasm` Nab-Sirolimus
+(`PROTEIN_NANOPARTICLE`, with `notes:` recording why the albumin's gp60
+transcytosis route is *not* filled into the targeting slots — the cited report
+states it as a possibility, and a hypothesized uptake route is not a targeting
+claim). `INORGANIC_NANOPARTICLE` has no worked example yet. See
+[`docs/delivery-systems.md`](docs/delivery-systems.md).
+
 ### Subtype Naming Conventions
 
 The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
@@ -2610,6 +2824,25 @@ phenotypes:
 ```
 
 **When `display_name` is set**, renderers show it instead of `name`. When absent, `name` is displayed directly.
+
+**A subtype list is a start, not an end state.** Only ~36% of declared
+subtypes are ever referenced by a `subtype:` foreign key, and about a third
+of the genes named in `has_subtypes[].genes` are not wired into the
+pathograph at all (no pathophysiology node carries the gene, and no causal
+`genetic:` entry links to one). When you declare a gene-specific subtype,
+also (a) stratify at least the subtype-divergent phenotypes/genetic rows via
+`subtype:`, and (b) make sure the gene reaches the pathograph — a `genes:`
+descriptor on the relevant pathophysiology node is enough for
+`dismech.graph` to auto-link it. Audit with:
+
+```bash
+just subtype-usage-audit                          # census + wiring summary
+just subtype-usage-audit --format list --status ABSENT
+just subtype-usage-audit kb/disorders/MyDisease.yaml --format list
+```
+
+See `docs/reports/subtype-field-usage-audit-2026-09-04.md` for the baseline
+census and the two recurring failure shapes.
 
 ### Reference Ranges and Interpretation Bands
 
@@ -2983,12 +3216,25 @@ paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
 references, broken bare-name pathograph targets, and prose claims about
-defective sources that the cache contradicts. The first four use baselines, as
-does `check-causal-targets`; do not update a baseline to admit a
-defect introduced by the current change. `check-environmental-evidence` had one
-too, until the #8296 backlog reached zero and it became a hard gate -- an
-exposure that genuinely cannot be cited now carries a `review_notes:` waiver
-instead of a baseline row (see below).
+defective sources that the cache contradicts. Four of them carry a committed
+baseline file grandfathering a pre-existing backlog -- `check-snippet-length`,
+`check-title-snippets`, `check-snippet-grading` and `check-causal-targets`. Two
+further gates that are in `just qc` but not in the list above do too:
+`check-reference-titles` and `check-coarse-phenotypes`. Those six are the whole
+set, and it is checkable rather than remembered -- `tests/*_baseline.txt` and the
+`just update-*-baseline` recipes are one-to-one with it. Do not update a baseline
+to admit a defect introduced by the current change.
+
+Two of these gates used to have a baseline and no longer do, by the same route:
+the backlog was repaired, then the mechanism was removed, so there is now no way
+to grandfather a finding. `check-environmental-evidence` got there first (#8296),
+and an exposure that genuinely cannot be cited now carries a `review_notes:`
+waiver instead of a baseline row (see below). `check-folded-hyphens` followed
+once #11760 had repaired its 293-split backlog, which was #4800's stated
+endpoint. Where that check flags a line that is genuinely correct, the fix is to
+teach the detector the shape and pin it with a test -- as `COORD_RE` does for
+suspended hyphens and `is_status_marker` for clinical negativity markers
+(`ER+/HER2-`, `T-B-NK-`) -- rather than to record an exception.
 
 **When an exposure genuinely cannot be cited, say so in `review_notes:`.**
 `check-environmental-evidence` treats an `environmental[]` entry whose
@@ -3261,6 +3507,30 @@ curation, and the two usually differ — one carries `notes`, the other cited
 `evidence`. Fold them into the single block at the canonical position and keep
 both sets of values, then re-read the surviving prose: an `explanation` arguing
 for the narrower choice will contradict the merged result and needs trimming.
+
+## Case-Colliding Paths (dismech#11204)
+
+Git must never track two paths that differ only in letter case, such as
+`references_cache/DOI_10.1172_JCI89626.md` and
+`references_cache/DOI_10.1172_jci89626.md`. On the macOS and Windows default
+filesystem only one of them can exist, so one path shows as modified forever,
+no `git checkout` or `git stash` clears it, and `git rebase` refuses to run.
+Linux CI sees nothing wrong, which is how 17 such DOI pairs accumulated before
+they were removed.
+
+```bash
+just check-case-collisions      # whole repo, <1s, offline
+```
+
+It runs in `just qc` and as an ungated CI step. The usual source was a DOI
+fetched in two capitalizations: DOIs resolve case-insensitively, but the cache
+filename copies the DOI as written. The patched fetcher now reuses an existing
+`DOI_*.md` file whose name differs only in case, on both read and write
+(`src/dismech/doi_cache_case.py`, #9112), so a second spelling no longer writes a
+second file; a DOI with no cache file yet is still saved as written. To fix a
+collision that gets past it, keep the path matching the publisher's
+capitalization and remove the other from the index with `git rm --cached <path>`,
+which works on a case-insensitive disk because it never touches the file itself.
 
 ## Retired Enum Values (dismech#10061)
 
@@ -3606,7 +3876,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
 | `app/models/data.js` | NO | Derived — the computational-models browser index, rebuilt from every `computational_models` block in `kb/` by `just gen-models-data`. **Never commit it from a curation PR**: it is regenerated wholesale, so two model PRs that both commit it conflict on it and nothing else (#9804) |
 | `app/hpo_category_cache.json` | NO | Derived — the HP-term-to-broad-category map, written by `just gen-browser-data` beside `app/data.js` and committed by the same workflow (#11299). Both `render` and `browser_export` read it |
-| `cache/dataset_accessions.json` | **NEVER** | Frozen. Superseded by `references_cache/GEO_*.md`; nothing reads or writes it. Never stage it, in any change |
+| `cache/dataset_accessions.json` | **NEVER** | Deleted and ignored. Superseded by `references_cache/GEO_*.md`; keep it deleted when resolving old PRs |
 
 **Scope of the "derived" rule:** it governs *hand-authored* PRs — never commit
 these paths alongside a curation or code change. The derived artifacts do live in
@@ -3756,6 +4026,63 @@ before retrying. The default budget is five retries per sweep; `dry_run`,
 `pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
 the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
 
+### Inactive PR assignments
+
+Assignment is an active-work hold, not a permanent reservation. The independent
+`assignment-inactivity` shepherd job considers every open assigned PR, regardless
+of author, draft status, or checks. After seven days without activity from any
+current assignee, it posts one reminder tagging the author and assignees. At
+fourteen days **since the last assignee activity**, it removes the assignment
+if the reminder is still unanswered. An assignee's PR comment, review, inline
+review comment, or authored or committed GitHub-linked commit resets the clock.
+Assignment changes also restart it. Other users' comments and the reminder
+itself do not count.
+
+Any current assignee can keep a jointly assigned PR active. After a response,
+a later week of inactivity gets a new reminder; the fourteen-day threshold also
+starts from that new activity. Old PRs always receive a reminder first, but if
+already inactive for fourteen days they can be unassigned on the next sweep,
+currently about an hour later. There is no separate reminder grace period.
+The job rereads activity and assignment immediately before a write, and leaves
+assignments alone when history is incomplete or unavailable. Manual inputs
+`dry_run`, `pr_number`, and `max_assignment_actions` (default 10; 0 disables) apply.
+
+Unassignment clears only the assignment hold. Review requirements, conflict and
+CI checks, and the repair jobs' remaining lifecycle and branch-ownership guards
+still apply. Otherwise eligible PRs can be repaired regardless of author. See
+[assignment inactivity](docs/explanation/automation-and-agents.md#inactive-pr-assignments).
+
+### Shepherd repair scope and generated-cache conflicts
+
+The shepherd tends eligible abandoned code, tests, schema, workflow, and
+documentation PRs as well as curation, regardless of whether a human or bot
+authored them. Repair eligibility requires an open PR targeting `main`, no
+assignees, and a head in this repository outside the separately managed `auto/`
+lanes. `isCrossRepository` must be explicitly false; fork heads and missing or
+unknown head-repository metadata are excluded. Reconfirm this before checking
+out or executing PR code and before pushing. Assignment is the deterministic
+active-work hold. For unassigned PRs, the agent checks recent activity and
+discussion to avoid duplicating an ongoing repair; there is no fixed PR-age
+cutoff for repair. Python is in scope. Unresolved review feedback comes first;
+an approved clean branch is the merge controller's work,
+even when it is behind main. Do not refresh a branch merely for freshness.
+
+The separate `repair-caches` job handles additive conflicts in term and enum
+CSVs only. It preserves every source row, rejects competing fields (including
+timestamps) and deletions, and never checks out PR code. A private index changes
+only verified conflicting CSV blobs in Git's ordinary merge result. Publication
+must fast-forward the exact inspected PR head; an explicit expected-head lease
+also rejects concurrent rewinds or branch deletion. This cannot rewrite history.
+Reference markdown and other generated formats remain shepherd work; never
+resolve a generated directory wholesale by taking one side. A deterministic
+refusal does not authorize abandoning the PR.
+
+The job uses the agent's assignment, lifecycle, and head-repository guards
+regardless of author; `isCrossRepository` must be explicitly false.
+Manual inputs `max_cache_repairs` (default 3; 0 disables), `dry_run`, and
+`pr_number` control it.
+See [the repair contract](docs/explanation/automation-and-agents.md#tending-abandoned-prs-and-repairing-cache-conflicts).
+
 ### Deterministic auto-merge of ready PRs
 
 The `pr-shepherd` workflow has a separate, fresh-runner **deterministic** sweep
@@ -3777,11 +4104,11 @@ author, human or agent** — once it is simultaneously:
 
 Nothing is judged; the predicate is applied to GitHub-reported state, so a run's
 outcome is reproducible from the API response alone. This is separate from the
-LLM agent job in the same workflow, whose guardrails still forbid it from
-*editing* human-authored PRs. The jobs never share a runner, and the controller
-mints a separate write token that is not exposed to the LLM runner. The LLM's
-own App token still has contents-write capability for branch repair, so its
-no-merge rule is prompt-enforced rather than a GitHub permission boundary;
+LLM agent job in the same workflow, which repairs eligible unassigned PRs from
+any author but cannot merge or approve them. The jobs never share a runner, and
+the controller mints a separate write token that is not exposed to the LLM
+runner. The LLM's own App token still has contents-write capability for branch
+repair, so its no-merge rule is prompt-enforced rather than a GitHub permission boundary;
 enforcing that boundary requires a separate identity, broker, or ruleset. The
 sweep itself only merges already-approved work.
 
@@ -3800,10 +4127,11 @@ review. If that protection setting is ever turned off, the sweep needs an explic
 
 **To stop a PR being auto-merged, assign it to a human or leave a
 CHANGES_REQUESTED review.** A human-assigned PR is treated as somebody's active
-work and is never swept; bot or agent assignment is not a hold. Draft status is
-not a hold: anything opened as a PR is in the review queue. The controller marks
-an eligible draft ready, re-reads every guard, and restores draft state if that
-merge attempt aborts.
+work and is never swept while assigned; maintain that hold by responding to
+inactivity reminders as described above. Bot or agent assignment is not a hold.
+Draft status is not a hold: anything opened as a PR is in the review queue. The
+controller marks an eligible draft ready, re-reads every guard, and restores
+draft state if that merge attempt aborts.
 
 **A third hold exists and is not visible from the PR page.** The controller
 also holds a PR back once it has failed the merge queue

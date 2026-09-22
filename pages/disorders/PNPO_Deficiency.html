@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5209,6 +5262,7 @@ This readout is measured by metabolite profiling assay.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pnpo-deficiency" data-dismech-node="PNPO Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">PNPO Deficiency</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants in PNPO reduce or abolish pyridox(am)ine 5&#39;-phosphate oxidase activity. This node captures the single concept of the enzyme deficiency.</div>
 
 
@@ -5364,6 +5418,7 @@ This pathophysiological event involves decreased Pyridoxamine phosphate oxidase 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-synthesis-of-pyridoxal-5-phosphate" data-dismech-node="Impaired Synthesis of Pyridoxal 5-Phosphate" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Synthesis of Pyridoxal 5-Phosphate</div>
 
+
                 <div class="item-desc">PNPO catalyzes the final step of PLP synthesis from dietary pyridoxine and pyridoxamine phosphates; its loss prevents formation of the active vitamin B6 cofactor by this route. This node captures the single concept of the blocked PLP synthesis.</div>
 
 
@@ -5439,6 +5494,7 @@ This pathophysiological event involves decreased Pyridoxamine phosphate oxidase 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pyridoxal-5-phosphate-deficiency" data-dismech-node="Pyridoxal 5-Phosphate Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Pyridoxal 5-Phosphate Deficiency</div>
+
 
                 <div class="item-desc">Insufficient PLP, the active vitamin B6 cofactor, results. This node captures the single concept of the cofactor deficiency, which pharmacologic PLP (or, in some individuals, pyridoxine) can overcome.</div>
 
@@ -5516,6 +5572,7 @@ This pathophysiological event involves decreased Pyridoxamine phosphate oxidase 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-plp-dependent-gaba-synthesis-and-excitation-inhibition-imbalance" data-dismech-node="Impaired PLP-Dependent GABA Synthesis and Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired PLP-Dependent GABA Synthesis and Excitation-Inhibition Imbalance</div>
 
+
                 <div class="item-desc">Glutamic acid decarboxylase requires PLP to synthesize the inhibitory neurotransmitter GABA; PLP deficiency lowers GABA synthesis and shifts cortical circuits toward excitation. This node captures the single concept of the excitation-inhibition imbalance and conforms to the shared epilepsy final common pathway.</div>
 
 
@@ -5591,6 +5648,7 @@ This pathophysiological event involves GABAergic interneuron, annotated with GAB
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability" data-dismech-node="Neuronal Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Hyperexcitability</div>
 
+
                 <div class="item-desc">Networks with reduced GABAergic inhibition become hyperexcitable and hypersynchronous. This node captures the single concept of network hyperexcitability and conforms to the shared epilepsy final common pathway.</div>
 
 
@@ -5665,6 +5723,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-b6-vitamer-responsive-neonatal-seizures" data-dismech-node="B6-Vitamer-Responsive Neonatal Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">B6-Vitamer-Responsive Neonatal Seizures</div>
+
 
                 <div class="item-desc">The clinical hallmark is neonatal-onset seizures (including status epilepticus and multiple semiologies) resistant to standard antiseizure medication but responsive to a B6 vitamer - pyridoxal 5&#39;-phosphate in most individuals and pyridoxine in a minority. This node captures the single concept of the treatable seizure endpoint and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5760,6 +5819,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-impairment" data-dismech-node="Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Impairment</div>
+
 
                 <div class="item-desc">Developmental impairment affecting speech, cognition, and behavior is common (about 60%), and is more likely with diagnostic delay and prolonged uncontrolled seizures. This node captures the single concept of the neurodevelopmental outcome.</div>
 
@@ -5940,6 +6000,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6015,6 +6078,9 @@ This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6114,6 +6180,9 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6178,6 +6247,9 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6252,6 +6324,9 @@ This clinical feature is Tonic seizure (HP:0032792). HP:0032792 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6320,6 +6395,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6414,6 +6492,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6528,6 +6609,9 @@ This disease-associated gene is PNPO (hgnc:30260). hgnc:30260 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6686,6 +6770,12 @@ This treatment uses pyridoxal 5&#39;-phosphate (CHEBI:18405). CHEBI:18405 is a t
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Lifelong pyridoxal 5&#39;-phosphate (PLP, the active vitamin B6 cofactor) is the targeted therapy that controls seizures in most individuals; the lowest effective dose is used because of possible liver toxicity.</div>
 
 
@@ -6801,6 +6891,12 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">A minority of individuals respond to pyridoxine (PN) rather than PLP; pyridoxine can cause reversible sensory (or motor) neuropathy at high doses.</div>
 
 
@@ -6881,6 +6977,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8144,6 +8246,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: PNPO Deficiency</strong> · 2026-07-18T13:09:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/PNPO_Deficiency/2026-07-18T130955Z-claude-code-0b4008.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of PNPO deficiency / pyridox(am)ine 5&#39;-phosphate oxidase deficiency (MONDO:0012407), a treatable autosomal recessive vitamin-B6 metabolism epilepsy and the PLP-synthesis-failure counterpart of ALDH7A1 pyridoxine-dependent epilepsy. GeneReviews baseline PMID:35737815 (tagged). claude_code deep research. Granular unbundled pathophysiology: PNPO deficiency -&gt; impaired PLP synthesis -&gt; PLP deficiency -&gt; impaired PLP-dependent GABA synthesis and E/I imbalance -&gt; hyperexcitability -&gt; B6-vitamer-responsive neonatal seizures; parallel neurodevelopmental-impairment effector. Three conforms_to links to the epilepsy module. Evidence snippet-verified: 35737815 (GeneReviews), 15772097 (Mills 2005 founding), 32888189 (Alghamdi 87-case review), 25762494 (normal-CSF-PLP diagnostic caveat). Diagnosis, prevalence (CASES_IN_LITERATURE), biochemical-free. Discussions: PLP-vs-pyridoxine responsiveness + CSF-PLP caveat, prematurity risk-vs-manifestation, and the shared PLP-deficiency pathway with PDE (cross-referenced). All snippets confirmed as exact substrings; validation and folded-hyphen pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

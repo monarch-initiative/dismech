@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3820,7 +3873,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Embryonal%20Rhabdomyosarcoma"
@@ -3988,7 +4041,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3997,7 +4050,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4038,7 +4091,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4256,6 +4309,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                MYOD1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7611" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:7611</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MYOD1 (hgnc:7611). hgnc:7611 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">A variant with elongated spindle-shaped cells. When arising in paratesticular region, has excellent prognosis. Some cases harbor MYOD1 mutations.</div>
@@ -4279,6 +4351,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                TP53
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11998</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4320,7 +4411,8 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-heterozygosity-at-11p15" data-dismech-node="Loss of Heterozygosity at 11p15" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Heterozygosity at 11p15</div>
 
-                <div class="item-desc">Loss of heterozygosity (LOH) at chromosome 11p15.5 is the hallmark genetic event in ERMS, occurring in approximately 80% of cases. This region contains the imprinted IGF2 gene, and LOH results in loss of the maternal allele with duplication of the paternal allele, leading to biallelic IGF2 expression and growth factor pathway activation.</div>
+
+                <div class="item-desc">Loss of heterozygosity (LOH) at chromosome 11p15.5 is the hallmark genetic event in ERMS. This region contains the imprinted IGF2 gene, and LOH results in loss of the maternal allele with duplication of the paternal allele, leading to biallelic IGF2 expression and growth factor pathway activation. No frequency is stated here: the sources cited on this node establish that the lesion is characteristic and that it commonly takes the form of paternal uniparental disomy, but none of them reports a share of ERMS tumours carrying it.</div>
 
 
 
@@ -4334,11 +4426,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000515</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000515</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves skeletal muscle myoblast (CL:0000515). CL:0000515 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4362,6 +4454,78 @@ This pathophysiological event involves skeletal muscle myoblast (CL:0000515). CL
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        IGF2
+
+
+    <a href="https://bioregistry.io/hgnc:5466" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:5466</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns IGF2 (hgnc:5466). hgnc:5466 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">allele_type: Loss of heterozygosity across the imprinted 11p15.5 interval</span>
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
+
+    </div>
+
+
+
+
+    <div class="context-detail">The transforming lesion is a somatic, region-level allelic loss with duplication of the paternal allele rather than a coding variant, so no single functional impact category describes it. It is recorded as the somatic event of this entry so the cell of origin derives from this node&#39;s cell type.</div>
+
+
+
 
 
 
@@ -4375,11 +4539,11 @@ This pathophysiological event involves skeletal muscle myoblast (CL:0000515). CL
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0008283</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4429,7 +4593,7 @@ This pathophysiological event involves increased cell population proliferation (
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4450,7 +4614,32 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="evidence-snippet">"Allelic losses of 11p15.5 are characteristic of embryonal RMS (eRMS), whereas an increase in the expression of the Igf2 gene located on 11p15.5 has regularly been observed in eRMS and alveolar RMS (aRMS)."</div>
 
 
-                <div class="evidence-explanation">Supports characteristic 11p15.5 LOH and IGF2 dysregulation in ERMS, but not all detailed mechanistic/frequency specifics in this descriptor.</div>
+                <div class="evidence-explanation">Supports characteristic 11p15.5 LOH and IGF2 dysregulation in ERMS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27589201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27589201" target="_blank">PMID:27589201</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a second primary ERMS tumor showed UPD limited to 11p15.5, the classical hallmark for ERMS"</div>
+
+
+                <div class="evidence-explanation">Independent statement that 11p15.5 uniparental disomy is the classical hallmark lesion of embryonal rhabdomyosarcoma, and the source for the paternal-uniparental-disomy form of it described above.</div>
 
 
 
@@ -4466,11 +4655,55 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-igf2-overexpression" data-dismech-node="IGF2 Overexpression" data-dismech-type="pathophysiology">
                 <div class="item-name">IGF2 Overexpression</div>
 
+
                 <div class="item-desc">Loss of imprinting at 11p15 results in biallelic expression of IGF2, leading to autocrine and paracrine growth stimulation through IGF1R signaling. This promotes cell proliferation and survival in ERMS cells.</div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        IGF2
+
+
+    <a href="https://bioregistry.io/hgnc:5466" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:5466</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IGF2 (hgnc:5466). hgnc:5466 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4487,11 +4720,11 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042127" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0042127</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042127" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042127</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal regulation of cell population proliferation (GO:0042127). GO:0042127 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4565,11 +4798,211 @@ This pathophysiological event involves abnormal regulation of cell population pr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ras-pathway-activation" data-dismech-node="RAS Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">RAS Pathway Activation</div>
 
-                <div class="item-desc">Activating mutations in RAS pathway genes (NRAS, KRAS, HRAS) occur in approximately 27% of ERMS cases. FGFR4 mutations occur in 7-10% of cases. These mutations drive proliferation through MAPK and PI3K pathway activation.</div>
+
+                <div class="item-desc">Activating mutations in RAS pathway genes (NRAS, KRAS, HRAS) occur in approximately 27% of ERMS cases. FGFR4 kinase-domain mutations were found in 7 of 94 (7.5%) primary rhabdomyosarcoma tumours in the study that first reported them - note that denominator is rhabdomyosarcoma overall rather than ERMS specifically. These mutations drive proliferation through MAPK and PI3K pathway activation.</div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NRAS
+
+
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:7989</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        KRAS
+
+
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:6407</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        HRAS
+
+
+    <a href="https://bioregistry.io/hgnc:5173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:5173</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HRAS (hgnc:5173). hgnc:5173 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FGFR4
+
+
+    <a href="https://bioregistry.io/hgnc:3691" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:3691</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FGFR4 (hgnc:3691). hgnc:3691 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PIK3CA
+
+
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:8975</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4586,11 +5019,11 @@ This pathophysiological event involves abnormal regulation of cell population pr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0000165</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4625,7 +5058,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4649,6 +5082,31 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
                 <div class="evidence-explanation">Directly supports activating RAS-family mutations (with NRAS predominating) as a common oncogenic driver subset in ERMS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19809159" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19809159" target="_blank">PMID:19809159</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Moreover, 6 FGFR4 tyrosine kinase domain mutations were found among 7 of 94 (7.5%) primary human RMS tumors."</div>
+
+
+                <div class="evidence-explanation">Source for the FGFR4 mutation frequency quoted in this node&#39;s description, including its rhabdomyosarcoma-wide denominator.</div>
 
 
 
@@ -4743,7 +5201,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"IGF2 Overexpression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of imprinting at 11p15 results in biallelic expression of IGF2, leading to autocrine and paracrine growth stimulation through IGF1R signaling. This promotes cell proliferation and survival in ERMS cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of cell population proliferation\"]}}, {\"id\": \"Loss of Heterozygosity at 11p15\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Characteristic Genetic Event\"}}], \"edges\": [{\"source\": \"Loss of Heterozygosity at 11p15\", \"target\": \"IGF2 Overexpression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of imprinting leads to biallelic IGF2 expression\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"FGFR4 somatic activating mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FGFR4\"], \"gene_terms\": [{\"label\": \"FGFR4\", \"id\": \"hgnc:3691\"}], \"association\": \"Receptor tyrosine kinase driver alteration\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"HRAS somatic activating mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HRAS\"], \"gene_terms\": [{\"label\": \"HRAS\", \"id\": \"hgnc:5173\"}], \"association\": \"Oncogenic Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IGF2 Overexpression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of imprinting at 11p15 results in biallelic expression of IGF2, leading to autocrine and paracrine growth stimulation through IGF1R signaling. This promotes cell proliferation and survival in ERMS cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of cell population proliferation\"], \"genes\": [\"IGF2\"], \"gene_terms\": [{\"label\": \"IGF2\", \"id\": \"hgnc:5466\"}]}}, {\"id\": \"IGF2 biallelic expression from 11p15 loss of imprinting\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGF2\"], \"gene_terms\": [{\"label\": \"IGF2\", \"id\": \"hgnc:5466\"}], \"association\": \"Growth factor deregulated by the hallmark 11p15 lesion\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"KRAS somatic activating mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KRAS\"], \"gene_terms\": [{\"label\": \"KRAS\", \"id\": \"hgnc:6407\"}], \"association\": \"Oncogenic Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Loss of Heterozygosity at 11p15\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Characteristic Genetic Event\"}}, {\"id\": \"NRAS somatic activating mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRAS\"], \"gene_terms\": [{\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}], \"association\": \"Oncogenic Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"PIK3CA somatic mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}], \"association\": \"Cooperating PI3K-AKT pathway alteration\", \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"RAS Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in RAS pathway genes (NRAS, KRAS, HRAS) occur in approximately 27% of ERMS cases. FGFR4 kinase-domain mutations were found in 7 of 94 (7.5%) primary rhabdomyosarcoma tumours in the study that first reported them - note that denominator is rhabdomyosarcoma overall rather than ERMS specifically. These mutations drive proliferation through MAPK and PI3K pathway activation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"MAPK cascade\"], \"genes\": [\"NRAS\", \"KRAS\", \"HRAS\", \"FGFR4\", \"PIK3CA\"], \"gene_terms\": [{\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}, {\"label\": \"KRAS\", \"id\": \"hgnc:6407\"}, {\"label\": \"HRAS\", \"id\": \"hgnc:5173\"}, {\"label\": \"FGFR4\", \"id\": \"hgnc:3691\"}, {\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}]}}], \"edges\": [{\"source\": \"Loss of Heterozygosity at 11p15\", \"target\": \"IGF2 Overexpression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of imprinting leads to biallelic IGF2 expression\"}, {\"source\": \"NRAS somatic activating mutations\", \"target\": \"RAS Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KRAS somatic activating mutations\", \"target\": \"RAS Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HRAS somatic activating mutations\", \"target\": \"RAS Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FGFR4 somatic activating mutations\", \"target\": \"RAS Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PIK3CA somatic mutations\", \"target\": \"RAS Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGF2 biallelic expression from 11p15 loss of imprinting\", \"target\": \"IGF2 Overexpression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4797,15 +5255,18 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000520</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000520</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4877,15 +5338,18 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000790</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000790</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4957,15 +5421,18 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5004,15 +5471,18 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031459" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0031459</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031459" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0031459</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Soft tissue neoplasm (HP:0031459). HP:0031459 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5095,7 +5565,7 @@ This clinical feature is Soft tissue neoplasm (HP:0031459). HP:0031459 is a phen
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">12</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-loss-of-heterozygosity-at-11p15" data-dismech-node="Loss of Heterozygosity at 11p15" data-dismech-type="genetic">
@@ -5105,6 +5575,9 @@ This clinical feature is Soft tissue neoplasm (HP:0031459). HP:0031459 is a phen
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Characteristic Genetic Event)</span>
 
                 </div>
+
+
+
 
 
 
@@ -5148,13 +5621,42 @@ This clinical feature is Soft tissue neoplasm (HP:0031459). HP:0031459 is a phen
 
             </div>
 
-            <div class="item-box genetic-box anchor-target" id="genetic-ras-pathway-mutations" data-dismech-node="RAS Pathway Mutations" data-dismech-type="genetic">
+            <div class="item-box genetic-box anchor-target" id="genetic-nras-somatic-activating-mutations" data-dismech-node="NRAS somatic activating mutations" data-dismech-type="genetic">
                 <div class="item-name">
-                    RAS Pathway Mutations
+                    NRAS somatic activating mutations
 
-                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Oncogenic Driver Mutations)</span>
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Oncogenic Driver Mutation)</span>
 
                 </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NRAS
+
+
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:7989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SOMATIC_DRIVER</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
+
+                </div>
+
+
+
 
 
 
@@ -5184,7 +5686,7 @@ This clinical feature is Soft tissue neoplasm (HP:0031459). HP:0031459 is a phen
                 <div class="evidence-snippet">"Fourteen (54%) cases had NRAS mutations, 6 (23%) had KRAS mutations, 5 (19%) had HRAS mutations, and 1 case (4%) had BRAF mutation."</div>
 
 
-                <div class="evidence-explanation">Directly supports NRAS/KRAS/HRAS mutations as the dominant RAS-pathway alterations in the RAS-mutated ERMS subset.</div>
+                <div class="evidence-explanation">Gives the NRAS share of the RAS/RAF-mutant ERMS subset in this cohort.</div>
 
 
 
@@ -5198,16 +5700,1120 @@ This clinical feature is Soft tissue neoplasm (HP:0031459). HP:0031459 is a phen
 
             </div>
 
-            <div class="item-box genetic-box anchor-target" id="genetic-tp53-mutations" data-dismech-node="TP53 Mutations" data-dismech-type="genetic">
+            <div class="item-box genetic-box anchor-target" id="genetic-kras-somatic-activating-mutations" data-dismech-node="KRAS somatic activating mutations" data-dismech-type="genetic">
                 <div class="item-name">
-                    TP53 Mutations
+                    KRAS somatic activating mutations
 
-                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Tumor Suppressor Loss)</span>
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Oncogenic Driver Mutation)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: KRAS
+
+
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:6407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SOMATIC_DRIVER</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
 
 
 
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34755412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34755412" target="_blank">PMID:34755412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fourteen (54%) cases had NRAS mutations, 6 (23%) had KRAS mutations, 5 (19%) had HRAS mutations, and 1 case (4%) had BRAF mutation."</div>
+
+
+                <div class="evidence-explanation">Gives the KRAS share of the RAS/RAF-mutant ERMS subset in this cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34755412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34755412" target="_blank">PMID:34755412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"RAS isoform hot spot mutations predominated: NRAS p.Q61K (57%), KRAS p.G12D (67%), and HRAS (codons 12, 14, and 61)."</div>
+
+
+                <div class="evidence-explanation">Source for the KRAS p.G12D hot spot named in this record&#39;s note, and for the corresponding NRAS and HRAS hot spots.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-hras-somatic-activating-mutations" data-dismech-node="HRAS somatic activating mutations" data-dismech-type="genetic">
+                <div class="item-name">
+                    HRAS somatic activating mutations
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Oncogenic Driver Mutation)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HRAS
+
+
+    <a href="https://bioregistry.io/hgnc:5173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:5173</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HRAS (hgnc:5173). hgnc:5173 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SOMATIC_DRIVER</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34755412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34755412" target="_blank">PMID:34755412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fourteen (54%) cases had NRAS mutations, 6 (23%) had KRAS mutations, 5 (19%) had HRAS mutations, and 1 case (4%) had BRAF mutation."</div>
+
+
+                <div class="evidence-explanation">Gives the HRAS share of the RAS/RAF-mutant ERMS subset in this cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24382691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24382691" target="_blank">PMID:24382691</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In humans, genetic susceptibility to develop RMS has been linked to germline mutations in PTCH1, HRAS, NF1, DICER1, and TP53."</div>
+
+
+                <div class="evidence-explanation">Source for the germline-predisposition caveat in the note; quoted from this paper&#39;s introduction, where it restates established human genetics rather than reporting its own result.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27589201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27589201" target="_blank">PMID:27589201</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Costello syndrome (CS) arises from a typically paternally derived germline mutation in the proto-oncogene HRAS, and is considered a rasopathy. CS results in failure-to-thrive, intellectual disabilities, short stature, coarse facial features, skeletal abnormalities, congenital heart disease, and..."</div>
+
+
+                <div class="evidence-explanation">Names Costello syndrome as the germline HRAS disorder and embryonal rhabdomyosarcoma as the tumour it most commonly predisposes to, which is the caveat recorded in this record&#39;s note.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-fgfr4-somatic-activating-mutations" data-dismech-node="FGFR4 somatic activating mutations" data-dismech-type="genetic">
+                <div class="item-name">
+                    FGFR4 somatic activating mutations
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Receptor tyrosine kinase driver alteration)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FGFR4
+
+
+    <a href="https://bioregistry.io/hgnc:3691" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:3691</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FGFR4 (hgnc:3691). hgnc:3691 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SOMATIC_DRIVER</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24436047" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24436047" target="_blank">PMID:24436047</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition to previously reported mutations in NRAS, KRAS, HRAS, FGFR4, PIK3CA, and CTNNB1, we found novel recurrent mutations in FBXW7 and BCOR, providing potential new avenues for therapeutic intervention."</div>
+
+
+                <div class="evidence-explanation">Places FGFR4 among the recurrently mutated genes in the 147 tumour/normal pair rhabdomyosarcoma sequencing study.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24436047" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24436047" target="_blank">PMID:24436047</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Furthermore, alteration of the receptor tyrosine kinase/RAS/PIK3CA axis affects 93% of cases, providing a framework for genomics-directed therapies that might improve outcomes for patients with rhabdomyosarcoma."</div>
+
+
+                <div class="evidence-explanation">Establishes the RTK/RAS/PI3K axis, of which FGFR4 is the receptor-level member, as the dominant altered pathway in rhabdomyosarcoma.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19809159" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19809159" target="_blank">PMID:19809159</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Moreover, 6 FGFR4 tyrosine kinase domain mutations were found among 7 of 94 (7.5%) primary human RMS tumors."</div>
+
+
+                <div class="evidence-explanation">The primary report of activating FGFR4 kinase-domain mutations in human rhabdomyosarcoma, with the frequency in that tumour series. Note the denominator is rhabdomyosarcoma overall rather than embryonal rhabdomyosarcoma specifically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-myod1-p-leu122arg-neomorphic-mutation" data-dismech-node="MYOD1 p.Leu122Arg neomorphic mutation" data-dismech-type="genetic">
+                <div class="item-name">
+                    MYOD1 p.Leu122Arg neomorphic mutation
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Oncogenic Driver Mutation defining a poor-outcome ERMS subset)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MYOD1
+
+
+    <a href="https://bioregistry.io/hgnc:7611" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:7611</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYOD1 (hgnc:7611). hgnc:7611 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SOMATIC_DRIVER</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24793135" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24793135" target="_blank">PMID:24793135</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we report the discovery, through whole-exome sequencing, of a recurrent somatic mutation encoding p.Leu122Arg in the myogenic transcription factor MYOD1 in a distinct subset of ERMS tumors with poor outcomes that also often contain mutations altering PI3K-AKT pathway components."</div>
+
+
+                <div class="evidence-explanation">Establishes MYOD1 p.Leu122Arg as a recurrent somatic ERMS driver, its prognostic significance, and its co-occurrence with PI3K-AKT alterations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24793135" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24793135" target="_blank">PMID:24793135</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ERMS harboring the MYOD1 Leu122Arg mutation displayed high cellularity and frequent spindle cell morphology with strong positivity for MYOD1 by immunohistochemistry (IHC)"</div>
+
+
+                <div class="evidence-explanation">Supports keying this record to the spindle cell ERMS subtype rather than to the entry as a whole.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24793135" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24793135" target="_blank">PMID:24793135</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Previous mutagenesis studies had shown that MYOD1 with a p.Leu122Arg substitution can block wild-type MYOD1 function and bind to MYC consensus sequences, suggesting a possible switch from differentiation to proliferation."</div>
+
+
+                <div class="evidence-explanation">The neomorphic mechanism recorded in this record&#39;s note: the mutant both blocks wild-type MYOD1 and acquires MYC-like binding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-pik3ca-somatic-mutations" data-dismech-node="PIK3CA somatic mutations" data-dismech-type="genetic">
+                <div class="item-name">
+                    PIK3CA somatic mutations
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Cooperating PI3K-AKT pathway alteration)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PIK3CA
+
+
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:8975</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: COOPERATING</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24793135" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24793135" target="_blank">PMID:24793135</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The relationship between MYOD1 Leu122Arg and PIK3CA mutations appeared significant in the 66 cases with genotyping data for both (PIK3CA mutations in 3/10 MYOD1 Leu122Arg cases vs 0/56 MYOD1 wild type cases;"</div>
+
+
+                <div class="evidence-explanation">Supports the co-occurrence claim and the restriction of PIK3CA mutation to the MYOD1-mutant subset in this cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24793135" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24793135" target="_blank">PMID:24793135</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"only the combination of PIK3CA H1047R and MYOD1 Leu122Arg resulted in increased colony formation; notably, combining wild type MYOD1 with PIK3CA H1047R did not cause a similar increase"</div>
+
+
+                <div class="evidence-explanation">The cooperation claim in this record&#39;s note, measured in myoblast soft-agar colony formation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-igf2-biallelic-expression-from-11p15-loss-of-imprinting" data-dismech-node="IGF2 biallelic expression from 11p15 loss of imprinting" data-dismech-type="genetic">
+                <div class="item-name">
+                    IGF2 biallelic expression from 11p15 loss of imprinting
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Growth factor deregulated by the hallmark 11p15 lesion)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IGF2
+
+
+    <a href="https://bioregistry.io/hgnc:5466" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:5466</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SOMATIC_DRIVER</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10095436" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10095436" target="_blank">PMID:10095436</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Allelic losses of 11p15.5 are characteristic of embryonal RMS (eRMS), whereas an increase in the expression of the Igf2 gene located on 11p15.5 has regularly been observed in eRMS and alveolar RMS (aRMS)."</div>
+
+
+                <div class="evidence-explanation">Links the characteristic 11p15.5 allelic loss to increased IGF2 expression in embryonal rhabdomyosarcoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-tp53-germline-predisposition" data-dismech-node="TP53 germline predisposition" data-dismech-type="genetic">
+                <div class="item-name">
+                    TP53 germline predisposition
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Germline predisposition, strongly enriched in the anaplastic variant)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:11998</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: RISK_FACTOR</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24382691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24382691" target="_blank">PMID:24382691</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"RMS tumors diagnosed in 11 TP53 germline mutation carriers all exhibited nonalveolar, anaplastic histology as evidenced by the presence of enlarged hyperchromatic nuclei with or without atypical mitotic figures."</div>
+
+
+                <div class="evidence-explanation">Ties germline TP53 status specifically to the anaplastic, nonalveolar histology this record is keyed to.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24382691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24382691" target="_blank">PMID:24382691</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The overall frequency of TP53 germline mutations was 73% (11 of 15 children) in pediatric patients with anRMS."</div>
+
+
+                <div class="evidence-explanation">Quantifies the germline TP53 frequency in paediatric anaplastic rhabdomyosarcoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-dicer1-germline-predisposition" data-dismech-node="DICER1 germline predisposition" data-dismech-type="genetic">
+                <div class="item-name">
+                    DICER1 germline predisposition
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Germline predisposition shared with pleuropulmonary blastoma)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DICER1
+
+
+    <a href="https://bioregistry.io/hgnc:17098" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:17098</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DICER1 (hgnc:17098). hgnc:17098 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: RISK_FACTOR</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE_AND_SOMATIC</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22180160" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22180160" target="_blank">PMID:22180160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Germline DICER1 mutations were found in all four patients with familial PPB and 2 of 52 (3.8%) sporadic ERMS had somatic mutations."</div>
+
+
+                <div class="evidence-explanation">Gives both allele states behind this record: germline variants in the familial pleuropulmonary blastoma cases, somatic variants in a small minority of sporadic ERMS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22180160" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22180160" target="_blank">PMID:22180160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Embryonal rhabdomyosarcoma (ERMS) is the most common childhood sarcoma and is a component of the familial pleuropulmonary blastoma (PPB)-predisposition syndrome."</div>
+
+
+                <div class="evidence-explanation">States the membership of ERMS in the pleuropulmonary blastoma predisposition spectrum, which is the framing of this record.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-nf1-germline-predisposition" data-dismech-node="NF1 germline predisposition" data-dismech-type="genetic">
+                <div class="item-name">
+                    NF1 germline predisposition
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Germline predisposition, observed in a small minority of treated patients)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NF1
+
+
+    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:7765</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: RISK_FACTOR</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15127010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15127010" target="_blank">PMID:15127010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among 1025 eligible patients, 5 (0.5 %) had NF1."</div>
+
+
+                <div class="evidence-explanation">The observed co-occurrence frequency of NF1 among children treated for rhabdomyosarcoma in a cooperative-group trial, and the whole quantitative basis of this record.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24382691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24382691" target="_blank">PMID:24382691</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In humans, genetic susceptibility to develop RMS has been linked to germline mutations in PTCH1, HRAS, NF1, DICER1, and TP53."</div>
+
+
+                <div class="evidence-explanation">Places NF1 in the established list of germline predispositions to rhabdomyosarcoma; quoted from this paper&#39;s introduction, where it restates established human genetics rather than reporting its own result.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-slc22a18-slc67a1" data-dismech-node="SLC22A18 (SLC67A1)" data-dismech-type="genetic">
+                <div class="item-name">
+                    SLC22A18 (SLC67A1)
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Reported 11p15.5 candidate, not supported as an ERMS driver)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SLC67A1
+
+
+    <a href="https://bioregistry.io/hgnc:10964" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:10964</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC67A1, annotated with SLC22A18 (hgnc:10964). hgnc:10964 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: DISPUTED</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9520460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9520460" target="_blank">PMID:9520460</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we carried out a mutational analysis in tumor cell lines and Beckwith-Wiedemann syndrome samples that resulted in the identification of genetic alterations in the BWR1A gene: an insertion that introduced a stop codon in the breast cancer cell line BT549 and a point mutation in the..."</div>
+
+
+                <div class="evidence-explanation">The entirety of the primary observation behind the MONDO assertion: one point mutation in one rhabdomyosarcoma cell line.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9520460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9520460" target="_blank">PMID:9520460</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results indicate that BWR1A may play a role in tumorigenesis."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own conclusion, which claims a possible role in tumorigenesis generally and not that the gene causes embryonal rhabdomyosarcoma.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24436047" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24436047" target="_blank">PMID:24436047</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Despite a relatively low mutation rate, multiple genes were recurrently altered, including NRAS, KRAS, HRAS, FGFR4, PIK3CA, CTNNB1, FBXW7, and BCOR."</div>
+
+
+                <div class="evidence-explanation">The recurrently altered gene list from 147 rhabdomyosarcoma tumour/normal pairs does not include this gene, which is evidence against a recurrent driver role even though it is not a targeted test of the claim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5239,7 +6845,7 @@ This clinical feature is Soft tissue neoplasm (HP:0031459). HP:0031459 is a phen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-9">Combination Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-9">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Combination Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Combination Chemotherapy (NCIT:C191). NCIT:C191 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5280,11 +6886,11 @@ This treatment is Combination Chemotherapy (NCIT:C191). NCIT:C191 is a clinical 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-10">CHEBI:28445</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:28445</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -5297,11 +6903,11 @@ This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-11">CHEBI:27666</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:27666</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses actinomycin D (CHEBI:27666). CHEBI:27666 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -5314,16 +6920,22 @@ This treatment uses actinomycin D (CHEBI:27666). CHEBI:27666 is a therapeutic ag
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-12">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:4027</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -5388,7 +7000,7 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">Definitive Surgical Resection<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Definitive Surgical Resection<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5423,6 +7035,9 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5433,6 +7048,9 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
 
 
     </div>
+
+
+
 
 
 
@@ -5492,7 +7110,7 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5527,6 +7145,9 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5537,6 +7158,9 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -5780,24 +7404,66 @@ has_subtypes:
   description: &gt;-
     A variant with elongated spindle-shaped cells. When arising in paratesticular
     region, has excellent prognosis. Some cases harbor MYOD1 mutations.
+  genes:
+  - preferred_term: MYOD1
+    term:
+      id: hgnc:7611
+      label: MYOD1
 - name: Anaplastic Embryonal Rhabdomyosarcoma
   description: &gt;-
     A variant with marked nuclear pleomorphism and anaplasia. Associated with
     TP53 mutations and carries a worse prognosis.
+  genes:
+  - preferred_term: TP53
+    term:
+      id: hgnc:11998
+      label: TP53
 pathophysiology:
 - name: Loss of Heterozygosity at 11p15
   description: &gt;-
     Loss of heterozygosity (LOH) at chromosome 11p15.5 is the hallmark genetic
-    event in ERMS, occurring in approximately 80% of cases. This region contains
-    the imprinted IGF2 gene, and LOH results in loss of the maternal allele with
-    duplication of the paternal allele, leading to biallelic IGF2 expression
-    and growth factor pathway activation.
+    event in ERMS. This region contains the imprinted IGF2 gene, and LOH results
+    in loss of the maternal allele with duplication of the paternal allele,
+    leading to biallelic IGF2 expression and growth factor pathway activation.
+    No frequency is stated here: the sources cited on this node establish that
+    the lesion is characteristic and that it commonly takes the form of paternal
+    uniparental disomy, but none of them reports a share of ERMS tumours
+    carrying it.
+  genetic_context:
+    variant_origin: SOMATIC
+    allele_type: Loss of heterozygosity across the imprinted 11p15.5 interval
+    functional_impact_category: UNKNOWN
+    description: &gt;-
+      The transforming lesion is a somatic, region-level allelic loss with
+      duplication of the paternal allele rather than a coding variant, so no
+      single functional impact category describes it. It is recorded as the
+      somatic event of this entry so the cell of origin derives from this
+      node&#39;s cell type.
+    genes:
+    - preferred_term: IGF2
+      term:
+        id: hgnc:5466
+        label: IGF2
   evidence:
   - reference: PMID:10095436
     reference_title: &#34;[Evidence of genetic alterations in chromosome 11 in embryonal and alveolar rhabdomyosarcoma].&#34;
     supports: SUPPORT
     snippet: &#34;Allelic losses of 11p15.5 are characteristic of embryonal RMS (eRMS), whereas an increase in the expression of the Igf2 gene located on 11p15.5 has regularly been observed in eRMS and alveolar RMS (aRMS).&#34;
-    explanation: &#34;Supports characteristic 11p15.5 LOH and IGF2 dysregulation in ERMS, but not all detailed mechanistic/frequency specifics in this descriptor.&#34;
+    explanation: &#34;Supports characteristic 11p15.5 LOH and IGF2 dysregulation in ERMS.&#34;
+  - reference: PMID:27589201
+    reference_title: &gt;-
+      Paternal uniparental disomy with segmental loss of heterozygosity of
+      chromosome 11 are hallmark characteristics of syndromic and sporadic
+      embryonal rhabdomyosarcoma.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      a second primary ERMS tumor showed UPD limited to 11p15.5, the classical
+      hallmark for ERMS
+    explanation: &gt;-
+      Independent statement that 11p15.5 uniparental disomy is the classical
+      hallmark lesion of embryonal rhabdomyosarcoma, and the source for the
+      paternal-uniparental-disomy form of it described above.
   cell_types:
   - preferred_term: skeletal muscle myoblast
     term:
@@ -5817,6 +7483,11 @@ pathophysiology:
     Loss of imprinting at 11p15 results in biallelic expression of IGF2, leading
     to autocrine and paracrine growth stimulation through IGF1R signaling. This
     promotes cell proliferation and survival in ERMS cells.
+  genes:
+  - preferred_term: IGF2
+    term:
+      id: hgnc:5466
+      label: IGF2
   evidence:
   - reference: PMID:10095436
     reference_title: &#34;[Evidence of genetic alterations in chromosome 11 in embryonal and alveolar rhabdomyosarcoma].&#34;
@@ -5838,8 +7509,32 @@ pathophysiology:
 - name: RAS Pathway Activation
   description: &gt;-
     Activating mutations in RAS pathway genes (NRAS, KRAS, HRAS) occur in
-    approximately 27% of ERMS cases. FGFR4 mutations occur in 7-10% of cases.
-    These mutations drive proliferation through MAPK and PI3K pathway activation.
+    approximately 27% of ERMS cases. FGFR4 kinase-domain mutations were found in
+    7 of 94 (7.5%) primary rhabdomyosarcoma tumours in the study that first
+    reported them - note that denominator is rhabdomyosarcoma overall rather
+    than ERMS specifically. These mutations drive proliferation through MAPK and
+    PI3K pathway activation.
+  genes:
+  - preferred_term: NRAS
+    term:
+      id: hgnc:7989
+      label: NRAS
+  - preferred_term: KRAS
+    term:
+      id: hgnc:6407
+      label: KRAS
+  - preferred_term: HRAS
+    term:
+      id: hgnc:5173
+      label: HRAS
+  - preferred_term: FGFR4
+    term:
+      id: hgnc:3691
+      label: FGFR4
+  - preferred_term: PIK3CA
+    term:
+      id: hgnc:8975
+      label: PIK3CA
   evidence:
   - reference: PMID:34755412
     reference_title: &gt;-
@@ -5853,6 +7548,18 @@ pathophysiology:
     explanation: &gt;-
       Directly supports activating RAS-family mutations (with NRAS
       predominating) as a common oncogenic driver subset in ERMS.
+  - reference: PMID:19809159
+    reference_title: &gt;-
+      Identification of FGFR4-activating mutations in human rhabdomyosarcomas
+      that promote metastasis in xenotransplanted models.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Moreover, 6 FGFR4 tyrosine kinase domain mutations were found among 7 of
+      94 (7.5%) primary human RMS tumors.
+    explanation: &gt;-
+      Source for the FGFR4 mutation frequency quoted in this node&#39;s
+      description, including its rhabdomyosarcoma-wide denominator.
   biological_processes:
   - preferred_term: MAPK cascade
     modifier: INCREASED
@@ -5966,8 +7673,9 @@ genetic:
 - name: Loss of Heterozygosity at 11p15
   association: Characteristic Genetic Event
   notes: &gt;-
-    LOH at 11p15.5 with loss of the maternal allele occurs in approximately
-    80% of ERMS cases. This leads to biallelic IGF2 expression.
+    LOH at 11p15.5 with loss of the maternal allele, leading to biallelic IGF2
+    expression. This is the hallmark somatic lesion of ERMS; see the
+    pathophysiology node of the same name for why no frequency is quoted.
   evidence:
   - reference: PMID:10095436
     reference_title: &#34;[Evidence of genetic alterations in chromosome 11 in embryonal and alveolar rhabdomyosarcoma].&#34;
@@ -5980,11 +7688,40 @@ genetic:
     explanation: &gt;-
       Supports 11p15.5 LOH as the characteristic genetic lesion in ERMS with
       associated IGF2 deregulation.
-- name: RAS Pathway Mutations
-  association: Oncogenic Driver Mutations
+- name: NRAS somatic activating mutations
+  association: Oncogenic Driver Mutation
+  relationship_type: SOMATIC_DRIVER
+  variant_origin: SOMATIC
+  gene_term:
+    preferred_term: NRAS
+    term:
+      id: hgnc:7989
+      label: NRAS
   notes: &gt;-
-    NRAS, KRAS, and HRAS mutations occur in approximately 27% of ERMS cases
-    and are mutually exclusive. These represent therapeutic targets.
+    NRAS is the most frequently mutated of the three RAS isoforms in ERMS. In
+    the MSK series of 26 RAS/RAF-mutant tumours screened from 98 ERMS, 14 (54%)
+    carried an NRAS mutation, and RAS mutations as a class were present in 27%
+    of ERMS. The alterations are somatic and are the entry&#39;s link to the RAS
+    Pathway Activation node.
+  case_fractions:
+  - population: MSK ERMS series screened for RAS/RAF mutations (98 tumours)
+    case_fraction_percent: 27.0
+    cohort_size: 98
+    notes: &gt;-
+      Class-level figure for RAS mutations (NRAS, KRAS or HRAS combined) rather
+      than for NRAS alone; the per-isoform shares below are fractions of the
+      26 RAS/RAF-mutant cases, not of the 98 screened.
+    evidence:
+    - reference: PMID:34755412
+      reference_title: &gt;-
+        Clinicopathologic and survival correlates of embryonal rhabdomyosarcoma
+        driven by RAS/RAF mutations.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        In conclusion, RAS mutations occur in 27% of ERMS, with NRAS mutations
+        encompassing half of the cases.
+      explanation: Quantifies the RAS-mutant share of ERMS in this cohort.
   evidence:
   - reference: PMID:34755412
     reference_title: &gt;-
@@ -5996,13 +7733,533 @@ genetic:
       Fourteen (54%) cases had NRAS mutations, 6 (23%) had KRAS mutations, 5
       (19%) had HRAS mutations, and 1 case (4%) had BRAF mutation.
     explanation: &gt;-
-      Directly supports NRAS/KRAS/HRAS mutations as the dominant RAS-pathway
-      alterations in the RAS-mutated ERMS subset.
-- name: TP53 Mutations
-  association: Tumor Suppressor Loss
+      Gives the NRAS share of the RAS/RAF-mutant ERMS subset in this cohort.
+- name: KRAS somatic activating mutations
+  association: Oncogenic Driver Mutation
+  relationship_type: SOMATIC_DRIVER
+  variant_origin: SOMATIC
+  gene_term:
+    preferred_term: KRAS
+    term:
+      id: hgnc:6407
+      label: KRAS
   notes: &gt;-
-    TP53 mutations occur in a subset of ERMS, particularly the anaplastic
-    variant, and are associated with worse prognosis.
+    The second most frequent RAS isoform in the RAS/RAF-mutant ERMS subset, at
+    6 of 26 cases. The reported hot spot in this series is p.G12D.
+  evidence:
+  - reference: PMID:34755412
+    reference_title: &gt;-
+      Clinicopathologic and survival correlates of embryonal rhabdomyosarcoma
+      driven by RAS/RAF mutations.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Fourteen (54%) cases had NRAS mutations, 6 (23%) had KRAS mutations, 5
+      (19%) had HRAS mutations, and 1 case (4%) had BRAF mutation.
+    explanation: &gt;-
+      Gives the KRAS share of the RAS/RAF-mutant ERMS subset in this cohort.
+  - reference: PMID:34755412
+    reference_title: &gt;-
+      Clinicopathologic and survival correlates of embryonal rhabdomyosarcoma
+      driven by RAS/RAF mutations.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      RAS isoform hot spot mutations predominated: NRAS p.Q61K (57%), KRAS
+      p.G12D (67%), and HRAS (codons 12, 14, and 61).
+    explanation: &gt;-
+      Source for the KRAS p.G12D hot spot named in this record&#39;s note, and for
+      the corresponding NRAS and HRAS hot spots.
+- name: HRAS somatic activating mutations
+  association: Oncogenic Driver Mutation
+  relationship_type: SOMATIC_DRIVER
+  variant_origin: SOMATIC
+  gene_term:
+    preferred_term: HRAS
+    term:
+      id: hgnc:5173
+      label: HRAS
+  notes: &gt;-
+    The least frequent of the three RAS isoforms in the same series, at 5 of 26
+    cases. Germline HRAS variants cause Costello syndrome, which carries its own
+    rhabdomyosarcoma predisposition; the alterations recorded here are somatic
+    and tumour-restricted.
+  evidence:
+  - reference: PMID:34755412
+    reference_title: &gt;-
+      Clinicopathologic and survival correlates of embryonal rhabdomyosarcoma
+      driven by RAS/RAF mutations.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Fourteen (54%) cases had NRAS mutations, 6 (23%) had KRAS mutations, 5
+      (19%) had HRAS mutations, and 1 case (4%) had BRAF mutation.
+    explanation: &gt;-
+      Gives the HRAS share of the RAS/RAF-mutant ERMS subset in this cohort.
+  - reference: PMID:24382691
+    reference_title: &#34;Anaplastic rhabdomyosarcoma in TP53 germline mutation carriers.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      In humans, genetic susceptibility to develop RMS has been linked to
+      germline mutations in PTCH1, HRAS, NF1, DICER1, and TP53.
+    explanation: &gt;-
+      Source for the germline-predisposition caveat in the note; quoted from
+      this paper&#39;s introduction, where it restates established human genetics
+      rather than reporting its own result.
+  - reference: PMID:27589201
+    reference_title: &gt;-
+      Paternal uniparental disomy with segmental loss of heterozygosity of
+      chromosome 11 are hallmark characteristics of syndromic and sporadic
+      embryonal rhabdomyosarcoma.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Costello syndrome (CS) arises from a typically paternally derived germline
+      mutation in the proto-oncogene HRAS, and is considered a rasopathy. CS
+      results in failure-to-thrive, intellectual disabilities, short stature,
+      coarse facial features, skeletal abnormalities, congenital heart disease,
+      and a predisposition for cancer, most commonly embryonal rhabdomyosarcoma
+      (ERMS).
+    explanation: &gt;-
+      Names Costello syndrome as the germline HRAS disorder and embryonal
+      rhabdomyosarcoma as the tumour it most commonly predisposes to, which is
+      the caveat recorded in this record&#39;s note.
+- name: FGFR4 somatic activating mutations
+  association: Receptor tyrosine kinase driver alteration
+  relationship_type: SOMATIC_DRIVER
+  variant_origin: SOMATIC
+  gene_term:
+    preferred_term: FGFR4
+    term:
+      id: hgnc:3691
+      label: FGFR4
+  notes: &gt;-
+    FGFR4 sits on the same receptor tyrosine kinase/RAS/PI3K axis as the RAS
+    isoforms above and is named in the RAS Pathway Activation node. The
+    comprehensive rhabdomyosarcoma sequencing study lists it among the
+    recurrently mutated genes and reports that alteration of that axis affects
+    the large majority of rhabdomyosarcoma tumours.
+  evidence:
+  - reference: PMID:24436047
+    reference_title: &gt;-
+      Comprehensive genomic analysis of rhabdomyosarcoma reveals a landscape of
+      alterations affecting a common genetic axis in fusion-positive and
+      fusion-negative tumors.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In addition to previously reported mutations in NRAS, KRAS, HRAS, FGFR4,
+      PIK3CA, and CTNNB1, we found novel recurrent mutations in FBXW7 and BCOR,
+      providing potential new avenues for therapeutic intervention.
+    explanation: &gt;-
+      Places FGFR4 among the recurrently mutated genes in the 147 tumour/normal
+      pair rhabdomyosarcoma sequencing study.
+  - reference: PMID:24436047
+    reference_title: &gt;-
+      Comprehensive genomic analysis of rhabdomyosarcoma reveals a landscape of
+      alterations affecting a common genetic axis in fusion-positive and
+      fusion-negative tumors.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Furthermore, alteration of the receptor tyrosine kinase/RAS/PIK3CA axis
+      affects 93% of cases, providing a framework for genomics-directed
+      therapies that might improve outcomes for patients with rhabdomyosarcoma.
+    explanation: &gt;-
+      Establishes the RTK/RAS/PI3K axis, of which FGFR4 is the receptor-level
+      member, as the dominant altered pathway in rhabdomyosarcoma.
+  - reference: PMID:19809159
+    reference_title: &gt;-
+      Identification of FGFR4-activating mutations in human rhabdomyosarcomas
+      that promote metastasis in xenotransplanted models.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Moreover, 6 FGFR4 tyrosine kinase domain mutations were found among 7 of
+      94 (7.5%) primary human RMS tumors.
+    explanation: &gt;-
+      The primary report of activating FGFR4 kinase-domain mutations in human
+      rhabdomyosarcoma, with the frequency in that tumour series. Note the
+      denominator is rhabdomyosarcoma overall rather than embryonal
+      rhabdomyosarcoma specifically.
+- name: MYOD1 p.Leu122Arg neomorphic mutation
+  association: Oncogenic Driver Mutation defining a poor-outcome ERMS subset
+  relationship_type: SOMATIC_DRIVER
+  variant_origin: SOMATIC
+  subtype: Spindle Cell Embryonal Rhabdomyosarcoma
+  gene_term:
+    preferred_term: MYOD1
+    term:
+      id: hgnc:7611
+      label: MYOD1
+  notes: &gt;-
+    A single recurrent somatic substitution, p.Leu122Arg, in the basic domain of
+    the myogenic transcription factor MYOD1. It is neomorphic rather than a
+    simple loss: the substituted residue is the one that differs between the
+    myogenic and the MYC-family bHLH factors, so the mutant both blocks
+    wild-type MYOD1 function and binds MYC consensus sites - a switch from
+    differentiation to proliferation. The tumours are frequently spindle-cell in
+    morphology, which is why this entry keys the record to that subtype, and
+    they co-occur with PI3K-AKT pathway mutations.
+  case_fractions:
+  - population: ERMS tumours genotyped for MYOD1 Leu122Arg (Kohsaka et al.)
+    case_fraction_percent: 10.0
+    cohort_size: 104
+    notes: 10 of 104 ERMS carried the p.Leu122Arg substitution.
+    evidence:
+    - reference: PMID:24793135
+      reference_title: &gt;-
+        A recurrent neomorphic mutation in MYOD1 defines a clinically aggressive
+        subset of embryonal rhabdomyosarcoma associated with PI3K-AKT pathway
+        mutations.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The mutation was detected in 8 additional cases (and confirmed as
+        somatic in 6 cases with available normal DNA), resulting in an overall
+        prevalence of approximately 10% (10/104)
+      explanation: Gives the cohort size and the MYOD1-mutant share of ERMS.
+  evidence:
+  - reference: PMID:24793135
+    reference_title: &gt;-
+      A recurrent neomorphic mutation in MYOD1 defines a clinically aggressive
+      subset of embryonal rhabdomyosarcoma associated with PI3K-AKT pathway
+      mutations.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Here we report the discovery, through whole-exome sequencing, of a
+      recurrent somatic mutation encoding p.Leu122Arg in the myogenic
+      transcription factor MYOD1 in a distinct subset of ERMS tumors with poor
+      outcomes that also often contain mutations altering PI3K-AKT pathway
+      components.
+    explanation: &gt;-
+      Establishes MYOD1 p.Leu122Arg as a recurrent somatic ERMS driver, its
+      prognostic significance, and its co-occurrence with PI3K-AKT alterations.
+  - reference: PMID:24793135
+    reference_title: &gt;-
+      A recurrent neomorphic mutation in MYOD1 defines a clinically aggressive
+      subset of embryonal rhabdomyosarcoma associated with PI3K-AKT pathway
+      mutations.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The ERMS harboring the MYOD1 Leu122Arg mutation displayed high
+      cellularity and frequent spindle cell morphology with strong positivity
+      for MYOD1 by immunohistochemistry (IHC)
+    explanation: &gt;-
+      Supports keying this record to the spindle cell ERMS subtype rather than
+      to the entry as a whole.
+  - reference: PMID:24793135
+    reference_title: &gt;-
+      A recurrent neomorphic mutation in MYOD1 defines a clinically aggressive
+      subset of embryonal rhabdomyosarcoma associated with PI3K-AKT pathway
+      mutations.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Previous mutagenesis studies had shown that MYOD1 with a p.Leu122Arg
+      substitution can block wild-type MYOD1 function and bind to MYC consensus
+      sequences, suggesting a possible switch from differentiation to
+      proliferation.
+    explanation: &gt;-
+      The neomorphic mechanism recorded in this record&#39;s note: the mutant both
+      blocks wild-type MYOD1 and acquires MYC-like binding.
+- name: PIK3CA somatic mutations
+  association: Cooperating PI3K-AKT pathway alteration
+  relationship_type: COOPERATING
+  variant_origin: SOMATIC
+  gene_term:
+    preferred_term: PIK3CA
+    term:
+      id: hgnc:8975
+      label: PIK3CA
+  notes: &gt;-
+    Recorded as COOPERATING rather than as an independent driver: in the series
+    that defined the MYOD1 Leu122Arg subset, every PIK3CA-mutant tumour with
+    genotyping for both was also MYOD1 Leu122Arg-mutant, and the two together
+    inhibited differentiation and increased colony formation more than either
+    alone in myoblast assays.
+  evidence:
+  - reference: PMID:24793135
+    reference_title: &gt;-
+      A recurrent neomorphic mutation in MYOD1 defines a clinically aggressive
+      subset of embryonal rhabdomyosarcoma associated with PI3K-AKT pathway
+      mutations.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The relationship between MYOD1 Leu122Arg and PIK3CA mutations appeared
+      significant in the 66 cases with genotyping data for both (PIK3CA
+      mutations in 3/10 MYOD1 Leu122Arg cases vs 0/56 MYOD1 wild type cases;
+    explanation: &gt;-
+      Supports the co-occurrence claim and the restriction of PIK3CA mutation
+      to the MYOD1-mutant subset in this cohort.
+  - reference: PMID:24793135
+    reference_title: &gt;-
+      A recurrent neomorphic mutation in MYOD1 defines a clinically aggressive
+      subset of embryonal rhabdomyosarcoma associated with PI3K-AKT pathway
+      mutations.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      only the combination of PIK3CA H1047R and MYOD1 Leu122Arg resulted in
+      increased colony formation; notably, combining wild type MYOD1 with
+      PIK3CA H1047R did not cause a similar increase
+    explanation: &gt;-
+      The cooperation claim in this record&#39;s note, measured in myoblast
+      soft-agar colony formation.
+- name: IGF2 biallelic expression from 11p15 loss of imprinting
+  association: Growth factor deregulated by the hallmark 11p15 lesion
+  relationship_type: SOMATIC_DRIVER
+  variant_origin: SOMATIC
+  gene_term:
+    preferred_term: IGF2
+    term:
+      id: hgnc:5466
+      label: IGF2
+  notes: &gt;-
+    IGF2 is bound here as a gene whose dosage is deregulated, not as a gene
+    carrying a coding mutation: the lesion is loss of heterozygosity and loss of
+    imprinting across 11p15.5, which converts monoallelic to biallelic IGF2
+    expression. That is why the entry keeps a separate region-level record for
+    the 11p15 event above and binds IGF2 to the consequence.
+  evidence:
+  - reference: PMID:10095436
+    reference_title: &#34;[Evidence of genetic alterations in chromosome 11 in embryonal and alveolar rhabdomyosarcoma].&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Allelic losses of 11p15.5 are characteristic of embryonal RMS (eRMS),
+      whereas an increase in the expression of the Igf2 gene located on
+      11p15.5 has regularly been observed in eRMS and alveolar RMS (aRMS).
+    explanation: &gt;-
+      Links the characteristic 11p15.5 allelic loss to increased IGF2
+      expression in embryonal rhabdomyosarcoma.
+- name: TP53 germline predisposition
+  association: Germline predisposition, strongly enriched in the anaplastic variant
+  relationship_type: RISK_FACTOR
+  variant_origin: GERMLINE
+  subtype: Anaplastic Embryonal Rhabdomyosarcoma
+  gene_term:
+    preferred_term: TP53
+    term:
+      id: hgnc:11998
+      label: TP53
+  notes: &gt;-
+    The TP53 association in ERMS is predominantly a germline predisposition
+    rather than a recurrent somatic driver, and it is concentrated in the
+    anaplastic variant. In the series below, every rhabdomyosarcoma arising in a
+    TP53 germline carrier was nonalveolar and anaplastic, and germline TP53
+    variants were found in 11 of 15 children with anaplastic rhabdomyosarcoma.
+    The authors propose extending the Chompret criteria on that basis.
+
+    Graded RISK_FACTOR rather than CAUSATIVE because a germline TP53 variant
+    predisposes to a spectrum of malignancies and is neither necessary nor
+    sufficient for this one. The predisposition syndrome itself is curated
+    separately as Li-Fraumeni Syndrome, per the cancer-granularity rule that
+    germline predisposition syndromes stay distinct from the somatic tumour
+    entries they predispose to.
+  evidence:
+  - reference: PMID:24382691
+    reference_title: &#34;Anaplastic rhabdomyosarcoma in TP53 germline mutation carriers.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      RMS tumors diagnosed in 11 TP53 germline mutation carriers all exhibited
+      nonalveolar, anaplastic histology as evidenced by the presence of enlarged
+      hyperchromatic nuclei with or without atypical mitotic figures.
+    explanation: &gt;-
+      Ties germline TP53 status specifically to the anaplastic, nonalveolar
+      histology this record is keyed to.
+  - reference: PMID:24382691
+    reference_title: &#34;Anaplastic rhabdomyosarcoma in TP53 germline mutation carriers.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The overall frequency of TP53 germline mutations was 73% (11 of 15
+      children) in pediatric patients with anRMS.
+    explanation: &gt;-
+      Quantifies the germline TP53 frequency in paediatric anaplastic
+      rhabdomyosarcoma.
+- name: DICER1 germline predisposition
+  association: Germline predisposition shared with pleuropulmonary blastoma
+  relationship_type: RISK_FACTOR
+  variant_origin: GERMLINE_AND_SOMATIC
+  gene_term:
+    preferred_term: DICER1
+    term:
+      id: hgnc:17098
+      label: DICER1
+  notes: &gt;-
+    Embryonal rhabdomyosarcoma is part of the DICER1 tumour-predisposition
+    spectrum, which it shares with pleuropulmonary blastoma. In the study
+    below, germline DICER1 variants were present in all four children who had
+    both familial pleuropulmonary blastoma and ERMS, while somatic DICER1
+    variants appeared in a small minority of sporadic ERMS tumours.
+
+    Recorded as GERMLINE_AND_SOMATIC because both allele states are reported in
+    that single study, and as RISK_FACTOR rather than CAUSATIVE for the same
+    reason as TP53: a germline DICER1 variant predisposes to a spectrum of
+    tumours and is neither necessary nor sufficient for this one. The
+    predisposition syndrome itself belongs in its own entry, not here.
+  evidence:
+  - reference: PMID:22180160
+    reference_title: &gt;-
+      DICER1 mutations in embryonal rhabdomyosarcomas from children with and
+      without familial PPB-tumor predisposition syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Germline DICER1 mutations were found in all four patients with familial
+      PPB and 2 of 52 (3.8%) sporadic ERMS had somatic mutations.
+    explanation: &gt;-
+      Gives both allele states behind this record: germline variants in the
+      familial pleuropulmonary blastoma cases, somatic variants in a small
+      minority of sporadic ERMS.
+  - reference: PMID:22180160
+    reference_title: &gt;-
+      DICER1 mutations in embryonal rhabdomyosarcomas from children with and
+      without familial PPB-tumor predisposition syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Embryonal rhabdomyosarcoma (ERMS) is the most common childhood sarcoma
+      and is a component of the familial pleuropulmonary blastoma
+      (PPB)-predisposition syndrome.
+    explanation: &gt;-
+      States the membership of ERMS in the pleuropulmonary blastoma
+      predisposition spectrum, which is the framing of this record.
+- name: NF1 germline predisposition
+  association: Germline predisposition, observed in a small minority of treated patients
+  relationship_type: RISK_FACTOR
+  variant_origin: GERMLINE
+  gene_term:
+    preferred_term: NF1
+    term:
+      id: hgnc:7765
+      label: NF1
+  notes: &gt;-
+    Neurofibromatosis type 1 is named alongside TP53 and DICER1 in the standard
+    list of germline predispositions to rhabdomyosarcoma. The quantitative
+    evidence recorded here is an observed co-occurrence: 5 of 1,025 children
+    enrolled in Intergroup Rhabdomyosarcoma Study IV had NF1.
+
+    Read that as a share of a treatment cohort and not as a relative risk. The
+    study reports no comparison against a general-population rate, so it
+    establishes that the two co-occur and roughly how often among treated
+    children, and not by how much NF1 raises the risk.
+
+    PTCH1 appears in the same predisposition list but is not curated here. A
+    PubMed search in September 2026 for rhabdomyosarcoma with nevoid basal cell
+    carcinoma syndrome or Gorlin syndrome, and for PTCH1 germline mutation with
+    rhabdomyosarcoma, returned a case report and a mouse model of Gorlin
+    syndrome rather than a human series, which is thinner than the evidence
+    behind the three records above.
+  evidence:
+  - reference: PMID:15127010
+    reference_title: &#34;Neurofibromatosis in children with Rhabdomyosarcoma: a report from the Intergroup Rhabdomyosarcoma study IV.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Among 1025 eligible patients, 5 (0.5 %) had NF1.
+    explanation: &gt;-
+      The observed co-occurrence frequency of NF1 among children treated for
+      rhabdomyosarcoma in a cooperative-group trial, and the whole quantitative
+      basis of this record.
+  - reference: PMID:24382691
+    reference_title: &#34;Anaplastic rhabdomyosarcoma in TP53 germline mutation carriers.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      In humans, genetic susceptibility to develop RMS has been linked to
+      germline mutations in PTCH1, HRAS, NF1, DICER1, and TP53.
+    explanation: &gt;-
+      Places NF1 in the established list of germline predispositions to
+      rhabdomyosarcoma; quoted from this paper&#39;s introduction, where it
+      restates established human genetics rather than reporting its own result.
+- name: SLC22A18 (SLC67A1)
+  association: Reported 11p15.5 candidate, not supported as an ERMS driver
+  relationship_type: DISPUTED
+  variant_origin: SOMATIC
+  gene_term:
+    preferred_term: SLC67A1
+    term:
+      id: hgnc:10964
+      label: SLC22A18
+  notes: &gt;-
+    Recorded here because MONDO asserts this gene as the somatic-mutation basis
+    of embryonal rhabdomyosarcoma - `MONDO:0009993 RO:0004004 HGNC:10964` - and
+    a reader comparing dismech with MONDO should find the claim addressed rather
+    than absent. It is graded DISPUTED after investigation.
+
+    What the assertion rests on is a single point mutation in a single
+    rhabdomyosarcoma cell line, TE125-T, reported in 1998 in a paper whose
+    subject was the transcriptional map of a 170 kb interval at 11p15.5 and
+    whose own conclusion was the hedged &#34;BWR1A may play a role in
+    tumorigenesis&#34;. The same paper reports one further alteration, in a breast
+    cancer cell line. There is no patient tumour series, no recurrence, and no
+    functional demonstration in rhabdomyosarcoma.
+
+    Two further considerations argue against reading it as a driver. The gene
+    lies inside the 11p15.5 imprinted interval whose loss of heterozygosity is
+    the hallmark somatic event of ERMS, so any alteration found there is a
+    candidate for being a passenger of the regional lesion the entry already
+    models. And the comprehensive rhabdomyosarcoma sequencing study of 147
+    tumour/normal pairs names NRAS, KRAS, HRAS, FGFR4, PIK3CA, CTNNB1, FBXW7 and
+    BCOR as the recurrently altered genes; this gene is not among them.
+
+    Nomenclature note: HGNC renamed this gene from SLC22A18 to SLC67A1, which is
+    why MONDO&#39;s axiom prints the newer symbol. The OBO build this repository
+    validates against still carries SLC22A18, so `term.label` holds that value
+    while `preferred_term` records the current HGNC symbol.
+  evidence:
+  - reference: PMID:9520460
+    reference_title: &gt;-
+      Transcriptional map of 170-kb region at chromosome 11p15.5:
+      identification and mutational analysis of the BWR1A gene reveals the
+      presence of mutations in tumor samples.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      we carried out a mutational analysis in tumor cell lines and
+      Beckwith-Wiedemann syndrome samples that resulted in the identification of
+      genetic alterations in the BWR1A gene: an insertion that introduced a stop
+      codon in the breast cancer cell line BT549 and a point mutation in the
+      rhabdomyosarcoma cell line TE125-T.
+    explanation: &gt;-
+      The entirety of the primary observation behind the MONDO assertion: one
+      point mutation in one rhabdomyosarcoma cell line.
+  - reference: PMID:9520460
+    reference_title: &gt;-
+      Transcriptional map of 170-kb region at chromosome 11p15.5:
+      identification and mutational analysis of the BWR1A gene reveals the
+      presence of mutations in tumor samples.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      These results indicate that BWR1A may play a role in tumorigenesis.
+    explanation: &gt;-
+      The authors&#39; own conclusion, which claims a possible role in tumorigenesis
+      generally and not that the gene causes embryonal rhabdomyosarcoma.
+  - reference: PMID:24436047
+    reference_title: &gt;-
+      Comprehensive genomic analysis of rhabdomyosarcoma reveals a landscape of
+      alterations affecting a common genetic axis in fusion-positive and
+      fusion-negative tumors.
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Despite a relatively low mutation rate, multiple genes were recurrently
+      altered, including NRAS, KRAS, HRAS, FGFR4, PIK3CA, CTNNB1, FBXW7, and
+      BCOR.
+    explanation: &gt;-
+      The recurrently altered gene list from 147 rhabdomyosarcoma tumour/normal
+      pairs does not include this gene, which is evidence against a recurrent
+      driver role even though it is not a targeted test of the claim.
 treatments:
 - name: Multi-Agent Chemotherapy
   description: &gt;-
@@ -6094,6 +8351,11 @@ classifications:
   harrisons_chapter:
   - classification_value: ONCOLOGY_HEMATOLOGY
 references:
+- reference: PMID:29939543
+  title: Rhabdomyosarcoma.
+  tags:
+  - StatPearls
+  findings: []
 - reference: DOI:10.1002/pbc.30556
   title: &#34;Children&#39;s Oncology Group&#39;s 2023 blueprint for research: Soft tissue sarcomas&#34;
   found_in:
@@ -6239,7 +8501,24 @@ datasets:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">8</span>
+                    <span class="card-count">9</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29939543" target="_blank">PMID:29939543</a>
+                            </div>
+
+                            <div class="reference-title">Rhabdomyosarcoma.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
                 </div>
 
                 <div class="reference-entry">
@@ -6828,6 +9107,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7363,7 +9644,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Embryonal Rhabdomyosarcoma", "mondoId": "MONDO:0009993", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Embryonal_Rhabdomyosarcoma", "yamlRevision": "389d57dee8cc"};
+        const OS_CONFIG = {"diseaseName": "Embryonal Rhabdomyosarcoma", "mondoId": "MONDO:0009993", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Embryonal_Rhabdomyosarcoma", "yamlRevision": "b6a71bf9d0f2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

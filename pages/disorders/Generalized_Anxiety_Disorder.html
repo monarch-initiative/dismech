@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4173,6 +4226,33 @@
 
         <!-- Comorbidities -->
 
+        <div class="card" id="comorbidities">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">C</div>
+                <h2 class="card-title">Comorbidities</h2>
+            </div>
+            <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Hypermobile_Ehlers-Danlos_Syndrome__Generalized_Anxiety_Disorder.html">Hypermobile Ehlers-Danlos Syndrome &lt;-&gt; Generalized Anxiety Disorder</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease B</span>
+
+
+                        <span class="tag tag-classification">UNKNOWN</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
 
         <!-- Mechanistic Hypotheses -->
 
@@ -4320,6 +4400,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-amygdala-hyperactivity" data-dismech-node="Amygdala Hyperactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Amygdala Hyperactivity</div>
 
+
                 <div class="item-desc">Exaggerated amygdala response to perceived threats leads to excessive fear and anxiety. Reduced prefrontal cortex regulation of amygdala activity.
 </div>
 
@@ -4447,6 +4528,7 @@ This pathophysiological event involves Fear Response (GO:0042596). GO:0042596 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gaba-system-dysfunction" data-dismech-node="GABA System Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">GABA System Dysfunction</div>
+
 
                 <div class="item-desc">Reduced GABAergic inhibition contributes to neuronal hyperexcitability and anxiety. Benzodiazepines enhance GABA function.
 </div>
@@ -4670,6 +4752,7 @@ This pathophysiological event involves GABAergic Transmission, annotated with sy
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serotonin-dysregulation" data-dismech-node="Serotonin Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Serotonin Dysregulation</div>
 
+
                 <div class="item-desc">Altered serotonin signaling, particularly in raphe-prefrontal circuits, contributes to anxiety. SSRIs are first-line treatment.
 </div>
 
@@ -4879,6 +4962,7 @@ This pathophysiological event involves Serotonin Signaling, annotated with chemi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hpa-axis-dysregulation" data-dismech-node="HPA Axis Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">HPA Axis Dysregulation</div>
 
+
                 <div class="item-desc">Chronic activation of the stress response system with elevated cortisol contributes to sustained anxiety and physical symptoms.
 </div>
 
@@ -4996,6 +5080,7 @@ This pathophysiological event involves Stress Response, annotated with response 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-noradrenergic-hyperactivity" data-dismech-node="Noradrenergic Hyperactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Noradrenergic Hyperactivity</div>
 
+
                 <div class="item-desc">Elevated norepinephrine activity in locus coeruleus contributes to hyperarousal and somatic symptoms of anxiety.
 </div>
 
@@ -5056,6 +5141,7 @@ This pathophysiological event involves Noradrenergic Neuron (CL:0008025). CL:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress" data-dismech-node="Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress</div>
+
 
                 <div class="item-desc">Increased oxidative stress markers and reduced antioxidant enzyme activity in GAD patients. Elevated malondialdehyde and reduced superoxide dismutase correlate with symptom severity.
 </div>
@@ -5139,6 +5225,7 @@ This pathophysiological event involves Noradrenergic Neuron (CL:0008025). CL:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epigenetic-alterations" data-dismech-node="Epigenetic Alterations" data-dismech-type="pathophysiology">
                 <div class="item-name">Epigenetic Alterations</div>
+
 
                 <div class="item-desc">DNA methylation changes in anxiety-related genes, particularly in monocytes and granulocytes. Methylation sites identified in genes involved in neurogenesis and fear memory.
 </div>
@@ -5381,6 +5468,9 @@ This clinical feature is Muscle Tension, annotated with Muscle stiffness (HP:000
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5419,6 +5509,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Persistent, difficult to control</div>
@@ -5499,6 +5592,9 @@ This clinical feature is Restlessness (HP:0000711). HP:0000711 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-difficulty-concentrating" data-dismech-node="Difficulty Concentrating" data-dismech-type="phenotype">
@@ -5537,6 +5633,9 @@ This clinical feature is Poor Concentration, annotated with Short attention span
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
@@ -5564,6 +5663,9 @@ This clinical feature is Insomnia, annotated with Sleep disturbance (HP:0002360)
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Difficulty falling or staying asleep</div>
@@ -5611,6 +5713,9 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5647,6 +5752,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5732,6 +5840,9 @@ This disease-associated gene is SLC6A4 (hgnc:11050). hgnc:11050 is a gene from t
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-comt" data-dismech-node="COMT" data-dismech-type="genetic">
@@ -5763,6 +5874,9 @@ This disease-associated gene is COMT (hgnc:2228). hgnc:2228 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5806,6 +5920,9 @@ This disease-associated gene is CRHR1 (hgnc:2357). hgnc:2357 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-npy" data-dismech-node="NPY" data-dismech-type="genetic">
@@ -5837,6 +5954,9 @@ This disease-associated gene is NPY (hgnc:7955). hgnc:7955 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -5933,6 +6053,12 @@ This treatment uses escitalopram (CHEBI:36791). CHEBI:36791 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">First-line pharmacotherapy (escitalopram, sertraline, paroxetine).</div>
 
 
@@ -6002,6 +6128,12 @@ This treatment uses venlafaxine (CHEBI:9943). CHEBI:9943 is a therapeutic agent 
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6093,6 +6225,12 @@ This treatment uses buspirone (CHEBI:3223). CHEBI:3223 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Non-benzodiazepine anxiolytic, no dependence risk.</div>
 
 
@@ -6162,6 +6300,12 @@ This treatment uses benzodiazepine (NCIT:C1012). NCIT:C1012 is a therapeutic age
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6253,6 +6397,12 @@ This treatment uses pregabalin (CHEBI:64356). CHEBI:64356 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Effective in GAD, approved in Europe.</div>
 
 
@@ -6298,6 +6448,12 @@ This treatment is Cognitive Behavior Therapy (NCIT:C64345). NCIT:C64345 is a cli
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6369,6 +6525,12 @@ This treatment is Relaxation Therapy (NCIT:C15316). NCIT:C15316 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Progressive muscle relaxation, breathing exercises.</div>
 
 
@@ -6414,6 +6576,12 @@ This treatment is Mindfulness Relaxation (NCIT:C93327). NCIT:C93327 is a clinica
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8929,6 +9097,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

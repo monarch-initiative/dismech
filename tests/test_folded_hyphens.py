@@ -1,37 +1,34 @@
-"""Guard test: no NEW YAML folded-scalar compound-word splits in kb/.
+"""Guard test: no YAML folded-scalar compound-word splits in kb/ or src/.
 
 A line inside a YAML folded ('>' / '>-') block scalar that ends in a hyphen is
 folded into 'word- next', silently breaking a hyphenated compound (e.g.
-'relapsing-remitting' -> 'relapsing- remitting'). A baseline grandfathers the
-pre-existing backlog so this test fails only on newly introduced splits.
+'relapsing-remitting' -> 'relapsing- remitting').
+
+This gated only NEW splits until dismech #11760 repaired the 293-split backlog
+and #12372 removed the baseline that grandfathered it. Every finding now fails.
 
 See scripts/check_folded_hyphens.py and dismech PR #4799.
 """
 from pathlib import Path
 
+import pytest
+
 from scripts.check_folded_hyphens import (
-    _baseline_key,
     find_violations_in_text,
     is_status_marker,
-    load_baseline,
     scan_repo,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_no_new_folded_scalar_hyphen_splits():
-    baseline = load_baseline()
-    new = [
-        f"{rel}:{lineno}: {line}"
-        for rel, lineno, line in scan_repo()
-        if _baseline_key(rel, line) not in baseline
-    ]
-    assert not new, (
-        "New YAML folded-scalar compound-word split(s) detected. A line inside "
-        "a '>'/'>-' folded scalar ends in a hyphen, so folding inserts an "
+def test_no_folded_scalar_hyphen_splits():
+    found = [f"{rel}:{lineno}: {line}" for rel, lineno, line in scan_repo()]
+    assert not found, (
+        "YAML folded-scalar compound-word split(s) detected. A line inside a "
+        "'>'/'>-' folded scalar ends in a hyphen, so folding inserts an "
         "unwanted space mid-compound. Reflow so the compound stays on one "
-        "line:\n  " + "\n  ".join(new)
+        "line:\n  " + "\n  ".join(found)
     )
 
 
@@ -70,10 +67,10 @@ def test_detector_edge_cases():
 # reportable -- because a later regex tweak could widen the exemption without
 # anything going red.
 #
-# The three exempt cases are verbatim from lines the #4800 sweep wrongly
-# joined before review caught them (PR #11760). The checker's own docstring
-# says "four" because it counts source lines; these are three representative
-# cases, one per rule.
+# The three exempt cases are verbatim from lines the #11760 sweep wrongly
+# joined before review caught them. The checker's own docstring says "four"
+# because it counts source lines; these are three representative cases, one
+# per rule.
 
 EXEMPT = [
     # Rule 1: a '+' inside the token itself.
@@ -85,8 +82,10 @@ EXEMPT = [
 ]
 
 REPORTABLE = [
-    # Two segments: `IL-6-mediated` is a genuine compound, kept reportable by
-    # MARKER_RUN_RE's >=3-segment requirement.
+    # A genuine compound that MARKER_RUN_RE excludes twice over -- two segments
+    # AND a digit -- so it pins neither half of the constraint on its own. Kept
+    # because it is the ordinary shape this exemption must never swallow, and
+    # because test_status_marker_guard_reaches_the_detector drives it end to end.
     "pharmacological blockade of IL-6-",
     # Three segments WITH a digit: `IL-2-R-mediated` is a genuine compound, and
     # it is the letters-only half of MARKER_RUN_RE that keeps it reportable --
@@ -96,9 +95,13 @@ REPORTABLE = [
     # A '+' elsewhere on the line is not marker notation. `cancer` never
     # appears '+'-suffixed, so the sibling rule must not fire.
     "Pediatric+adult WB-MRI surveillance trial that anchors the cancer-",
-    # Two uppercase segments only.
+    # Two segments of bare uppercase letters. This is the only case here that
+    # relaxing `{3,}` to `{2,}` would exempt, so it alone pins the segment count;
+    # a two-segment case containing a digit cannot, being excluded by the
+    # letters-only half regardless.
     "an otherwise unremarkable T-B-",
-    # Also two segments -- this one pins the segment count, not the digit rule.
+    # Digits in both segments as well as being two segments -- excluded twice
+    # over, like `IL-6-` above, so likewise a reportable case rather than a pin.
     "receptor subunit CD8-1-",
     # The ordinary case the whole checker exists for.
     "Clinical courses range from relapsing-",
@@ -150,3 +153,38 @@ def test_status_marker_guard_reaches_the_detector():
         "negativity marker should not be reported as a folding bug"
     assert list(find_violations_in_text(compound)), \
         "IL-6-mediated is a real split and must still be reported"
+
+
+def test_there_is_no_way_to_grandfather_a_finding():
+    """Pin the removal (#12372): no baseline machinery, and no flag to write one.
+
+    "Every finding fails" is this check's headline property, and it is the one
+    thing here that nothing else would notice losing -- a reintroduced baseline
+    makes the gate go *greener*, not redder, so no test fails and no build goes
+    red. That is the same shape as lowering a compliance floor, which this repo
+    pins for the same reason (see
+    test_committed_causal_inlink_floor_is_set_and_never_lowered).
+
+    A finding the detector should not report is a gap in the detector, fixed
+    there and pinned with a test -- as COORD_RE and is_status_marker were --
+    never recorded as an exception.
+    """
+    import scripts.check_folded_hyphens as mod
+
+    removed = ["BASELINE_PATH", "_baseline_key", "load_baseline", "write_baseline"]
+    back = [name for name in removed if hasattr(mod, name)]
+    assert not back, (
+        f"baseline machinery is back: {', '.join(back)}. It was removed in "
+        "#12372 so that no finding can be grandfathered; teach the detector "
+        "the shape and pin it with a test instead."
+    )
+
+    assert not list((ROOT / "tests").glob("folded_hyphen_baseline*")), \
+        "a folded-hyphen baseline file is back; see #12372"
+
+    with pytest.raises(SystemExit) as excinfo:
+        mod.main(["--update-baseline"])
+    assert excinfo.value.code == 2, (
+        "--update-baseline should be rejected as an unrecognized argument, "
+        f"got exit {excinfo.value.code}"
+    )

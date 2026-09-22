@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4100,6 +4153,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#mechanistic-hypotheses">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◈</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Hyp. Reports</div>
+            </div>
+            </a>
 
         </div>
 
@@ -4635,7 +4696,7 @@
                 <div class="item-desc" style="margin-top: 8px;">RAS(ON) multiselective inhibition directly remodels PDAC immunity in mouse models, including increased tumor MHC-I, altered myeloid states and T-cell/cDC-dependent responses. Checkpoint cotreatment can deepen control, but optimal partners, Treg behavior and durability vary by model. Neither universal Treg relief nor clinical daraxonrasib-checkpoint benefit is established. Autophagy and FAK are complementary antigen-presentation regulators rather than mutually exclusive alternatives.</div>
 
 
-                <div class="mapping-notes">Both July OpenScientist reports and their updated assessments remain under kb/hypotheses/Metastatic_Pancreatic_Adenocarcinoma after consolidation into this disease. PMID40057911 was already available when the immune report omitted it; the August 2026 CTLA-4/Treg study is subsequent evidence.</div>
+                <div class="mapping-notes">Both July OpenScientist reports and their updated assessments now sit under kb/hypotheses/Pancreatic_Ductal_Adenocarcinoma after consolidation into this disease. PMID40057911 was already available when the immune report omitted it; the August 2026 CTLA-4/Treg study is subsequent evidence.</div>
 
 
                 <div class="crosslink-block">
@@ -4785,6 +4846,26 @@
                     </div>
                 </div>
 
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Deep research</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pancreatic_Ductal_Adenocarcinoma/ras_on_inhibition_immune_tme_remodeling/openscientist.md" target="_blank">OpenScientist</a>
+
+                            <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pancreatic_Ductal_Adenocarcinoma/ras_on_inhibition_immune_tme_remodeling/openscientist.md.citations.md" target="_blank" style="margin-left: 8px;">citations</a>
+
+
+                            <span class="reference-summary">13 citations</span>
+
+
+                            <span class="report-meta-text">2026-07-24T01:13:35.827549</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -5021,6 +5102,26 @@
                     </div>
                 </div>
 
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Deep research</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pancreatic_Ductal_Adenocarcinoma/ras_on_inhibitor_acquired_resistance/openscientist.md" target="_blank">OpenScientist</a>
+
+                            <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Pancreatic_Ductal_Adenocarcinoma/ras_on_inhibitor_acquired_resistance/openscientist.md.citations.md" target="_blank" style="margin-left: 8px;">citations</a>
+
+
+                            <span class="reference-summary">16 citations</span>
+
+
+                            <span class="report-meta-text">2026-07-24T01:28:18.090810</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -6263,6 +6364,7 @@ This readout is measured by cell viability assay.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-pancreatic-inflammation" data-dismech-node="Chronic Pancreatic Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Pancreatic Inflammation</div>
 
+
                 <div class="item-desc">Inflammation and tissue injury can cooperate with oncogenic KRAS to enable acinar reprogramming and precursor formation. In one adult acinar/centroacinar KRAS-G12V mouse model, chronic pancreatitis was necessary for tumor induction. This is a model-specific requirement, not a claim that every human PDAC requires clinically recognized pancreatitis. Human chronic pancreatitis is a strong risk factor with risk estimates dependent on follow-up and case definition.</div>
 
 
@@ -6495,6 +6597,7 @@ This pathophysiological event occurs in pancreas (UBERON:0001264). UBERON:000126
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acinar-to-ductal-metaplasia" data-dismech-node="Acinar-to-Ductal Metaplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Acinar-to-Ductal Metaplasia</div>
 
+
                 <div class="item-desc">Acinar cells can lose differentiated identity and adopt ductal-like programs during injury and KRAS-driven transformation. ADM is reversible in regenerative settings and is not synonymous with cancer. Persistent oncogenic signaling can channel reprogrammed cells into PanIN. Adult ductal cells can also initiate PDAC with cooperating p53 alterations in mice; the relative contribution of these origins in humans remains unresolved.</div>
 
 
@@ -6723,6 +6826,7 @@ This pathophysiological event involves increased transdifferentiation (GO:006029
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kras-oncogene-activation" data-dismech-node="KRAS Oncogene Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">KRAS Oncogene Activation</div>
 
+
                 <div class="item-desc">Activating KRAS variants favor persistent RAS-GTP signaling through RAF-MEK-ERK and additional effector networks, supporting proliferation, survival, metabolic rewiring and microenvironmental remodeling. G12D, G12V and G12R are common in PDAC, with allele-specific signaling and inhibitor responses. Most PDACs are KRAS-mutant; KRAS-wild-type cancers require separate driver characterization. KRAS signaling does not itself establish acquisition of a particular tumor-suppressor mutation or therapeutic inhibition.</div>
 
 
@@ -6809,6 +6913,8 @@ This genetic context concerns KRAS (hgnc:6407). hgnc:6407 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -6819,6 +6925,9 @@ This genetic context concerns KRAS (hgnc:6407). hgnc:6407 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Somatic activating KRAS codon-12 mutation, the initiating lesion of the PanIN-to-PDAC sequence, arising in the acinar/centroacinar compartment. The tumour&#39;s ductal phenotype is acquired downstream through acinar-to-ductal metaplasia and does not indicate a ductal cell of origin.</div>
 
@@ -7105,6 +7214,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-suppressor-inactivation" data-dismech-node="Tumor Suppressor Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Tumor Suppressor Inactivation</div>
 
+
                 <div class="item-desc">Alterations of CDKN2A, TP53 and SMAD4 cooperate with oncogenic signaling. Loss of p16 removes restraint on CDK4/6-RB cell-cycle progression; p53 alterations weaken stress checkpoints and can confer context-dependent gain of function; SMAD4 loss changes TGF-beta responses. Reported alteration frequencies differ with cohort, assay, copy-number detection and inclusion of epigenetic silencing. These are cooperating events rather than consequences inferred from co-occurrence with KRAS.</div>
 
 
@@ -7287,6 +7397,7 @@ This pathophysiological event involves abnormal DNA damage response (GO:0006974)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pancreatic-precursor-progression-and-invasive-growth" data-dismech-node="Pancreatic Precursor Progression and Invasive Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Pancreatic Precursor Progression and Invasive Growth</div>
 
+
                 <div class="item-desc">KRAS-mutant PanIN can progress with cooperating genetic and microenvironmental changes to invasive, gland-forming PDAC. IPMN and mucinous cystic neoplasms provide additional precursor routes. Not every precursor progresses, and a uniform obligatory mutation order or exclusive acinar origin is not established.</div>
 
 
@@ -7427,6 +7538,7 @@ This pathophysiological event involves abnormal DNA damage response (GO:0006974)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-desmoplastic-stroma" data-dismech-node="Desmoplastic Stroma" data-dismech-type="pathophysiology">
                 <div class="item-name">Desmoplastic Stroma</div>
+
 
                 <div class="item-desc">Tumor-derived signals and local tissue interactions recruit and alter fibroblast states that deposit collagen, hyaluronan and other extracellular matrix. Dense matrix can impair perfusion, but stromal programs are heterogeneous: some support inflammation or immune exclusion and others restrain tumor growth. Fibroblast depletion and matrix digestion are not interchangeable, and neither is a generally validated treatment for PDAC.</div>
 
@@ -7637,6 +7749,7 @@ This pathophysiological event involves increased collagen biosynthetic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-caf-mediated-t-cell-exclusion" data-dismech-node="CAF-Mediated T Cell Exclusion" data-dismech-type="pathophysiology">
                 <div class="item-name">CAF-Mediated T Cell Exclusion</div>
+
 
                 <div class="item-desc">FAP-positive fibroblasts can supply CXCL12 that localizes around malignant cells and limits T-cell access. In KPC mouse tumors, CXCR4 inhibition rapidly increased T-cell accumulation and synergized with PD-L1 blockade. This identifies a specific stromal immune-exclusion circuit, not uniform behavior of all fibroblasts.</div>
 
@@ -7971,6 +8084,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il1-lif-jak-stat-inflammatory-fibroblast-programming" data-dismech-node="IL1-LIF-JAK-STAT Inflammatory Fibroblast Programming" data-dismech-type="pathophysiology">
                 <div class="item-name">IL1-LIF-JAK-STAT Inflammatory Fibroblast Programming</div>
 
+
                 <div class="item-desc">Tumor-derived IL1 induces fibroblast LIF and JAK-STAT signaling, promoting an inflammatory CAF state. TGF-beta antagonizes this program by reducing IL1R1 and favoring myofibroblasts. Spatial exposure and plasticity generate distinct CAF niches, so fibroblast number alone is an inadequate mechanistic readout.</div>
 
 
@@ -8031,6 +8145,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-restraining-fibroblast-programs" data-dismech-node="Tumor-Restraining Fibroblast Programs" data-dismech-type="pathophysiology">
                 <div class="item-name">Tumor-Restraining Fibroblast Programs</div>
+
 
                 <div class="item-desc">Some fibroblast and stromal programs constrain PDAC. Genetic SHH loss and depletion of alpha-SMA-positive myofibroblasts in distinct mouse models accelerated aggressive disease; newer interferon-response CAF work also identifies a restraining state. These findings qualify global stroma-removal strategies without proving that every myofibroblast state is protective.</div>
 
@@ -8118,6 +8233,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-matrix-associated-hypoperfusion" data-dismech-node="Matrix-Associated Hypoperfusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Matrix-Associated Hypoperfusion</div>
 
+
                 <div class="item-desc">Hyaluronan-rich stroma can elevate interstitial fluid pressure, collapse vessels and restrict delivery of nutrients and drugs in PDAC mouse models. Matrix degradation improved perfusion experimentally, but the phase III PEGPH20 trial did not improve survival, limiting direct therapeutic extrapolation.</div>
 
 
@@ -8178,6 +8294,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kras-dependent-anabolic-glucose-metabolism" data-dismech-node="KRAS-Dependent Anabolic Glucose Metabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">KRAS-Dependent Anabolic Glucose Metabolism</div>
+
 
                 <div class="item-desc">KRAS supports glucose uptake and redirects intermediates toward anabolic pathways that sustain pancreatic tumor growth. This is a regulated metabolic program rather than a universal switch eliminating oxidative phosphorylation.</div>
 
@@ -8292,6 +8409,7 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kras-regulated-glutamine-redox-metabolism" data-dismech-node="KRAS-Regulated Glutamine Redox Metabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">KRAS-Regulated Glutamine Redox Metabolism</div>
+
 
                 <div class="item-desc">In studied PDAC cells, glutamine-derived aspartate is routed through cytosolic GOT1, malate and pyruvate to support NADPH-dependent redox balance. Dependency varies with growth context and compensatory metabolism; this does not establish clinical efficacy of glutaminase inhibition.</div>
 
@@ -8411,6 +8529,7 @@ This pathophysiological event involves GOT1 (hgnc:4432). hgnc:4432 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macropinocytic-protein-scavenging" data-dismech-node="Macropinocytic Protein Scavenging" data-dismech-type="pathophysiology">
                 <div class="item-name">Macropinocytic Protein Scavenging</div>
+
 
                 <div class="item-desc">RAS-driven macropinocytosis internalizes extracellular protein for lysosomal proteolysis and amino-acid supply. It supports growth in nutrient-poor settings and is observed in primary human PDAC specimens, complementing transport of free nutrients.</div>
 
@@ -8551,6 +8670,7 @@ This pathophysiological event involves increased macropinocytosis (GO:0044351). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagy-lysosome-growth-support" data-dismech-node="Autophagy-Lysosome Growth Support" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagy-Lysosome Growth Support</div>
 
+
                 <div class="item-desc">Basal autophagy can maintain oxidative metabolism and restrain damaging reactive oxygen species in established pancreatic cancer models. Recycling also provides substrates under treatment stress. The effects of autophagy loss differ by tumor stage and genetic context; preclinical dependency is not a validated universal treatment response.</div>
 
 
@@ -8664,6 +8784,7 @@ This pathophysiological event involves increased autophagy (GO:0006914). GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion" data-dismech-node="Immune Evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Evasion</div>
+
 
                 <div class="item-desc">Myeloid suppression, dysfunctional lymphocytes, stromal exclusion and impaired antigen presentation limit immune control in most PDAC. These mechanisms vary between tumors and metastatic sites. Rare mismatch-repair-deficient/MSI-high cancers can respond to checkpoint blockade; PDAC is not uniformly refractory to every immune or targeted therapy.</div>
 
@@ -8873,6 +8994,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kras-gm-csf-myeloid-immunosuppression" data-dismech-node="KRAS-GM-CSF Myeloid Immunosuppression" data-dismech-type="pathophysiology">
                 <div class="item-name">KRAS-GM-CSF Myeloid Immunosuppression</div>
 
+
                 <div class="item-desc">Oncogenic KRAS induces tumor-cell GM-CSF, expanding suppressive myeloid cells that constrain cytotoxic T-cell immunity in pancreatic neoplasia models. This supplies a disease-driving counterpart to the myeloid remodeling seen after KRAS inhibition.</div>
 
 
@@ -8991,6 +9113,7 @@ This pathophysiological event involves CSF2 (hgnc:2434). hgnc:2434 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nbr1-mediated-mhc-i-autophagic-degradation" data-dismech-node="NBR1-Mediated MHC-I Autophagic Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">NBR1-Mediated MHC-I Autophagic Degradation</div>
+
 
                 <div class="item-desc">Selective autophagy directs MHC-I to lysosomes through NBR1, reducing surface antigen presentation and immune recognition in PDAC models. Autophagy inhibition can restore MHC-I and improve T-cell control. This can coexist with RAS-dependent and FAK-dependent regulation; pathway dominance or mutual independence has not been established.</div>
 
@@ -9111,6 +9234,13 @@ This pathophysiological event involves NBR1 (hgnc:6746). hgnc:6746 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fak-mediated-antigen-presentation-suppression" data-dismech-node="FAK-Mediated Antigen-Presentation Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">FAK-Mediated Antigen-Presentation Suppression</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Tumor-cell FAK signaling limits immunoproteasome expression and antigen presentation in PDAC models. FAK depletion increases antigen diversity and MHC-I presentation; combined STAT3 loss further promotes immune control. This is a complementary regulator, not evidence that RAS cannot influence MHC-I. The reported antigen-presentation effect is kinase-independent, requires nuclear FAK, and is lost in an extreme squamous phenotype; FAK kinase inhibition is therefore not equivalent to eliminating this function.</div>
 
 
@@ -9229,6 +9359,7 @@ This pathophysiological event involves PTK2 (hgnc:9611). hgnc:9611 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exosome-mif-liver-premetastatic-niche" data-dismech-node="Exosome-MIF Liver Premetastatic Niche" data-dismech-type="pathophysiology">
                 <div class="item-name">Exosome-MIF Liver Premetastatic Niche</div>
+
 
                 <div class="item-desc">PDAC-derived exosomes carrying MIF can be taken up by Kupffer cells, inducing TGF-beta, hepatic stellate-cell fibronectin deposition and recruitment of bone-marrow-derived macrophages. This establishes a liver premetastatic niche mechanism; the cited study does not by itself establish direct exosomal suppression of dendritic cells or T cells.</div>
 
@@ -9497,6 +9628,7 @@ This pathophysiological event involves increased transforming growth factor beta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metastatic-dissemination-and-colonization" data-dismech-node="Metastatic Dissemination and Colonization" data-dismech-type="pathophysiology">
                 <div class="item-name">Metastatic Dissemination and Colonization</div>
 
+
                 <div class="item-desc">Invasive tumor cells disseminate and establish distant lesions, frequently in the liver and also lung or peritoneum. Colonization depends on both tumor-cell programs and organ-specific niches; metastatic-site immune composition differs from the primary tumor. A single EMT program is not obligatory for every metastatic event.</div>
 
 
@@ -9572,6 +9704,7 @@ This pathophysiological event involves increased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-dissemination-and-emt" data-dismech-node="Early Dissemination and EMT" data-dismech-type="pathophysiology">
                 <div class="item-name">Early Dissemination and EMT</div>
+
 
                 <div class="item-desc">Epithelial-mesenchymal plasticity can accompany dissemination and drug resistance, but individual EMT transcription factors have nonredundant roles. Snail or Twist deletion did not abolish metastasis in a KPC study. Early dissemination observed in mouse precursor models is not proof that all human PDAC metastasizes before invasion.</div>
 
@@ -9731,6 +9864,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perineural-invasion" data-dismech-node="Perineural Invasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Perineural Invasion</div>
 
+
                 <div class="item-desc">Pancreatic cancer cells interact with nerves and migrate along neural structures. HGF-MET signaling can activate mTOR-NGF, promoting nerve recruitment and invasion in experimental models. PNI is associated with adverse clinical outcomes and can contribute to pain; it is not established as the universal route to distant metastasis. Human NGF/TrkA levels correlate with PNI and pain in one tissue cohort, but a prospective resectable cohort found pain did not predict PNI; clinical pain and neural invasion are not interchangeable readouts.</div>
 
 
@@ -9882,6 +10016,7 @@ This pathophysiological event involves increased positive regulation of cell mig
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immunosuppressive-tme-reversibility-under-ras-on-inhibition" data-dismech-node="Immunosuppressive TME Reversibility under RAS(ON) Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Immunosuppressive TME Reversibility under RAS(ON) Inhibition</div>
 
+
                 <div class="item-desc">In immunocompetent PDAC models, RAS(ON) multiselective inhibition can reduce suppressive myeloid subsets, increase tumor MHC-I and lymphocyte infiltration, and enable immune-dependent tumor control. RMC-7977 and daraxonrasib provide direct PDAC evidence. Responses and optimal checkpoint partners are model-dependent; increased Tregs and adaptive myeloid rebound can limit benefit. Patient survival from daraxonrasib monotherapy does not establish an immune-mediated clinical benefit.</div>
 
 
@@ -9987,6 +10122,13 @@ This pathophysiological event involves increased positive regulation of cell mig
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyclophilin-a-loss-and-reduced-tri-complex-engagement" data-dismech-node="Cyclophilin A Loss and Reduced Tri-Complex Engagement" data-dismech-type="pathophysiology">
                 <div class="item-name">Cyclophilin A Loss and Reduced Tri-Complex Engagement</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A preprint reports reduced cyclophilin-A protein with retained KRAS-G12D-GTP signaling in daraxonrasib-resistant PDAC cells. As cyclophilin A is required for tri-complex formation, reduced availability is a plausible drug-engagement escape mechanism. This observation does not establish that peptidyl-prolyl isomerase catalytic activity was measured or is causally required. The single clinical case in this paper instead concerns KRAS-G12R EGFR/wild-type-RAS activation.</div>
 
@@ -10128,6 +10270,13 @@ This pathophysiological event involves PPIA (hgnc:9253). hgnc:9253 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ras-independent-cell-cycle-uncoupling" data-dismech-node="RAS-Independent Cell-Cycle Uncoupling" data-dismech-type="pathophysiology">
                 <div class="item-name">RAS-Independent Cell-Cycle Uncoupling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A preprint describes acquired RMC-6236 resistance in mixed PDAC and NSCLC models with sustained cell-cycle progression despite RAS suppression. CDK4/6 or CDK2 cotargeting restored control through distinct arrest programs; CDK2 inhibition produced more durable cytostasis in the tested settings. This is not a clinically validated combination or proof that simultaneous inhibition of all three kinases is required. CDK8-mediated microenvironmental resistance is a separate mechanism.</div>
 
@@ -10290,6 +10439,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquired-ras-on-inhibitor-resistance" data-dismech-node="Acquired RAS(ON) Inhibitor Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquired RAS(ON) Inhibitor Resistance</div>
 
+
                 <div class="item-desc">Daraxonrasib can initially control PDAC and subsequently lose efficacy through heterogeneous resistance routes. An August 2026 study profiled 44 patients with response or stable disease lasting more than three months followed by progression: 59% had treatment-emergent RAS-pathway genomic alterations, including KRAS amplification in 36%. Mutant-allele identity was inferred from variant-allele-frequency ratios by an exploratory method, not directly confirmed in all cases. These selected-cohort findings establish patient mechanisms but not universal resistance or population-wide route frequencies. Median progression-free survival alone cannot distinguish acquired resistance, primary nonresponse and death. Non-genomic, tissue-specific and low-shedding routes remain incompletely captured.</div>
 
 
@@ -10312,7 +10462,7 @@ This pathophysiological event involves increased cell population proliferation (
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -10392,6 +10542,8 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
 
 
+            <div class="evidence-more">+ 1 more reference</div>
+
         </div>
     </details>
 
@@ -10400,6 +10552,13 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-on-target-ras-reactivation-and-kras-amplification" data-dismech-node="On-Target RAS Reactivation and KRAS Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">On-Target RAS Reactivation and KRAS Amplification</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Increased mutant KRAS dosage can attenuate daraxonrasib suppression and restore RAS-pathway output in PDAC models. Paired ctDNA detected emergent KRAS amplification in 16/44 profiled PDAC patients after initial disease control. Assignment to the pre-existing mutant allele was inferred from variant-allele-frequency ratios; the supplementary table explicitly calls this exploratory and unconfirmed, rather than direct allele phasing in all cases. Engineered and selected PDAC models provide functional corroboration of mutant KRAS dosage. Secondary KRAS mutations were absent from the 44 PDAC cases and selected PDAC resistance models, while an engineered Ba/F3 deep mutational scan identified resistance-conferring second-site variants in a different context.</div>
 
@@ -10549,6 +10708,13 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rtk-and-feedback-pathway-reactivation" data-dismech-node="RTK and Feedback Pathway Reactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">RTK and Feedback Pathway Reactivation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">RTK signaling can contribute to daraxonrasib resistance in particular PDAC contexts. The paired 44-patient study found emergent RTK alterations in 4/44, with HER2-upregulated resistant models providing functional support. A separate preprint identified EGFR/wild-type-RAS activation in KRAS-G12R models and one patient who progressed after ten months. G12D cyclophilin-A loss is a distinct route. Earlier MEK or G12C-selective-inhibitor studies are contextual analogies and do not establish universal sufficiency against multiselective inhibition.</div>
 
 
@@ -10608,7 +10774,7 @@ This pathophysiological event involves increased cell population proliferation (
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -10688,6 +10854,8 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
 
 
+            <div class="evidence-more">+ 1 more reference</div>
+
         </div>
     </details>
 
@@ -10696,6 +10864,13 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adaptive-mtor-and-jun-ap1-transcriptional-program" data-dismech-node="Adaptive mTOR and JUN-AP1 Transcriptional Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Adaptive mTOR and JUN-AP1 Transcriptional Program</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">CRISPR screens identify mTOR and JUN as convergent mediators of resistance to MAPK-pathway inhibitor combinations. In PDAC cells, JUN overexpression supported resistance to SHP2 plus RMC-6236; in-vivo MAP2K4 rescue used SHP2 plus ERK inhibition. The combination-specific evidence should not be recast as patient-level daraxonrasib monotherapy resistance. A separate RMC-7977 mouse study identified focal Jun gain in one resistant tumor.</div>
 
@@ -10820,6 +10995,13 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-remodeling-and-ferroptosis-vulnerability" data-dismech-node="Mitochondrial Remodeling and Ferroptosis Vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Remodeling and Ferroptosis Vulnerability</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Dual SHP2-MEK inhibition produces persistent mitochondrial changes and lipid-peroxide-defense dependency in PDAC models, with confirmation under direct RAS targeting. Sensitivity to GPX4 disruption is an exploitable treatment-induced vulnerability; it does not mean ferroptosis is already increased or that this state itself causes clinical daraxonrasib resistance. The primary intervention and model context are retained.</div>
 
 
@@ -10880,6 +11062,13 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myc-amplification-driven-ras-independent-proliferation" data-dismech-node="MYC Amplification-Driven RAS-Independent Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">MYC Amplification-Driven RAS-Independent Proliferation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">RMC-7977-resistant KPC tumors frequently gained Myc copies while maintaining ERK suppression. YAP-TEAD-dependent transcriptional output accompanied resistance, and TEAD cotargeting restored sensitivity in vitro. The subsequent daraxonrasib clinical study detected MYC amplification in one patient together with KRAS amplification and corroborated MYC-related resistance in models. These data support a bypass route without proving that all MYC gain is independent of RAS or that TEAD combinations benefit patients.</div>
 
@@ -11106,6 +11295,7 @@ This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myeloid-suppression-relief-and-cd8-effector-infiltration" data-dismech-node="Myeloid Suppression Relief and CD8 Effector Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Myeloid Suppression Relief and CD8 Effector Infiltration</div>
 
+
                 <div class="item-desc">MRTX1133 and RAS(ON) multiselective inhibitors can reduce suppressive myeloid subsets and increase effector lymphocytes in immunocompetent PDAC models. Total macrophage abundance can increase while state composition changes; myeloid remodeling is not equivalent to depletion of every myeloid cell. The direction and durability of individual populations vary by agent, model and time.</div>
 
 
@@ -11267,6 +11457,13 @@ This pathophysiological event involves increased CD8-positive effector T cell, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-cell-fas-induction-and-cd8-mediated-killing" data-dismech-node="Tumor-Cell FAS Induction and CD8-Mediated Killing" data-dismech-type="pathophysiology">
                 <div class="item-name">Tumor-Cell FAS Induction and CD8-Mediated Killing</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">KRAS-G12D inhibition by MRTX1133 induces FAS in malignant cells and patient-derived organoids, permitting CD8-mediated killing in PDAC models. This is drug- and model-specific evidence; the original citation to the preprint has been replaced with the final paper. CDK8-dependent FAS suppression can later oppose this response.</div>
 
 
@@ -11364,6 +11561,13 @@ This pathophysiological event involves increased CD8-positive effector T cell, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-antigen-presentation-restoration" data-dismech-node="Antigen Presentation Restoration" data-dismech-type="pathophysiology">
                 <div class="item-name">Antigen Presentation Restoration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">RMC-7977 increased MHC-I on residual malignant cells in a syngeneic PDAC model. This is direct evidence for a RAS(ON)-associated antigen-presentation change in PDAC, although the relative mediation by autophagy, FAK, interferon signaling and tumor selection remains unresolved. NSCLC daraxonrasib-elironrasib results are supplementary cross-cancer evidence, not the sole anchor.</div>
 
@@ -11500,6 +11704,13 @@ This pathophysiological event involves increased antigen processing and presenta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-usp20-cholesterol-metabolism-cd8-exhaustion-checkpoint" data-dismech-node="USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint" data-dismech-type="pathophysiology">
                 <div class="item-name">USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">KRAS-G12D induces EGR1-USP20, stabilizing HMG-CoA reductase and promoting cholesterol metabolism associated with CD8 exhaustion. KRAS inhibition or cholesterol blockade induces compensatory ULK1-associated autophagy; USP20 also stabilizes ULK1. This is a two-arm metabolic and survival mechanism. MRTX1133 plus USP20 inhibition and PD-1 blockade regressed tumors in preclinical models, but human tissue profiling is not evidence of clinical combination efficacy.</div>
 
@@ -11643,6 +11854,13 @@ This pathophysiological event involves increased antigen processing and presenta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cdk8-cxcl2-adaptive-immune-reversal" data-dismech-node="CDK8-CXCL2 Adaptive Immune Reversal" data-dismech-type="pathophysiology">
                 <div class="item-name">CDK8-CXCL2 Adaptive Immune Reversal</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Long-term MRTX1133 treatment can reverse early immune infiltration through CDK8-associated CXCL2 secretion and FAS suppression. CDK8 perturbation restores immune control in those PDAC models. Daraxonrasib-resistant PDX tumors also show CDK8 upregulation, but this does not establish the entire temporal CXCL2/FAS immune circuit under daraxonrasib or in patients.</div>
 
 
@@ -11780,6 +11998,13 @@ This pathophysiological event involves increased antigen processing and presenta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regulatory-t-cell-recruitment-after-kras-inhibition" data-dismech-node="Regulatory T-Cell Recruitment after KRAS Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Regulatory T-Cell Recruitment after KRAS Inhibition</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">An August 2026 PDAC study found that MRTX1133 or daraxonrasib recruits regulatory as well as effector and exhausted T cells. In its models, CTLA-4 blockade reprogrammed effector Tregs, reduced CD8 exhaustion and supported tertiary lymphoid structures. Other checkpoint combinations were less effective. This contrasts with a different RMC-7977 model where the CD4 increase was not attributable to FoxP3-positive Tregs, so generalized Treg relief is not supported.</div>
 
 
@@ -11900,6 +12125,13 @@ This pathophysiological event involves regulatory T cell (CL:0000815). CL:000081
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il6-caf-and-myeloid-rebound-after-sos1-mek-inhibition" data-dismech-node="IL6-CAF and Myeloid Rebound after SOS1-MEK Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">IL6-CAF and Myeloid Rebound after SOS1-MEK Inhibition</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">SOS1 plus MEK blockade increased CD8 infiltration but also generated IL6-positive inflammatory CAFs, M2-like macrophages and poorer dendritic-cell function in KPCY models. CD40 agonism reactivated myeloid cells and enabled durable checkpoint combinations. This qualifies a uniformly beneficial RAS-inhibition model but is not direct daraxonrasib evidence.</div>
 
 
@@ -11997,6 +12229,13 @@ This pathophysiological event involves regulatory T cell (CL:0000815). CL:000081
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-basal-state-gm-csf-immunosuppressive-circuit" data-dismech-node="Basal-State GM-CSF Immunosuppressive Circuit" data-dismech-type="pathophysiology">
                 <div class="item-name">Basal-State GM-CSF Immunosuppressive Circuit</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Basal malignant cells can organize tumor-maintaining fibroblast, macrophage and cytokine states. Lineage tracing found greater plasticity of basal than classical cells in autochthonous mouse PDAC. Basal-state ablation, and separately basal-cell GM-CSF knockout, reprogrammed the stroma and recruited cytotoxic lymphocytes. This establishes a causal circuit in these models while leaving human state-targeting efficacy unresolved.</div>
 
@@ -12117,6 +12356,7 @@ This pathophysiological event involves CSF2 (hgnc:2434). hgnc:2434 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pancreatic-exocrine-functional-loss" data-dismech-node="Pancreatic Exocrine Functional Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Pancreatic Exocrine Functional Loss</div>
 
+
                 <div class="item-desc">Tumor-associated obstruction and loss of functional pancreatic tissue can impair digestive enzyme delivery. The resulting maldigestion contributes to nutritional loss; this process also occurs after pancreatic surgery. Clinical prevalence varies with stage, location and testing method.</div>
 
 
@@ -12200,6 +12440,13 @@ This pathophysiological event involves CSF2 (hgnc:2434). hgnc:2434 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adaptive-cd24-antiphagocytic-signaling" data-dismech-node="Adaptive CD24 Antiphagocytic Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Adaptive CD24 Antiphagocytic Signaling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In KRAS-G12C-driven mouse PDAC, selective KRAS inhibition upregulated the CD24 antiphagocytic signal despite an inflamed microenvironment. CD24 blockade increased macrophage phagocytosis and sensitized tumors; related findings occurred in G12D PDAC. The preprint and final paper report the same work. This is a plausible immune-adaptation route whose relevance to clinical daraxonrasib progression remains unproven.</div>
 
@@ -12355,6 +12602,13 @@ This pathophysiological event involves CD24 (hgnc:1645). hgnc:1645 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-senescent-myofibroblast-immunosuppression" data-dismech-node="Senescent Myofibroblast Immunosuppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Senescent Myofibroblast Immunosuppression</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Senescent myofibroblastic CAFs accumulate near tumor ducts and during PDAC progression. Genetic or pharmacologic depletion of senescent stromal cells in mouse models reduced macrophage-associated immune suppression and improved chemotherapy responsiveness. Human tissue identifies the state, but clinical senolytic efficacy is not established.</div>
 
@@ -12524,7 +12778,7 @@ This pathophysiological event involves CD24 (hgnc:1645). hgnc:1645 is a gene fro
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acinar-to-Ductal Metaplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acinar cells can lose differentiated identity and adopt ductal-like programs during injury and KRAS-driven transformation. ADM is reversible in regenerative settings and is not synonymous with cancer. Persistent oncogenic signaling can channel reprogrammed cells into PanIN. Adult ductal cells can also initiate PDAC with cooperating p53 alterations in mice; the relative contribution of these origins in humans remains unresolved.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"pancreatic acinar cell\", \"pancreatic ductal cell\"], \"biological_processes\": [\"transdifferentiation\"], \"role\": \"mediator\"}}, {\"id\": \"Acquired RAS(ON) Inhibitor Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Daraxonrasib can initially control PDAC and subsequently lose efficacy through heterogeneous resistance routes. An August 2026 study profiled 44 patients with response or stable disease lasting more than three months followed by progression: 59% had treatment-emergent RAS-pathway genomic alterations, including KRAS amplification in 36%. Mutant-allele identity was inferred from variant-allele-frequency ratios by an exploratory method, not directly confirmed in all cases. These selected-cohort findings establish patient mechanisms but not universal resistance or population-wide route frequencies. Median progression-free survival alone cannot distinguish acquired resistance, primary nonresponse and death. Non-genomic, tissue-specific and low-shedding routes remain incompletely captured.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Adaptive CD24 Antiphagocytic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In KRAS-G12C-driven mouse PDAC, selective KRAS inhibition upregulated the CD24 antiphagocytic signal despite an inflamed microenvironment. CD24 blockade increased macrophage phagocytosis and sensitized tumors; related findings occurred in G12D PDAC. The preprint and final paper report the same work. This is a plausible immune-adaptation route whose relevance to clinical daraxonrasib progression remains unproven.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CD24\"], \"gene_terms\": [{\"label\": \"CD24\", \"id\": \"hgnc:1645\"}]}}, {\"id\": \"Adaptive mTOR and JUN-AP1 Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CRISPR screens identify mTOR and JUN as convergent mediators of resistance to MAPK-pathway inhibitor combinations. In PDAC cells, JUN overexpression supported resistance to SHP2 plus RMC-6236; in-vivo MAP2K4 rescue used SHP2 plus ERK inhibition. The combination-specific evidence should not be recast as patient-level daraxonrasib monotherapy resistance. A separate RMC-7977 mouse study identified focal Jun gain in one resistant tumor.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Antigen Presentation Restoration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RMC-7977 increased MHC-I on residual malignant cells in a syngeneic PDAC model. This is direct evidence for a RAS(ON)-associated antigen-presentation change in PDAC, although the relative mediation by autophagy, FAK, interferon signaling and tumor selection remains unresolved. NSCLC daraxonrasib-elironrasib results are supplementary cross-cancer evidence, not the sole anchor.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"antigen processing and presentation\"]}}, {\"id\": \"Autophagy-Lysosome Growth Support\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal autophagy can maintain oxidative metabolism and restrain damaging reactive oxygen species in established pancreatic cancer models. Recycling also provides substrates under treatment stress. The effects of autophagy loss differ by tumor stage and genetic context; preclinical dependency is not a validated universal treatment response.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"autophagy\"]}}, {\"id\": \"Basal-State GM-CSF Immunosuppressive Circuit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal malignant cells can organize tumor-maintaining fibroblast, macrophage and cytokine states. Lineage tracing found greater plasticity of basal than classical cells in autochthonous mouse PDAC. Basal-state ablation, and separately basal-cell GM-CSF knockout, reprogrammed the stroma and recruited cytotoxic lymphocytes. This establishes a causal circuit in these models while leaving human state-targeting efficacy unresolved.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CSF2\"], \"gene_terms\": [{\"label\": \"CSF2\", \"id\": \"hgnc:2434\"}]}}, {\"id\": \"Biliary Drainage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Endoscopic placement of a fully covered self-expandable metallic biliary stent can relieve malignant biliary obstruction. Select procedural drainage according to anatomy, symptoms and the clinical treatment plan.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CAF-Mediated T Cell Exclusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAP-positive fibroblasts can supply CXCL12 that localizes around malignant cells and limits T-cell access. In KPC mouse tumors, CXCR4 inhibition rapidly increased T-cell accumulation and synergized with PD-L1 blockade. This identifies a specific stromal immune-exclusion circuit, not uniform behavior of all fibroblasts.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pancreatic stellate cell\", \"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"chemokine-mediated signaling pathway\", \"Negative Regulation of T Cell Mediated Immunity\"], \"genes\": [\"CXCL12\", \"CXCR4\", \"FAP\"], \"gene_terms\": [{\"label\": \"CXCL12\", \"id\": \"hgnc:10672\"}, {\"label\": \"CXCR4\", \"id\": \"hgnc:2561\"}, {\"label\": \"FAP\", \"id\": \"hgnc:3590\"}]}}, {\"id\": \"CDK8-CXCL2 Adaptive Immune Reversal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long-term MRTX1133 treatment can reverse early immune infiltration through CDK8-associated CXCL2 secretion and FAS suppression. CDK8 perturbation restores immune control in those PDAC models. Daraxonrasib-resistant PDX tumors also show CDK8 upregulation, but this does not establish the entire temporal CXCL2/FAS immune circuit under daraxonrasib or in patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Chronic Pancreatic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammation and tissue injury can cooperate with oncogenic KRAS to enable acinar reprogramming and precursor formation. In one adult acinar/centroacinar KRAS-G12V mouse model, chronic pancreatitis was necessary for tumor induction. This is a model-specific requirement, not a claim that every human PDAC requires clinically recognized pancreatitis. Human chronic pancreatitis is a strong risk factor with risk estimates dependent on follow-up and case definition.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"pancreatic stellate cell\"], \"biological_processes\": [\"inflammatory response\"], \"role\": \"trigger\", \"locations\": [\"pancreas\"]}}, {\"id\": \"Cyclophilin A Loss and Reduced Tri-Complex Engagement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A preprint reports reduced cyclophilin-A protein with retained KRAS-G12D-GTP signaling in daraxonrasib-resistant PDAC cells. As cyclophilin A is required for tri-complex formation, reduced availability is a plausible drug-engagement escape mechanism. This observation does not establish that peptidyl-prolyl isomerase catalytic activity was measured or is causally required. The single clinical case in this paper instead concerns KRAS-G12R EGFR/wild-type-RAS activation.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPIA\"], \"gene_terms\": [{\"label\": \"PPIA\", \"id\": \"hgnc:9253\"}]}}, {\"id\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Daraxonrasib is a cyclophilin-A-dependent inhibitor of active GTP-bound mutant and wild-type RAS. In phase III RASolute 302 for previously treated metastatic PDAC, median overall survival was 13.2 versus 6.6 months in the RAS G12 population (hazard ratio 0.40); median progression-free survival was 7.3 versus 3.5 months. These clinical outcomes establish treatment efficacy, not a universal resistance mechanism or an immune basis for survival benefit.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"daraxonrasib\"]}}, {\"id\": \"Desmoplastic Stroma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor-derived signals and local tissue interactions recruit and alter fibroblast states that deposit collagen, hyaluronan and other extracellular matrix. Dense matrix can impair perfusion, but stromal programs are heterogeneous: some support inflammation or immune exclusion and others restrain tumor growth. Fibroblast depletion and matrix digestion are not interchangeable, and neither is a generally validated treatment for PDAC.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pancreatic stellate cell\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen biosynthetic process\"], \"histopathology_terms\": [{\"name\": \"Desmoplastic Stroma\", \"preferred_term\": \"desmoplastic stroma\", \"term_id\": \"NCIT:C36178\", \"term_label\": \"Fibrotic Stroma Formation\"}], \"computational_models\": [{\"name\": \"PDAC CAF-Mediated Invasion PhysiCell Model\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"description\": \"Implements ECM-driven fibroblast motility and epithelial-mesenchymal state switching encoded in `config/cell_rules.csv` for the stromal invasion program.\"}]}}, {\"id\": \"Early Dissemination and EMT\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epithelial-mesenchymal plasticity can accompany dissemination and drug resistance, but individual EMT transcription factors have nonredundant roles. Snail or Twist deletion did not abolish metastasis in a KPC study. Early dissemination observed in mouse precursor models is not proof that all human PDAC metastasizes before invasion.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"epithelial to mesenchymal transition\", \"cell migration\"]}}, {\"id\": \"Exocrine Pancreatic Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced pancreatic digestive enzyme delivery contributes to maldigestion, malnutrition and weight loss, particularly with advanced or pancreatic-head disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001738\"}}, {\"id\": \"Exosome-MIF Liver Premetastatic Niche\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PDAC-derived exosomes carrying MIF can be taken up by Kupffer cells, inducing TGF-beta, hepatic stellate-cell fibronectin deposition and recruitment of bone-marrow-derived macrophages. This establishes a liver premetastatic niche mechanism; the cited study does not by itself establish direct exosomal suppression of dendritic cells or T cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic ductal cell\", \"Kupffer cell\", \"recruited bone marrow-derived macrophage\"], \"biological_processes\": [\"extracellular exosome biogenesis\", \"transforming growth factor beta production\"]}}, {\"id\": \"Experimental KRAS Inhibition with Immune Checkpoint Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Checkpoint combinations with RAS inhibitors are supported by mouse PDAC experiments. RMC-7977/daraxonrasib plus PD-1-based therapy worked in one study, whereas a later study found CTLA-4 blockade specifically effective and associated with Treg reprogramming and tertiary lymphoid structures. Regimen, model, timing and checkpoint partner matter. These results do not establish routine clinical daraxonrasib-checkpoint treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Experimental RAS-EGFR-STAT3 Combination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Daraxonrasib, afatinib and the STAT3 degrader SD36 produced prolonged regressions in orthotopic, genetically engineered and patient-derived xenograft PDAC models. This corrected primary study also tested genetic RAF1/EGFR/STAT3 ablation. It supports combination research, not routine patient treatment or proof that immunity is irrelevant.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"daraxonrasib\", \"afatinib\", \"SD36\"]}}, {\"id\": \"FAK-Mediated Antigen-Presentation Suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor-cell FAK signaling limits immunoproteasome expression and antigen presentation in PDAC models. FAK depletion increases antigen diversity and MHC-I presentation; combined STAT3 loss further promotes immune control. This is a complementary regulator, not evidence that RAS cannot influence MHC-I. The reported antigen-presentation effect is kinase-independent, requires nuclear FAK, and is lost in an extreme squamous phenotype; FAK kinase inhibition is therefore not equivalent to eliminating this function.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTK2\"], \"gene_terms\": [{\"label\": \"PTK2\", \"id\": \"hgnc:9611\"}]}}, {\"id\": \"Hepatic Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver is a common metastatic site. The cited registry estimate of 74.36% concerns synchronous metastatic cases, not all PDAC or all patients with locally advanced disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002896\"}}, {\"id\": \"Human PDAC Cell and Organoid RAS-Response Models\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived PDAC organoids and established cell models permit driver-specific RMC-7977 sensitivity assays; engineered and selected cell models test bypass mechanisms. These isolated epithelial systems do not reproduce the complete immune or desmoplastic microenvironment.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"ORGANOID\", \"publication\": \"PMID:38588697\"}}, {\"id\": \"IL1-LIF-JAK-STAT Inflammatory Fibroblast Programming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor-derived IL1 induces fibroblast LIF and JAK-STAT signaling, promoting an inflammatory CAF state. TGF-beta antagonizes this program by reducing IL1R1 and favoring myofibroblasts. Spatial exposure and plasticity generate distinct CAF niches, so fibroblast number alone is an inadequate mechanistic readout.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IL6-CAF and Myeloid Rebound after SOS1-MEK Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOS1 plus MEK blockade increased CD8 infiltration but also generated IL6-positive inflammatory CAFs, M2-like macrophages and poorer dendritic-cell function in KPCY models. CD40 agonism reactivated myeloid cells and enabled durable checkpoint combinations. This qualifies a uniformly beneficial RAS-inhibition model but is not direct daraxonrasib evidence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myeloid suppression, dysfunctional lymphocytes, stromal exclusion and impaired antigen presentation limit immune control in most PDAC. These mechanisms vary between tumors and metastatic sites. Rare mismatch-repair-deficient/MSI-high cancers can respond to checkpoint blockade; PDAC is not uniformly refractory to every immune or targeted therapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"regulatory T cell\", \"tumor-associated macrophage\"], \"biological_processes\": [\"immune response\"], \"computational_models\": [{\"name\": \"PDAC Immunotherapy PhysiCell Model\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"description\": \"Encodes PD-L1-dependent suppression of T-cell motility and attack probabilities, plus macrophage inflammatory-state rules, in `config/cell_rules.csv`.\"}]}}, {\"id\": \"Immunocompetent Mouse PDAC RAS-Inhibition Models\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"RMC-7977 and daraxonrasib experiments test tumor regression, immune-cell changes and immunotherapy combinations in immunocompetent PDAC. Results depend on regimen and tumor/host model and do not establish patient immune pharmacodynamics.\"}, {\"id\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In immunocompetent PDAC models, RAS(ON) multiselective inhibition can reduce suppressive myeloid subsets, increase tumor MHC-I and lymphocyte infiltration, and enable immune-dependent tumor control. RMC-7977 and daraxonrasib provide direct PDAC evidence. Responses and optimal checkpoint partners are model-dependent; increased Tregs and adaptive myeloid rebound can limit benefit. Patient survival from daraxonrasib monotherapy does not establish an immune-mediated clinical benefit.\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"Immunocompetent Mouse PDAC RAS-Inhibition Models\", \"species\": \"Mouse\", \"genotype\": \"KRAS-driven autochthonous and syngeneic PDAC systems\", \"relationship\": \"PERTURBS\", \"description\": \"Measures immune remodeling and depletion-defined immune contribution.\"}]}}, {\"id\": \"KPC RMC-7977 Acquired-Resistance Models\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Chronic RMC-7977 exposure produces initially responding and subsequently relapsing KPC tumors. MYC and YAP/TEAD programs were interrogated; tool-compound models and clinical daraxonrasib cohorts have different resistance distributions.\"}, {\"id\": \"KRAS Oncogene Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating KRAS variants favor persistent RAS-GTP signaling through RAF-MEK-ERK and additional effector networks, supporting proliferation, survival, metabolic rewiring and microenvironmental remodeling. G12D, G12V and G12R are common in PDAC, with allele-specific signaling and inhibitor responses. Most PDACs are KRAS-mutant; KRAS-wild-type cancers require separate driver characterization. KRAS signaling does not itself establish acquisition of a particular tumor-suppressor mutation or therapeutic inhibition.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"pancreatic acinar cell\"], \"biological_processes\": [\"MAPK cascade\", \"phosphatidylinositol 3-kinase signaling\", \"cell population proliferation\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Somatic activating KRAS codon-12 mutation, the initiating lesion of the PanIN-to-PDAC sequence, arising in the acinar/centroacinar compartment. The tumour\u0027s ductal phenotype is acquired downstream through acinar-to-ductal metaplasia and does not indicate a ductal cell of origin.\", \"gene_terms\": [{\"label\": \"KRAS\", \"id\": \"hgnc:6407\"}]}, \"experimental_models\": [{\"name\": \"Human PDAC Cell and Organoid RAS-Response Models\", \"model_type\": \"ORGANOID\", \"relationship\": \"PERTURBS\", \"description\": \"Tests RAS-GTP-inhibitor signaling and growth response.\"}]}}, {\"id\": \"KRAS-Dependent Anabolic Glucose Metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS supports glucose uptake and redirects intermediates toward anabolic pathways that sustain pancreatic tumor growth. This is a regulated metabolic program rather than a universal switch eliminating oxidative phosphorylation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycolytic process\"]}}, {\"id\": \"KRAS-GM-CSF Myeloid Immunosuppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oncogenic KRAS induces tumor-cell GM-CSF, expanding suppressive myeloid cells that constrain cytotoxic T-cell immunity in pancreatic neoplasia models. This supplies a disease-driving counterpart to the myeloid remodeling seen after KRAS inhibition.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CSF2\"], \"gene_terms\": [{\"label\": \"CSF2\", \"id\": \"hgnc:2434\"}]}}, {\"id\": \"KRAS-Regulated Glutamine Redox Metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In studied PDAC cells, glutamine-derived aspartate is routed through cytosolic GOT1, malate and pyruvate to support NADPH-dependent redox balance. Dependency varies with growth context and compensatory metabolism; this does not establish clinical efficacy of glutaminase inhibition.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GOT1\"], \"gene_terms\": [{\"label\": \"GOT1\", \"id\": \"hgnc:4432\"}]}}, {\"id\": \"MYC Amplification-Driven RAS-Independent Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RMC-7977-resistant KPC tumors frequently gained Myc copies while maintaining ERK suppression. YAP-TEAD-dependent transcriptional output accompanied resistance, and TEAD cotargeting restored sensitivity in vitro. The subsequent daraxonrasib clinical study detected MYC amplification in one patient together with KRAS amplification and corroborated MYC-related resistance in models. These data support a bypass route without proving that all MYC gain is independent of RAS or that TEAD combinations benefit patients.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYC\", \"YAP1\"], \"gene_terms\": [{\"label\": \"MYC\", \"id\": \"hgnc:7553\"}, {\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"animal_models\": [{\"name\": \"KPC RMC-7977 Acquired-Resistance Models\", \"species\": \"Mouse\", \"genotype\": \"Kras/Trp53-driven genetically engineered pancreatic cancer\", \"relationship\": \"PERTURBS\", \"description\": \"Tracks relapse-associated MYC amplification and downstream bypass.\"}]}}, {\"id\": \"Macropinocytic Protein Scavenging\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAS-driven macropinocytosis internalizes extracellular protein for lysosomal proteolysis and amino-acid supply. It supports growth in nutrient-poor settings and is observed in primary human PDAC specimens, complementing transport of free nutrients.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"macropinocytosis\"]}}, {\"id\": \"Matrix-Associated Hypoperfusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyaluronan-rich stroma can elevate interstitial fluid pressure, collapse vessels and restrict delivery of nutrients and drugs in PDAC mouse models. Matrix degradation improved perfusion experimentally, but the phase III PEGPH20 trial did not improve survival, limiting direct therapeutic extrapolation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metastatic Dissemination and Colonization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Invasive tumor cells disseminate and establish distant lesions, frequently in the liver and also lung or peritoneum. Colonization depends on both tumor-cell programs and organ-specific niches; metastatic-site immune composition differs from the primary tumor. A single EMT program is not obligatory for every metastatic event.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myeloid Suppression Relief and CD8 Effector Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MRTX1133 and RAS(ON) multiselective inhibitors can reduce suppressive myeloid subsets and increase effector lymphocytes in immunocompetent PDAC models. Total macrophage abundance can increase while state composition changes; myeloid remodeling is not equivalent to depletion of every myeloid cell. The direction and durability of individual populations vary by agent, model and time.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive effector T cell\"]}}, {\"id\": \"NBR1-Mediated MHC-I Autophagic Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Selective autophagy directs MHC-I to lysosomes through NBR1, reducing surface antigen presentation and immune recognition in PDAC models. Autophagy inhibition can restore MHC-I and improve T-cell control. This can coexist with RAS-dependent and FAK-dependent regulation; pathway dominance or mutual independence has not been established.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NBR1\"], \"gene_terms\": [{\"label\": \"NBR1\", \"id\": \"hgnc:6746\"}]}}, {\"id\": \"Obstructive Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painless obstructive jaundice is a classic presentation for tumors in the pancreatic head, caused by compression of the common bile duct.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001396\"}}, {\"id\": \"On-Target RAS Reactivation and KRAS Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased mutant KRAS dosage can attenuate daraxonrasib suppression and restore RAS-pathway output in PDAC models. Paired ctDNA detected emergent KRAS amplification in 16/44 profiled PDAC patients after initial disease control. Assignment to the pre-existing mutant allele was inferred from variant-allele-frequency ratios; the supplementary table explicitly calls this exploratory and unconfirmed, rather than direct allele phasing in all cases. Engineered and selected PDAC models provide functional corroboration of mutant KRAS dosage. Secondary KRAS mutations were absent from the 44 PDAC cases and selected PDAC resistance models, while an engineered Ba/F3 deep mutational scan identified resistance-conferring second-site variants in a different context.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"PDAC CAF-Mediated Invasion PhysiCell Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Grammar-based PhysiCell agent-based model of pancreatic ductal adenocarcinoma neoplastic cells and cancer-associated fibroblasts. The model encodes fibroblast-mediated invasion, epithelial-mesenchymal state switching, and ECM-dependent motility tradeoffs using human-interpretable cell rules informed by PDAC spatial transcriptomics and coculture data.\", \"meta\": {\"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"publication\": \"DOI:10.1016/j.cell.2025.06.048\"}}, {\"id\": \"PDAC Immunotherapy PhysiCell Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Grammar-based PhysiCell agent-based PDAC tumor-immune model initialized from PDAC tissue compositions. The model simulates combination therapy with GVAX, nivolumab, and urelumab across heterogeneous baseline microenvironment states using explicit cell-state and interaction rules.\", \"meta\": {\"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"publication\": \"DOI:10.1016/j.cell.2025.06.048\"}}, {\"id\": \"Pancreatic Enzyme Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pancreatic enzyme replacement, including pancrelipase, is used for exocrine insufficiency and maldigestion when indicated. Mixed observational/trial pooled survival associations do not establish a causal survival benefit; an 88-patient randomized trial of pancrelipase in unresectable pancreatic cancer did not improve the primary eight-week BMI endpoint.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pancrelipase\"]}}, {\"id\": \"Pancreatic Exocrine Functional Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor-associated obstruction and loss of functional pancreatic tissue can impair digestive enzyme delivery. The resulting maldigestion contributes to nutritional loss; this process also occurs after pancreatic surgery. Clinical prevalence varies with stage, location and testing method.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pancreatic Precursor Progression and Invasive Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS-mutant PanIN can progress with cooperating genetic and microenvironmental changes to invasive, gland-forming PDAC. IPMN and mucinous cystic neoplasms provide additional precursor routes. Not every precursor progresses, and a uniform obligatory mutation order or exclusive acinar origin is not established.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"RAS-Independent Cell-Cycle Uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A preprint describes acquired RMC-6236 resistance in mixed PDAC and NSCLC models with sustained cell-cycle progression despite RAS suppression. CDK4/6 or CDK2 cotargeting restored control through distinct arrest programs; CDK2 inhibition produced more durable cytostasis in the tested settings. This is not a clinically validated combination or proof that simultaneous inhibition of all three kinases is required. CDK8-mediated microenvironmental resistance is a separate mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"RTK and Feedback Pathway Reactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RTK signaling can contribute to daraxonrasib resistance in particular PDAC contexts. The paired 44-patient study found emergent RTK alterations in 4/44, with HER2-upregulated resistant models providing functional support. A separate preprint identified EGFR/wild-type-RAS activation in KRAS-G12R models and one patient who progressed after ten months. G12D cyclophilin-A loss is a distinct route. Earlier MEK or G12C-selective-inhibitor studies are contextual analogies and do not establish universal sufficiency against multiselective inhibition.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Regulatory T-Cell Recruitment after KRAS Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An August 2026 PDAC study found that MRTX1133 or daraxonrasib recruits regulatory as well as effector and exhausted T cells. In its models, CTLA-4 blockade reprogrammed effector Tregs, reduced CD8 exhaustion and supported tertiary lymphoid structures. Other checkpoint combinations were less effective. This contrasts with a different RMC-7977 model where the CD4 increase was not attributable to FoxP3-positive Tregs, so generalized Treg relief is not supported.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"regulatory T cell\"]}}, {\"id\": \"Senescent Myofibroblast Immunosuppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Senescent myofibroblastic CAFs accumulate near tumor ducts and during PDAC progression. Genetic or pharmacologic depletion of senescent stromal cells in mouse models reduced macrophage-associated immune suppression and improved chemotherapy responsiveness. Human tissue identifies the state, but clinical senolytic efficacy is not established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tumor Suppressor Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alterations of CDKN2A, TP53 and SMAD4 cooperate with oncogenic signaling. Loss of p16 removes restraint on CDK4/6-RB cell-cycle progression; p53 alterations weaken stress checkpoints and can confer context-dependent gain of function; SMAD4 loss changes TGF-beta responses. Reported alteration frequencies differ with cohort, assay, copy-number detection and inclusion of epigenetic silencing. These are cooperating events rather than consequences inferred from co-occurrence with KRAS.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of cell cycle\", \"apoptotic process\", \"DNA damage response\"]}}, {\"id\": \"Tumor-Cell FAS Induction and CD8-Mediated Killing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS-G12D inhibition by MRTX1133 induces FAS in malignant cells and patient-derived organoids, permitting CD8-mediated killing in PDAC models. This is drug- and model-specific evidence; the original citation to the preprint has been replaced with the final paper. CDK8-dependent FAS suppression can later oppose this response.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tumor-Restraining Fibroblast Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some fibroblast and stromal programs constrain PDAC. Genetic SHH loss and depletion of alpha-SMA-positive myofibroblasts in distinct mouse models accelerated aggressive disease; newer interferon-response CAF work also identifies a restraining state. These findings qualify global stroma-removal strategies without proving that every myofibroblast state is protective.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS-G12D induces EGR1-USP20, stabilizing HMG-CoA reductase and promoting cholesterol metabolism associated with CD8 exhaustion. KRAS inhibition or cholesterol blockade induces compensatory ULK1-associated autophagy; USP20 also stabilizes ULK1. This is a two-arm metabolic and survival mechanism. MRTX1133 plus USP20 inhibition and PD-1 blockade regressed tumors in preclinical models, but human tissue profiling is not evidence of clinical combination efficacy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unintentional weight loss may reflect reduced intake, systemic cancer effects and pancreatic exocrine insufficiency; it can precede diagnosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Chronic Pancreatic Inflammation\", \"target\": \"Acinar-to-Ductal Metaplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injury promotes ductal reprogramming in permissive pancreatic cells.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Chronic Pancreatic Inflammation\", \"target\": \"Early Dissemination and EMT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pancreatitis increased circulating pancreatic cells and EMT-associated dissemination in lineage-traced mice.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Acinar-to-Ductal Metaplasia\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent reprogramming can precede PanIN and invasive progression in an oncogenic context; regenerative ADM alone is insufficient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"Acinar-to-Ductal Metaplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KRAS promotes persistent ductal reprogramming in susceptible acinar cells; injury, lineage and cooperating alterations modify this effect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"KRAS-Dependent Anabolic Glucose Metabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic KRAS regulates this growth-supporting metabolic program in the cited experimental context.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"KRAS-Regulated Glutamine Redox Metabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic KRAS regulates this growth-supporting metabolic program in the cited experimental context.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"Macropinocytic Protein Scavenging\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic KRAS regulates this growth-supporting metabolic program in the cited experimental context.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"KRAS-GM-CSF Myeloid Immunosuppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic KRAS induces GM-CSF-dependent myeloid suppression.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Tumor-cell GM-CSF production\", \"Expansion of suppressive myeloid cells\"]}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KRAS-G12D induces EGR1-USP20, coordinating cholesterol metabolism and compensatory survival.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"EGR1-dependent USP20 expression\", \"HMG-CoA reductase stabilization\"]}, {\"source\": \"Tumor Suppressor Inactivation\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Checkpoint and differentiation defects cooperate with KRAS to permit invasive progression.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"Desmoplastic Stroma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor-secreted ligands promote fibroblast-state changes and matrix-producing stroma.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"Metastatic Dissemination and Colonization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive growth enables dissemination, but the timing and route vary across tumors.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"IL1-LIF-JAK-STAT Inflammatory Fibroblast Programming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neoplastic epithelial compartment can induce inflammatory fibroblast differentiation through secreted IL1\\u03b1 in PDAC organoid-stellate-cell systems. This branch represents signals from established tumors, not a claim that invasion itself or extracellular matrix deposition directly induces every iCAF state; other ligands contribute in vivo.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Tumor-derived IL1\\u03b1 secretion\", \"Fibroblast IL1R1 signaling and LIF induction\"]}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"Tumor-Restraining Fibroblast Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neoplastic cells can establish a Hedgehog-responsive fibroblast-rich stroma with tumor-restraining activity in a genetically engineered PDAC mouse model. This incoming branch concerns the SHH-dependent component of the heterogeneous stromal node, not all fibroblast states or a universal protective role for fibrosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Tumor-derived SHH secretion\", \"Stromal Hedgehog pathway activation and fibroblast expansion\"]}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"Pancreatic Exocrine Functional Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An established pancreatic tumor can impair exocrine secretion through duct obstruction and loss of functional tissue. Risk depends on tumor location and extent; this is not an obligatory consequence of a noninvasive precursor, and postoperative insufficiency has an additional surgical cause.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Main pancreatic duct obstruction\", \"Gland fibrosis and loss of exocrine tissue\"]}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"Obstructive Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An obstructive pancreatic head cancer can impair bile drainage and cause jaundice. This location-dependent consequence of established tumor growth is not attributed to all PDAC or to noninvasive precursors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Biliary obstruction from a pancreatic head tumor\"]}, {\"source\": \"Desmoplastic Stroma\", \"target\": \"CAF-Mediated T Cell Exclusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The FAP-positive CXCL12-producing subset supports spatial immune exclusion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"FAP-positive fibroblast CXCL12 secretion\", \"CXCR4-dependent T-cell exclusion\"]}, {\"source\": \"Desmoplastic Stroma\", \"target\": \"Matrix-Associated Hypoperfusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix accumulation can impair vascular perfusion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAF-Mediated T Cell Exclusion\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The specified mechanism limits effective antitumor T-cell control.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS-Dependent Anabolic Glucose Metabolism\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nutrient use and redox support permit continued malignant growth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS-Regulated Glutamine Redox Metabolism\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nutrient use and redox support permit continued malignant growth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Macropinocytic Protein Scavenging\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nutrient use and redox support permit continued malignant growth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autophagy-Lysosome Growth Support\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autophagic recycling and redox control support established tumor growth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS-GM-CSF Myeloid Immunosuppression\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The specified mechanism limits effective antitumor T-cell control.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NBR1-Mediated MHC-I Autophagic Degradation\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The specified mechanism limits effective antitumor T-cell control.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FAK-Mediated Antigen-Presentation Suppression\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The specified mechanism limits effective antitumor T-cell control.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Exosome-MIF Liver Premetastatic Niche\", \"target\": \"Metastatic Dissemination and Colonization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MIF-dependent Kupffer-cell and stellate-cell remodeling supports liver colonization.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Kupffer-cell TGF-beta release\", \"Hepatic stellate-cell fibronectin deposition\", \"Macrophage recruitment\"]}, {\"source\": \"Metastatic Dissemination and Colonization\", \"target\": \"Hepatic Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic colonization is a common site-specific manifestation among patients presenting with metastatic PDAC.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cyclophilin A Loss and Reduced Tri-Complex Engagement\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"RAS-Independent Cell-Cycle Uncoupling\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"On-Target RAS Reactivation and KRAS Amplification\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"RTK and Feedback Pathway Reactivation\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Adaptive mTOR and JUN-AP1 Transcriptional Program\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"MYC Amplification-Driven RAS-Independent Proliferation\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myeloid Suppression Relief and CD8 Effector Infiltration\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The observed treatment-induced change contributes to immune recognition or immune-dependent tumor control in the specified model.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tumor-Cell FAS Induction and CD8-Mediated Killing\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The observed treatment-induced change contributes to immune recognition or immune-dependent tumor control in the specified model.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antigen Presentation Restoration\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The observed treatment-induced change contributes to immune recognition or immune-dependent tumor control in the specified model.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cholesterol-associated dysfunction contributes to CD8 exhaustion.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"target\": \"Autophagy-Lysosome Growth Support\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"USP20 stabilizes ULK1 and supports compensatory autophagy under KRAS-G12D or cholesterol inhibition.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ULK1 stabilization\"]}, {\"source\": \"CDK8-CXCL2 Adaptive Immune Reversal\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under prolonged MRTX1133 exposure, CXCL2 and FAS changes restore immune suppression.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\", \"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"CXCL2 secretion\", \"Reduced FAS-mediated susceptibility to immune killing\"]}, {\"source\": \"IL6-CAF and Myeloid Rebound after SOS1-MEK Inhibition\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stromal and myeloid adaptation can limit the benefit of initial T-cell entry.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Basal-State GM-CSF Immunosuppressive Circuit\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal-cell GM-CSF maintains an immunosuppressive tumor ecosystem in autochthonous mouse PDAC.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Exocrine Functional Loss\", \"target\": \"Exocrine Pancreatic Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of digestive enzyme delivery produces clinical pancreatic exocrine insufficiency.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Exocrine Functional Loss\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maldigestion is one contributor to weight loss in advanced pancreatic cancer.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Adaptive CD24 Antiphagocytic Signaling\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Induced CD24 reduces macrophage-mediated tumor-cell clearance in selective-KRAS-inhibitor models.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\", \"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Senescent Myofibroblast Immunosuppression\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Senescent stromal programs maintain macrophage-mediated immune suppression in PDAC models.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"target\": \"KRAS Oncogene Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"target\": \"Regulatory T-Cell Recruitment after KRAS Inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Experimental KRAS Inhibition with Immune Checkpoint Blockade\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pancreatic Enzyme Replacement\", \"target\": \"Exocrine Pancreatic Insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Biliary Drainage\", \"target\": \"Obstructive Jaundice\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Experimental RAS-EGFR-STAT3 Combination\", \"target\": \"KRAS Oncogene Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Experimental RAS-EGFR-STAT3 Combination\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Human PDAC Cell and Organoid RAS-Response Models\", \"target\": \"KRAS Oncogene Activation\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Tests RAS-GTP-inhibitor signaling and growth response.\", \"relationship\": \"PERTURBS\", \"limitations\": \"Cell viability and target phosphorylation are not patient response or immune-remodeling endpoints.\"}, {\"source\": \"Immunocompetent Mouse PDAC RAS-Inhibition Models\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Measures immune remodeling and depletion-defined immune contribution.\", \"relationship\": \"PERTURBS\", \"limitations\": \"Mouse immune ecosystems and drug exposures differ from human metastatic disease.\"}, {\"source\": \"KPC RMC-7977 Acquired-Resistance Models\", \"target\": \"MYC Amplification-Driven RAS-Independent Proliferation\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Tracks relapse-associated MYC amplification and downstream bypass.\", \"relationship\": \"PERTURBS\", \"limitations\": \"Selected mouse tumors do not estimate patient route prevalence.\"}, {\"source\": \"PDAC CAF-Mediated Invasion PhysiCell Model\", \"target\": \"Desmoplastic Stroma\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Implements ECM-driven fibroblast motility and epithelial-mesenchymal state switching encoded in `config/cell_rules.csv` for the stromal invasion program.\"}, {\"source\": \"PDAC Immunotherapy PhysiCell Model\", \"target\": \"Immune Evasion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Encodes PD-L1-dependent suppression of T-cell motility and attack probabilities, plus macrophage inflammatory-state rules, in `config/cell_rules.csv`.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acinar-to-Ductal Metaplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acinar cells can lose differentiated identity and adopt ductal-like programs during injury and KRAS-driven transformation. ADM is reversible in regenerative settings and is not synonymous with cancer. Persistent oncogenic signaling can channel reprogrammed cells into PanIN. Adult ductal cells can also initiate PDAC with cooperating p53 alterations in mice; the relative contribution of these origins in humans remains unresolved.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"pancreatic acinar cell\", \"pancreatic ductal cell\"], \"biological_processes\": [\"transdifferentiation\"], \"role\": \"mediator\"}}, {\"id\": \"Acquired RAS(ON) Inhibitor Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Daraxonrasib can initially control PDAC and subsequently lose efficacy through heterogeneous resistance routes. An August 2026 study profiled 44 patients with response or stable disease lasting more than three months followed by progression: 59% had treatment-emergent RAS-pathway genomic alterations, including KRAS amplification in 36%. Mutant-allele identity was inferred from variant-allele-frequency ratios by an exploratory method, not directly confirmed in all cases. These selected-cohort findings establish patient mechanisms but not universal resistance or population-wide route frequencies. Median progression-free survival alone cannot distinguish acquired resistance, primary nonresponse and death. Non-genomic, tissue-specific and low-shedding routes remain incompletely captured.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Adaptive CD24 Antiphagocytic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In KRAS-G12C-driven mouse PDAC, selective KRAS inhibition upregulated the CD24 antiphagocytic signal despite an inflamed microenvironment. CD24 blockade increased macrophage phagocytosis and sensitized tumors; related findings occurred in G12D PDAC. The preprint and final paper report the same work. This is a plausible immune-adaptation route whose relevance to clinical daraxonrasib progression remains unproven.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CD24\"], \"gene_terms\": [{\"label\": \"CD24\", \"id\": \"hgnc:1645\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Adaptive mTOR and JUN-AP1 Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CRISPR screens identify mTOR and JUN as convergent mediators of resistance to MAPK-pathway inhibitor combinations. In PDAC cells, JUN overexpression supported resistance to SHP2 plus RMC-6236; in-vivo MAP2K4 rescue used SHP2 plus ERK inhibition. The combination-specific evidence should not be recast as patient-level daraxonrasib monotherapy resistance. A separate RMC-7977 mouse study identified focal Jun gain in one resistant tumor.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Antigen Presentation Restoration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RMC-7977 increased MHC-I on residual malignant cells in a syngeneic PDAC model. This is direct evidence for a RAS(ON)-associated antigen-presentation change in PDAC, although the relative mediation by autophagy, FAK, interferon signaling and tumor selection remains unresolved. NSCLC daraxonrasib-elironrasib results are supplementary cross-cancer evidence, not the sole anchor.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"antigen processing and presentation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Autophagy-Lysosome Growth Support\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal autophagy can maintain oxidative metabolism and restrain damaging reactive oxygen species in established pancreatic cancer models. Recycling also provides substrates under treatment stress. The effects of autophagy loss differ by tumor stage and genetic context; preclinical dependency is not a validated universal treatment response.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"autophagy\"]}}, {\"id\": \"Basal-State GM-CSF Immunosuppressive Circuit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal malignant cells can organize tumor-maintaining fibroblast, macrophage and cytokine states. Lineage tracing found greater plasticity of basal than classical cells in autochthonous mouse PDAC. Basal-state ablation, and separately basal-cell GM-CSF knockout, reprogrammed the stroma and recruited cytotoxic lymphocytes. This establishes a causal circuit in these models while leaving human state-targeting efficacy unresolved.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CSF2\"], \"gene_terms\": [{\"label\": \"CSF2\", \"id\": \"hgnc:2434\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Biliary Drainage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Endoscopic placement of a fully covered self-expandable metallic biliary stent can relieve malignant biliary obstruction. Select procedural drainage according to anatomy, symptoms and the clinical treatment plan.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CAF-Mediated T Cell Exclusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAP-positive fibroblasts can supply CXCL12 that localizes around malignant cells and limits T-cell access. In KPC mouse tumors, CXCR4 inhibition rapidly increased T-cell accumulation and synergized with PD-L1 blockade. This identifies a specific stromal immune-exclusion circuit, not uniform behavior of all fibroblasts.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pancreatic stellate cell\", \"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"chemokine-mediated signaling pathway\", \"Negative Regulation of T Cell Mediated Immunity\"], \"genes\": [\"CXCL12\", \"CXCR4\", \"FAP\"], \"gene_terms\": [{\"label\": \"CXCL12\", \"id\": \"hgnc:10672\"}, {\"label\": \"CXCR4\", \"id\": \"hgnc:2561\"}, {\"label\": \"FAP\", \"id\": \"hgnc:3590\"}]}}, {\"id\": \"CDK8-CXCL2 Adaptive Immune Reversal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long-term MRTX1133 treatment can reverse early immune infiltration through CDK8-associated CXCL2 secretion and FAS suppression. CDK8 perturbation restores immune control in those PDAC models. Daraxonrasib-resistant PDX tumors also show CDK8 upregulation, but this does not establish the entire temporal CXCL2/FAS immune circuit under daraxonrasib or in patients.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Chronic Pancreatic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammation and tissue injury can cooperate with oncogenic KRAS to enable acinar reprogramming and precursor formation. In one adult acinar/centroacinar KRAS-G12V mouse model, chronic pancreatitis was necessary for tumor induction. This is a model-specific requirement, not a claim that every human PDAC requires clinically recognized pancreatitis. Human chronic pancreatitis is a strong risk factor with risk estimates dependent on follow-up and case definition.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"pancreatic stellate cell\"], \"biological_processes\": [\"inflammatory response\"], \"role\": \"trigger\", \"locations\": [\"pancreas\"]}}, {\"id\": \"Cyclophilin A Loss and Reduced Tri-Complex Engagement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A preprint reports reduced cyclophilin-A protein with retained KRAS-G12D-GTP signaling in daraxonrasib-resistant PDAC cells. As cyclophilin A is required for tri-complex formation, reduced availability is a plausible drug-engagement escape mechanism. This observation does not establish that peptidyl-prolyl isomerase catalytic activity was measured or is causally required. The single clinical case in this paper instead concerns KRAS-G12R EGFR/wild-type-RAS activation.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPIA\"], \"gene_terms\": [{\"label\": \"PPIA\", \"id\": \"hgnc:9253\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Daraxonrasib is a cyclophilin-A-dependent inhibitor of active GTP-bound mutant and wild-type RAS. In phase III RASolute 302 for previously treated metastatic PDAC, median overall survival was 13.2 versus 6.6 months in the RAS G12 population (hazard ratio 0.40); median progression-free survival was 7.3 versus 3.5 months. These clinical outcomes establish treatment efficacy, not a universal resistance mechanism or an immune basis for survival benefit.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"daraxonrasib\"]}}, {\"id\": \"Desmoplastic Stroma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor-derived signals and local tissue interactions recruit and alter fibroblast states that deposit collagen, hyaluronan and other extracellular matrix. Dense matrix can impair perfusion, but stromal programs are heterogeneous: some support inflammation or immune exclusion and others restrain tumor growth. Fibroblast depletion and matrix digestion are not interchangeable, and neither is a generally validated treatment for PDAC.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pancreatic stellate cell\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen biosynthetic process\"], \"histopathology_terms\": [{\"name\": \"Desmoplastic Stroma\", \"preferred_term\": \"desmoplastic stroma\", \"term_id\": \"NCIT:C36178\", \"term_label\": \"Fibrotic Stroma Formation\"}], \"computational_models\": [{\"name\": \"PDAC CAF-Mediated Invasion PhysiCell Model\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"description\": \"Implements ECM-driven fibroblast motility and epithelial-mesenchymal state switching encoded in `config/cell_rules.csv` for the stromal invasion program.\"}]}}, {\"id\": \"Early Dissemination and EMT\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epithelial-mesenchymal plasticity can accompany dissemination and drug resistance, but individual EMT transcription factors have nonredundant roles. Snail or Twist deletion did not abolish metastasis in a KPC study. Early dissemination observed in mouse precursor models is not proof that all human PDAC metastasizes before invasion.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"epithelial to mesenchymal transition\", \"cell migration\"]}}, {\"id\": \"Exocrine Pancreatic Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced pancreatic digestive enzyme delivery contributes to maldigestion, malnutrition and weight loss, particularly with advanced or pancreatic-head disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001738\"}}, {\"id\": \"Exosome-MIF Liver Premetastatic Niche\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PDAC-derived exosomes carrying MIF can be taken up by Kupffer cells, inducing TGF-beta, hepatic stellate-cell fibronectin deposition and recruitment of bone-marrow-derived macrophages. This establishes a liver premetastatic niche mechanism; the cited study does not by itself establish direct exosomal suppression of dendritic cells or T cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic ductal cell\", \"Kupffer cell\", \"recruited bone marrow-derived macrophage\"], \"biological_processes\": [\"extracellular exosome biogenesis\", \"transforming growth factor beta production\"]}}, {\"id\": \"Experimental KRAS Inhibition with Immune Checkpoint Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Checkpoint combinations with RAS inhibitors are supported by mouse PDAC experiments. RMC-7977/daraxonrasib plus PD-1-based therapy worked in one study, whereas a later study found CTLA-4 blockade specifically effective and associated with Treg reprogramming and tertiary lymphoid structures. Regimen, model, timing and checkpoint partner matter. These results do not establish routine clinical daraxonrasib-checkpoint treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Experimental RAS-EGFR-STAT3 Combination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Daraxonrasib, afatinib and the STAT3 degrader SD36 produced prolonged regressions in orthotopic, genetically engineered and patient-derived xenograft PDAC models. This corrected primary study also tested genetic RAF1/EGFR/STAT3 ablation. It supports combination research, not routine patient treatment or proof that immunity is irrelevant.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"daraxonrasib\", \"afatinib\", \"SD36\"]}}, {\"id\": \"FAK-Mediated Antigen-Presentation Suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor-cell FAK signaling limits immunoproteasome expression and antigen presentation in PDAC models. FAK depletion increases antigen diversity and MHC-I presentation; combined STAT3 loss further promotes immune control. This is a complementary regulator, not evidence that RAS cannot influence MHC-I. The reported antigen-presentation effect is kinase-independent, requires nuclear FAK, and is lost in an extreme squamous phenotype; FAK kinase inhibition is therefore not equivalent to eliminating this function.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTK2\"], \"gene_terms\": [{\"label\": \"PTK2\", \"id\": \"hgnc:9611\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Hepatic Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver is a common metastatic site. The cited registry estimate of 74.36% concerns synchronous metastatic cases, not all PDAC or all patients with locally advanced disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002896\"}}, {\"id\": \"Human PDAC Cell and Organoid RAS-Response Models\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived PDAC organoids and established cell models permit driver-specific RMC-7977 sensitivity assays; engineered and selected cell models test bypass mechanisms. These isolated epithelial systems do not reproduce the complete immune or desmoplastic microenvironment.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"ORGANOID\", \"publication\": \"PMID:38588697\"}}, {\"id\": \"IL1-LIF-JAK-STAT Inflammatory Fibroblast Programming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor-derived IL1 induces fibroblast LIF and JAK-STAT signaling, promoting an inflammatory CAF state. TGF-beta antagonizes this program by reducing IL1R1 and favoring myofibroblasts. Spatial exposure and plasticity generate distinct CAF niches, so fibroblast number alone is an inadequate mechanistic readout.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IL6-CAF and Myeloid Rebound after SOS1-MEK Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOS1 plus MEK blockade increased CD8 infiltration but also generated IL6-positive inflammatory CAFs, M2-like macrophages and poorer dendritic-cell function in KPCY models. CD40 agonism reactivated myeloid cells and enabled durable checkpoint combinations. This qualifies a uniformly beneficial RAS-inhibition model but is not direct daraxonrasib evidence.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myeloid suppression, dysfunctional lymphocytes, stromal exclusion and impaired antigen presentation limit immune control in most PDAC. These mechanisms vary between tumors and metastatic sites. Rare mismatch-repair-deficient/MSI-high cancers can respond to checkpoint blockade; PDAC is not uniformly refractory to every immune or targeted therapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"regulatory T cell\", \"tumor-associated macrophage\"], \"biological_processes\": [\"immune response\"], \"computational_models\": [{\"name\": \"PDAC Immunotherapy PhysiCell Model\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"description\": \"Encodes PD-L1-dependent suppression of T-cell motility and attack probabilities, plus macrophage inflammatory-state rules, in `config/cell_rules.csv`.\"}]}}, {\"id\": \"Immunocompetent Mouse PDAC RAS-Inhibition Models\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"RMC-7977 and daraxonrasib experiments test tumor regression, immune-cell changes and immunotherapy combinations in immunocompetent PDAC. Results depend on regimen and tumor/host model and do not establish patient immune pharmacodynamics.\"}, {\"id\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In immunocompetent PDAC models, RAS(ON) multiselective inhibition can reduce suppressive myeloid subsets, increase tumor MHC-I and lymphocyte infiltration, and enable immune-dependent tumor control. RMC-7977 and daraxonrasib provide direct PDAC evidence. Responses and optimal checkpoint partners are model-dependent; increased Tregs and adaptive myeloid rebound can limit benefit. Patient survival from daraxonrasib monotherapy does not establish an immune-mediated clinical benefit.\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"Immunocompetent Mouse PDAC RAS-Inhibition Models\", \"species\": \"Mouse\", \"genotype\": \"KRAS-driven autochthonous and syngeneic PDAC systems\", \"relationship\": \"PERTURBS\", \"description\": \"Measures immune remodeling and depletion-defined immune contribution.\"}]}}, {\"id\": \"KPC RMC-7977 Acquired-Resistance Models\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Chronic RMC-7977 exposure produces initially responding and subsequently relapsing KPC tumors. MYC and YAP/TEAD programs were interrogated; tool-compound models and clinical daraxonrasib cohorts have different resistance distributions.\"}, {\"id\": \"KRAS Oncogene Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating KRAS variants favor persistent RAS-GTP signaling through RAF-MEK-ERK and additional effector networks, supporting proliferation, survival, metabolic rewiring and microenvironmental remodeling. G12D, G12V and G12R are common in PDAC, with allele-specific signaling and inhibitor responses. Most PDACs are KRAS-mutant; KRAS-wild-type cancers require separate driver characterization. KRAS signaling does not itself establish acquisition of a particular tumor-suppressor mutation or therapeutic inhibition.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"pancreatic acinar cell\"], \"biological_processes\": [\"MAPK cascade\", \"phosphatidylinositol 3-kinase signaling\", \"cell population proliferation\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Somatic activating KRAS codon-12 mutation, the initiating lesion of the PanIN-to-PDAC sequence, arising in the acinar/centroacinar compartment. The tumour\u0027s ductal phenotype is acquired downstream through acinar-to-ductal metaplasia and does not indicate a ductal cell of origin.\", \"gene_terms\": [{\"label\": \"KRAS\", \"id\": \"hgnc:6407\"}]}, \"experimental_models\": [{\"name\": \"Human PDAC Cell and Organoid RAS-Response Models\", \"model_type\": \"ORGANOID\", \"relationship\": \"PERTURBS\", \"description\": \"Tests RAS-GTP-inhibitor signaling and growth response.\"}]}}, {\"id\": \"KRAS-Dependent Anabolic Glucose Metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS supports glucose uptake and redirects intermediates toward anabolic pathways that sustain pancreatic tumor growth. This is a regulated metabolic program rather than a universal switch eliminating oxidative phosphorylation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycolytic process\"]}}, {\"id\": \"KRAS-GM-CSF Myeloid Immunosuppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oncogenic KRAS induces tumor-cell GM-CSF, expanding suppressive myeloid cells that constrain cytotoxic T-cell immunity in pancreatic neoplasia models. This supplies a disease-driving counterpart to the myeloid remodeling seen after KRAS inhibition.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CSF2\"], \"gene_terms\": [{\"label\": \"CSF2\", \"id\": \"hgnc:2434\"}]}}, {\"id\": \"KRAS-Regulated Glutamine Redox Metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In studied PDAC cells, glutamine-derived aspartate is routed through cytosolic GOT1, malate and pyruvate to support NADPH-dependent redox balance. Dependency varies with growth context and compensatory metabolism; this does not establish clinical efficacy of glutaminase inhibition.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GOT1\"], \"gene_terms\": [{\"label\": \"GOT1\", \"id\": \"hgnc:4432\"}]}}, {\"id\": \"MYC Amplification-Driven RAS-Independent Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RMC-7977-resistant KPC tumors frequently gained Myc copies while maintaining ERK suppression. YAP-TEAD-dependent transcriptional output accompanied resistance, and TEAD cotargeting restored sensitivity in vitro. The subsequent daraxonrasib clinical study detected MYC amplification in one patient together with KRAS amplification and corroborated MYC-related resistance in models. These data support a bypass route without proving that all MYC gain is independent of RAS or that TEAD combinations benefit patients.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYC\", \"YAP1\"], \"gene_terms\": [{\"label\": \"MYC\", \"id\": \"hgnc:7553\"}, {\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"KPC RMC-7977 Acquired-Resistance Models\", \"species\": \"Mouse\", \"genotype\": \"Kras/Trp53-driven genetically engineered pancreatic cancer\", \"relationship\": \"PERTURBS\", \"description\": \"Tracks relapse-associated MYC amplification and downstream bypass.\"}]}}, {\"id\": \"Macropinocytic Protein Scavenging\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAS-driven macropinocytosis internalizes extracellular protein for lysosomal proteolysis and amino-acid supply. It supports growth in nutrient-poor settings and is observed in primary human PDAC specimens, complementing transport of free nutrients.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"macropinocytosis\"]}}, {\"id\": \"Matrix-Associated Hypoperfusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyaluronan-rich stroma can elevate interstitial fluid pressure, collapse vessels and restrict delivery of nutrients and drugs in PDAC mouse models. Matrix degradation improved perfusion experimentally, but the phase III PEGPH20 trial did not improve survival, limiting direct therapeutic extrapolation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metastatic Dissemination and Colonization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Invasive tumor cells disseminate and establish distant lesions, frequently in the liver and also lung or peritoneum. Colonization depends on both tumor-cell programs and organ-specific niches; metastatic-site immune composition differs from the primary tumor. A single EMT program is not obligatory for every metastatic event.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myeloid Suppression Relief and CD8 Effector Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MRTX1133 and RAS(ON) multiselective inhibitors can reduce suppressive myeloid subsets and increase effector lymphocytes in immunocompetent PDAC models. Total macrophage abundance can increase while state composition changes; myeloid remodeling is not equivalent to depletion of every myeloid cell. The direction and durability of individual populations vary by agent, model and time.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive effector T cell\"]}}, {\"id\": \"NBR1-Mediated MHC-I Autophagic Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Selective autophagy directs MHC-I to lysosomes through NBR1, reducing surface antigen presentation and immune recognition in PDAC models. Autophagy inhibition can restore MHC-I and improve T-cell control. This can coexist with RAS-dependent and FAK-dependent regulation; pathway dominance or mutual independence has not been established.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NBR1\"], \"gene_terms\": [{\"label\": \"NBR1\", \"id\": \"hgnc:6746\"}]}}, {\"id\": \"Obstructive Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painless obstructive jaundice is a classic presentation for tumors in the pancreatic head, caused by compression of the common bile duct.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001396\"}}, {\"id\": \"On-Target RAS Reactivation and KRAS Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased mutant KRAS dosage can attenuate daraxonrasib suppression and restore RAS-pathway output in PDAC models. Paired ctDNA detected emergent KRAS amplification in 16/44 profiled PDAC patients after initial disease control. Assignment to the pre-existing mutant allele was inferred from variant-allele-frequency ratios; the supplementary table explicitly calls this exploratory and unconfirmed, rather than direct allele phasing in all cases. Engineered and selected PDAC models provide functional corroboration of mutant KRAS dosage. Secondary KRAS mutations were absent from the 44 PDAC cases and selected PDAC resistance models, while an engineered Ba/F3 deep mutational scan identified resistance-conferring second-site variants in a different context.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"PDAC CAF-Mediated Invasion PhysiCell Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Grammar-based PhysiCell agent-based model of pancreatic ductal adenocarcinoma neoplastic cells and cancer-associated fibroblasts. The model encodes fibroblast-mediated invasion, epithelial-mesenchymal state switching, and ECM-dependent motility tradeoffs using human-interpretable cell rules informed by PDAC spatial transcriptomics and coculture data.\", \"meta\": {\"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"publication\": \"DOI:10.1016/j.cell.2025.06.048\"}}, {\"id\": \"PDAC Immunotherapy PhysiCell Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Grammar-based PhysiCell agent-based PDAC tumor-immune model initialized from PDAC tissue compositions. The model simulates combination therapy with GVAX, nivolumab, and urelumab across heterogeneous baseline microenvironment states using explicit cell-state and interaction rules.\", \"meta\": {\"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"publication\": \"DOI:10.1016/j.cell.2025.06.048\"}}, {\"id\": \"Pancreatic Enzyme Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pancreatic enzyme replacement, including pancrelipase, is used for exocrine insufficiency and maldigestion when indicated. Mixed observational/trial pooled survival associations do not establish a causal survival benefit; an 88-patient randomized trial of pancrelipase in unresectable pancreatic cancer did not improve the primary eight-week BMI endpoint.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pancrelipase\"]}}, {\"id\": \"Pancreatic Exocrine Functional Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor-associated obstruction and loss of functional pancreatic tissue can impair digestive enzyme delivery. The resulting maldigestion contributes to nutritional loss; this process also occurs after pancreatic surgery. Clinical prevalence varies with stage, location and testing method.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pancreatic Precursor Progression and Invasive Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS-mutant PanIN can progress with cooperating genetic and microenvironmental changes to invasive, gland-forming PDAC. IPMN and mucinous cystic neoplasms provide additional precursor routes. Not every precursor progresses, and a uniform obligatory mutation order or exclusive acinar origin is not established.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"RAS-Independent Cell-Cycle Uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A preprint describes acquired RMC-6236 resistance in mixed PDAC and NSCLC models with sustained cell-cycle progression despite RAS suppression. CDK4/6 or CDK2 cotargeting restored control through distinct arrest programs; CDK2 inhibition produced more durable cytostasis in the tested settings. This is not a clinically validated combination or proof that simultaneous inhibition of all three kinases is required. CDK8-mediated microenvironmental resistance is a separate mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"RTK and Feedback Pathway Reactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RTK signaling can contribute to daraxonrasib resistance in particular PDAC contexts. The paired 44-patient study found emergent RTK alterations in 4/44, with HER2-upregulated resistant models providing functional support. A separate preprint identified EGFR/wild-type-RAS activation in KRAS-G12R models and one patient who progressed after ten months. G12D cyclophilin-A loss is a distinct route. Earlier MEK or G12C-selective-inhibitor studies are contextual analogies and do not establish universal sufficiency against multiselective inhibition.\", \"meta\": {\"evidence_count\": 4, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Regulatory T-Cell Recruitment after KRAS Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An August 2026 PDAC study found that MRTX1133 or daraxonrasib recruits regulatory as well as effector and exhausted T cells. In its models, CTLA-4 blockade reprogrammed effector Tregs, reduced CD8 exhaustion and supported tertiary lymphoid structures. Other checkpoint combinations were less effective. This contrasts with a different RMC-7977 model where the CD4 increase was not attributable to FoxP3-positive Tregs, so generalized Treg relief is not supported.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"regulatory T cell\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Senescent Myofibroblast Immunosuppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Senescent myofibroblastic CAFs accumulate near tumor ducts and during PDAC progression. Genetic or pharmacologic depletion of senescent stromal cells in mouse models reduced macrophage-associated immune suppression and improved chemotherapy responsiveness. Human tissue identifies the state, but clinical senolytic efficacy is not established.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Tumor Suppressor Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alterations of CDKN2A, TP53 and SMAD4 cooperate with oncogenic signaling. Loss of p16 removes restraint on CDK4/6-RB cell-cycle progression; p53 alterations weaken stress checkpoints and can confer context-dependent gain of function; SMAD4 loss changes TGF-beta responses. Reported alteration frequencies differ with cohort, assay, copy-number detection and inclusion of epigenetic silencing. These are cooperating events rather than consequences inferred from co-occurrence with KRAS.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of cell cycle\", \"apoptotic process\", \"DNA damage response\"]}}, {\"id\": \"Tumor-Cell FAS Induction and CD8-Mediated Killing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS-G12D inhibition by MRTX1133 induces FAS in malignant cells and patient-derived organoids, permitting CD8-mediated killing in PDAC models. This is drug- and model-specific evidence; the original citation to the preprint has been replaced with the final paper. CDK8-dependent FAS suppression can later oppose this response.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Tumor-Restraining Fibroblast Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some fibroblast and stromal programs constrain PDAC. Genetic SHH loss and depletion of alpha-SMA-positive myofibroblasts in distinct mouse models accelerated aggressive disease; newer interferon-response CAF work also identifies a restraining state. These findings qualify global stroma-removal strategies without proving that every myofibroblast state is protective.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS-G12D induces EGR1-USP20, stabilizing HMG-CoA reductase and promoting cholesterol metabolism associated with CD8 exhaustion. KRAS inhibition or cholesterol blockade induces compensatory ULK1-associated autophagy; USP20 also stabilizes ULK1. This is a two-arm metabolic and survival mechanism. MRTX1133 plus USP20 inhibition and PD-1 blockade regressed tumors in preclinical models, but human tissue profiling is not evidence of clinical combination efficacy.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unintentional weight loss may reflect reduced intake, systemic cancer effects and pancreatic exocrine insufficiency; it can precede diagnosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Chronic Pancreatic Inflammation\", \"target\": \"Acinar-to-Ductal Metaplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injury promotes ductal reprogramming in permissive pancreatic cells.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Chronic Pancreatic Inflammation\", \"target\": \"Early Dissemination and EMT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pancreatitis increased circulating pancreatic cells and EMT-associated dissemination in lineage-traced mice.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Acinar-to-Ductal Metaplasia\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent reprogramming can precede PanIN and invasive progression in an oncogenic context; regenerative ADM alone is insufficient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"Acinar-to-Ductal Metaplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KRAS promotes persistent ductal reprogramming in susceptible acinar cells; injury, lineage and cooperating alterations modify this effect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"KRAS-Dependent Anabolic Glucose Metabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic KRAS regulates this growth-supporting metabolic program in the cited experimental context.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"KRAS-Regulated Glutamine Redox Metabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic KRAS regulates this growth-supporting metabolic program in the cited experimental context.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"Macropinocytic Protein Scavenging\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic KRAS regulates this growth-supporting metabolic program in the cited experimental context.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"KRAS-GM-CSF Myeloid Immunosuppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic KRAS induces GM-CSF-dependent myeloid suppression.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Tumor-cell GM-CSF production\", \"Expansion of suppressive myeloid cells\"]}, {\"source\": \"KRAS Oncogene Activation\", \"target\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KRAS-G12D induces EGR1-USP20, coordinating cholesterol metabolism and compensatory survival.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"EGR1-dependent USP20 expression\", \"HMG-CoA reductase stabilization\"]}, {\"source\": \"Tumor Suppressor Inactivation\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Checkpoint and differentiation defects cooperate with KRAS to permit invasive progression.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"Desmoplastic Stroma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor-secreted ligands promote fibroblast-state changes and matrix-producing stroma.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"Metastatic Dissemination and Colonization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive growth enables dissemination, but the timing and route vary across tumors.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"IL1-LIF-JAK-STAT Inflammatory Fibroblast Programming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neoplastic epithelial compartment can induce inflammatory fibroblast differentiation through secreted IL1\\u03b1 in PDAC organoid-stellate-cell systems. This branch represents signals from established tumors, not a claim that invasion itself or extracellular matrix deposition directly induces every iCAF state; other ligands contribute in vivo.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Tumor-derived IL1\\u03b1 secretion\", \"Fibroblast IL1R1 signaling and LIF induction\"]}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"Tumor-Restraining Fibroblast Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neoplastic cells can establish a Hedgehog-responsive fibroblast-rich stroma with tumor-restraining activity in a genetically engineered PDAC mouse model. This incoming branch concerns the SHH-dependent component of the heterogeneous stromal node, not all fibroblast states or a universal protective role for fibrosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Tumor-derived SHH secretion\", \"Stromal Hedgehog pathway activation and fibroblast expansion\"]}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"Pancreatic Exocrine Functional Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An established pancreatic tumor can impair exocrine secretion through duct obstruction and loss of functional tissue. Risk depends on tumor location and extent; this is not an obligatory consequence of a noninvasive precursor, and postoperative insufficiency has an additional surgical cause.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Main pancreatic duct obstruction\", \"Gland fibrosis and loss of exocrine tissue\"]}, {\"source\": \"Pancreatic Precursor Progression and Invasive Growth\", \"target\": \"Obstructive Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An obstructive pancreatic head cancer can impair bile drainage and cause jaundice. This location-dependent consequence of established tumor growth is not attributed to all PDAC or to noninvasive precursors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Biliary obstruction from a pancreatic head tumor\"]}, {\"source\": \"Desmoplastic Stroma\", \"target\": \"CAF-Mediated T Cell Exclusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The FAP-positive CXCL12-producing subset supports spatial immune exclusion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"FAP-positive fibroblast CXCL12 secretion\", \"CXCR4-dependent T-cell exclusion\"]}, {\"source\": \"Desmoplastic Stroma\", \"target\": \"Matrix-Associated Hypoperfusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix accumulation can impair vascular perfusion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAF-Mediated T Cell Exclusion\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The specified mechanism limits effective antitumor T-cell control.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS-Dependent Anabolic Glucose Metabolism\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nutrient use and redox support permit continued malignant growth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS-Regulated Glutamine Redox Metabolism\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nutrient use and redox support permit continued malignant growth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Macropinocytic Protein Scavenging\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nutrient use and redox support permit continued malignant growth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autophagy-Lysosome Growth Support\", \"target\": \"Pancreatic Precursor Progression and Invasive Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autophagic recycling and redox control support established tumor growth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KRAS-GM-CSF Myeloid Immunosuppression\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The specified mechanism limits effective antitumor T-cell control.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NBR1-Mediated MHC-I Autophagic Degradation\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The specified mechanism limits effective antitumor T-cell control.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FAK-Mediated Antigen-Presentation Suppression\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The specified mechanism limits effective antitumor T-cell control.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Exosome-MIF Liver Premetastatic Niche\", \"target\": \"Metastatic Dissemination and Colonization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MIF-dependent Kupffer-cell and stellate-cell remodeling supports liver colonization.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Kupffer-cell TGF-beta release\", \"Hepatic stellate-cell fibronectin deposition\", \"Macrophage recruitment\"]}, {\"source\": \"Metastatic Dissemination and Colonization\", \"target\": \"Hepatic Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic colonization is a common site-specific manifestation among patients presenting with metastatic PDAC.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cyclophilin A Loss and Reduced Tri-Complex Engagement\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"RAS-Independent Cell-Cycle Uncoupling\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"On-Target RAS Reactivation and KRAS Amplification\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"RTK and Feedback Pathway Reactivation\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Adaptive mTOR and JUN-AP1 Transcriptional Program\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"MYC Amplification-Driven RAS-Independent Proliferation\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the specified RAS-inhibitor exposure, this route can sustain tumor growth or reduce target inhibition. Source and regimen restrictions apply.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myeloid Suppression Relief and CD8 Effector Infiltration\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The observed treatment-induced change contributes to immune recognition or immune-dependent tumor control in the specified model.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tumor-Cell FAS Induction and CD8-Mediated Killing\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The observed treatment-induced change contributes to immune recognition or immune-dependent tumor control in the specified model.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antigen Presentation Restoration\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The observed treatment-induced change contributes to immune recognition or immune-dependent tumor control in the specified model.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cholesterol-associated dysfunction contributes to CD8 exhaustion.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"target\": \"Autophagy-Lysosome Growth Support\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"USP20 stabilizes ULK1 and supports compensatory autophagy under KRAS-G12D or cholesterol inhibition.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ULK1 stabilization\"]}, {\"source\": \"CDK8-CXCL2 Adaptive Immune Reversal\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under prolonged MRTX1133 exposure, CXCL2 and FAS changes restore immune suppression.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\", \"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"CXCL2 secretion\", \"Reduced FAS-mediated susceptibility to immune killing\"]}, {\"source\": \"IL6-CAF and Myeloid Rebound after SOS1-MEK Inhibition\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stromal and myeloid adaptation can limit the benefit of initial T-cell entry.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Basal-State GM-CSF Immunosuppressive Circuit\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal-cell GM-CSF maintains an immunosuppressive tumor ecosystem in autochthonous mouse PDAC.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Exocrine Functional Loss\", \"target\": \"Exocrine Pancreatic Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of digestive enzyme delivery produces clinical pancreatic exocrine insufficiency.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Exocrine Functional Loss\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maldigestion is one contributor to weight loss in advanced pancreatic cancer.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Adaptive CD24 Antiphagocytic Signaling\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Induced CD24 reduces macrophage-mediated tumor-cell clearance in selective-KRAS-inhibitor models.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\", \"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Senescent Myofibroblast Immunosuppression\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Senescent stromal programs maintain macrophage-mediated immune suppression in PDAC models.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"target\": \"KRAS Oncogene Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"target\": \"Regulatory T-Cell Recruitment after KRAS Inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Experimental KRAS Inhibition with Immune Checkpoint Blockade\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pancreatic Enzyme Replacement\", \"target\": \"Exocrine Pancreatic Insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Biliary Drainage\", \"target\": \"Obstructive Jaundice\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Experimental RAS-EGFR-STAT3 Combination\", \"target\": \"KRAS Oncogene Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Experimental RAS-EGFR-STAT3 Combination\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Human PDAC Cell and Organoid RAS-Response Models\", \"target\": \"KRAS Oncogene Activation\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Tests RAS-GTP-inhibitor signaling and growth response.\", \"relationship\": \"PERTURBS\", \"limitations\": \"Cell viability and target phosphorylation are not patient response or immune-remodeling endpoints.\"}, {\"source\": \"Immunocompetent Mouse PDAC RAS-Inhibition Models\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Measures immune remodeling and depletion-defined immune contribution.\", \"relationship\": \"PERTURBS\", \"limitations\": \"Mouse immune ecosystems and drug exposures differ from human metastatic disease.\"}, {\"source\": \"KPC RMC-7977 Acquired-Resistance Models\", \"target\": \"MYC Amplification-Driven RAS-Independent Proliferation\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Tracks relapse-associated MYC amplification and downstream bypass.\", \"relationship\": \"PERTURBS\", \"limitations\": \"Selected mouse tumors do not estimate patient route prevalence.\"}, {\"source\": \"PDAC CAF-Mediated Invasion PhysiCell Model\", \"target\": \"Desmoplastic Stroma\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Implements ECM-driven fibroblast motility and epithelial-mesenchymal state switching encoded in `config/cell_rules.csv` for the stromal invasion program.\"}, {\"source\": \"PDAC Immunotherapy PhysiCell Model\", \"target\": \"Immune Evasion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Encodes PD-L1-dependent suppression of T-cell motility and attack probabilities, plus macrophage inflammatory-state rules, in `config/cell_rules.csv`.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -12596,6 +12850,9 @@ This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-obstructive-jaundice" data-dismech-node="Obstructive Jaundice" data-dismech-type="phenotype">
@@ -12623,6 +12880,9 @@ This clinical feature is Obstructive jaundice, annotated with Cholestasis (HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -12699,6 +12959,9 @@ This clinical feature is Hepatic metastasis, annotated with Neoplasm of the live
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12763,6 +13026,9 @@ This clinical feature is Exocrine pancreatic insufficiency (HP:0001738). HP:0001
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -12848,6 +13114,9 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12921,6 +13190,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -13024,6 +13296,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-back-pain" data-dismech-node="Back pain" data-dismech-type="phenotype">
@@ -13049,6 +13324,9 @@ This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -13127,6 +13405,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -13243,6 +13524,9 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -13346,6 +13630,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -13424,6 +13711,9 @@ This disease-associated gene is SMAD4 (hgnc:6770). hgnc:6770 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -13500,6 +13790,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -13605,6 +13898,9 @@ This disease-associated gene is BRCA2 (hgnc:1101). hgnc:1101 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -13681,6 +13977,9 @@ This disease-associated gene is BRCA1 (hgnc:1100). hgnc:1100 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -13761,6 +14060,9 @@ This disease-associated gene is ATM (hgnc:795). hgnc:795 is a gene from the HUGO
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -13839,6 +14141,9 @@ This disease-associated gene is MLH1 (hgnc:7127). hgnc:7127 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -13915,6 +14220,9 @@ This disease-associated gene is NRG1 (hgnc:7997). hgnc:7997 is a gene from the H
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -14017,6 +14325,12 @@ This treatment is Pancreatectomy (NCIT:C15294). NCIT:C15294 is a clinical interv
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -14154,6 +14468,12 @@ This regimen component is modified FOLFIRINOX regimen, annotated with Folfirinox
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Combination of fluorouracil, leucovorin, irinotecan, and oxaliplatin. Used as first-line treatment for metastatic PDAC in fit patients and as adjuvant therapy after surgical resection. Provides superior survival compared to gemcitabine alone but with greater toxicity.</div>
 
 
@@ -14273,6 +14593,12 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Gemcitabine with nab-paclitaxel improves survival over gemcitabine alone in metastatic PDAC, with increased neuropathy and myelosuppression. Regimen selection depends on fitness and prior therapy; separate trials do not establish superior tolerability to FOLFIRINOX.</div>
 
 
@@ -14354,6 +14680,12 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -14527,6 +14859,9 @@ This treatment uses daraxonrasib (CHEBI:746946). CHEBI:746946 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -14537,6 +14872,9 @@ This treatment uses daraxonrasib (CHEBI:746946). CHEBI:746946 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -14831,6 +15169,9 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -14841,6 +15182,9 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
     </div>
+
+
+
 
 
 
@@ -14927,6 +15271,12 @@ This treatment is Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -15154,6 +15504,9 @@ This treatment uses oxaliplatin (CHEBI:31941). CHEBI:31941 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -15161,9 +15514,16 @@ This treatment uses oxaliplatin (CHEBI:31941). CHEBI:31941 is a therapeutic agen
 
 
 
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Liposome</span>
+
 
 
     </div>
+
+
+
+
+    <div class="item-meta" style="font-size: 0.8rem; color: #4b5563;">Only the irinotecan component is carried in a liposome; the oxaliplatin, fluorouracil and leucovorin in this regimen are conventional formulations. The carrier is what separates NALIRIFOX from FOLFIRINOX, which delivers free irinotecan, so it is part of the regimen&#39;s identity rather than a formulation footnote. No targeting ligand: a PEGylated liposome accumulates passively.</div>
 
 
 
@@ -15280,6 +15640,9 @@ This treatment uses zenocutuzumab (CHEBI:757449). CHEBI:757449 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -15290,6 +15653,9 @@ This treatment uses zenocutuzumab (CHEBI:757449). CHEBI:757449 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -15406,6 +15772,9 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -15416,6 +15785,9 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -15535,6 +15907,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -15545,6 +15920,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -15661,6 +16039,9 @@ This treatment uses pancrelipase (CHEBI:753090). CHEBI:753090 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -15671,6 +16052,9 @@ This treatment uses pancrelipase (CHEBI:753090). CHEBI:753090 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -15868,6 +16252,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -15878,6 +16265,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -16025,6 +16415,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -16035,6 +16428,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -16185,6 +16581,9 @@ This treatment uses SD36, annotated with STAT3 Inhibitor (NCIT:C200712). NCIT:C2
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -16195,6 +16594,9 @@ This treatment uses SD36, annotated with STAT3 Inhibitor (NCIT:C200712). NCIT:C2
 
 
     </div>
+
+
+
 
 
 
@@ -20190,6 +20592,16 @@ pathophysiology:
     explanation: &gt;-
       No secondary KRAS mutations were found in this selected PDAC cohort; this is not proof that
       such mutations are impossible.
+  - reference: PMID:42090791
+    reference_title: Daraxonrasib in Previously Treated Advanced RAS-Mutated Pancreatic Cancer.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Among the 38 patients with RAS G12, G13, or Q61 mutations, 29% (95% CI, 15 to 46) had an objective response. The median duration of response was 8.2 months (95% CI, 3.8 to 8.8), with median values of 8.1 months for progression-free survival and 15.6 months for overall survival.
+    explanation: &gt;-
+      Quantifies the primary-nonresponse term in this node&#39;s description. Responses are finite, which
+      is the acquired-resistance signal, but fewer than a third of treated patients had an objective
+      response at all, so progression on daraxonrasib cannot be read as escape from an established
+      response across the treated population.
 - name: On-Target RAS Reactivation and KRAS Amplification
   mechanism_confidence: PROVISIONAL
   biological_scale: MOLECULAR
@@ -20296,6 +20708,17 @@ pathophysiology:
     explanation: &gt;-
       One-patient molecular observation, supplemented by ex-vivo toroid modeling; subsequent multiagent
       salvage cannot isolate trametinib benefit.
+  - reference: PMID:25736685
+    reference_title: Genetic events that limit the efficacy of MEK and RTK inhibitor therapies in a mouse model of KRAS-driven pancreatic cancer.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: Proteomic analysis evidenced that MEK1 inhibition was accompanied by a sustained activation of the PI3K-AKT-MTOR pathway and by the activation of AXL, PDGFRa, and HER1-2 receptor tyrosine kinases (RTK) expressed in a large proportion of human PDAC samples analyzed.
+    explanation: &gt;-
+      Grounds the contextual analogy this node&#39;s description invokes, in PDAC rather than in another
+      tumour type: in an inducible KRAS-G12D mouse PDAC model, MEK1 inhibition reactivates AXL,
+      PDGFRa and HER1-2 alongside sustained PI3K-AKT-mTOR signaling. The blockade is partial, MEK
+      only, so it does not establish sufficiency of RTK reactivation against multiselective RAS(ON)
+      inhibition.
   downstream:
   - target: Acquired RAS(ON) Inhibitor Resistance
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
@@ -21677,6 +22100,28 @@ treatments:
       term:
         id: CHEBI:31941
         label: oxaliplatin
+  delivery_system:
+    delivery_platform: LIPOSOME
+    description: &gt;-
+      Only the irinotecan component is carried in a liposome; the oxaliplatin,
+      fluorouracil and leucovorin in this regimen are conventional formulations. The
+      carrier is what separates NALIRIFOX from FOLFIRINOX, which delivers free
+      irinotecan, so it is part of the regimen&#39;s identity rather than a formulation
+      footnote. No targeting ligand: a PEGylated liposome accumulates passively.
+    evidence:
+    - reference: PMID:37708904
+      reference_title: &#39;NALIRIFOX versus nab-paclitaxel and gemcitabine in treatment-naive patients with metastatic pancreatic ductal adenocarcinoma (NAPOLI 3): a randomised, open-label, phase 3 trial.&#39;
+      supports: SUPPORT
+      quote_role: BACKGROUND
+      evidence_source: OTHER
+      snippet: Liposomal irinotecan (ONIVYDE, ONIVYDE pegylated liposomal; historical names include nal-IRI, MM 398, or PEP02; Ipsen, Cambridge, MA, USA) is a liposomal formulation that encapsulates irinotecan in a lipid bilayer vesicle.
+      explanation: &gt;-
+        States the carrier directly - irinotecan encapsulated in a lipid bilayer vesicle
+        - which is the claim LIPOSOME records. quote_role BACKGROUND records that this is
+        the trial report&#39;s description of the drug product rather than a result of the
+        trial, and evidence_source is OTHER because a product description reports no
+        study; grading it HUMAN_CLINICAL would credit the randomized trial with
+        establishing the formulation.
   evidence:
   - reference: PMID:37708904
     reference_title: &#39;NALIRIFOX versus nab-paclitaxel and gemcitabine in treatment-naive patients with metastatic pancreatic ductal adenocarcinoma (NAPOLI 3): a randomised, open-label, phase 3 trial.&#39;
@@ -22879,7 +23324,7 @@ mechanistic_hypotheses:
     explanation: &gt;-
       Depletion/genetic experiments establish immune contribution in mouse PDAC.
   notes: &gt;-
-    Both July OpenScientist reports and their updated assessments remain under kb/hypotheses/Metastatic_Pancreatic_Adenocarcinoma
+    Both July OpenScientist reports and their updated assessments now sit under kb/hypotheses/Pancreatic_Ductal_Adenocarcinoma
     after consolidation into this disease. PMID40057911 was already available when the immune report
     omitted it; the August 2026 CTLA-4/Treg study is subsequent evidence.
 - hypothesis_group_id: ras_on_inhibitor_acquired_resistance
@@ -24661,6 +25106,19 @@ updated_date: &#39;2026-09-05T00:50:17Z&#39;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Add daraxonrasib (RAS(ON) inhibitor) treatment and RASolute 302 trial</strong> · 2026-07-23T14:31:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pancreatic_Ductal_Adenocarcinoma/2026-07-23T143159Z-claude-code-dec421.yaml">View source</a></p>
+                        <p class="research-review-text">Curated the RASolute 302 phase 3 trial (NEJM 2026, PMID:42223072 / DOI:10.1056/NEJMoa2605555; NCT06625320) into the metastatic PDAC entry. Added a Daraxonrasib treatment (RAS(ON) multiselective tri-complex inhibitor; therapeutic_modality SMALL_MOLECULE; therapeutic_agent CHEBI:746946; target_mechanisms INHIBITS the KRAS-Centered Oncogenic Signaling node) and a clinical_trials entry for NCT06625320. Evidence is snippet-backed against the PubMed abstract (PMID:42223072): the RAS(ON) tri-complex mechanism sentence, the overall-survival result (13.2 vs 6.6 months, HR 0.40, P&lt;0.001), and the progression-free-survival result (7.3 vs 3.5 months, HR 0.45), plus the ClinicalTrials.gov RAS(ON)-inhibitor-vs-SOC summary. Also seeded two EMERGING mechanistic_hypotheses for OpenScientist deep-research exploration: ras_on_inhibitor_acquired_resistance (mechanisms of escape from RAS(ON) multiselective inhibition; premise anchored on the PMID:42223072 PFS result) and ras_on_inhibition_immune_tme_remodeling (whether RAS(ON) inhibition reverses the immunosuppressive PDAC microenvironment and rationalizes checkpoint-inhibitor combination; supporting evidence to be gathered via the DR run). scripts/hypothesis_deep_research.py lists both. Ran the OpenScientist deep-research job for ras_on_inhibition_immune_tme_remodeling (report committed under kb/hypotheses/; verdict PARTIALLY SUPPORTED) and, after the DR anti-hallucination workflow (fetched each PMID, verified snippets are exact abstract substrings, checked title/identity for NEC), enriched that hypothesis with four verified MODEL_ORGANISM/PARTIAL evidence items (PMID:41670434 daraxonrasib RAS(ON) doublet + ICB in NSCLC; PMID:37782788 KRAS activity governs immune composition, ICB combo needed for durable regression; PMID:36824971 MRTX1133 + immunotherapy CD8-dependent PDAC regression; PMID:42436354 CDK8-driven transient-window durability caveat naming daraxonrasib) plus an evidence-based notes verdict (agent gap, Treg-arm source absence, autophagy/FAK-owned antigen presentation, untested daraxonrasib+ICB). Two report snippets were caught as misquotes and replaced with exact abstract quotes. Also ran the OpenScientist job for ras_on_inhibitor_acquired_resistance (report committed under kb/hypotheses/; verdict SUPPORTED that resistance occurs, UNRESOLVED which route dominates) and, after the same anti-hallucination workflow, enriched that hypothesis with four verified evidence items (PMID:42465401 daraxonrasib allele-specific resistance with cyclophilin-A loss; PMID:41959066 RAS-independent cell-cycle uncoupling under RMC-6236 rescued by CDK2/4/6; PMID:41572361 mTOR/JUN-AP1 CRISPR-screen resistance in KRAS-mutant PDAC; PMID:41165456 RAS-reactivation/RTK routes remaining targetable by multiselective RAS(ON) inhibition) plus two mechanisms added to the description (CypA chaperone loss; RAS-independent cell-cycle uncoupling) and an evidence-based notes verdict. Both hypotheses remain EMERGING. Followed on by promoting the two best-verified resistance mechanisms into the pathograph: added three pathophysiology nodes - Cyclophilin A Loss and Reduced Tri-Complex Engagement (PPIA hgnc:9253, GO:0003755, PMID:42465401), RAS-Independent Cell-Cycle Uncoupling (GO:0008283, PMID:41959066), and a convergent Acquired RAS(ON) Inhibitor Resistance node (PMID:42223072) - with DIRECT downstream causal edges opting into the ras_on_inhibitor_acquired_resistance hypothesis_group. Then, per curator preference to include mechanisms (marking weak evidence explicitly and tagging each edge to a hypothesis), expanded both hypothesis-tagged sub-graphs. Resistance additions: On-Target RAS Reactivation/KRAS Amplification and RTK/Feedback Reactivation (PMID:41165456, PARTIAL, INDIRECT); Adaptive mTOR/JUN-AP1 Program (PMID:41572361); Mitochondrial Remodeling/Ferroptosis Vulnerability (PMID:41545339, GO:0097707); MYC Amplification (PMID:39586491, PARTIAL, flagged WEAK/review-level). Immune-remodeling sub-graph converging on a new Immunosuppressive TME Reversibility node (PMID:37782788), fed by Myeloid Relief/CD8 Infiltration (PMID:37625401, CL:0000625), Tumor-Cell FAS Induction (PMID:36824971), Antigen Presentation Restoration (PMID:41670434, GO:0019882, flagged WEAK/competing autophagy-FAK), Regulatory T-Cell Relief (CL:0000815, UNSUPPORTED source-absence edge, causal_link_type UNKNOWN, no evidence), and USP20 Cholesterol CD8-Exhaustion Checkpoint (PMID:42392864); plus a CDK8-CXCL2 Adaptive Immune Reversal node bridging both hypotheses. Evidence strength is marked first-class via supports (SUPPORT/PARTIAL) and causal_link_type (DIRECT/INDIRECT/UNKNOWN). Both hypotheses remain EMERGING. Schema, reference, and term validation all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -25263,7 +25721,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pancreatic Ductal Adenocarcinoma", "mondoId": "MONDO:0005184", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pancreatic_Ductal_Adenocarcinoma", "yamlRevision": "fa408291a864"};
+        const OS_CONFIG = {"diseaseName": "Pancreatic Ductal Adenocarcinoma", "mondoId": "MONDO:0005184", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pancreatic_Ductal_Adenocarcinoma", "yamlRevision": "0e0f14fd7646"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

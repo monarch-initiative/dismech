@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4431,6 +4484,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-lars1-variants" data-dismech-node="Biallelic LARS1 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic LARS1 Variants</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The primary lesion is biallelic damage to LARS1 at 5q32, encoding cytoplasmic leucyl-tRNA synthetase. The founding allele was a homozygous missense variant mapped by homozygosity mapping to 5q31.3-q33.1; the allelic series has since broadened substantially, with eight previously unreported variants added in a single 2020 series. A structural observation from the zebrafish work is that most reported human LARS1 variants fall in the editing domain - the proofreading module that hydrolyses mischarged tRNA - rather than in the aminoacylation active site itself.</div>
 
 
@@ -4599,6 +4659,13 @@ This pathophysiological event involves LARS1 (hgnc:6512). hgnc:6512 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-leucyl-trna-aminoacylation-capacity" data-dismech-node="Reduced Leucyl-tRNA Aminoacylation Capacity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Leucyl-tRNA Aminoacylation Capacity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The core enzymatic deficit, and the one measured directly in patient material. Aminoacylation activity is reduced in fibroblasts from every patient tested. Crucially the reduction is not fixed: it is significantly worse at elevated temperature, which makes the residual enzyme conditionally rather than constitutively insufficient. This is the mechanistic hinge of the entry - it converts a static enzyme deficiency into an episodic disease.</div>
 
@@ -4803,6 +4870,13 @@ This pathophysiological event involves decreased leucine-tRNA ligase activity (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-febrile-decompensation-of-residual-charging-capacity" data-dismech-node="Febrile Decompensation of Residual Charging Capacity" data-dismech-type="pathophysiology">
                 <div class="item-name">Febrile Decompensation of Residual Charging Capacity</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The trigger node. Intercurrent febrile illness is the near-universal precipitant of both hepatic and encephalopathic crises across every published cohort - it was reported as the trigger for encephalopathic episodes in 80% of the ten-patient clinical series, and as the trigger of both crisis types in the twenty-five-patient series. The proposed explanation combines two effects that act in the same direction: fever lowers the temperature-sensitive enzyme&#39;s residual activity, while infection raises catabolic and acute-phase protein demand. That combination is a proposal that fits the in vitro temperature data rather than a directly demonstrated in vivo chain, and the MRI study is explicit that the pathomechanism remains unclear.</div>
 
 
@@ -4977,6 +5051,13 @@ This pathophysiological event involves abnormal cellular response to heat (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cytoplasmic-protein-synthesis-in-high-demand-tissues" data-dismech-node="Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">With leucine charging limiting, cytoplasmic translation cannot keep pace with demand. The tissue distribution of the disease follows protein-synthetic throughput rather than LARS1 expression: hepatocytes, which manufacture and secrete albumin and the acute-phase proteins, are affected first and hardest. This is the proposed unifying premise of the recessive ARS deficiencies generally - residual aminoacylation suffices at baseline but not under load.</div>
 
 
@@ -5140,6 +5221,13 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-mtorc1-signalling-and-excessive-autophagy" data-dismech-node="Dysregulated mTORC1 Signalling and Excessive Autophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated mTORC1 Signalling and Excessive Autophagy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A second, non-canonical arm. Beyond charging tRNA, LeuRS acts as the intracellular leucine sensor that permits amino-acid-induced mTORC1 activation. In larsb-knockout zebrafish, which reproduce progressive liver failure and anemia, autophagy is excessively activated, and both morpholino knockdown of atg5 and bafilomycin treatment partially rescue liver size and survival. That is a genuine causal test - suppressing autophagy improves the phenotype - but it is a test in fish, and it has not been repeated in human ILFS1 tissue. It is modelled as a separate branch rather than folded into the translational arm because the two make different predictions about therapy.</div>
 
@@ -5402,6 +5490,13 @@ This pathophysiological event involves increased macroautophagy (GO:0016236). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-hepatocellular-injury-and-acute-liver-failure" data-dismech-node="Recurrent Hepatocellular Injury and Acute Liver Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Hepatocellular Injury and Acute Liver Failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The defining clinical event. Transaminases rise recurrently, in the severe case to frank acute liver failure, characteristically during febrile illness. The pattern is episodic rather than steadily progressive, and episodes become less severe with increasing age - a natural history that fits a conditional enzyme deficit better than it fits cumulative structural damage.</div>
 
 
@@ -5542,6 +5637,13 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoalbuminemia" data-dismech-node="Hypoalbuminemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoalbuminemia</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Present in all patients in the founding clinical series and among the earliest presenting features, alongside anemia and failure to thrive. It is the most direct systemic readout of impaired hepatic protein synthesis available at the bedside.</div>
 
 
@@ -5602,6 +5704,13 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microcytic-anemia" data-dismech-node="Microcytic Anemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Microcytic Anemia</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Anemia is an early and near-universal feature, and the larger cohort specifies it as microcytic. It is also reproduced in the larsb-knockout zebrafish, which argues that it is a direct consequence of LeuRS deficiency rather than a secondary effect of chronic liver disease. Why the deficit should produce microcytosis specifically is unexplained.</div>
 
@@ -5724,6 +5833,13 @@ This pathophysiological event involves erythroid lineage cell (CL:0000764). CL:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-encephalopathic-episodes-with-deep-grey-matter-and-brainstem-injury" data-dismech-node="Encephalopathic Episodes with Deep Grey Matter and Brainstem Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Encephalopathic Episodes with Deep Grey Matter and Brainstem Injury</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Acute encephalopathy with seizures and reduced consciousness, precipitated by infection. On MRI, most individuals imaged during an acute episode showed deep grey matter and brainstem changes, a pattern the authors report as apparently characteristic of LARS1 deficiency and as differing from hepatic encephalopathy or from the metabolic stroke of organic acidurias and mitochondrial disease. The critical mechanistic point is dissociation from the liver: encephalopathy occurred in one individual AFTER liver transplantation, so the brain injury cannot be simply a consequence of hepatic failure. Most episodes were survived.</div>
 
@@ -5892,7 +6008,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic LARS1 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic damage to LARS1 at 5q32, encoding cytoplasmic leucyl-tRNA synthetase. The founding allele was a homozygous missense variant mapped by homozygosity mapping to 5q31.3-q33.1; the allelic series has since broadened substantially, with eight previously unreported variants added in a single 2020 series. A structural observation from the zebrafish work is that most reported human LARS1 variants fall in the editing domain - the proofreading module that hydrolyses mischarged tRNA - rather than in the aminoacylation active site itself.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"LARS1\"], \"gene_terms\": [{\"label\": \"LARS1\", \"id\": \"hgnc:6512\"}]}}, {\"id\": \"Dysregulated mTORC1 Signalling and Excessive Autophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, non-canonical arm. Beyond charging tRNA, LeuRS acts as the intracellular leucine sensor that permits amino-acid-induced mTORC1 activation. In larsb-knockout zebrafish, which reproduce progressive liver failure and anemia, autophagy is excessively activated, and both morpholino knockdown of atg5 and bafilomycin treatment partially rescue liver size and survival. That is a genuine causal test - suppressing autophagy improves the phenotype - but it is a test in fish, and it has not been repeated in human ILFS1 tissue. It is modelled as a separate branch rather than folded into the translational arm because the two make different predictions about therapy.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"TORC1 signaling\", \"macroautophagy\"], \"genes\": [\"LARS1\"], \"gene_terms\": [{\"label\": \"LARS1\", \"id\": \"hgnc:6512\"}], \"animal_models\": [{\"name\": \"larsb-knockout zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"larsb-/- (CRISPR/Cas9 frameshift in exon 3, editing domain)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is the primary and essentially only evidence for the autophagy arm of the mechanism.\"}]}}, {\"id\": \"Encephalopathic Episodes with Deep Grey Matter and Brainstem Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute encephalopathy with seizures and reduced consciousness, precipitated by infection. On MRI, most individuals imaged during an acute episode showed deep grey matter and brainstem changes, a pattern the authors report as apparently characteristic of LARS1 deficiency and as differing from hepatic encephalopathy or from the metabolic stroke of organic acidurias and mitochondrial disease. The critical mechanistic point is dissociation from the liver: encephalopathy occurred in one individual AFTER liver transplantation, so the brain injury cannot be simply a consequence of hepatic failure. Most episodes were survived.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Febrile Decompensation of Residual Charging Capacity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger node. Intercurrent febrile illness is the near-universal precipitant of both hepatic and encephalopathic crises across every published cohort - it was reported as the trigger for encephalopathic episodes in 80% of the ten-patient clinical series, and as the trigger of both crisis types in the twenty-five-patient series. The proposed explanation combines two effects that act in the same direction: fever lowers the temperature-sensitive enzyme\u0027s residual activity, while infection raises catabolic and acute-phase protein demand. That combination is a proposal that fits the in vitro temperature data rather than a directly demonstrated in vivo chain, and the MRI study is explicit that the pathomechanism remains unclear.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"cellular response to heat\"]}}, {\"id\": \"Hypoalbuminemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the earliest presenting features, reflecting impaired hepatic protein synthesis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003073\"}}, {\"id\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With leucine charging limiting, cytoplasmic translation cannot keep pace with demand. The tissue distribution of the disease follows protein-synthetic throughput rather than LARS1 expression: hepatocytes, which manufacture and secrete albumin and the acute-phase proteins, are affected first and hardest. This is the proposed unifying premise of the recessive ARS deficiencies generally - residual aminoacylation suffices at baseline but not under load.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"cytoplasmic translation\"]}}, {\"id\": \"LARS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LARS1\"], \"gene_terms\": [{\"label\": \"LARS1\", \"id\": \"hgnc:6512\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Leucine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The evidence here changed, and both results are recorded because the disagreement is informative rather than a contradiction to be resolved by picking the newer paper. The 2015 ILFS1 clinical series reported that leucine supplementation had no appreciable impact on patient well-being. A 2021 study that approached the problem mechanistically rather than empirically reached the opposite conclusion: having first shown in patient fibroblasts that aminoacylation is both reduced at baseline and further reduced at febrile temperature, and that growth is severely impaired when the cognate amino acid is scarce, the authors supplemented patients with their cognate amino acid and INTENSIFIED dosing during infections, reporting benefit in growth, head circumference, development, coping with infections and oxygen dependency over up to two and two-thirds years. The two are reconcilable, and the reconciliation is the point: the failed attempt supplied leucine at steady state, while the successful protocol raised supply precisely when the temperature-sensitive enzyme\u0027s capacity falls. If that reading is right, timing rather than substrate is what the earlier trial got wrong. It is not established - the 2021 series pooled four different ARS deficiencies and was uncontrolled - so this entry presents it as the better supported of two open positions, not as settled.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The definitive intervention for irreversible hepatic failure, and part of the hard outcome measure in this disease - 12 of 36 reported patients died or underwent liver transplantation. It carries a mechanistic caveat this entry treats as important rather than incidental: LARS1 deficiency is systemic, so replacing the liver does not correct the enzyme defect elsewhere. Encephalopathy occurred in one individual AFTER transplantation. Transplantation should therefore be understood as treating the organ that fails first, not the disease.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Maintain Protein and Glucose Intake During Illness\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The counter-intuitive management point, and the one most likely to be got wrong. In metabolic hepatopathies the reflex is to reduce or stop protein intake; the ILFS1 clinical series argues this is inappropriate here and recommends ensuring sufficient natural protein intake when unwell. The mechanistic rationale is that the lesion is a failure to CHARGE and USE amino acids, not a failure to clear them, so substrate restriction removes supply without relieving the block. The MRI study independently recommends sufficient glucose and protein alongside proactive fever management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Microcytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia, specified as microcytic in the largest cohort, present from early infancy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001935\"}}, {\"id\": \"Recurrent Hepatocellular Injury and Acute Liver Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining clinical event. Transaminases rise recurrently, in the severe case to frank acute liver failure, characteristically during febrile illness. The pattern is episodic rather than steadily progressive, and episodes become less severe with increasing age - a natural history that fits a conditional enzyme deficit better than it fits cumulative structural damage.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"animal_models\": [{\"name\": \"larsb-knockout zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"larsb-/- (CRISPR/Cas9 frameshift in exon 3, editing domain)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model reproduces progressive liver failure and anemia, the two cardinal systemic features.\"}]}}, {\"id\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The core enzymatic deficit, and the one measured directly in patient material. Aminoacylation activity is reduced in fibroblasts from every patient tested. Crucially the reduction is not fixed: it is significantly worse at elevated temperature, which makes the residual enzyme conditionally rather than constitutively insufficient. This is the mechanistic hinge of the entry - it converts a static enzyme deficiency into an episodic disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"leucyl-tRNA aminoacylation\"], \"molecular_functions\": [\"leucine-tRNA ligase activity\"], \"genes\": [\"LARS1\"], \"gene_terms\": [{\"label\": \"LARS1\", \"id\": \"hgnc:6512\"}]}}, {\"id\": \"Seasonal Influenza Vaccination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because decompensation is infection-triggered and severe episodes were specifically observed during influenza infections, the imaging cohort makes a strong recommendation for seasonal vaccination. This is a rare case of a mechanism-derived preventive intervention in an ARS deficiency: it does not touch the enzyme, it removes the trigger.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"larsb-knockout zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"CRISPR/Cas9 knockout of larsb, the zebrafish paralogue with higher homology to human LARS1, targeted to the editing domain where most human variants fall.\"}], \"edges\": [{\"source\": \"Biallelic LARS1 Variants\", \"target\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Damaged LeuRS charges less leucine onto tRNA-Leu, reducing total cellular charging capacity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"target\": \"Febrile Decompensation of Residual Charging Capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the residual activity is temperature-sensitive, a rise in body temperature further reduces it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"target\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced charging capacity limits translational throughput wherever demand is highest, which at baseline is the liver.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Febrile Decompensation of Residual Charging Capacity\", \"target\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile drop in charging capacity is what converts a tolerable chronic deficit into an acute translational failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Febrile Decompensation of Residual Charging Capacity\", \"target\": \"Encephalopathic Episodes with Deep Grey Matter and Brainstem Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Encephalopathic episodes are infection-triggered in every cohort that reports them, so the trigger node feeds the neurological arm as well as the hepatic one. The edge is INDIRECT_UNKNOWN_INTERMEDIATES rather than DIRECT because nothing establishes what happens between the febrile drop in charging capacity and the deep grey matter and brainstem injury - the imaging authors state the pathomechanism remains unclear. Drawing this edge does NOT route the encephalopathy through the liver: it runs from the shared trigger, which is what lets the arm stay independent of hepatic failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"target\": \"Recurrent Hepatocellular Injury and Acute Liver Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocytes are the highest-throughput protein-synthetic cells and fail first.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"target\": \"Hypoalbuminemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Albumin is the single largest hepatic secretory product, so its plasma level is a direct readout of hepatic synthetic capacity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"target\": \"Microcytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anemia is present from early infancy in essentially all patients, but the route from a leucine-charging defect to a MICROCYTIC red-cell phenotype specifically has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated mTORC1 Signalling and Excessive Autophagy\", \"target\": \"Recurrent Hepatocellular Injury and Acute Liver Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive autophagic degradation contributes to the hepatic phenotype independently of the charging deficit, at least in the zebrafish model.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Maintain Protein and Glucose Intake During Illness\", \"target\": \"Febrile Decompensation of Residual Charging Capacity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Seasonal Influenza Vaccination\", \"target\": \"Febrile Decompensation of Residual Charging Capacity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Recurrent Hepatocellular Injury and Acute Liver Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Leucine Supplementation\", \"target\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"larsb-knockout zebrafish\", \"target\": \"Recurrent Hepatocellular Injury and Acute Liver Failure\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model reproduces progressive liver failure and anemia, the two cardinal systemic features.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The fish phenotype is PROGRESSIVE and lethal within 12 days, whereas human ILFS1 is EPISODIC, febrile-triggered, and compatible with survival past 28 years. So the model reproduces the organ that fails without reproducing the conditional, temperature-triggered character that defines the human disease. The knockout is also a null, while human alleles are partial loss-of-function.\"}, {\"source\": \"larsb-knockout zebrafish\", \"target\": \"Dysregulated mTORC1 Signalling and Excessive Autophagy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model is the primary and essentially only evidence for the autophagy arm of the mechanism.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"No human ILFS1 tissue has been examined for excessive autophagy, so the entire branch rests on the fish.\"}, {\"source\": \"LARS1\", \"target\": \"Biallelic LARS1 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LARS1\", \"target\": \"Dysregulated mTORC1 Signalling and Excessive Autophagy\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LARS1\", \"target\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic LARS1 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic damage to LARS1 at 5q32, encoding cytoplasmic leucyl-tRNA synthetase. The founding allele was a homozygous missense variant mapped by homozygosity mapping to 5q31.3-q33.1; the allelic series has since broadened substantially, with eight previously unreported variants added in a single 2020 series. A structural observation from the zebrafish work is that most reported human LARS1 variants fall in the editing domain - the proofreading module that hydrolyses mischarged tRNA - rather than in the aminoacylation active site itself.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"LARS1\"], \"gene_terms\": [{\"label\": \"LARS1\", \"id\": \"hgnc:6512\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Dysregulated mTORC1 Signalling and Excessive Autophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, non-canonical arm. Beyond charging tRNA, LeuRS acts as the intracellular leucine sensor that permits amino-acid-induced mTORC1 activation. In larsb-knockout zebrafish, which reproduce progressive liver failure and anemia, autophagy is excessively activated, and both morpholino knockdown of atg5 and bafilomycin treatment partially rescue liver size and survival. That is a genuine causal test - suppressing autophagy improves the phenotype - but it is a test in fish, and it has not been repeated in human ILFS1 tissue. It is modelled as a separate branch rather than folded into the translational arm because the two make different predictions about therapy.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"TORC1 signaling\", \"macroautophagy\"], \"genes\": [\"LARS1\"], \"gene_terms\": [{\"label\": \"LARS1\", \"id\": \"hgnc:6512\"}], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"larsb-knockout zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"larsb-/- (CRISPR/Cas9 frameshift in exon 3, editing domain)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is the primary and essentially only evidence for the autophagy arm of the mechanism.\"}]}}, {\"id\": \"Encephalopathic Episodes with Deep Grey Matter and Brainstem Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute encephalopathy with seizures and reduced consciousness, precipitated by infection. On MRI, most individuals imaged during an acute episode showed deep grey matter and brainstem changes, a pattern the authors report as apparently characteristic of LARS1 deficiency and as differing from hepatic encephalopathy or from the metabolic stroke of organic acidurias and mitochondrial disease. The critical mechanistic point is dissociation from the liver: encephalopathy occurred in one individual AFTER liver transplantation, so the brain injury cannot be simply a consequence of hepatic failure. Most episodes were survived.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Febrile Decompensation of Residual Charging Capacity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger node. Intercurrent febrile illness is the near-universal precipitant of both hepatic and encephalopathic crises across every published cohort - it was reported as the trigger for encephalopathic episodes in 80% of the ten-patient clinical series, and as the trigger of both crisis types in the twenty-five-patient series. The proposed explanation combines two effects that act in the same direction: fever lowers the temperature-sensitive enzyme\u0027s residual activity, while infection raises catabolic and acute-phase protein demand. That combination is a proposal that fits the in vitro temperature data rather than a directly demonstrated in vivo chain, and the MRI study is explicit that the pathomechanism remains unclear.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"cellular response to heat\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Hypoalbuminemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the earliest presenting features, reflecting impaired hepatic protein synthesis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003073\"}}, {\"id\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With leucine charging limiting, cytoplasmic translation cannot keep pace with demand. The tissue distribution of the disease follows protein-synthetic throughput rather than LARS1 expression: hepatocytes, which manufacture and secrete albumin and the acute-phase proteins, are affected first and hardest. This is the proposed unifying premise of the recessive ARS deficiencies generally - residual aminoacylation suffices at baseline but not under load.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"cytoplasmic translation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"LARS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LARS1\"], \"gene_terms\": [{\"label\": \"LARS1\", \"id\": \"hgnc:6512\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Leucine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The evidence here changed, and both results are recorded because the disagreement is informative rather than a contradiction to be resolved by picking the newer paper. The 2015 ILFS1 clinical series reported that leucine supplementation had no appreciable impact on patient well-being. A 2021 study that approached the problem mechanistically rather than empirically reached the opposite conclusion: having first shown in patient fibroblasts that aminoacylation is both reduced at baseline and further reduced at febrile temperature, and that growth is severely impaired when the cognate amino acid is scarce, the authors supplemented patients with their cognate amino acid and INTENSIFIED dosing during infections, reporting benefit in growth, head circumference, development, coping with infections and oxygen dependency over up to two and two-thirds years. The two are reconcilable, and the reconciliation is the point: the failed attempt supplied leucine at steady state, while the successful protocol raised supply precisely when the temperature-sensitive enzyme\u0027s capacity falls. If that reading is right, timing rather than substrate is what the earlier trial got wrong. It is not established - the 2021 series pooled four different ARS deficiencies and was uncontrolled - so this entry presents it as the better supported of two open positions, not as settled.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The definitive intervention for irreversible hepatic failure, and part of the hard outcome measure in this disease - 12 of 36 reported patients died or underwent liver transplantation. It carries a mechanistic caveat this entry treats as important rather than incidental: LARS1 deficiency is systemic, so replacing the liver does not correct the enzyme defect elsewhere. Encephalopathy occurred in one individual AFTER transplantation. Transplantation should therefore be understood as treating the organ that fails first, not the disease.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Maintain Protein and Glucose Intake During Illness\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The counter-intuitive management point, and the one most likely to be got wrong. In metabolic hepatopathies the reflex is to reduce or stop protein intake; the ILFS1 clinical series argues this is inappropriate here and recommends ensuring sufficient natural protein intake when unwell. The mechanistic rationale is that the lesion is a failure to CHARGE and USE amino acids, not a failure to clear them, so substrate restriction removes supply without relieving the block. The MRI study independently recommends sufficient glucose and protein alongside proactive fever management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Microcytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia, specified as microcytic in the largest cohort, present from early infancy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001935\"}}, {\"id\": \"Recurrent Hepatocellular Injury and Acute Liver Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining clinical event. Transaminases rise recurrently, in the severe case to frank acute liver failure, characteristically during febrile illness. The pattern is episodic rather than steadily progressive, and episodes become less severe with increasing age - a natural history that fits a conditional enzyme deficit better than it fits cumulative structural damage.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"larsb-knockout zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"larsb-/- (CRISPR/Cas9 frameshift in exon 3, editing domain)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model reproduces progressive liver failure and anemia, the two cardinal systemic features.\"}]}}, {\"id\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The core enzymatic deficit, and the one measured directly in patient material. Aminoacylation activity is reduced in fibroblasts from every patient tested. Crucially the reduction is not fixed: it is significantly worse at elevated temperature, which makes the residual enzyme conditionally rather than constitutively insufficient. This is the mechanistic hinge of the entry - it converts a static enzyme deficiency into an episodic disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"leucyl-tRNA aminoacylation\"], \"molecular_functions\": [\"leucine-tRNA ligase activity\"], \"genes\": [\"LARS1\"], \"gene_terms\": [{\"label\": \"LARS1\", \"id\": \"hgnc:6512\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Seasonal Influenza Vaccination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because decompensation is infection-triggered and severe episodes were specifically observed during influenza infections, the imaging cohort makes a strong recommendation for seasonal vaccination. This is a rare case of a mechanism-derived preventive intervention in an ARS deficiency: it does not touch the enzyme, it removes the trigger.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"larsb-knockout zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"CRISPR/Cas9 knockout of larsb, the zebrafish paralogue with higher homology to human LARS1, targeted to the editing domain where most human variants fall.\"}], \"edges\": [{\"source\": \"Biallelic LARS1 Variants\", \"target\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Damaged LeuRS charges less leucine onto tRNA-Leu, reducing total cellular charging capacity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"target\": \"Febrile Decompensation of Residual Charging Capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the residual activity is temperature-sensitive, a rise in body temperature further reduces it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"target\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced charging capacity limits translational throughput wherever demand is highest, which at baseline is the liver.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Febrile Decompensation of Residual Charging Capacity\", \"target\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile drop in charging capacity is what converts a tolerable chronic deficit into an acute translational failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Febrile Decompensation of Residual Charging Capacity\", \"target\": \"Encephalopathic Episodes with Deep Grey Matter and Brainstem Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Encephalopathic episodes are infection-triggered in every cohort that reports them, so the trigger node feeds the neurological arm as well as the hepatic one. The edge is INDIRECT_UNKNOWN_INTERMEDIATES rather than DIRECT because nothing establishes what happens between the febrile drop in charging capacity and the deep grey matter and brainstem injury - the imaging authors state the pathomechanism remains unclear. Drawing this edge does NOT route the encephalopathy through the liver: it runs from the shared trigger, which is what lets the arm stay independent of hepatic failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"target\": \"Recurrent Hepatocellular Injury and Acute Liver Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocytes are the highest-throughput protein-synthetic cells and fail first.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"target\": \"Hypoalbuminemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Albumin is the single largest hepatic secretory product, so its plasma level is a direct readout of hepatic synthetic capacity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytoplasmic Protein Synthesis in High-Demand Tissues\", \"target\": \"Microcytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anemia is present from early infancy in essentially all patients, but the route from a leucine-charging defect to a MICROCYTIC red-cell phenotype specifically has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated mTORC1 Signalling and Excessive Autophagy\", \"target\": \"Recurrent Hepatocellular Injury and Acute Liver Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive autophagic degradation contributes to the hepatic phenotype independently of the charging deficit, at least in the zebrafish model.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Maintain Protein and Glucose Intake During Illness\", \"target\": \"Febrile Decompensation of Residual Charging Capacity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Seasonal Influenza Vaccination\", \"target\": \"Febrile Decompensation of Residual Charging Capacity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Recurrent Hepatocellular Injury and Acute Liver Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Leucine Supplementation\", \"target\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"larsb-knockout zebrafish\", \"target\": \"Recurrent Hepatocellular Injury and Acute Liver Failure\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model reproduces progressive liver failure and anemia, the two cardinal systemic features.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The fish phenotype is PROGRESSIVE and lethal within 12 days, whereas human ILFS1 is EPISODIC, febrile-triggered, and compatible with survival past 28 years. So the model reproduces the organ that fails without reproducing the conditional, temperature-triggered character that defines the human disease. The knockout is also a null, while human alleles are partial loss-of-function.\"}, {\"source\": \"larsb-knockout zebrafish\", \"target\": \"Dysregulated mTORC1 Signalling and Excessive Autophagy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model is the primary and essentially only evidence for the autophagy arm of the mechanism.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"No human ILFS1 tissue has been examined for excessive autophagy, so the entire branch rests on the fish.\"}, {\"source\": \"LARS1\", \"target\": \"Biallelic LARS1 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LARS1\", \"target\": \"Dysregulated mTORC1 Signalling and Excessive Autophagy\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LARS1\", \"target\": \"Reduced Leucyl-tRNA Aminoacylation Capacity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5961,6 +6077,9 @@ This clinical feature is Microcytic anemia (HP:0001935). HP:0001935 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6091,6 +6210,9 @@ This clinical feature is Acute hepatic failure (HP:0006554), qualified as tempor
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6182,6 +6304,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency asserted - the source is a three-patient series covering both LARS1 and MARS1 disease, so it establishes the phenotype without giving a denominator for ILFS1.</div>
 
 
@@ -6251,6 +6376,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">As for hepatomegaly - single small series spanning two ARS diseases, so no frequency is asserted.</div>
@@ -6333,6 +6461,9 @@ This clinical feature is Renal tubular dysfunction (HP:0000124). HP:0000124 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6438,6 +6569,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6504,6 +6638,9 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6614,6 +6751,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6694,6 +6834,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6760,6 +6903,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6854,6 +7000,9 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality r
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6934,6 +7083,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7002,6 +7154,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7118,6 +7273,9 @@ This disease-associated gene is LARS1 (hgnc:6512). hgnc:6512 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7248,6 +7406,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7258,6 +7419,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -7396,6 +7560,9 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7406,6 +7573,9 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
     </div>
+
+
+
 
 
 
@@ -7519,6 +7689,9 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7529,6 +7702,9 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7667,6 +7843,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7677,6 +7856,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -9908,6 +10090,35 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Infantile Liver Failure Syndrome 1 (LARS1)</strong> · 2026-08-28T10:50:48Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Infantile_Liver_Failure_Syndrome_1/2026-08-28T105048Z-aleixpuigb-333584.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MONDO:0024568 (LARS1 deficiency, infantile liver failure syndrome type 1).
+
+Deep research: one openscientist run (research/Infantile_Liver_Failure_Syndrome_1-deep-research-openscientist.md). Its reference_validation reported 15/15 references resolved, confabulation_rate 0.0, 0 off-topic.
+
+The DR report produced a substantive correction to the initial draft. The draft cited the 2015 clinical series reporting that leucine supplementation had no appreciable benefit, and drew a mechanistic inference from that failure. The report surfaced PMID:34194004 (Genet Med 2021), which showed in patient fibroblasts that aminoacylation is further reduced at 38.5/40 C, that growth is substrate-sensitive, and that cognate amino acid supplementation INTENSIFIED DURING INFECTIONS produced benefit. The treatment entry now records both results and the reading that reconciles them - timing rather than substrate was what the earlier attempt got wrong - while stating explicitly that the 2021 series pooled four ARS deficiencies and had no control arm.
+
+The report also surfaced PMID:38844943, a 36-patient cumulative series that supplies real frequency denominators (IUGR 31/32, hypoalbuminemia 32/32, microcytic anemia 32/33, acute liver failure 24/34) and Kaplan-Meier prognostic factors (onset under 3 months HR 12.29; liver failure HR 6.57; 12/36 died or were transplanted). These replaced frequency assertions that had been made without denominators, and added a progression block. PMID:22424946 was added as the primary source for LeuRS acting as a Rag GTPase GAP in mTORC1 leucine sensing.
+
+Mechanism: biallelic LARS1 variants -&gt; reduced, TEMPERATURE-SENSITIVE leucyl-tRNA aminoacylation capacity -&gt; febrile decompensation -&gt; impaired cytoplasmic protein synthesis in high-demand tissues -&gt; recurrent hepatocellular injury, hypoalbuminemia, microcytic anemia. A separate mTORC1/autophagy branch is modelled from the larsb-knockout zebrafish and graded PROVISIONAL.
+
+Encephalopathy is deliberately NOT modelled downstream of the liver: it occurred after liver transplantation in one individual and independently of liver crises in a separate cohort.
+
+Four discussions record the gaps, including a HUMAN_MODEL_MISMATCH on the zebrafish autophagy branch (a null model with a progressive lethal phenotype standing in for a partial loss-of-function, episodic, survivable human disease) with a proposed autophagic-flux experiment.
+
+PMID:33314043 is topically relevant but its cached record has an empty body, so no snippet can be verified against it; it is excluded and the exclusion is recorded in the entry&#39;s notes.
+
+Validation: just validate passes - schema, terms, and 51/51 snippets verified against cached references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

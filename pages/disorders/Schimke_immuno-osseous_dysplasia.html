@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4316,6 +4369,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smarcal1-annealing-helicase-deficiency" data-dismech-node="SMARCAL1 Annealing Helicase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">SMARCAL1 Annealing Helicase Deficiency</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function SMARCAL1 variants abolish or reduce the SMARCAL1 (HARP) protein, an SNF2-family ATP-driven annealing helicase that rewinds RPA-stabilized single-stranded DNA bubbles at replication forks. Disease-associated mutations impair SMARCAL1 expression, stability, chromatin binding, and ATPase/annealing activity, and residual overall SMARCAL1 activity is inversely proportional to disease severity.</div>
 
 
@@ -4368,6 +4422,8 @@ This genetic context concerns SMARCAL1 (hgnc:11102). hgnc:11102 is a gene from t
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4378,6 +4434,9 @@ This genetic context concerns SMARCAL1 (hgnc:11102). hgnc:11102 is a gene from t
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic germline loss-of-function variants; nonsense/frameshift/splice genotypes cause severe disease, whereas biallelic missense variants retaining partial function cause milder disease.</div>
 
@@ -4548,6 +4607,7 @@ This pathophysiological event involves decreased annealing helicase activity, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-replication-stress-and-genome-instability" data-dismech-node="Replication Stress and Genome Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Replication Stress and Genome Instability</div>
+
 
                 <div class="item-desc">SMARCAL1-deficient cells activate the DNA damage response during S phase without exogenous genotoxins, show slower replication fork recovery and delayed mitotic entry after S-phase arrest, and are hypersensitive to replication stress and DNA-damaging agents in vitro and in vivo. This replication stress preferentially compromises highly proliferative compartments (growth plate, glomerulus, thymus/lymphocytes, marrow) and underlies the hypersensitivity to genotoxic therapies observed clinically.</div>
 
@@ -4773,6 +4833,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-chondrogenesis" data-dismech-node="Impaired Chondrogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Chondrogenesis</div>
 
+
                 <div class="item-desc">Defective chondrogenesis with loss of proliferating growth-plate chondrocytes underlies the spondyloepiphyseal dysplasia. Autopsy studies identify defective chondrogenesis and suggest a regulatory role for SMARCAL1 in chondrocyte proliferation; the resulting dysplasia predominantly involves the vertebrae, pelvis, and capital femoral epiphyses, producing short-trunk disproportionate growth failure.</div>
 
 
@@ -4988,6 +5049,7 @@ This pathophysiological event involves decreased cartilage development (GO:00512
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-podocyte-injury-and-glomerulosclerosis" data-dismech-node="Podocyte Injury and Glomerulosclerosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Podocyte Injury and Glomerulosclerosis</div>
 
+
                 <div class="item-desc">The nephropathy of SIOD is a podocytopathy. SMARCAL1 is expressed in podocytes and glomerular endothelial cells; patient biopsies show the tip and collapsing variants of focal segmental glomerulosclerosis with ultrastructural podocyte and Bowman&#39;s-capsule abnormalities, and the podocytopathy usually progresses through FSGS to end-stage kidney disease.</div>
 
 
@@ -5163,6 +5225,7 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thymic-t-cell-development-failure" data-dismech-node="Thymic T-cell Development Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Thymic T-cell Development Failure</div>
+
 
                 <div class="item-desc">T-cell production fails at the level of the thymus. SIOD patient T cells have undetectable IL-7 receptor alpha chain (IL7Rα) protein and mRNA with hypermethylation of the IL7R promoter and are unresponsive to IL-7, restricting T-cell development; residual peripheral T cells are skewed to mature/memory phenotypes with exhaustion features. B-cell numbers and immunoglobulins are comparatively preserved early, though hypogammaglobulinemia — aggravated by nephrotic protein loss — is a hallmark of the combined immunodeficiency.</div>
 
@@ -5433,6 +5496,7 @@ This pathophysiological event involves decreased T cell homeostasis (GO:0043029)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-elastogenesis-and-premature-arteriosclerosis" data-dismech-node="Defective Elastogenesis and Premature Arteriosclerosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Elastogenesis and Premature Arteriosclerosis</div>
+
 
                 <div class="item-desc">Reduced elastin expression in aorta and lung, with altered expression of regulators of elastin gene expression, produces an arteriosclerosis characterized by intimal and medial hyperplasia, smooth muscle cell hyperplasia and fragmented, disorganized elastin fibers, and an emphysema-like panlobular enlargement of air spaces. Vascular disease — including premature atherosclerosis and cerebral vaso-occlusion — is a major cause of morbidity and mortality.</div>
 
@@ -5719,6 +5783,9 @@ This clinical feature is T-cell lymphopenia, annotated with Decreased total T ce
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5810,6 +5877,9 @@ This clinical feature is Bone marrow failure, annotated with Bone marrow hypocel
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5927,6 +5997,9 @@ This clinical feature is Transient thrombocytopenia, annotated with Thrombocytop
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5993,6 +6066,9 @@ This clinical feature is Non-Hodgkin lymphoma (HP:0012539). HP:0012539 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6075,6 +6151,9 @@ This clinical feature is Cerebral ischemic events (TIA/stroke), annotated with C
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6171,6 +6250,9 @@ This clinical feature is Premature atherosclerosis, annotated with Atheroscleros
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6281,6 +6363,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6386,6 +6471,9 @@ This clinical feature is Steroid-resistant nephrotic syndrome (HP:0012588). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6475,6 +6563,9 @@ This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6571,6 +6662,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6674,6 +6768,9 @@ This clinical feature is End-stage renal disease, annotated with Stage 5 chronic
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6754,6 +6851,9 @@ This clinical feature is Unusual facies, annotated with Abnormal facial shape (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6827,6 +6927,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6937,6 +7040,9 @@ This clinical feature is Hyperpigmented macules, annotated with Hypermelanotic m
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7031,6 +7137,9 @@ This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7106,6 +7215,9 @@ This clinical feature is Spondyloepiphyseal dysplasia (HP:0002655). HP:0002655 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7239,6 +7351,9 @@ This clinical feature is Migraine-like headaches, annotated with Migraine (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7346,6 +7461,9 @@ This clinical feature is Disproportionate short-trunk short stature (HP:0003521)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7437,6 +7555,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7553,6 +7674,9 @@ This disease-associated gene is SMARCAL1 (hgnc:11102). hgnc:11102 is a gene from
 
 
                 </div>
+
+
+
 
 
 
@@ -7710,6 +7834,9 @@ This treatment is kidney transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7720,6 +7847,9 @@ This treatment is kidney transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -7898,6 +8028,12 @@ This treatment is immunosuppressive therapy (NCIT:C15261). NCIT:C15261 is a clin
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Because of the underlying T-cell immunodeficiency, conventional combination immunosuppression after renal transplantation has led to severe disseminated cutaneous papillomavirus infections and EBV-associated lymphoproliferative disease; immunosuppressive monotherapy maintenance gives good graft outcomes with fewer severe infections, and limited immunosuppression appears possible without increased rejection risk.</div>
 
 
@@ -8012,6 +8148,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8022,6 +8161,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
     </div>
+
+
+
 
 
 
@@ -8225,6 +8367,12 @@ This treatment is sequential stem cell and kidney transplantation, annotated wit
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Sequential transplantation of alpha-beta T-cell-depleted, CD19 B-cell-depleted haploidentical hematopoietic stem cells followed by a kidney from the same donor established full donor chimerism and immune tolerance in three children with SIOD, who maintained normal renal function without any immunosuppression at 22 to 34 months — addressing the immunodeficiency and the renal failure with a single donor while eliminating post-transplant immunosuppression.</div>
 
 
@@ -8407,6 +8555,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 

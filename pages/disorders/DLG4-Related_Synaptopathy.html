@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4968,6 +5021,7 @@ The clinically most consequential complication is a developmental and epileptic 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dlg4-loss-of-function-and-psd-95-haploinsufficiency" data-dismech-node="DLG4 Loss of Function and PSD-95 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">DLG4 Loss of Function and PSD-95 Haploinsufficiency</div>
 
+
                 <div class="item-desc">A heterozygous protein-truncating variant (nonsense, frameshift, canonical splice-site) — or a synonymous, deep-intronic or missense variant that disrupts splicing or protein folding — halves the functional dose of PSD-95, the prototypic MAGUK scaffold of the excitatory postsynaptic density. The endpoint that is actually measured is reduced PSD-95 protein; the route to it is allele-dependent and should not be assumed. Truncating alleles in the body of the transcript are conventionally expected to be cleared by nonsense-mediated decay, but the one DLG4 allele for which this has been tested directly — the GK-domain frameshift V692Wfs*12 — escapes decay and still yields less protein, so degradation of the transcript is not a prerequisite for haploinsufficiency here. Any surviving protein product lacks one or more of the PDZ, SH3 and guanylate-kinase domains through which PSD-95 organizes the postsynaptic density. Because the paralogous DLG-MAGUKs do not compensate, the single remaining wild-type allele is insufficient; DLG4&#39;s position among the most loss-of-function-intolerant genes in the genome is the population-genetic footprint of that fact, not its cause.
 </div>
 
@@ -5054,6 +5108,8 @@ This genetic context concerns DLG4 (hgnc:2903). hgnc:2903 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -5069,6 +5125,9 @@ This genetic context concerns DLG4 (hgnc:2903). hgnc:2903 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous, predominantly de novo loss-of-function alleles; six missense variants in the founding cohort localize to conserved PDZ2, PDZ3 and GK domains and are predicted to destabilize the domain or alter its surface charge rather than to abolish a canonical PDZ binding pocket.</div>
 
@@ -5361,6 +5420,7 @@ This pathophysiological event involves Postsynaptic density (GO:0014069). GO:001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-glutamate-receptor-anchoring-at-the-postsynaptic-density" data-dismech-node="Impaired Glutamate Receptor Anchoring at the Postsynaptic Density" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Glutamate Receptor Anchoring at the Postsynaptic Density</div>
+
 
                 <div class="item-desc">PSD-95 clusters in postsynaptic nanodomains where its PDZ1-2 supermodule binds the C-terminal PDZ-binding motifs of NMDA-receptor GluN2 subunits and of TARP/stargazin, the auxiliary subunit that tethers AMPA receptors, while PDZ3 binds neuroligin-1 and the LGI1-ADAM22 complex. Losing PSD-95 dose fragments the postsynaptic density, reduces its size, and destabilizes AMPA receptors at the synaptic membrane, increasing the proportion of &#34;silent&#34; synapses that carry NMDA receptors but no functional AMPA receptors. The NMDA-receptor current is not simply lost but qualitatively altered, decaying more slowly with a greater GluN2B contribution — a shift toward an immature receptor complement.
 </div>
@@ -5727,6 +5787,7 @@ This pathophysiological event involves Dendritic spine (GO:0043197). GO:0043197 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-functional-maturation-of-excitatory-synapses" data-dismech-node="Impaired Functional Maturation of Excitatory Synapses" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Functional Maturation of Excitatory Synapses</div>
 
+
                 <div class="item-desc">PSD-95 level is instructive, not merely permissive, for excitatory synapse maturation: raising it drives glutamatergic synapses to maturity, enhances presynaptic terminal maturation transsynaptically, and increases the number and size of dendritic spines. Halving it therefore leaves a developing cortex with fewer functionally mature excitatory synapses during the window of synaptogenesis.
 The maturation failure is functional and is explicitly dissociated from spine morphology, which is the single most important caveat on this node. In the complete knockout the functionally silent synapses sit on morphologically mature spines, and PSD-95 mutant mice show unaffected synaptic morphology — so this entry deliberately does not assert a dendritic-spine-development deficit, and a negative spine-imaging result in a DLG4 model or patient neuron would not count against the node.
 </div>
@@ -5962,6 +6023,7 @@ This pathophysiological event involves decreased Glutamate receptor signaling pa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-excitatory-synaptic-plasticity-and-excitation-inhibition-imbalance" data-dismech-node="Impaired Excitatory Synaptic Plasticity and Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Excitatory Synaptic Plasticity and Excitation-Inhibition Imbalance</div>
+
 
                 <div class="item-desc">PSD-95 couples the NMDA receptor to the machinery that decides whether a given firing pattern potentiates or depresses a synapse. Without it, the frequency-response function of NMDA-dependent long-term potentiation and depression is shifted, producing strikingly enhanced LTP across stimulation frequencies rather than a simple loss of plasticity — a bidirectional learning rule broken in the direction of over-potentiation. The excitation-inhibition framing is an inference rather than a measurement in this disorder: the studies cited here quantified glutamatergic transmission and plasticity only, and none of them measured GABAergic transmission alongside it. PSD-95 is confined to excitatory synapses, so a shifted set point is the expected consequence, but a comparable inhibitory deficit has not been excluded.
 </div>
@@ -6250,6 +6312,7 @@ This pathophysiological event involves decreased Glutamatergic synaptic transmis
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-dysfunction-and-hyperexcitability" data-dismech-node="Cortical Network Dysfunction and Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Dysfunction and Hyperexcitability</div>
 
+
                 <div class="item-desc">Aggregated synaptic deficits produce diffuse, bilateral cortical and hippocampal circuit dysfunction. Structural imaging is deliberately unhelpful here: brain MRI in individuals with pathogenic DLG4 variants shows abnormalities that are diverse and nonspecific, so the circuit lesion is functional rather than a visible malformation. In roughly half of individuals the shifted excitation-inhibition set point crosses into frank epileptogenesis, with a wide range of seizure types of which focal seizures are the most common.
 </div>
 
@@ -6498,6 +6561,7 @@ This pathophysiological event occurs in Hippocampal formation (UBERON:0002421). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sleep-activated-epileptiform-encephalopathy-dee-swas-eses" data-dismech-node="Sleep-Activated Epileptiform Encephalopathy (DEE-SWAS/ESES)" data-dismech-type="pathophysiology">
                 <div class="item-name">Sleep-Activated Epileptiform Encephalopathy (DEE-SWAS/ESES)</div>
 
+
                 <div class="item-desc">In about a quarter of individuals with DLG4-related epilepsy, epileptiform activity is massively potentiated by slow-wave sleep, producing encephalopathy related to status epilepticus during slow-wave sleep (ESES) / developmental epileptic encephalopathy with spike-wave activation during sleep (DEE-SWAS). This is a distinct circuit state, not merely more seizures: the abnormality is near-continuous sleep-activated spike-wave, and because the driving activity occurs in sleep it is invisible to a routine awake EEG. Sleep or 24-hour EEG is therefore the specific investigation this node motivates.
 </div>
 
@@ -6638,6 +6702,7 @@ This pathophysiological event involves dysregulated Chemical synaptic transmissi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-regression" data-dismech-node="Developmental Regression" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental Regression</div>
 
+
                 <div class="item-desc">Loss of previously acquired verbal and/or motor skills, which converts an otherwise largely static developmental disorder into an actively regressive one and is the strongest determinant of cognitive outcome.
 This node is deliberately separate from the sleep-activated encephalopathy that most often drives it, because the evidence decouples them in both directions: regression occurred in every individual with ESES/DEE-SWAS but also in some who never developed it, so it has a second route from cortical circuit dysfunction that does not pass through the sleep-activated state. Regression is also not confined to childhood — intellectual regression without motor delay has been reported at age two, and cognitive regression with progressive dystonia in adulthood.
 </div>
@@ -6740,6 +6805,7 @@ This node is deliberately separate from the sleep-activated encephalopathy that 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-phenotypic-output" data-dismech-node="Neurodevelopmental Phenotypic Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Phenotypic Output</div>
+
 
                 <div class="item-desc">The clinical convergence point of the synaptopathy: early-onset global developmental delay, intellectual disability that is most often mild to moderate, autism spectrum disorder and attention deficit-hyperactivity disorder, together with hypotonia, movement disorders and sleep disturbance. The overlap with other synaptic-dysfunction neurodevelopmental disorders is what motivated the &#34;synaptopathy&#34; designation in the first place, and is why the clinical gestalt alone cannot establish the diagnosis.
 </div>
@@ -7002,6 +7068,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7080,6 +7149,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7149,6 +7221,9 @@ This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7213,6 +7288,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7312,6 +7390,9 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7390,6 +7471,9 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7454,6 +7538,9 @@ This clinical feature is Long face (HP:0000276). HP:0000276 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7537,6 +7624,9 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7610,6 +7700,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7711,6 +7804,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7777,6 +7873,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7876,6 +7975,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7949,6 +8051,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8048,6 +8153,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8142,6 +8250,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8208,6 +8319,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8332,6 +8446,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8396,6 +8513,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8469,6 +8589,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8568,6 +8691,9 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8634,6 +8760,9 @@ This clinical feature is Continuous spike and waves during slow sleep (HP:003149
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8708,6 +8837,9 @@ This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8772,6 +8904,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8859,6 +8994,9 @@ This clinical feature is Dystonia (HP:0001332), qualified as course progressive.
 
 
                     </div>
+
+
+
 
 
 
@@ -8958,6 +9096,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9022,6 +9163,9 @@ This clinical feature is Migraine (HP:0002076). HP:0002076 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9098,6 +9242,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9162,6 +9309,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9261,6 +9411,9 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9325,6 +9478,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9396,6 +9552,9 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9478,6 +9637,9 @@ This clinical feature is Marfanoid habitus, annotated with Disproportionate tall
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9623,6 +9785,9 @@ This disease-associated gene is DLG4 (hgnc:2903). hgnc:2903 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9734,6 +9899,7 @@ This disease-associated gene is DLG4 (hgnc:2903). hgnc:2903 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9753,11 +9919,17 @@ This variant is in DLG4 (hgnc:2903). hgnc:2903 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">SNV</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A deep intronic variant identified by whole genome sequencing that generates two alternative DLG4 transcripts, one containing a pseudoexon; both are out-of-frame and predicted to truncate the protein. Notable because it is invisible to exome sequencing and because DLG4 mRNA proved detectable in peripheral blood, making an accessible-tissue RNA assay diagnostic.</div>
@@ -9820,6 +9992,7 @@ This variant is in DLG4 (hgnc:2903). hgnc:2903 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9839,11 +10012,17 @@ This variant is in DLG4 (hgnc:2903). hgnc:2903 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">SNV</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A synonymous variant with previously conflicting ClinVar interpretations, shown by RNA sequencing and RT-PCR to cause complete exon 9 skipping with a resulting frameshift and premature termination codon. Its origin was paternal germline mosaicism, detected by high-depth amplicon sequencing of sperm DNA.</div>
@@ -9955,6 +10134,9 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9965,6 +10147,9 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10081,6 +10266,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10091,6 +10279,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -10250,6 +10441,9 @@ This treatment uses clozapine (CHEBI:3766). CHEBI:3766 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10260,6 +10454,9 @@ This treatment uses clozapine (CHEBI:3766). CHEBI:3766 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -10377,6 +10574,9 @@ This treatment is Sleep disorder therapy (NCIT:C15541). NCIT:C15541 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10387,6 +10587,9 @@ This treatment is Sleep disorder therapy (NCIT:C15541). NCIT:C15541 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -10503,6 +10706,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10513,6 +10719,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -10630,6 +10839,9 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10640,6 +10852,9 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -15518,6 +15733,183 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Deep research: an Edison/Falcon run was attempted first, per the default in the initiate-new-disorder-creation skill, but the API returned HTTP 402 (Payment Required — account credits exhausted), so no Falcon report exists for this entry. Two other providers were run instead and both were used: research/DLG4-Related_Synaptopathy-deep-research-claude_code.md and research/DLG4-Related_Synaptopathy-deep-research-openscientist.md.
+NEC preflight against MONDO:0032919 returned PASS for both reports (claude_code: DLG4 mentioned 61 times, next gene DLG2 at 4; openscientist: DLG4 52, next PSD 7; both report OMIM 618793, matching the MONDO xref).
+The claude_code report&#39;s own reference-validation block flagged `needs_review: true` over three identifiers, each triaged separately rather than as a block. Two are not cited here: DOI:10.1111/cge.14411 (malformed by a pasted URL suffix) and DOI:10.1073/pnas.1517045112 (a quote the validator could not substantiate). The deep-intronic case the malformed DOI referred to is cited instead by its PMID (PMID:37525972), fetched and verified independently.
+The third, PMC:PMC3546964 / PMID:23342049 (Yudowski et al. 2013, acute PSD-95 inactivation destabilizes AMPA receptors), was flagged `off_topic` and that flag was reviewed and deliberately overridden after reading the paper. Per CLAUDE.md an off-topic flag is evidence, not a verdict; the flag fires because the paper shares little vocabulary with a clinical DLG4 report, not because it is irrelevant. It is in fact the cleanest loss-of-function test of the receptor-anchoring claim in this entry — acute photoinactivation strips surface AMPA receptors within minutes while sparing NMDA and transferrin receptors — so it IS cited, on the Impaired Glutamate Receptor Anchoring node.
+The openscientist report validated clean (14/14 references resolved, no unsupported quotes, no off-topic flags).
+Two claims from the reports were checked and rejected. The claude_code report asserted that no human iPSC model of DLG4-related synaptopathy had been published — out of date, since PMID:42462545 reports the patient-derived AOUMEYi004-A line, curated here under experimental_models. The openscientist report stated that germline mosaicism is &#34;not specifically documented&#34; in this disorder — also out of date, since PMID:42482343 confirms paternal germline mosaicism at 3.83% allele frequency in sperm DNA, curated here under inheritance.
+Reference-cache scoping: several caches added in this change were fetched during the two deep-research reference-validation passes and are deliberately not cited. DOI:10.1111/cge.13243, DOI:10.1111/epi.17876 and DOI:10.1111/cge.14411 are DOI-keyed duplicates of PMID:29460436, PMID:38135915 and PMID:37525972 respectively, which are cited by PMID. DOI:10.1073/pnas.1517045112 is the PNAS MAGUK paper whose quote the claude_code report could not substantiate, and is not used. PMID:15638945 and PMID:8793296 (Drosophila dlg) are invertebrate background, and PMID:18248606 and PMID:20554866 are PSD-95-interactome studies not specific to this disorder; the entry cites primary DLG4 and mammalian PSD-95 literature in their place. Note that PMID:23342049 is NOT in this unused set — despite its off-topic flag it is cited, for the reason given above.
+Datasets: `just discover-datasets DLG4-Related_Synaptopathy` returned 12 candidates, all tagged DIRECT, and every one of them failed relevance triage — they matched on the generic phrase &#34;intellectual developmental&#34; and concern other genes entirely (ZMIZ1, HNRNPH2, KAT6A, UNC5C and others). This is the Named Entity Confusion failure mode reached through dataset search that CLAUDE.md warns about, so no `datasets:` block is curated here rather than recording an accession that resolves but is about a different disease. No DLG4- or PSD-95-specific repository accession surfaced.
+Two further items from the openscientist report are recorded in prose rather than as evidence because no citable snippet supports them: the gnomAD constraint metrics for DLG4 (pLI = 1.0, LOEUF = 0.14), which appear in the trigger-node description as &#34;among the most loss-of-function-intolerant genes in the genome&#34; without a reference; and a reported ~33% frequency of cerebellar vermis atrophy on MRI, which is not traceable to any source retrievable into the reference cache and is therefore omitted entirely rather than curated as an imaging finding.
+Frequency discipline: GeneReviews&#39; full Clinical Characteristics tables report per-feature percentages that the cached PubMed abstract does not carry, so `frequency:` bands here are asserted only where the cached abstract (or the Kassabian epilepsy cohort abstract) is itself quantitative or uses an explicit frequency word, per docs/frequency-evidence-guidelines.md. Several features that the deep-research report gave percentages for (ASD 56%, ADHD 57%, anxiety 53%, marfanoid habitus ~24%) are curated without a frequency band because those numbers trace to the GeneReviews chapter body rather than to any quotable cached source.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address PR 9013 review: fix stale provenance note and CI folded-hyphen failure</strong> · 2026-08-20T01:02:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/DLG4-Related_Synaptopathy/2026-08-20T010233Z-claude-code-abaae1.yaml">View source</a></p>
+                        <p class="research-review-text">Follow-up session on PR #9013, responding to CI and to the ai4c-reviewer
+REQUEST_CHANGES review. No new curation content; three corrections.
+
+CI failure (test (3.13), head e0bd72b7). `scripts/check_folded_hyphens.py`
+failed on kb/disorders/DLG4-Related_Synaptopathy.yaml:1955: a line inside a
+folded (&#39;&gt;-&#39;) scalar ended in &#34;NMDA-&#34;, so YAML folding would have produced
+&#34;NMDA- dependent&#34; in the rendered animal-model description. Reflowed the
+sentence so the compound stays on one line. This gate was not run before the
+first push; the full CI step list has now been walked and every gate that
+applies to this change was run locally before this push (ruff,
+check_folded_hyphens, check_snippet_length, check_title_snippets,
+check_environmental_evidence, term_cache_integrity, check_duplicate_yaml_keys,
+validate-disorders, validate-history-all, validate-terms-schema).
+
+Reviewer finding (IMPORTANT, accepted). The notes block asserted that
+PMID:23342049 / PMC:PMC3546964 was &#34;not used&#34;, but the paper IS cited on the
+Impaired Glutamate Receptor Anchoring node. The citation was added during the
+pre-PR red-team pass and the notes prose, written earlier, was never updated
+— a stale provenance statement, not a content error. Fixed the prose and kept
+the citation, as the reviewer requested. The notes block now records the
+substantive point instead: the claude_code deep-research validator flagged
+this reference `off_topic`, that flag was reviewed and deliberately
+overridden after reading the paper (an off-topic flag is evidence, not a
+verdict, per CLAUDE.md), and the paper is cited because it is the cleanest
+loss-of-function test of the receptor-anchoring claim in the entry. The three
+claude_code-flagged identifiers are now triaged individually rather than
+described as a block, since they had different outcomes.
+
+Self-caught error during that fix: the replacement prose initially
+misattributed PMID:23342049 to &#34;Sturgill et al.&#34;; the cached record gives
+Yudowski GA as first author. Corrected to &#34;Yudowski et al. 2013&#34; before
+pushing.
+
+Reviewer suggestion (SUGGESTION, accepted). The behavioural sleep-disturbance
+treatment used NCIT:C49236 (Therapeutic Procedure), close to the root of the
+clinical-intervention tree. Changed to NCIT:C15541 (Sleep Disorder Therapy),
+which is more specific and matches the treatment&#39;s actual scope — behavioural
+measures first-line with pharmacotherapy for refractory cases. Deliberately
+did NOT use NCIT:C157821 (Cognitive Behavior Therapy for Insomnia): the
+GeneReviews source says only &#34;behavioral therapy may aid those who have
+insomnia&#34;, so naming CBT-I specifically would assert more than the evidence
+supports.
+
+Validation after these changes: `just validate` passes with &#34;Snippets checked:
+128/128 verified against cached references&#34;; schema and term validation clean
+(NCIT:C15541 confirmed reachable from the TreatmentTerm enum root);
+check_folded_hyphens, check_duplicate_yaml_keys, check_snippet_length,
+check_title_snippets, check_environmental_evidence and term_cache_integrity
+all pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: DLG4-Related Synaptopathy (MONDO:0032919 / MRD62 / SHINE syndrome)</strong> · 2026-08-19T09:38:00Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/DLG4-Related_Synaptopathy/2026-08-19T093800Z-claude-code-18487a.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for MONDO:0032919, curated under the gene-anchored clinical name
+&#34;DLG4-related synaptopathy&#34; (OMIM 618793 / MRD62; patient-community acronym
+SHINE) rather than the serial-numbered ontology label, following the
+GeneReviews chapter and the post-2021 literature. The OMIM/MONDO label and
+SHINE are retained as synonyms.
+
+Deep research. Falcon was attempted first per the skill default and failed
+with HTTP 402 (Edison account credits exhausted), so no Falcon report exists.
+Two other providers were run and both were consumed:
+research/DLG4-Related_Synaptopathy-deep-research-claude_code.md (4m22s, 13
+web searches, 26 citations) and
+research/DLG4-Related_Synaptopathy-deep-research-openscientist.md (16m55s, 13
+citations, plus HTML/PDF artifacts). `just preflight-dr` returned PASS for
+both against MONDO:0032919 (claude_code: DLG4 x61 vs next gene DLG2 x4;
+openscientist: DLG4 x52; both report OMIM 618793, matching the MONDO xref),
+so no Named Entity Confusion.
+
+Reference-validation triage. The claude_code report self-reported
+needs_review: true; its three flagged identifiers (DOI:10.1111/cge.14411
+malformed by a pasted URL suffix, DOI:10.1073/pnas.1517045112 unsupported
+quote, PMC:PMC3546964 off topic) are not cited in the entry. The
+deep-intronic paper behind the malformed DOI is cited instead by PMID
+(PMID:37525972), independently fetched and verified. The openscientist report
+validated clean (14/14 resolved, no unsupported quotes, no off-topic flags).
+Two provider claims were checked and rejected as out of date: claude_code
+asserted no human iPSC model exists (PMID:42462545 reports the AOUMEYi004-A
+patient line, now curated), and openscientist asserted germline mosaicism is
+undocumented (PMID:42482343 confirms paternal germline mosaicism at 3.83%
+allele fraction in sperm, now curated).
+
+GeneReviews baseline. PMID:37347881 (&#34;DLG4-Related Synaptopathy&#34;) was found,
+fetched, tagged GeneReviews in the top-level references block, and mined
+across all four abstract sections (Clinical Characteristics,
+Diagnosis/Testing, Management, Genetic Counseling). Every phenotype in the
+cached abstract is represented in the entry.
+
+Content. Eight-node pathograph forming a single connected DAG from the DLG4
+loss-of-function trigger through impaired glutamate-receptor anchoring,
+impaired functional synapse maturation, plasticity/E-I imbalance and cortical
+network hyperexcitability to sleep-activated epileptiform encephalopathy
+(DEE-SWAS/ESES), developmental regression and the neurodevelopmental
+phenotypic output. Six nodes declare conforms_to against
+excitatory_synapse_scaffold_disruption, which previously listed DLG4 only as
+a candidate conformer. Also curated: 32 phenotypes, a genetic block plus two
+structured variants (the deep-intronic pseudoexon allele and the synonymous
+exon-9-skipping allele with confirmed paternal germline mosaicism), two
+diagnosis entries, six treatments, one imaging finding, five animal models,
+one iPSC experimental model, three differential diagnoses, a three-phase
+progression block, and three discussions (one HUMAN_MODEL_MISMATCH on
+homozygous-null-versus-human-heterozygous extrapolation, two KNOWLEDGE_GAPs
+on genotype-phenotype divergence and on the absence of any dose-restoring
+therapeutic route).
+
+Deliberate omissions, recorded in the entry&#39;s notes block. No datasets block:
+`just discover-datasets` returned 12 DIRECT candidates, all of which failed
+relevance triage (they matched the generic phrase &#34;intellectual
+developmental&#34; and concern ZMIZ1, HNRNPH2, KAT6A, UNC5C and other genes), so
+curating any of them would have been dataset-search Named Entity Confusion.
+No frequency bands beyond the six backed by a quantitative or explicit
+frequency-word quote; the per-feature percentages in the GeneReviews chapter
+body and in the DR reports are not in any cached retrievable source. gnomAD
+constraint metrics and a reported ~33% cerebellar vermis atrophy figure are
+left out of evidence for the same reason. Uncited reference caches added by
+the DR validation passes are enumerated in notes with the reason each is
+unused.
+
+Red-team review before PR. A subagent ran the dismech-pr-review skill against
+the draft and returned REQUEST_CHANGES with 2 CRITICAL, 8 IMPORTANT and 12
+MINOR findings. All CRITICAL and IMPORTANT findings were fixed: a
+dendritic-spine-development DECREASED modifier contradicted by the entry&#39;s
+own cited evidence was removed and replaced with two REFUTE evidence items
+recording the spine-morphology dissociation; anxiety, aggression and
+self-injurious behaviour (GeneReviews-documented, previously absent) were
+added; an uncited nonsense-mediated-decay assertion was reconciled against
+the one DLG4 allele measured directly, which escapes decay; an unsupported
+&#34;inhibitory transmission is untouched&#34; claim was hedged; a
+regulation-of-synaptic-plasticity DECREASED modifier inherited from the
+module template was changed to DYSREGULATED to match the enhanced-LTP
+evidence; the bundled encephalopathy-plus-regression node was split into two
+single-scale nodes because the evidence decouples them; evidence_source for
+the narrative review PMID:35457207 was made consistent (OTHER for
+interpretive statements); an explanation claiming independent confirmation of
+the 50% epilepsy frequency was corrected, since that cohort was
+epilepsy-ascertained. Most MINOR findings were also applied, including a
+derived OCCASIONAL band for marfanoid habitus, PARTIAL downgrades plus
+ascertainment caveats on the marfanoid component phenotypes, and three
+previously fetched-but-unused PMIDs (23342049, 38182567, 40444229) now
+consumed.
+
+Validation. `just validate` passes: schema clean, term validation clean, and
+reference validation reporting &#34;Snippets checked: 128/128 verified against
+cached references&#34;. `just validate-disorders` (the batched, --no-full-text
+sweep CI runs) passed on this file before the review fixes and was re-run
+after them. `just check-duplicate-keys` and `just check-title-snippets` pass.
+`uv run pytest tests/test_data.py -k &#34;conforms_to or subtype_foreign or
+unique_name or history&#34;` passes (4209 tests). Weighted compliance 90.1%; the
+residual gap is the deliberately absent datasets block.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

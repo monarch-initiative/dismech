@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4332,6 +4385,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-pathogenic-col2a1-variant" data-dismech-node="Heterozygous Pathogenic COL2A1 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous Pathogenic COL2A1 Variant</div>
 
+
                 <div class="item-desc">Definitive autosomal-dominant disease-causing COL2A1 variation initiates ACG2. Obligatory glycine substitutions are the predominant variant class in studied ACG2/hypochondrogenesis cohorts, while splice-site and in-frame deletion variants are also reported.</div>
 
 
@@ -4510,6 +4564,7 @@ This pathophysiological event involves extracellular matrix structural constitue
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-ii-collagen-triple-helix-destabilization" data-dismech-node="Type II Collagen Triple-Helix Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Type II Collagen Triple-Helix Destabilization</div>
 
+
                 <div class="item-desc">In the common glycine-substitution route, replacement of an obligatory glycine destabilizes the type II procollagen triple helix. The graph does not assert this precise step for every splice or in-frame deletion allele.</div>
 
 
@@ -4654,6 +4709,7 @@ This pathophysiological event involves collagen biosynthetic process (GO:0032964
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chondrocyte-type-ii-collagen-retention-and-poor-secretion" data-dismech-node="Chondrocyte Type II Collagen Retention and Poor Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Chondrocyte Type II Collagen Retention and Poor Secretion</div>
 
+
                 <div class="item-desc">Some severe COL2A1 variants produce intracellular retention or reduced secretion of type II collagen. The magnitude of this defect is variant-specific and is not treated as universal.</div>
 
 
@@ -4784,6 +4840,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-cartilage-extracellular-matrix" data-dismech-node="Abnormal Cartilage Extracellular Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Cartilage Extracellular Matrix</div>
+
 
                 <div class="item-desc">ACG2 cartilage has abnormal matrix abundance, composition, and organization. Complete type II collagen loss with type I/III replacement occurs in some severe alleles, whereas other cases retain expressed type II collagen; the node therefore represents matrix dysfunction rather than universal collagen absence.</div>
 
@@ -4920,6 +4977,7 @@ This pathophysiological event involves extracellular matrix organization (GO:003
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-plate-architectural-disorganization" data-dismech-node="Growth-Plate Architectural Disorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth-Plate Architectural Disorganization</div>
 
+
                 <div class="item-desc">Epiphyseal and growth-plate cartilage is hypercellular, hypervascular, and structurally disorganized, with fibrous vascular canals and abnormal chondrocyte maturation patterns.</div>
 
 
@@ -5029,6 +5087,7 @@ This pathophysiological event involves growth plate cartilage chondrocyte (CL:10
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endochondral-ossification" data-dismech-node="Impaired Endochondral Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endochondral Ossification</div>
+
 
                 <div class="item-desc">Failure of endochondral bone development produces profound appendicular, axial, pelvic, and craniofacial skeletal underdevelopment.</div>
 
@@ -5228,6 +5287,7 @@ This pathophysiological event involves ossification (GO:0001503). GO:0001503 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-restricted-thoracic-growth" data-dismech-node="Restricted Thoracic Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Restricted Thoracic Growth</div>
 
+
                 <div class="item-desc">Deficient rib and axial skeletal growth produces short ribs and a narrow or bell-shaped thorax, constraining fetal lung development.</div>
 
 
@@ -5321,6 +5381,7 @@ This pathophysiological event involves ossification (GO:0001503). GO:0001503 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-fetal-lung-development" data-dismech-node="Reduced Fetal Lung Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Fetal Lung Development</div>
+
 
                 <div class="item-desc">Restricted thoracic growth is accompanied by pulmonary hypoplasia, leaving insufficient respiratory reserve after birth.</div>
 
@@ -5435,6 +5496,7 @@ This pathophysiological event involves lung development (GO:0030324). GO:0030324
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perinatal-respiratory-failure" data-dismech-node="Perinatal Respiratory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Perinatal Respiratory Failure</div>
+
 
                 <div class="item-desc">Pulmonary hypoplasia and thoracic restriction cause severe neonatal respiratory insufficiency, the proximate lethal pathway in liveborn cases.</div>
 
@@ -5557,7 +5619,7 @@ This pathophysiological event involves lung development (GO:0030324). GO:0030324
 
                 </div>
 
-                <div class="evidence-snippet">"The normal architecture of the epiphyseal and growth plate cartilage was replaced by a morphologically heterogeneous tissue."</div>
+                <div class="evidence-snippet">"The normal architecture of the epiphyseal and growth plate cartilage was replaced by a morphologically heterogeneous tissue. Some areas were comprised of vascular canals surrounded by extensive fibrous tissue and enlarged cells that had the appearance and histochemical characteristics of..."</div>
 
 
                 <div class="evidence-explanation">Seven ACG2 cases showed the characteristic cartilage disorganization.</div>
@@ -5669,6 +5731,9 @@ This clinical feature is Protuberant abdomen (HP:0001538). HP:0001538 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5749,6 +5814,9 @@ This clinical feature is Pierre-Robin sequence (HP:0000201). HP:0000201 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5815,6 +5883,9 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5889,6 +5960,9 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5953,6 +6027,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6027,6 +6104,9 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6096,6 +6176,9 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6160,6 +6243,9 @@ This clinical feature is Fetal cystic hygroma (HP:0010878). HP:0010878 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6245,6 +6331,9 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6309,6 +6398,9 @@ This clinical feature is Metaphyseal widening (HP:0003016). HP:0003016 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6392,6 +6484,9 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6456,6 +6551,9 @@ This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6541,6 +6639,9 @@ This clinical feature is Short long bone (HP:0003026). HP:0003026 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6607,6 +6708,9 @@ This clinical feature is Hypoplastic ilia (HP:0000946). HP:0000946 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6683,6 +6787,9 @@ This clinical feature is Absent vertebral body mineralization (HP:0004605). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6749,6 +6856,9 @@ This clinical feature is Unossified sacrum (HP:0030290). HP:0030290 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6825,6 +6935,9 @@ This clinical feature is Delayed pubic bone ossification (HP:0008788). HP:000878
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6891,6 +7004,9 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6967,6 +7083,9 @@ This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7031,6 +7150,9 @@ This clinical feature is Bell-shaped thorax (HP:0001591). HP:0001591 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7109,6 +7231,9 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7194,6 +7319,9 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7258,6 +7386,9 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7332,6 +7463,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7388,6 +7522,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
                     </div>
+
+
+
 
 
 
@@ -7510,6 +7647,9 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7557,6 +7697,12 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
         Triple-helical glycine substitutions
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The predominant studied class replaces an obligatory glycine in the COL2A1 Gly-X-Y repeat with an amino acid having a bulkier side chain.</div>
@@ -7616,6 +7762,12 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
         Splice-site and in-frame deletion variants
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Less common severe-spectrum variants alter a consensus splice site or delete coding sequence in frame.</div>
@@ -7816,6 +7968,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Intensive ventilatory support may be attempted in a liveborn infant, and nitric oxide was used after pulmonary hypertension was found in one case. Evidence documents use, not reversal of pulmonary hypoplasia or a survival benefit.</div>
 
 
@@ -7946,6 +8104,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9688,8 +9852,10 @@ histopathology:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      The normal architecture of the epiphyseal and growth plate cartilage was
-      replaced by a morphologically heterogeneous tissue.
+      The normal architecture of the epiphyseal and growth plate cartilage was replaced by a
+      morphologically heterogeneous tissue. Some areas were comprised of vascular canals
+      surrounded by extensive fibrous tissue and enlarged cells that had the appearance and
+      histochemical characteristics of hypertrophic chondrocytes.
     explanation: Seven ACG2 cases showed the characteristic cartilage disorganization.
 
 imaging_findings:
@@ -10692,6 +10858,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Expand Achondrogenesis Type II variant and phenotype evidence</strong> · 2026-07-06T13:00:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Achondrogenesis_Type_II/2026-07-06T130059Z-codex-e8611a.yaml">View source</a></p>
+                        <p class="research-review-text">Performed an additional evidence pass using the existing deep-research reports, prior curation notes, cached full text, and validator-backed references. Added aggregate COL2A1 mutation-spectrum evidence from PMID:10797431, including structured variant-class entries for triple-helical glycine substitutions and less common splice-site and in-frame deletion variants. Added specific phenotype entries for bell-shaped thorax, frontal bossing, and depressed nasal bridge using exact snippets from the cached Ceylan 2019 full text and the Orphanet ACG2 structured record, then linked those phenotypes from the existing type II collagenopathy spectrum pathophysiology node. Validated schema, references, terms, and single-file validation; unrelated reference-cache normalization churn from validation was restored.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11311,7 +11490,7 @@ and distinction from achondrogenesis type I subtypes can be supported by radiogr
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Achondrogenesis Type II", "mondoId": "MONDO:0008702", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Achondrogenesis_Type_II", "yamlRevision": "abf4579bf04f"};
+        const OS_CONFIG = {"diseaseName": "Achondrogenesis Type II", "mondoId": "MONDO:0008702", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Achondrogenesis_Type_II", "yamlRevision": "b1f6920db91f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

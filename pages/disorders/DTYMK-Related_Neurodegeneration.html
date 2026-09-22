@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4990,6 +5043,7 @@ An earlier revision of this entry set this hypothesis to DEPRECATED. That was wr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-damaging-dtymk-variants" data-dismech-node="Biallelic Damaging DTYMK Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Damaging DTYMK Variants</div>
 
+
                 <div class="item-desc">The disorder is initiated by inheritance of two damaging DTYMK alleles. The published allelic spectrum is entirely missense: p.Pro81Leu (recurrent, seen homozygously in an Egyptian family and in a Mexican family and in trans in a Dutch family) and p.Asp128Asn. Neither residue lies in a named functional domain of dTMPK, yet fibroblasts from a compound heterozygote have almost no measurable enzyme activity, so these alleles behave functionally as severe hypomorphs or nulls.</div>
 
 
@@ -5141,6 +5195,7 @@ This pathophysiological event involves DTYMK (hgnc:3061). hgnc:3061 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-dtmpk-homodimerization" data-dismech-node="Loss of dTMPK Homodimerization" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of dTMPK Homodimerization</div>
+
 
                 <div class="item-desc">Wild-type dTMPK works as a homodimer. None of the substituted residues contacts the substrate directly; instead each substitution destabilises the dimer, so the purified mutant proteins run as monomers with drastically reduced substrate affinity and catalytic efficiency. The mechanism of inactivation is therefore structural rather than active-site, which is why in silico substrate-contact reasoning called two of these alleles tolerated.</div>
 
@@ -5323,6 +5378,7 @@ This pathophysiological event involves decreased protein homodimerization activi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-dtmp-kinase-catalytic-activity" data-dismech-node="Loss of dTMP Kinase Catalytic Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of dTMP Kinase Catalytic Activity</div>
+
 
                 <div class="item-desc">dTMPK phosphorylates dTMP to dTDP. Because the de novo route (dUMP to dTMP via thymidylate synthase) and the salvage route (thymidine to dTMP via thymidine kinase) both converge on dTMP, dTMPK is the single obligatory enzyme downstream of that convergence and is therefore the bottleneck for the entire dTTP supply. In fibroblasts of the compound heterozygous individual, activity was 0.62 pmol/min/mg protein against 43.65 and 31.08 in the heterozygous mother and father respectively. The loss is not uniform across compartments: in patient fibroblasts carrying P81L and D128N, mitochondrial TMPK activity was completely absent while cytosolic activity was extremely low and unstable. That compartment asymmetry is the strongest remaining argument for a mitochondrial contribution to the phenotype.</div>
 
@@ -5533,6 +5589,7 @@ This pathophysiological event involves decreased dTMP kinase activity (GO:000479
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-block-of-canonical-dttp-biosynthetic-flux" data-dismech-node="Block of Canonical dTTP Biosynthetic Flux" data-dismech-type="pathophysiology">
                 <div class="item-name">Block of Canonical dTTP Biosynthetic Flux</div>
 
+
                 <div class="item-desc">dTTP is one of the four building blocks of DNA, and the canonical route to it is completely blocked. Crucially, this is a defect of FLUX, not a demonstrated depletion of the steady-state pool: measured dTTP nucleotide levels in patient fibroblasts and in mutant zebrafish resembled normal controls. The disorder is therefore best modelled as a demand-limited and possibly compartment-limited supply failure that manifests in cells with high replicative and repair demand, rather than as bulk pool depletion.</div>
 
 
@@ -5705,6 +5762,7 @@ This pathophysiological event involves decreased dTTP biosynthetic process (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-dna-replication-and-reduced-cell-proliferation" data-dismech-node="Impaired DNA Replication and Reduced Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired DNA Replication and Reduced Cell Proliferation</div>
 
+
                 <div class="item-desc">Patient fibroblasts show a collapse in the S-phase fraction, from about 24 percent and 16 percent in the heterozygous mother and father to 2.8 percent in the affected individual. In dtymk mutant zebrafish the number of proliferating cells in the forebrain, the structure homologous to the human cerebral cortex, is significantly reduced.</div>
 
 
@@ -5819,6 +5877,7 @@ This pathophysiological event involves decreased DNA replication (GO:0006260). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-ribonucleotide-incorporation-into-genomic-dna" data-dismech-node="Elevated Ribonucleotide Incorporation into Genomic DNA" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Ribonucleotide Incorporation into Genomic DNA</div>
 
+
                 <div class="item-desc">Genomic DNA from dtymk mutant zebrafish is markedly more sensitive to alkaline hydrolysis, indicating elevated ribonucleotide content, and behaves on alkaline gels like DNA from Rnaseh2-null mice, the canonical ribonucleotide-excision-repair-deficient model. Ribonucleotides in DNA carry a reactive 2&#39;-hydroxyl, which makes the backbone fragile.</div>
 
 
@@ -5894,6 +5953,7 @@ This pathophysiological event involves decreased DNA replication (GO:0006260). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genome-instability-and-abnormal-dna-damage-response" data-dismech-node="Genome Instability and Abnormal DNA Damage Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Genome Instability and Abnormal DNA Damage Response</div>
+
 
                 <div class="item-desc">dtymk mutant zebrafish irradiated with UV retain high levels of gammaH2AX 24 hours later, consistent with unrepaired DNA breaks. Essentially every DNA repair pathway involves repair-associated DNA synthesis, which the dTTP shortage also constrains.</div>
 
@@ -6008,6 +6068,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apoptotic-loss-of-neurons-and-oligodendrocytes" data-dismech-node="Apoptotic Loss of Neurons and Oligodendrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Apoptotic Loss of Neurons and Oligodendrocytes</div>
+
 
                 <div class="item-desc">Post-mortem neuropathology in individual I showed massive neuronal dropout across essentially the whole brain, astrogliosis, loss of oligodendrocytes with caspase-3-positive apoptotic profiles, ameboid microglial activation and a paucity of myelin, together with neuronal loss in the granular and Purkinje cell layers of a cerebellum that had looked normal on MRI. dtymk mutant zebrafish show the same signature of neuronal apoptosis.</div>
 
@@ -6312,6 +6373,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-postnatal-cerebral-and-basal-ganglia-atrophy" data-dismech-node="Progressive Postnatal Cerebral and Basal Ganglia Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Postnatal Cerebral and Basal Ganglia Atrophy</div>
+
 
                 <div class="item-desc">The structural lesion is postnatal and progressive rather than a malformation. Individual I had a near-normal fetal head circumference and only slight underdevelopment of the caudate and frontal cortex at three weeks, then dramatic hemispheric atrophy with ventricular enlargement by six months. The thalamus, brainstem and cerebellum look normal on MRI even when the hemispheres and basal ganglia are devastated, although microscopy shows the cerebellum is not truly spared.</div>
 
@@ -6818,6 +6880,9 @@ This clinical feature is Hypochromic microcytic anemia (HP:0004840). HP:0004840 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band. Documented in 1 of the 5 published individuals. It is worth flagging rather than dropping because normocytic anaemia is part of DEE50, the CAD-related dTTP-pathway disorder that PMID:34918187 names as a comparator, so haematological involvement may be a shared consequence of constrained nucleotide supply in an erythroid lineage. That connection is a hypothesis, not something either paper asserts.</div>
 
 
@@ -6921,6 +6986,9 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band. Documented in 2/2 individuals in PMID:34918187 but not addressed in PMID:31271740 or in the PMID:40696808 abstract. A denominator of two out of a series of five is too thin to band.
@@ -7029,6 +7097,9 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band. Documented in 1 of the 5 published individuals, who is also one of only two reported males with a described genital examination. Whether this is part of the disorder or an incidental finding is not established by a single case.</div>
 
 
@@ -7116,6 +7187,9 @@ This clinical feature is Cryptorchidism (HP:0000028), qualified as laterality bi
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band. Documented in 1 of the 5 published individuals. Same caveat as micropenis: a single observation cannot separate a disease feature from an incidental one.</div>
@@ -7216,6 +7290,9 @@ This clinical feature is Progressive microcephaly (HP:0000253), qualified as cou
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: 2/2 in PMID:31271740 (microcephaly named for both siblings in the abstract), 2/2 in PMID:34918187 (Table 1 row &#34;Microcephaly Yes Yes&#34;) and 1/1 in PMID:40696808, which resolves to 5/5 of the five published individuals, that is 100 percent and therefore the VERY_FREQUENT band of 80-100 percent. The denominator of five is the entire published series.</div>
@@ -7350,6 +7427,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band. Documented in 1 of the 5 published individuals.</div>
 
 
@@ -7459,6 +7539,9 @@ This clinical feature is Hypotonia (HP:0001252), qualified as congenital onset. 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band. Hypotonia is documented in 2/2 individuals in PMID:31271740 and in 1/2 in PMID:34918187 (individual II is described as having good head control and increased distal tone rather than hypotonia), and is not mentioned in PMID:40696808, whose case has hypertonia. Combining these into a single band would obscure that the tone abnormality changes character over the course of the illness.</div>
 
 
@@ -7555,6 +7638,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band. Pyramidal hypertonia is documented in 2/2 in PMID:34918187 and 1/1 in PMID:40696808, but the descriptors differ (spasticity with opisthotonus, distal hypertonia with clonus, unqualified hypertonia) and PMID:31271740 describes hypotonia instead. Rather than force a band across heterogeneous descriptions of tone, both spasticity and hypotonia are curated as unbanded features of a biphasic course.</div>
 
 
@@ -7649,6 +7735,9 @@ This clinical feature is Opisthotonus (HP:0002179). HP:0002179 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band. Documented in 1 of the 5 published individuals.</div>
@@ -7751,6 +7840,9 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as s
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: 2/2 in PMID:34918187 (Table 1 row &#34;Development No developmental progress No developmental progress&#34;), 2/2 in PMID:31271740 (severe intellectual disability in both siblings) and 1/1 in PMID:40696808 (progressive neurodevelopmental regression), which resolves to 5/5 of the five published individuals and therefore the VERY_FREQUENT band. The underlying descriptions are not identical - the PMID:31271740 siblings are characterised as intellectually disabled rather than as having made no progress at all - so this band asserts severe global impairment of development, not literally zero milestones in all five.</div>
@@ -7892,6 +7984,9 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted. Regression is explicitly described only in PMID:40696808. In the two individuals of PMID:34918187 no milestone was ever gained, so there was nothing to regress from, and PMID:31271740 does not describe the developmental trajectory of its siblings. A denominator for regression therefore does not exist across the published series.</div>
 
 
@@ -7981,6 +8076,9 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: 2/2 in PMID:34918187 and 1/1 in PMID:40696808, which resolves to 3/3 and therefore the VERY_FREQUENT band. The denominator here is the three individuals with published neuroimaging, not the whole series of five; the two siblings of PMID:31271740 have no imaging described in the abstract that is cached for this entry, so they are excluded from this denominator rather than counted as negative.</div>
@@ -8079,6 +8177,9 @@ This clinical feature is Small basal ganglia (HP:0012697). HP:0012697 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted. The finding is documented in both individuals of PMID:34918187, but PMID:40696808 reports cortical and cerebellar atrophy without specifying the basal ganglia, so the denominator across the imaged cases is not clean.</div>
 
 
@@ -8173,6 +8274,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted, and this is the one phenotype in the entry where the sources genuinely disagree. Radiological cerebellar atrophy is reported in 1 of the 3 imaged individuals (PMID:40696808), while PMID:34918187 explicitly describes the cerebellum as appearing normal on MRI in its two individuals - yet reports histological cerebellar neuronal loss in the one individual who came to autopsy. The term is retained because the histology and the third case both point to real cerebellar pathology, but a band would misrepresent a 1/3 imaging finding.</div>
@@ -8304,6 +8408,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
                     </div>
 
 
+
+
+
                     <div class="item-desc">Derivation: 2/2 in PMID:34918187 (Table 1 row &#34;Seizures Recurrent febrile seizures myoclonic jerks&#34;) and 1/1 in PMID:40696808, which resolves to 3/3 and therefore the VERY_FREQUENT band. The denominator is the three individuals whose seizure status is reported; PMID:31271740 does not mention seizures in either direction for its two siblings, so they are excluded rather than counted as unaffected.</div>
 
 
@@ -8425,6 +8532,9 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band. Myoclonic semiology is documented in 1 of the 5 published individuals; the other individual with characterised seizures had febrile seizures instead, so the two documented semiologies differ and no dominant seizure type can be asserted.</div>
 
 
@@ -8494,6 +8604,9 @@ This clinical feature is Neuronal loss in central nervous system (HP:0002529). H
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band. Neuropathology is available for exactly one of the five published individuals, so there is no denominator at all. This phenotype is included because it is the histological substrate of the imaging finding, not because it is known to be universal.</div>
@@ -8576,6 +8689,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: 2/2 in PMID:34918187 (both the abstract sentence naming growth retardation for &#34;the affected children&#34; and the Table 1 weight and height SD scores for each individual). The denominator here is only the two individuals of that one series; PMID:31271740 and PMID:40696808 do not report anthropometry in the cached abstracts. A 2/2 denominator is thin, and the band is asserted only because the same paper states the feature for both children in a summary sentence as well as in the table. Readers wanting a five-case denominator will not find one.</div>
@@ -8723,6 +8839,9 @@ This disease-associated gene is DTYMK (hgnc:3061). hgnc:3061 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8823,7 +8942,9 @@ This disease-associated gene is DTYMK (hgnc:3061). hgnc:3061 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
@@ -8831,6 +8952,11 @@ This disease-associated gene is DTYMK (hgnc:3061). hgnc:3061 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The recurrent allele. Homozygous in the Egyptian individual II of PMID:34918187 and in the Mexican case of PMID:40696808, and inherited from the father in the compound heterozygous Dutch individual I. It substitutes a moderately conserved amino acid at a highly conserved nucleotide (phyloP 5.29). In silico prediction is discordant: SIFT called it tolerated, PolyPhen-2 possibly damaging, MutationTaster disease-causing. In gnomAD as accessed by PMID:34918187 in May 2021 it appeared once, heterozygous only. The functional evidence, not the prediction, is what establishes pathogenicity.</div>
@@ -8918,7 +9044,9 @@ This disease-associated gene is DTYMK (hgnc:3061). hgnc:3061 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
@@ -8926,6 +9054,11 @@ This disease-associated gene is DTYMK (hgnc:3061). hgnc:3061 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The maternal allele in the compound heterozygous Dutch individual I of PMID:34918187. It changes an amino acid conserved as far as Saccharomyces cerevisiae at a highly conserved nucleotide (phyloP 5.61). SIFT called it tolerated; MutationTaster and PolyPhen-2 called it disease-causing and probably damaging. Reported four times in gnomAD as accessed in May 2021, never homozygous.</div>
@@ -9013,7 +9146,9 @@ This disease-associated gene is DTYMK (hgnc:3061). hgnc:3061 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
@@ -9021,6 +9156,11 @@ This disease-associated gene is DTYMK (hgnc:3061). hgnc:3061 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A third patient missense allele, characterised biochemically alongside p.Pro81Leu and p.Asp128Asn. Like them it converts the enzyme to a monomer with reduced substrate affinity and catalytic efficiency.
@@ -9084,7 +9224,9 @@ Which patient carries this allele is deliberately NOT asserted. PMID:34926941 st
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">FRAMESHIFT</span>
@@ -9092,6 +9234,11 @@ Which patient carries this allele is deliberately NOT asserted. PMID:34926941 st
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A frameshift allele reported among the four patient variants characterised by PMID:34926941. The cached sources for this entry name it only as a frameshift; no cDNA or protein coordinate is given in any text quoted here, so none is asserted.
@@ -9213,6 +9360,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9223,6 +9373,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9359,6 +9512,9 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9369,6 +9525,9 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -9535,6 +9694,12 @@ This treatment is nasogastric tube feeding, annotated with Enteral Tube Feeding 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Individual I of PMID:34918187 required nasogastric tube feeding for the early feeding failure and tolerated it well. This is the only nutritional intervention reported in the DTYMK literature.</div>
 
 
@@ -9648,6 +9813,9 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9658,6 +9826,9 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -9777,6 +9948,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9787,6 +9961,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9923,6 +10100,9 @@ This treatment uses thymidine (CHEBI:17748). CHEBI:17748 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9933,6 +10113,9 @@ This treatment uses thymidine (CHEBI:17748). CHEBI:17748 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -14685,6 +14868,35 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Named-entity-confusion guardrail. This entry is anchored strictly on MONDO:0859241 / OMIM:619847 / DTYMK (HGNC:3061). The anchor was confirmed before any curation by running `uv run runoak -i sqlite:obo:mondo relationships --direction up MONDO:0859241` and reading the returned line `MONDO:0859241 RO:0004003 HGNC:3061 ... DTYMK`, and by `uv run runoak -i sqlite:obo:mondo mappings MONDO:0859241`, which returns OMIM:619847, UMLS:C5676972, MEDGEN:1801540 and GARD:0027309 and no ORPHA code. Every DTYMK-disease source cited here names DTYMK or its zebrafish orthologue `dtymk` in its title. There is one deliberate exception, added on review: PMID:35111754, an autosomal-recessive-primary-microcephaly review, is cited ONLY in the MCPH differential-diagnosis entry and only for statements about MCPH. It makes no claim about DTYMK and is not evidence for anything in this entry other than the comparator.
+The dominant confusable literature for this gene is oncology, not another Mendelian disorder. A PubMed search for `DTYMK[tiab] OR dTMPK[tiab] OR &#34;thymidylate kinase&#34;[tiab]` run on 2026-08-01 returns a set in which the great majority of recent records are cancer-biology or antimicrobial drug-design papers in which DTYMK is OVEREXPRESSED and its INHIBITION is the proposed therapy - the mechanistic opposite of this recessive loss-of-function disorder. None of those papers is cited here, and no DTYMK inhibitor is curated as a treatment. Restricting that search to clinical terms and reading the titles leaves only four papers that concern human DTYMK disease or its animal model: PMID:31271740, PMID:34918187, PMID:35346037 and PMID:40696808. All four are cited. To the best of this search, that is the entire disease literature.
+Contrast entities were each verified with OAK rather than typed from memory. Aicardi-Goutieres syndrome is MONDO:0018866 (label confirmed by `runoak -i sqlite:obo:mondo relationships --direction up MONDO:0018866`, which also shows it is a type 1 interferonopathy of childhood and a leukodystrophy). The MNGIE differential is bound to MONDO:0011283 `mitochondrial DNA depletion syndrome 1`, whose OAK relationships include `RO:0004003 HGNC:3148 ! TYMP`; the parent grouping term MONDO:0017575 carries no gene relation, so the gene-bearing child term was used. The CAD differential is bound to MONDO:0014647 `developmental and epileptic encephalopathy, 50`, whose OAK relationships include `RO:0004003 HGNC:1424 ! CAD`. The entry&#39;s own MONDO superclass, MONDO:0024237 `inherited neurodegenerative disorder`, is deliberately NOT listed as a differential.
+Onset discipline. The disease label says &#34;childhood-onset&#34;, but the HPO CHILDHOOD onset category (HP:0011463) is bounded at 1 to 5 years and the reported ages do not fit it. In PMID:34918187 individual I was hypotonic at birth, needed nasogastric feeding from day 3, and had seizures at 6 months; individual II had a head noted to be small at birth and no visual tracking in the first months of life. Structured onset is therefore recorded as INFANTILE where a first-year age is documented, and the disease-name mismatch is called out rather than propagated. The one individual who does fit a childhood-onset description is the 2-year-old in PMID:40696808, and only because that is the age at ascertainment, not the age at onset.
+Frequency discipline. Only five affected individuals have been published: two siblings in PMID:31271740, two unrelated children in PMID:34918187, and one child in PMID:40696808 (which states its case is the fifth reported). Bands are asserted only for features documented in every individual for whom the feature is reported, and every band carries its explicit numerator and denominator in the phenotype&#39;s `notes:`. Where the denominator is a subset (for example only the three individuals with published neuroimaging), that subset is named. Features seen in a single individual - the anaemia and raised transaminases, the micropenis and undescended testes - carry no band at all, because 1 of 5 on a total series of five is not a frequency estimate.
+GeneReviews. No GeneReviews chapter exists. Three PubMed E-utilities searches were run on 2026-08-01 and all three returned zero results: `DTYMK GeneReviews[All Fields]`, `thymidylate kinase GeneReviews[All Fields]` and `childhood-onset neurodegeneration with progressive microcephaly GeneReviews[All Fields]`.
+Structured sources unavailable, and in this case also absent upstream. Two things were checked rather than assumed. (1) Orphanet: EBI OLS4 searches of ORDO for `DTYMK` and for `childhood-onset neurodegeneration with progressive microcephaly` were run on 2026-08-01 and both returned `numFound: 0`, and MONDO:0859241 itself carries no ORPHA cross-reference. There is therefore no ORPHA code to cite, not merely an uncachable one. Independently, `data/orphadata/` in this working tree contains only a MANIFEST.yaml stub with no bulk data and the sha256 refresh is a known blocker (#7234, #7539, #7199, #7522), so no ORPHA record could have been generated regardless. (2) ClinGen: `data/clingen/` likewise contains only a MANIFEST.yaml stub, and a request to `https://search.clinicalgenome.org/api/curations/gene/DTYMK` on 2026-08-01 returned an HTML page rather than a curation record, so no ClinGen gene-disease validity, dosage or actionability assertion could be retrieved or cited. The gene-disease relationship is supported here entirely by primary literature. This is a genuine gap, not a claim that no ClinGen curation exists.
+Full text versus abstract. PMID:34918187 and PMID:35346037 are cached as open-access full text, so several snippets in this entry are taken from their bodies (the clinical descriptions of individuals I and II, Table 1 rows, the enzyme-activity and EdU results, and the discussion paragraphs on Aicardi-Goutieres syndrome, MNGIE and DEE50) rather than from their abstracts. Snippets from PMID:31271740, PMID:34926941, PMID:38621447 and PMID:40696808 are abstract-only, because those are abstract-only caches; the full-text fetch for PMID:34926941 and PMID:38621447 returned HTTP 403. A few snippets from the PMID:34918187 full text begin or end mid-word, because the cached PDF extraction hyphenates across line breaks; those are quoted exactly as cached and the truncation is flagged in the relevant explanation rather than silently repaired.
+Deep research provenance. `just research-disorder claude_code DTYMK-Related_Neurodegeneration` was run on 2026-08-01 (928 seconds, 5 web searches, 61 turns, 21 citations, models claude-haiku-4-5 and claude-opus-5[1m]); the report is at research/DTYMK-Related_Neurodegeneration-deep-research-claude_code.md. Its NEC profile was checked before use: DTYMK occurs 102 times with word-boundary matching against a next-highest of 5 (TK2), and every hit read in context refers to the gene. Three of the report&#39;s findings materially corrected an earlier draft of this entry and are worth naming, because each was an error the draft would have shipped. (1) The draft marked the dTTP chemical as DECREASED; the report pointed to a full-text passage showing measured dTTP levels are NORMAL, so the node was reframed as a block of flux. (2) The draft marked the mtDNA-depletion hypothesis DEPRECATED; the report surfaced PMID:34926941, which shows mitochondrial TMPK activity loss is complete, so the status was corrected to ALTERNATIVE. (3) The draft asserted in a treatment note that no source proposes nucleoside supplementation; the report identified clinicaltrials:NCT04802707, which lists DTYMK as an eligible genotype, so that false-absence claim was removed and the trial is now curated with its mechanistic caveat.
+Report content deliberately NOT curated. The report states elevated lactate (2/2) and hyperalaninemia (1/2) in the PMID:31271740 siblings, and gives prenatal details (breech presentation, small for gestational age) and a laryngomalacia mention. None of these appears in any cached reference available here, so none is curated. It also proposes a specific variant pairing for the PMID:31271740 siblings and a ClinVar coordinate for the frameshift allele; both are flagged in the report itself as requiring verification against a full text that was not obtained, and both are recorded in this entry as explicitly uncurated inferences rather than as facts. Kinetic constants from Table 2 of PMID:34926941 are not curated because only the abstract is cached. The report&#39;s suggested gnomAD constraint metrics were not retrievable in its own session and are not asserted here.
+Review response (PR #7783, 2026-08-01). Changes made in response to review, so the record shows what moved and what did not. (1) The single bundled &#34;Supportive and symptomatic management&#34; treatment was split into five atomic entries - the umbrella, anti-seizure pharmacotherapy, nasogastric tube feeding, blood transfusion and genetic counselling - and every one now carries an NCIT `treatment_term` verified with OAK and confirmed reachable from NCIT:C25218, with CHEBI therapeutic agents on the two drug entries. (2) The visual-impairment phenotype was retermed from HP:0000505 to HP:0100704 Cerebral visual impairment, which is what the existing snippets actually support. (3) A `biochemical:` section now carries the fibroblast dTMPK numbers and the diagnostically load-bearing NORMAL metabolic screen; a `histopathology:` section carries the autopsy findings including the sparing pattern; a `clinical_trials:` entry makes NCT04802707 queryable as a trial. (4) An MCPH differential was added. (5) Three evidence classifications were corrected: the zebrafish paper&#39;s background sentence about human microcephaly is now OTHER rather than HUMAN_CLINICAL; the normal-dTTP measurement on the flux node is now PARTIAL rather than REFUTE, because it refutes pool depletion and the node claims a flux block; and an explanation that said the causal link was &#34;curated as PROBABLE&#34; - a value that is not in the enum - was rewritten to name the actual value.
+Declined on review, with reasons. No &#34;multidisciplinary supportive/palliative care&#34; treatment entry was created: literal case-insensitive searches for `supportiv`, `palliat`, `symptomatic`, `multidisciplinary`, `no cure`, `no specific`, `no effective` and `no disease-modif` across the four cached disease references on 2026-08-01 returned zero hits, so there is no quotable basis for one, and inventing it would be exactly the unsourced padding this entry has otherwise avoided. Nutritional-support and deoxynucleoside entries were NOT bound to NCIT:C15433 Nutritional Support as the research artefact suggested: NCIT:C93322 Enteral Tube Feeding is more specific and matches the quoted route, and the deoxynucleoside trial is pharmacotherapy rather than nutrition. No frequency band was added anywhere in the new sections; neuropathology exists for one of five individuals and the enzyme assay for one family, so no denominator supports a band.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: neurodegeneration, childhood-onset, with progressive microcephaly</strong> · 2026-08-01T21:29:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/DTYMK-Related_Neurodegeneration/2026-08-01T212952Z-claude-code-35eb19.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/DTYMK-Related_Neurodegeneration.yaml for MONDO:0859241 (OMIM:619847, CONPM), causal gene DTYMK (hgnc:3061). Gene-disease anchor verified with OAK before curation (RO:0004003 HGNC:3061). Deep research via &#39;just research-disorder claude_code&#39; (2026-08-01, 928s, 5 web searches, 61 turns, 21 citations); NEC gate passed with DTYMK at 102 word-boundary mentions vs next-highest TK2 at 5. All five differential/contrast MONDO terms verified with runoak rather than typed from memory (MONDO:0018866 AGS, MONDO:0014647 CAD/DEE50, MONDO:0011283 TYMP/MNGIE). Six references cited: PMID:34918187 (full text), PMID:31271740, PMID:40696808, PMID:35346037 (full text), PMID:34926941, PMID:38621447, plus the pre-existing clinicaltrials:NCT04802707 cache. Three errors in the pre-research draft were corrected from the report: dTTP was marked DECREASED when measured levels are normal (reframed as a block of flux); the mtDNA-depletion hypothesis was marked DEPRECATED before PMID:34926941 was read (corrected to ALTERNATIVE); and a false-absence claim that no source proposes nucleoside supplementation was removed after NCT04802707 was found to list DTYMK as an eligible genotype. Frequency bands asserted only for microcephaly and absent development (5/5) and for cerebral atrophy and seizures (3/3 of the imaged/reported subset), each with numerator and denominator stated in notes; all single-case features carry no band. Mortality is recorded under progression, not phenotypes, because HP:0003819 sits under Clinical modifier and is not a valid phenotype_term. No GeneReviews chapter exists (three literal PubMed searches, all zero). No ORPHA entity exists (two OLS4 ORDO searches, both numFound 0). Validated with just validate, validate-terms, validate-references (109/109 snippets), scripts/check_snippets_verbatim.py (109 verified, 0 failed), and check_folded_hyphens.py --check.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

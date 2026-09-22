@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4563,6 +4616,7 @@ The other three remain candidates with no study discriminating between them: res
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atp6v0a4-variants-disabling-the-v-atpase-a4-subunit" data-dismech-node="ATP6V0A4 Variants Disabling the V-ATPase a4 Subunit" data-dismech-type="pathophysiology">
                 <div class="item-name">ATP6V0A4 Variants Disabling the V-ATPase a4 Subunit</div>
 
+
                 <div class="item-desc">Biallelic loss of function in the a4 subunit of the V0 membrane domain of the vacuolar H+-ATPase. Like the B1 subunit, a4 has expression largely restricted to kidney and inner ear, which is why losing it produces a two-organ disease rather than the systemic failure a housekeeping pump subunit would cause.</div>
 
 
@@ -4615,6 +4669,8 @@ This genetic context concerns ATP6V0A4 (hgnc:866). hgnc:866 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4627,6 +4683,9 @@ This genetic context concerns ATP6V0A4 (hgnc:866). hgnc:866 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic loss of function, most series reporting homozygous variants in consanguineous kindreds and compound heterozygosity elsewhere. The loss-of-function direction is not an assumption here - it is what separates this disease from the alkalosis phenotype produced by a gain-of-function variant in the same gene.</div>
 
@@ -4724,6 +4783,7 @@ This genetic context concerns ATP6V0A4 (hgnc:866). hgnc:866 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-apical-proton-secretion-by-alpha-intercalated-cells" data-dismech-node="Failure of Apical Proton Secretion by Alpha-Intercalated Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Apical Proton Secretion by Alpha-Intercalated Cells</div>
+
 
                 <div class="item-desc">The pump cannot move protons across the apical membrane into the tubular lumen or, in the inner ear, into the endolymphatic compartment. This one failed transport step is the branch point of the entry: the renal and the auditory consequences both hang off it, and neither is downstream of the other. That architecture is what makes alkali therapy ineffective for the hearing loss.</div>
 
@@ -4905,6 +4965,7 @@ This pathophysiological event involves proton-transporting V-type ATPase, V0 dom
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-net-acid-excretion" data-dismech-node="Impaired Net Acid Excretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Net Acid Excretion</div>
 
+
                 <div class="item-desc">The kidney cannot excrete the daily acid load or regenerate the bicarbonate consumed in buffering it. The diagnostic signature is a urine that stays inappropriately alkaline while the blood is acidotic. No ontology descriptor is bound to this node - see notes.</div>
 
 
@@ -4980,6 +5041,7 @@ This pathophysiological event involves proton-transporting V-type ATPase, V0 dom
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperchloraemic-normal-anion-gap-metabolic-acidosis" data-dismech-node="Hyperchloraemic Normal-Anion-Gap Metabolic Acidosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperchloraemic Normal-Anion-Gap Metabolic Acidosis</div>
+
 
                 <div class="item-desc">Sustained systemic acidosis, present from childhood and severe enough to be life-threatening untreated. Everything else in the renal arm of this disease is a consequence of it, which is why one treatment - alkali - addresses that whole arm and nothing else.</div>
 
@@ -5093,6 +5155,7 @@ This pathophysiological event involves proton-transporting V-type ATPase, V0 dom
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-potassium-wasting" data-dismech-node="Renal Potassium Wasting" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Potassium Wasting</div>
 
+
                 <div class="item-desc">Continued distal potassium secretion in the face of failed proton secretion, giving hypokalaemia that is occasionally severe enough to present as paralysis before the acidosis is recognised.</div>
 
 
@@ -5133,6 +5196,7 @@ This pathophysiological event involves proton-transporting V-type ATPase, V0 dom
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypercalciuria-with-hypocitraturia" data-dismech-node="Hypercalciuria with Hypocitraturia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypercalciuria with Hypocitraturia</div>
+
 
                 <div class="item-desc">The stone-forming combination: more calcium in the urine and less of the citrate that keeps it soluble. Notably the mouse null for this gene is hypocitraturic without being hypercalciuric, so the two halves of this node are not obligately linked.</div>
 
@@ -5246,6 +5310,7 @@ This pathophysiological event involves proton-transporting V-type ATPase, V0 dom
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-nephron-loss" data-dismech-node="Progressive Nephron Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Nephron Loss</div>
 
+
                 <div class="item-desc">Sustained medullary calcification and stone disease scar the interstitium, and renal function declines over time. This is the node the renal arm was missing - nephrocalcinosis is not an endpoint, it is the step by which a treatable electrolyte disorder becomes chronic kidney disease, and it is the reason the surveillance schedule exists.</div>
 
 
@@ -5343,6 +5408,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-demineralisation-and-growth-failure" data-dismech-node="Skeletal Demineralisation and Growth Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Demineralisation and Growth Failure</div>
 
+
                 <div class="item-desc">Bone as the acid buffer of last resort. Chronic mineral release impairs bone physiology in the growing skeleton and produces the growth failure that brings many of these children to attention in the first place.</div>
 
 
@@ -5391,6 +5457,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-endolymph-acid-base-homeostasis-failure" data-dismech-node="Cochlear Endolymph Acid-Base Homeostasis Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Endolymph Acid-Base Homeostasis Failure</div>
+
 
                 <div class="item-desc">Loss of the same proton pump in the inner ear, where it contributes to the acid-base composition of endolymph. In the mouse null the consequence is unambiguous, and it is the strongest mechanistic evidence available for this arm: the endocochlear potential is not merely reduced but absent. In humans the arm is variable, and when it manifests is the least settled question in this disease.</div>
 
@@ -5611,6 +5678,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5732,6 +5802,9 @@ This clinical feature is Enlarged vestibular aqueduct (HP:0011387). HP:0011387 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5812,6 +5885,9 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5878,6 +5954,9 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5974,6 +6053,9 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6084,6 +6166,9 @@ This clinical feature is Hyperchloremic metabolic acidosis (HP:0004918). HP:0004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6150,6 +6235,9 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6235,6 +6323,9 @@ This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6312,6 +6403,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6457,6 +6551,9 @@ This disease-associated gene is ATP6V0A4 (hgnc:866). hgnc:866 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6596,6 +6693,9 @@ This treatment uses potassium citrate, annotated with potassium citrate (anhydro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6606,6 +6706,9 @@ This treatment uses potassium citrate, annotated with potassium citrate (anhydro
 
 
     </div>
+
+
+
 
 
 
@@ -6766,6 +6869,9 @@ This treatment uses potassium citrate, annotated with potassium citrate (anhydro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6776,6 +6882,9 @@ This treatment uses potassium citrate, annotated with potassium citrate (anhydro
 
 
     </div>
+
+
+
 
 
 
@@ -6928,6 +7037,9 @@ This treatment is hearing amplification and cochlear implantation, annotated wit
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6938,6 +7050,9 @@ This treatment is hearing amplification and cochlear implantation, annotated wit
 
 
     </div>
+
+
+
 
 
 
@@ -7017,6 +7132,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7027,6 +7145,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9243,6 +9364,19 @@ notes: &#39;Boundary with the other dRTA entries. This entry covers the ATP6V0A4
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Renal Tubular Acidosis, Distal, 3, With or Without Sensorineural Hearing Loss</strong> · 2026-09-06T08:49:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Renal_Tubular_Acidosis_Distal_3_With_Or_Without_Sensorineural_Hearing_Loss/2026-09-06T084959Z-claude-code-9b489b.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of the ATP6V0A4 (a4 subunit) form of autosomal recessive distal renal tubular acidosis, filling the gap between the already-curated dRTA-2 (ATP6V1B1) and dRTA-4 (SLC4A1) entries. One openscientist deep-research run was performed (research/Renal_Tubular_Acidosis_Distal_3_With_Or_Without_Sensorineural_Hearing_Loss-deep-research-openscientist.md; 25/25 references verified, confabulation_rate 0.0, 5 of 7 quotes valid, 18 of 25 on topic). The entry was written from primary literature read directly rather than from the report, and the report is committed as a curation input. The pathograph is deliberately two-armed: the renal and cochlear consequences both hang off the single failed proton-secretion step rather than one being downstream of the other, which is the reason alkali therapy corrects the acidosis and does not act on hearing. The variable auditory onset is curated as a KNOWLEDGE_GAP with three competing explanations and no study discriminating between them, citing two series that point in opposite directions. The Atp6v0a4 null mouse is linked to three nodes at different fidelities, and its failure to reproduce hypercalciuria is recorded as a HUMAN_MODEL_MISMATCH so the model is not read as uniformly faithful. A 2025 gain-of-function ATP6V0A4 alkalosis report is cited on the trigger node only, as a boundary establishing that this entry is the loss-of-function phenotype. One node (Impaired Net Acid Excretion) is deliberately left unbound: no GO term names renal net acid excretion. Validated: schema, terms, 33/33 snippets, entity refs, causal targets. Tooling gap found: just ictrp-fetch rejects every form of the EudraCT identifier for the ADV7103 trials, so no clinical_trials record is asserted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

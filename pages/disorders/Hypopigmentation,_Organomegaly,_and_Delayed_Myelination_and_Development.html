@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4676,6 +4729,7 @@ The entry exists chiefly for a contrast the knowledge base can hold but a single
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-heterozygous-clcn7-missense-variant" data-dismech-node="De Novo Heterozygous CLCN7 Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">De Novo Heterozygous CLCN7 Missense Variant</div>
 
+
                 <div class="item-desc">Two variants have been reported: p.Tyr715Cys (c.2144A&gt;G), carried by four of the five published patients, and p.Lys285Thr (c.854A&gt;C) in one. Both lie in the cytoplasmic portion of ClC-7 and affect residues lining the binding pocket for the signalling lipid PI(3,5)P2, which is the point of convergence between two otherwise distant substitutions.</div>
 
 
@@ -4727,6 +4781,8 @@ This genetic context concerns CLCN7 (hgnc:2025). hgnc:2025 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4742,6 +4798,9 @@ This genetic context concerns CLCN7 (hgnc:2025). hgnc:2025 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">GAIN_OF_FUNCTION rather than HYPERMORPHIC: the variants do not simply raise the output of a normally regulated transporter, they remove the PI(3,5)P2 inhibition that regulates it and shift its voltage dependence, so the protein escapes its normal control. This is the variant&#39;s consequence; the separate modifier on the activity node downstream describes the resulting pathway state. See notes.</div>
 
@@ -4874,6 +4933,7 @@ This pathophysiological event involves chloride/proton antiporter activity of Cl
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-pi-3-5-p2-inhibition-of-clc-7" data-dismech-node="Loss of PI(3,5)P2 Inhibition of ClC-7" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of PI(3,5)P2 Inhibition of ClC-7</div>
 
+
                 <div class="item-desc">PI(3,5)P2 normally restrains ClC-7. Both HOD variants weaken that restraint and shift voltage-dependent gating toward less positive potentials, so more of the transporter population is open at physiological membrane voltages.</div>
 
 
@@ -4912,6 +4972,7 @@ This pathophysiological event involves chloride/proton antiporter activity of Cl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-clc-7-chloride-proton-exchange-current" data-dismech-node="Increased ClC-7 Chloride/Proton Exchange Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased ClC-7 Chloride/Proton Exchange Current</div>
+
 
                 <div class="item-desc">The functional lesion. Heterologous expression of p.Tyr715Cys yields increased outward currents, and the gating shift is predicted to drive extra chloride into the vesicle lumen down the existing pH gradient.</div>
 
@@ -5032,6 +5093,7 @@ This pathophysiological event involves chloride transmembrane transporter activi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-hyperacidification" data-dismech-node="Lysosomal Hyperacidification" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Hyperacidification</div>
+
 
                 <div class="item-desc">Patient fibroblasts sit about 0.2 pH units below control. The size of that shift is worth stating plainly: it is small in absolute terms, and it is the disease. Note the direction, because it is the opposite of the intuition carried over from most lysosomal storage disorders, where the lysosome fails to acidify.</div>
 
@@ -5173,6 +5235,7 @@ This pathophysiological event involves increased lysosomal lumen acidification (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enlarged-lysosome-related-vacuole-formation" data-dismech-node="Enlarged Lysosome-Related Vacuole Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Enlarged Lysosome-Related Vacuole Formation</div>
 
+
                 <div class="item-desc">Grossly enlarged vacuoles arise by membrane fusion and are seen in patient fibroblasts, leukocytes, liver and kidney. This is the feature that distinguishes gain of ClC-7 function from its loss: losing ClC-7 also produces storage, but not these vacuoles.</div>
 
 
@@ -5298,6 +5361,7 @@ This pathophysiological event involves increased lysosomal lumen acidification (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-lysosomal-and-autophagic-degradation" data-dismech-node="Impaired Lysosomal and Autophagic Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Lysosomal and Autophagic Degradation</div>
+
 
                 <div class="item-desc">Degradation of endocytosed material falls inside the enlarged compartments and autophagic clearance is largely blocked, so undegraded substrate accumulates.</div>
 
@@ -5450,6 +5514,7 @@ This pathophysiological event involves decreased autophagosome-lysosome fusion a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-foam-cell-transformation-and-tissue-storage" data-dismech-node="Foam Cell Transformation and Tissue Storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Foam Cell Transformation and Tissue Storage</div>
 
+
                 <div class="item-desc">Tissue macrophages fill with undegraded material and become foam cells, most heavily in liver portal fields and renal medullary interstitium. The organs enlarge while their function is preserved, which is an unusual combination and a useful diagnostic clue.</div>
 
 
@@ -5583,6 +5648,7 @@ This pathophysiological event involves CD68+ tissue histiocyte, annotated with m
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-melanin-synthesis-in-melanosomes" data-dismech-node="Reduced Melanin Synthesis in Melanosomes" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Melanin Synthesis in Melanosomes</div>
+
 
                 <div class="item-desc">The proposed route to hypopigmentation, and the weakest link in this entry&#39;s chain. The melanosome is a lysosome-related organelle, tyrosinase is the rate-limiting enzyme of melanin synthesis and is inhibited at acidic pH, so a transporter that over-acidifies lysosomes is expected to over-acidify melanosomes and suppress pigment. Every step of that is plausible and none of it has been measured in this disease: no study has reported melanosomal pH, tyrosinase activity or melanosome morphology in a patient with HOD syndrome. The supporting evidence below is drawn from melanocyte biology generally and is marked INDIRECT for that reason.</div>
 
@@ -5759,6 +5825,7 @@ This pathophysiological event involves decreased melanin biosynthetic process (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypopigmentation-of-skin-and-hair" data-dismech-node="Hypopigmentation of Skin and Hair" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypopigmentation of Skin and Hair</div>
 
+
                 <div class="item-desc">Present in all five reported patients. In the best-described case the hair and eyebrows are hypopigmented while the irides are not, so this is not uniform oculocutaneous albinism.</div>
 
 
@@ -5837,6 +5904,7 @@ This pathophysiological event involves decreased melanin biosynthetic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-organomegaly-with-preserved-organ-function" data-dismech-node="Organomegaly with Preserved Organ Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Organomegaly with Preserved Organ Function</div>
+
 
                 <div class="item-desc">Liver, spleen and kidneys enlarge, in one case to the point of a massively distended abdomen, while laboratory function of those organs stays normal.</div>
 
@@ -5924,6 +5992,7 @@ This pathophysiological event involves decreased melanin biosynthetic process (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-losing-enteropathy" data-dismech-node="Protein-Losing Enteropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein-Losing Enteropathy</div>
 
+
                 <div class="item-desc">Progressive bowel-wall thickening impairs intestinal transit, with malabsorption and loss of protein and electrolytes. In the most fully reported patient this, rather than the neurological disease, dominates the clinical course.</div>
 
 
@@ -6000,6 +6069,7 @@ This pathophysiological event involves decreased melanin biosynthetic process (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-thrive" data-dismech-node="Failure to Thrive" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Thrive</div>
 
+
                 <div class="item-desc">Growth failure downstream of the enteric losses rather than of poor intake. Split from the enteropathy node so the causal step between them is explicit rather than bundled.</div>
 
 
@@ -6060,6 +6130,7 @@ This pathophysiological event involves decreased melanin biosynthetic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-myelination" data-dismech-node="Delayed Myelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Myelination</div>
+
 
                 <div class="item-desc">Delayed myelination on MRI, and in the longest-followed patient reduced cerebral volume with frontotemporal accentuation and symmetrical signal change in the subthalamic nuclei. Split from the developmental phenotype below: both follow the lysosomal lesion, but no source establishes that the myelination delay is what causes the developmental delay, so no edge is drawn between them.</div>
 
@@ -6247,6 +6318,9 @@ This clinical feature is Vacuolated lymphocytes (HP:0001922). HP:0001922 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6345,6 +6419,9 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6425,6 +6502,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6491,6 +6571,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6576,6 +6659,9 @@ This clinical feature is Protein-losing enteropathy (HP:0002243). HP:0002243 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6651,6 +6737,9 @@ This clinical feature is Ocular albinism (HP:0001107). HP:0001107 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6752,6 +6841,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6829,6 +6921,9 @@ This clinical feature is Enlarged kidney (HP:0000105). HP:0000105 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6941,6 +7036,9 @@ This clinical feature is Hypopigmentation of skin and hair, annotated with Hypop
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7046,6 +7144,9 @@ This clinical feature is Muscular hypotonia, annotated with Hypotonia (HP:000125
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7112,6 +7213,9 @@ This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7197,6 +7301,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7270,6 +7377,9 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7336,6 +7446,9 @@ This clinical feature is Frontotemporal cerebral atrophy (HP:0006892). HP:000689
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7416,6 +7529,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7536,6 +7652,9 @@ This disease-associated gene is CLCN7 (hgnc:2025). hgnc:2025 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7637,6 +7756,12 @@ This disease-associated gene is CLCN7 (hgnc:2025). hgnc:2025 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">c.2144A&gt;G (NM_001287.5), in the cytoplasmic C-terminal domain. Carried by four of the five published patients, all de novo.</div>
 
 
@@ -7661,6 +7786,12 @@ This disease-associated gene is CLCN7 (hgnc:2025). hgnc:2025 is a gene from the 
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">c.854A&gt;C, in the cytoplasmic portion beside the PI(3,5)P2 binding site. Reported once, de novo, absent from gnomAD v4.0.</div>
@@ -7765,6 +7896,9 @@ This treatment uses chloroquine (CHEBI:3638). CHEBI:3638 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7775,6 +7909,9 @@ This treatment uses chloroquine (CHEBI:3638). CHEBI:3638 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7913,6 +8050,9 @@ This treatment is intravenous immunoglobulin replacement, annotated with Immunog
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7923,6 +8063,9 @@ This treatment is intravenous immunoglobulin replacement, annotated with Immunog
 
 
     </div>
+
+
+
 
 
 
@@ -8028,6 +8171,12 @@ This treatment is gastrostomy feeding for nutritional support, annotated with Nu
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10177,6 +10326,33 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Ontology note. Two bindings were chosen against the deep-research report&#39;s suggestions, both toward greater specificity rather than away from it. The report offered HP:0003271 Visceromegaly and HP:0012448 Delayed myelination; both resolve and are correctly labelled, but the reported findings are hepatosplenomegaly specifically (HP:0001433) and delayed myelination seen on brain MRI (HP:0002188 Delayed CNS myelination), so the narrower terms represent the claims accurately.
+Three of the report&#39;s identifiers were wrong, and none of them would have been caught by term validation, because every one is a real CURIE:
+MONDO:0032781, offered as this disease&#39;s own Mondo ID, is congenital hypotonia, epilepsy, developmental delay, and digital anomalies - a different rare syndrome that shares the words hypotonia and developmental delay. The correct term is MONDO:0032805. This is the entry&#39;s identity, so copying it would have bound the whole record to the wrong disease. The report did hedge it (&#34;to be confirmed against current Mondo release&#34;), which is the honest flag, and the hedge is the part worth reading.
+HGNC:2023, offered for CLCN7, is CLCN5 - a different member of the same CLC family, whose disease is Dent disease, a renal tubulopathy. CLCN7 is hgnc:2025. Adjacent identifier, same family, wrong gene.
+HP:0007730 is offered under the label &#34;Ocular albinism&#34;; its actual label is Iris hypopigmentation, so the report named a term it did not bind. The iris-specific term is also wrong for the patient the report drew it from: the best-described case has hypopigmented hair and eyebrows &#34;but not the irides&#34;. Ocular involvement is nonetheless real in this disease - a different patient, in a different paper, has ocular albinism documented from birth - so the entry binds HP:0001107 Ocular albinism for that case and cites the normal-iris case as REFUTE against it being constant. The rejection is of the iris term specifically, not of ocular phenotypes generally.
+All identifiers used in this entry were instead derived from the curation stub and resolved against local OAK builds.
+Modifier note. The activity node carries modifier GAIN_OF_FUNCTION rather than the PATO-bound INCREASED. That trades ontology grounding for accuracy and the trade is deliberate: the variants do not merely raise the output of a normally regulated transporter, they remove the PI(3,5)P2 inhibition that regulates it and shift its voltage dependence, which is the qualitative case CLAUDE.md reserves those values for.
+Deep-research divergence. The committed OpenScientist report independently reproduced this entry&#39;s causal chain - gain-of-function variant, increased exchange, over-acidification, branching to pigment, viscera and brain, with bone spared - and it flagged the melanosome step among its own limitations, which is the same judgement reached here. Two of its proposals were not adopted. Its immune branch, deriving hypogammaglobulinemia from impaired endolysosomal processing in B cells, rests on one patient with no supporting B-cell work and is recorded as a knowledge gap rather than as a causal edge. Its neural branch attributes delayed myelination to neuronal, oligodendrocyte and microglial lysosomal failure; the underlying microglial evidence is a loss-of-function zebrafish study, which cannot be carried across to a gain-of-function disease, so that too is a gap rather than a chain.
+GeneReviews note. There is no GeneReviews article for HOD syndrome. The tagged GeneReviews reference below is CLCN7-Related Osteopetrosis, listed as the loss-of-function counterpart and NOT used as a phenotype baseline for this entry: it describes different diseases with a different mechanism and essentially no phenotypic overlap, so taking it as the baseline would import fractures, marrow failure and cranial nerve compression into an entry whose patients have structurally normal skeletons. Same gene, wrong disease.
+Citation format. The report cites by bare PubMed number in a Key References section rather than as PMID: identifiers, so the identifier sweep suggested in the curation skill returns nothing on it and its sidecar file was not produced. The references were recovered by reading that section. Worth knowing before concluding that an OpenScientist report is uncited.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: HOD syndrome (CLCN7 gain-of-function)</strong> · 2026-09-03T16:56:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypopigmentation_Organomegaly_And_Delayed_Myelination_And_Development/2026-09-03T165624Z-claude-code-27b111.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Hypopigmentation_Organomegaly_And_Delayed_Myelination_And_Development.yaml for HOD syndrome, MONDO:0032805, de novo gain-of-function CLCN7. Deep research: OpenScientist (committed report plus HTML/PDF artifacts). Twelve pathophysiology nodes forming a single connected DAG from the variant to four clinical branches; 57 evidence snippets, all verified against cached references, and all 57 reference_title values machine-audited against references_cache frontmatter. Built primarily from five primary sources covering all five published patients. The report was used as a check rather than a source and independently reproduced the causal chain, including flagging the melanosome step as inferred. Three of the report&#39;s ontology identifiers were wrong and are recorded in the entry notes: MONDO:0032781 offered as the disease ID is a different syndrome, HGNC:2023 offered for CLCN7 is CLCN5, and HP:0007730 was mislabelled and contradicts the primary source on iris involvement. All identifiers used were resolved against local OAK builds. Corrected one claim of my own during curation: heterozygous CLCN7 loss of function is silent, and Albers-Schonberg ADO II is dominant-negative rather than simple loss (PMID:11741829). Report term validation could not be run: repeated OLS read timeouts at the validator&#39;s five-second limit; the report&#39;s CURIEs were instead resolved manually against local OAK, and reference validation ran cleanly at 19/19 resolved with one off-topic flag on PMID:31214276, which is cited here only as directness INDIRECT for general melanocyte pH biology. Validated with just validate, validate-terms, count-verified-snippets, check-enum-values, check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms, check-snippet-grading and check-environmental-evidence.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

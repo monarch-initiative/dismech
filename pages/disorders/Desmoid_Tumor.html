@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4314,6 +4367,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ctnnb1-exon-3-activating-mutation" data-dismech-node="CTNNB1 Exon 3 Activating Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">CTNNB1 Exon 3 Activating Mutation</div>
 
+
                 <div class="item-desc">The sporadic arm. An activating point mutation in CTNNB1 exon 3 removes the serine and threonine residues that GSK3-beta and casein kinase 1 phosphorylate, so beta-catenin is never marked for destruction. Three codons account for almost all of it: T41A, S45F and S45P.</div>
 
 
@@ -4433,6 +4487,7 @@ This pathophysiological event involves CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-apc-loss-of-function" data-dismech-node="Germline APC Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline APC Loss of Function</div>
 
+
                 <div class="item-desc">The familial adenomatous polyposis arm. Germline APC mutation removes a structural component of the complex that presents beta-catenin for phosphorylation, disabling the same machinery from the scaffold side. The two lesions are mutually exclusive, which gives the genotype diagnostic value: a CTNNB1 mutation rules out FAP and an APC mutation rules out sporadic disease.</div>
 
 
@@ -4551,6 +4606,7 @@ This pathophysiological event involves APC (hgnc:583). hgnc:583 is a gene from t
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cytoplasmic-beta-catenin-degradation" data-dismech-node="Failure of Cytoplasmic beta-catenin Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Cytoplasmic beta-catenin Degradation</div>
+
 
                 <div class="item-desc">Unphosphorylated beta-catenin escapes ubiquitin-mediated destruction, accumulates in the cytoplasm and translocates to the nucleus, where it partners with TCF/LEF transcription factors. Nuclear beta-catenin is the diagnostic hallmark of the tumour on immunohistochemistry, which makes this node directly observable in routine practice rather than inferred.</div>
 
@@ -4700,6 +4756,7 @@ This pathophysiological event involves decreased beta-catenin destruction comple
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-activation-of-the-wnt-beta-catenin-axis" data-dismech-node="Constitutive Activation of the Wnt-beta-catenin Axis" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Activation of the Wnt-beta-catenin Axis</div>
+
 
                 <div class="item-desc">The shared consequence of the convergence, stated as a pathway state rather than as a genetic event. Whichever lesion disabled the destruction complex, the result is the same: persistent canonical Wnt signalling in a cell that is receiving no Wnt ligand.</div>
 
@@ -4922,6 +4979,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-myofibroblast-proliferation" data-dismech-node="Clonal Myofibroblast Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Myofibroblast Proliferation</div>
 
+
                 <div class="item-desc">The tumour cell is a myofibroblast, and the lesion is a monoclonal proliferation of them rather than a reactive scar. That distinction is what moved this entity from &#34;reactive fibrous overgrowth&#34; to neoplasm, and it is why the lesion behaves autonomously rather than resolving when the presumed trauma heals.</div>
 
 
@@ -5078,6 +5136,13 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-notch-pathway-dependence" data-dismech-node="Notch Pathway Dependence" data-dismech-type="pathophysiology">
                 <div class="item-name">Notch Pathway Dependence</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">A parallel dependency rather than a step in the Wnt chain, and included because it is the only target for which a randomised trial has produced an approved drug. Gamma-secretase cleaves the Notch receptor to release its intracellular domain; blocking that cleavage produces objective responses in this tumour. The node is therefore inferred largely backwards, from therapeutic response, and is graded accordingly.</div>
 
 
@@ -5191,6 +5256,7 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-infiltrative-growth-without-metastatic-capacity" data-dismech-node="Infiltrative Growth without Metastatic Capacity" data-dismech-type="pathophysiology">
                 <div class="item-name">Infiltrative Growth without Metastatic Capacity</div>
+
 
                 <div class="item-desc">The defining behaviour, and an unusual combination. The lesion invades muscle, fascia, nerve and vessel and erodes bone, yet it has no metastatic potential at all. Morbidity is therefore entirely local and entirely a function of what the tumour happens to sit next to.</div>
 
@@ -5339,6 +5405,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-local-tissue-and-organ-compromise" data-dismech-node="Local Tissue and Organ Compromise" data-dismech-type="pathophysiology">
                 <div class="item-name">Local Tissue and Organ Compromise</div>
 
+
                 <div class="item-desc">The clinical endpoint. Because the tumour never spreads, everything that harms the patient follows from local mass effect and invasion: chronic pain, loss of mobility, and, for mesenteric tumours, bowel obstruction that can be fatal.</div>
 
 
@@ -5430,6 +5497,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unpredictable-natural-history-with-spontaneous-regression" data-dismech-node="Unpredictable Natural History with Spontaneous Regression" data-dismech-type="pathophysiology">
                 <div class="item-name">Unpredictable Natural History with Spontaneous Regression</div>
+
 
                 <div class="item-desc">A property of the disease rather than a step in its causal chain, but the single most consequential fact about it. A substantial fraction of tumours stabilise or regress with no treatment at all. This is the observation that displaced surgery as first-line management, and it means any uncontrolled treatment series in this disease will overstate benefit.</div>
 
@@ -5566,7 +5634,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"association\": \"Germline Loss in FAP-associated Disease\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Antecedent Surgical Trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prior surgery at the site is a recognised risk factor. This matters clinically in an unusual way: because operating can precipitate disease, and because the tumour often regresses without treatment, surgery has lost its place as first-line therapy.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"CTNNB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"association\": \"Activating Exon 3 Mutation in Sporadic Disease\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"CTNNB1 Exon 3 Activating Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The sporadic arm. An activating point mutation in CTNNB1 exon 3 removes the serine and threonine residues that GSK3-beta and casein kinase 1 phosphorylate, so beta-catenin is never marked for destruction. Three codons account for almost all of it: T41A, S45F and S45P.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"subtypes\": [\"Sporadic\"]}}, {\"id\": \"Chronic Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The dominant symptom, present in up to 63% of patients, and the reason most treatment decisions get made. It carries measurable consequences for sleep and mood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012532\"}}, {\"id\": \"Clonal Myofibroblast Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tumour cell is a myofibroblast, and the lesion is a monoclonal proliferation of them rather than a reactive scar. That distinction is what moved this entity from \\\"reactive fibrous overgrowth\\\" to neoplasm, and it is why the lesion behaves autonomously rather than resolving when the presumed trauma heals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myofibroblast\"], \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Constitutive Activation of the Wnt-beta-catenin Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared consequence of the convergence, stated as a pathway state rather than as a genetic event. Whichever lesion disabled the destruction complex, the result is the same: persistent canonical Wnt signalling in a cell that is receiving no Wnt ligand.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"canonical Wnt signaling pathway\"], \"genes\": [\"CTNNB1\", \"APC\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}, {\"label\": \"APC\", \"id\": \"hgnc:583\"}]}}, {\"id\": \"Doxorubicin-based Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anthracycline regimens, including liposomal doxorubicin, reserved for progressive disease. As with methotrexate and vinblastine, the supporting evidence contains no randomised controlled trials.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"doxorubicin\"]}}, {\"id\": \"Failure of Cytoplasmic beta-catenin Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unphosphorylated beta-catenin escapes ubiquitin-mediated destruction, accumulates in the cytoplasm and translocates to the nucleus, where it partners with TCF/LEF transcription factors. Nuclear beta-catenin is the diagnostic hallmark of the tumour on immunohistochemistry, which makes this node directly observable in routine practice rather than inferred.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Gastrointestinal Desmoid Tumor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The intra-abdominal and mesenteric form, which predominates in familial adenomatous polyposis and carries the highest local recurrence rates.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FAP-associated\"], \"term_id\": \"HP:0100245\"}}, {\"id\": \"Germline APC Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The familial adenomatous polyposis arm. Germline APC mutation removes a structural component of the complex that presents beta-catenin for phosphorylation, disabling the same machinery from the scaffold side. The two lesions are mutually exclusive, which gives the genotype diagnostic value: a CTNNB1 mutation rules out FAP and an APC mutation rules out sporadic disease.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"subtypes\": [\"FAP-associated\"]}}, {\"id\": \"Infiltrative Growth without Metastatic Capacity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining behaviour, and an unusual combination. The lesion invades muscle, fascia, nerve and vessel and erodes bone, yet it has no metastatic potential at all. Morbidity is therefore entirely local and entirely a function of what the tumour happens to sit next to.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstruction of the bowel by a mesenteric or intra-abdominal tumour. This is the mechanism by which a non-metastasising tumour becomes lethal, and it is why desmoid disease is the second cause of death in familial adenomatous polyposis.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FAP-associated\"], \"term_id\": \"HP:0005214\"}}, {\"id\": \"Limitation of Joint Mobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Restricted movement where the tumour infiltrates muscle or crosses a joint, one of the commonest functional complaints in extra-abdominal disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001376\"}}, {\"id\": \"Local Tissue and Organ Compromise\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Because the tumour never spreads, everything that harms the patient follows from local mass effect and invasion: chronic pain, loss of mobility, and, for mesenteric tumours, bowel obstruction that can be fatal.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Methotrexate and Vinblastine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-dose chemotherapy, used mainly in extra-abdominal disease. The evidence is uncontrolled: response rates around 36% with clinical benefit up to 85%, but no randomised comparison against no treatment, which given the natural history of this disease is a serious limitation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methotrexate\", \"vinblastine\"]}}, {\"id\": \"Nirogacestat\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral gamma-secretase inhibitor, and the first agent to show benefit for this disease in a placebo-controlled phase 3 trial. It blocks the proteolytic cleavage that releases the Notch intracellular domain. Diarrhoea is near universal and ovarian toxicity is a specific concern in women of childbearing potential.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"nirogacestat\", \"gamma-secretase inhibitor\"]}}, {\"id\": \"Notch Pathway Dependence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A parallel dependency rather than a step in the Wnt chain, and included because it is the only target for which a randomised trial has produced an approved drug. Gamma-secretase cleaves the Notch receptor to release its intracellular domain; blocking that cleavage produces objective responses in this tumour. The node is therefore inferred largely backwards, from therapeutic response, and is graded accordingly.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Notch signaling pathway\"]}}, {\"id\": \"Pregnancy and Estrogen Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Roughly 70% of patients are women, risk rises during and after pregnancy, and women of childbearing age have faster tumour growth than men or postmenopausal women. Desmoid tumours express estrogen receptors. The inference has never converted into a treatment, though: antiestrogen response rates of 48 to 51% come from case series with no active-surveillance comparator, and guidelines no longer routinely recommend hormone therapy.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"PRESENT\"}}, {\"id\": \"Sorafenib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A multi-targeted tyrosine kinase inhibitor with randomised evidence of benefit in progressive or symptomatic disease. Note that 36% of placebo patients were also progression-free at two years, which is the spontaneous-stability effect made visible by a controlled design.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sorafenib\", \"tyrosine kinase inhibitor\"]}}, {\"id\": \"Surgical Resection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No longer first-line. When used, the aim is microscopically negative margins, but not at the cost of organ or limb function, and recurrence after resection is approximately 20%. In FAP-associated intra-abdominal disease, recurrence rates are higher still.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Unpredictable Natural History with Spontaneous Regression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A property of the disease rather than a step in its causal chain, but the single most consequential fact about it. A substantial fraction of tumours stabilise or regress with no treatment at all. This is the observation that displaced surgery as first-line management, and it means any uncontrolled treatment series in this disease will overstate benefit.\", \"meta\": {\"evidence_count\": 4}}], \"edges\": [{\"source\": \"CTNNB1 Exon 3 Activating Mutation\", \"target\": \"Failure of Cytoplasmic beta-catenin Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the phosphorylation substrate disables destruction of beta-catenin from the substrate side.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germline APC Loss of Function\", \"target\": \"Failure of Cytoplasmic beta-catenin Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the scaffold disables destruction of beta-catenin from the complex side, converging on the same defect as the sporadic arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Cytoplasmic beta-catenin Degradation\", \"target\": \"Constitutive Activation of the Wnt-beta-catenin Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undegraded beta-catenin accumulates and enters the nucleus, where it partners with TCF/LEF. The pathway is therefore held on with no Wnt ligand present.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive Activation of the Wnt-beta-catenin Axis\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nuclear beta-catenin acting through TCF/LEF drives the proliferative programme of the tumour cell.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Clonal Myofibroblast Proliferation\", \"target\": \"Unpredictable Natural History with Spontaneous Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proliferating population does not expand monotonically. In a substantial minority it arrests or regresses outright, and what determines which course a given tumour takes is not known.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Clonal Myofibroblast Proliferation\", \"target\": \"Infiltrative Growth without Metastatic Capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding myofibroblast population lays down a collagen-rich matrix and advances along fascial planes into adjacent tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Notch Pathway Dependence\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Notch signalling sustains the proliferating myofibroblast population; the intermediates between receptor cleavage and proliferation in this tumour are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infiltrative Growth without Metastatic Capacity\", \"target\": \"Gastrointestinal Desmoid Tumor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When the infiltrating lesion arises in the mesentery or intra-abdominally, which is the predominant site in familial adenomatous polyposis, it presents as this form.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infiltrative Growth without Metastatic Capacity\", \"target\": \"Local Tissue and Organ Compromise\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compression and invasion of adjacent structures produce the pain, functional loss and obstruction that constitute the clinical disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local Tissue and Organ Compromise\", \"target\": \"Chronic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasion and compression of muscle, nerve and vessel produce the chronic pain that dominates the patient experience.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local Tissue and Organ Compromise\", \"target\": \"Limitation of Joint Mobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infiltration of muscle and periarticular tissue restricts movement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local Tissue and Organ Compromise\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A mesenteric or intra-abdominal tumour obstructs the bowel, which is how a non-metastasising tumour becomes lethal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antecedent Surgical Trauma\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"influences\", \"is_orphan\": false, \"description\": \"Tissue injury precedes tumour development at the operated site, though the link between wound healing and clonal outgrowth is an association rather than an established mechanism.\"}, {\"source\": \"Pregnancy and Estrogen Exposure\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Estrogen exposure is associated with faster growth of the proliferating population; the receptor is expressed in the tumour, but the intervening signalling is not established and the therapeutic test of the hypothesis was uncontrolled.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Nirogacestat\", \"target\": \"Notch Pathway Dependence\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sorafenib\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Methotrexate and Vinblastine\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxorubicin-based Chemotherapy\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection\", \"target\": \"Infiltrative Growth without Metastatic Capacity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CTNNB1\", \"target\": \"CTNNB1 Exon 3 Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CTNNB1\", \"target\": \"Constitutive Activation of the Wnt-beta-catenin Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APC\", \"target\": \"Constitutive Activation of the Wnt-beta-catenin Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APC\", \"target\": \"Germline APC Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"association\": \"Germline Loss in FAP-associated Disease\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Antecedent Surgical Trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prior surgery at the site is a recognised risk factor. This matters clinically in an unusual way: because operating can precipitate disease, and because the tumour often regresses without treatment, surgery has lost its place as first-line therapy.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"CTNNB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"association\": \"Activating Exon 3 Mutation in Sporadic Disease\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"CTNNB1 Exon 3 Activating Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The sporadic arm. An activating point mutation in CTNNB1 exon 3 removes the serine and threonine residues that GSK3-beta and casein kinase 1 phosphorylate, so beta-catenin is never marked for destruction. Three codons account for almost all of it: T41A, S45F and S45P.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"subtypes\": [\"Sporadic\"]}}, {\"id\": \"Chronic Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The dominant symptom, present in up to 63% of patients, and the reason most treatment decisions get made. It carries measurable consequences for sleep and mood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012532\"}}, {\"id\": \"Clonal Myofibroblast Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tumour cell is a myofibroblast, and the lesion is a monoclonal proliferation of them rather than a reactive scar. That distinction is what moved this entity from \\\"reactive fibrous overgrowth\\\" to neoplasm, and it is why the lesion behaves autonomously rather than resolving when the presumed trauma heals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myofibroblast\"], \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Constitutive Activation of the Wnt-beta-catenin Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared consequence of the convergence, stated as a pathway state rather than as a genetic event. Whichever lesion disabled the destruction complex, the result is the same: persistent canonical Wnt signalling in a cell that is receiving no Wnt ligand.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"canonical Wnt signaling pathway\"], \"genes\": [\"CTNNB1\", \"APC\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}, {\"label\": \"APC\", \"id\": \"hgnc:583\"}]}}, {\"id\": \"Doxorubicin-based Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anthracycline regimens, including liposomal doxorubicin, reserved for progressive disease. As with methotrexate and vinblastine, the supporting evidence contains no randomised controlled trials.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"doxorubicin\"]}}, {\"id\": \"Failure of Cytoplasmic beta-catenin Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unphosphorylated beta-catenin escapes ubiquitin-mediated destruction, accumulates in the cytoplasm and translocates to the nucleus, where it partners with TCF/LEF transcription factors. Nuclear beta-catenin is the diagnostic hallmark of the tumour on immunohistochemistry, which makes this node directly observable in routine practice rather than inferred.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Gastrointestinal Desmoid Tumor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The intra-abdominal and mesenteric form, which predominates in familial adenomatous polyposis and carries the highest local recurrence rates.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FAP-associated\"], \"term_id\": \"HP:0100245\"}}, {\"id\": \"Germline APC Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The familial adenomatous polyposis arm. Germline APC mutation removes a structural component of the complex that presents beta-catenin for phosphorylation, disabling the same machinery from the scaffold side. The two lesions are mutually exclusive, which gives the genotype diagnostic value: a CTNNB1 mutation rules out FAP and an APC mutation rules out sporadic disease.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"subtypes\": [\"FAP-associated\"]}}, {\"id\": \"Infiltrative Growth without Metastatic Capacity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining behaviour, and an unusual combination. The lesion invades muscle, fascia, nerve and vessel and erodes bone, yet it has no metastatic potential at all. Morbidity is therefore entirely local and entirely a function of what the tumour happens to sit next to.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstruction of the bowel by a mesenteric or intra-abdominal tumour. This is the mechanism by which a non-metastasising tumour becomes lethal, and it is why desmoid disease is the second cause of death in familial adenomatous polyposis.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FAP-associated\"], \"term_id\": \"HP:0005214\"}}, {\"id\": \"Limitation of Joint Mobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Restricted movement where the tumour infiltrates muscle or crosses a joint, one of the commonest functional complaints in extra-abdominal disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001376\"}}, {\"id\": \"Local Tissue and Organ Compromise\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Because the tumour never spreads, everything that harms the patient follows from local mass effect and invasion: chronic pain, loss of mobility, and, for mesenteric tumours, bowel obstruction that can be fatal.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Methotrexate and Vinblastine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-dose chemotherapy, used mainly in extra-abdominal disease. The evidence is uncontrolled: response rates around 36% with clinical benefit up to 85%, but no randomised comparison against no treatment, which given the natural history of this disease is a serious limitation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methotrexate\", \"vinblastine\"]}}, {\"id\": \"Nirogacestat\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral gamma-secretase inhibitor, and the first agent to show benefit for this disease in a placebo-controlled phase 3 trial. It blocks the proteolytic cleavage that releases the Notch intracellular domain. Diarrhoea is near universal and ovarian toxicity is a specific concern in women of childbearing potential.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"nirogacestat\", \"gamma-secretase inhibitor\"]}}, {\"id\": \"Notch Pathway Dependence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A parallel dependency rather than a step in the Wnt chain, and included because it is the only target for which a randomised trial has produced an approved drug. Gamma-secretase cleaves the Notch receptor to release its intracellular domain; blocking that cleavage produces objective responses in this tumour. The node is therefore inferred largely backwards, from therapeutic response, and is graded accordingly.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Notch signaling pathway\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Pregnancy and Estrogen Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Roughly 70% of patients are women, risk rises during and after pregnancy, and women of childbearing age have faster tumour growth than men or postmenopausal women. Desmoid tumours express estrogen receptors. The inference has never converted into a treatment, though: antiestrogen response rates of 48 to 51% come from case series with no active-surveillance comparator, and guidelines no longer routinely recommend hormone therapy.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"PRESENT\"}}, {\"id\": \"Sorafenib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A multi-targeted tyrosine kinase inhibitor with randomised evidence of benefit in progressive or symptomatic disease. Note that 36% of placebo patients were also progression-free at two years, which is the spontaneous-stability effect made visible by a controlled design.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sorafenib\", \"tyrosine kinase inhibitor\"]}}, {\"id\": \"Surgical Resection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No longer first-line. When used, the aim is microscopically negative margins, but not at the cost of organ or limb function, and recurrence after resection is approximately 20%. In FAP-associated intra-abdominal disease, recurrence rates are higher still.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Unpredictable Natural History with Spontaneous Regression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A property of the disease rather than a step in its causal chain, but the single most consequential fact about it. A substantial fraction of tumours stabilise or regress with no treatment at all. This is the observation that displaced surgery as first-line management, and it means any uncontrolled treatment series in this disease will overstate benefit.\", \"meta\": {\"evidence_count\": 4}}], \"edges\": [{\"source\": \"CTNNB1 Exon 3 Activating Mutation\", \"target\": \"Failure of Cytoplasmic beta-catenin Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the phosphorylation substrate disables destruction of beta-catenin from the substrate side.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germline APC Loss of Function\", \"target\": \"Failure of Cytoplasmic beta-catenin Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the scaffold disables destruction of beta-catenin from the complex side, converging on the same defect as the sporadic arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Cytoplasmic beta-catenin Degradation\", \"target\": \"Constitutive Activation of the Wnt-beta-catenin Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undegraded beta-catenin accumulates and enters the nucleus, where it partners with TCF/LEF. The pathway is therefore held on with no Wnt ligand present.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive Activation of the Wnt-beta-catenin Axis\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nuclear beta-catenin acting through TCF/LEF drives the proliferative programme of the tumour cell.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Clonal Myofibroblast Proliferation\", \"target\": \"Unpredictable Natural History with Spontaneous Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proliferating population does not expand monotonically. In a substantial minority it arrests or regresses outright, and what determines which course a given tumour takes is not known.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Clonal Myofibroblast Proliferation\", \"target\": \"Infiltrative Growth without Metastatic Capacity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding myofibroblast population lays down a collagen-rich matrix and advances along fascial planes into adjacent tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Notch Pathway Dependence\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Notch signalling sustains the proliferating myofibroblast population; the intermediates between receptor cleavage and proliferation in this tumour are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infiltrative Growth without Metastatic Capacity\", \"target\": \"Gastrointestinal Desmoid Tumor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When the infiltrating lesion arises in the mesentery or intra-abdominally, which is the predominant site in familial adenomatous polyposis, it presents as this form.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infiltrative Growth without Metastatic Capacity\", \"target\": \"Local Tissue and Organ Compromise\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compression and invasion of adjacent structures produce the pain, functional loss and obstruction that constitute the clinical disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local Tissue and Organ Compromise\", \"target\": \"Chronic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasion and compression of muscle, nerve and vessel produce the chronic pain that dominates the patient experience.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local Tissue and Organ Compromise\", \"target\": \"Limitation of Joint Mobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infiltration of muscle and periarticular tissue restricts movement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local Tissue and Organ Compromise\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A mesenteric or intra-abdominal tumour obstructs the bowel, which is how a non-metastasising tumour becomes lethal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antecedent Surgical Trauma\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"influences\", \"is_orphan\": false, \"description\": \"Tissue injury precedes tumour development at the operated site, though the link between wound healing and clonal outgrowth is an association rather than an established mechanism.\"}, {\"source\": \"Pregnancy and Estrogen Exposure\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Estrogen exposure is associated with faster growth of the proliferating population; the receptor is expressed in the tumour, but the intervening signalling is not established and the therapeutic test of the hypothesis was uncontrolled.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Nirogacestat\", \"target\": \"Notch Pathway Dependence\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sorafenib\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Methotrexate and Vinblastine\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxorubicin-based Chemotherapy\", \"target\": \"Clonal Myofibroblast Proliferation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection\", \"target\": \"Infiltrative Growth without Metastatic Capacity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CTNNB1\", \"target\": \"CTNNB1 Exon 3 Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CTNNB1\", \"target\": \"Constitutive Activation of the Wnt-beta-catenin Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APC\", \"target\": \"Constitutive Activation of the Wnt-beta-catenin Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APC\", \"target\": \"Germline APC Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5627,6 +5695,9 @@ This clinical feature is Gastrointestinal desmoid tumor (HP:0100245). HP:0100245
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5696,6 +5767,9 @@ This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5774,6 +5848,9 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5877,6 +5954,9 @@ This clinical feature is Chronic pain (HP:0012532), qualified as temporality chr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5950,6 +6030,9 @@ This clinical feature is Desmoid tumor (HP:6001034). HP:6001034 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6068,6 +6151,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -6200,6 +6286,9 @@ This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6269,6 +6358,9 @@ This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6279,6 +6371,9 @@ This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO
 
 
     </div>
+
+
+
 
 
 
@@ -6438,6 +6533,9 @@ This treatment uses gamma-secretase inhibitor (NCIT:C200529). NCIT:C200529 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6448,6 +6546,9 @@ This treatment uses gamma-secretase inhibitor (NCIT:C200529). NCIT:C200529 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -6660,6 +6761,9 @@ This treatment uses tyrosine kinase inhibitor (NCIT:C1967). NCIT:C1967 is a ther
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6670,6 +6774,9 @@ This treatment uses tyrosine kinase inhibitor (NCIT:C1967). NCIT:C1967 is a ther
 
 
     </div>
+
+
+
 
 
 
@@ -6857,6 +6964,9 @@ This treatment uses vinblastine, annotated with vincaleukoblastine (CHEBI:27375)
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6867,6 +6977,9 @@ This treatment uses vinblastine, annotated with vincaleukoblastine (CHEBI:27375)
 
 
     </div>
+
+
+
 
 
 
@@ -7037,6 +7150,9 @@ This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7047,6 +7163,9 @@ This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -7195,6 +7314,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7205,6 +7327,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5504,6 +5557,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prdm6-loss-of-function-variants" data-dismech-node="PRDM6 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">PRDM6 Loss-of-Function Variants</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Heterozygous germline PRDM6 variants are the initiating lesion in PDA3. In vitro characterization of the variants found in PDA families showed loss of function, either because the mutant protein is redistributed within the cell or because its methyltransferase activity is altered.</div>
 
 
@@ -5556,6 +5616,8 @@ This genetic context concerns PRDM6 (hgnc:9350). hgnc:9350 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5568,6 +5630,9 @@ This genetic context concerns PRDM6 (hgnc:9350). hgnc:9350 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5722,6 +5787,13 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-ductal-smooth-muscle-transcriptional-program" data-dismech-node="Deregulated Ductal Smooth Muscle Transcriptional Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Ductal Smooth Muscle Transcriptional Program</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PRDM6 binds and regulates a large fraction of the genes whose expression it controls in outflow tract smooth muscle, and its loss shifts the ductus-specific gene program. This node is the shared molecular consequence from which the competing cellular models of PDA3 diverge.</div>
 
@@ -6016,6 +6088,13 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-ductal-smooth-muscle-contractile-identity" data-dismech-node="Loss of Ductal Smooth Muscle Contractile Identity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Ductal Smooth Muscle Contractile Identity</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Ductal smooth muscle cells lose the contraction-associated gene expression that distinguishes the ductus arteriosus from the adjacent aorta, while still populating the vessel wall normally.</div>
 
 
@@ -6231,6 +6310,13 @@ This pathophysiological event involves abnormal smooth muscle cell differentiati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-ductal-smooth-muscle-differentiation" data-dismech-node="Premature Ductal Smooth Muscle Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Ductal Smooth Muscle Differentiation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Ductal smooth muscle cells exit the proliferative, undifferentiated state too early, so the ductal wall is differentiated on the wrong schedule when the postnatal remodeling window opens. The originally proposed corollary, that the medial cell population is thereby depleted, is refuted by the Ki67 evidence recorded on this node.</div>
 
 
@@ -6398,6 +6484,13 @@ This pathophysiological event involves abnormal smooth muscle cell proliferation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cardiac-neural-crest-cell-specification-and-migration" data-dismech-node="Impaired Cardiac Neural Crest Cell Specification and Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cardiac Neural Crest Cell Specification and Migration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">In the neural crest model, cardiac neural crest cells fail to complete epithelial-mesenchymal transition and migration, being retained in the dorsal neural tube, with diminished H4K20 monomethylation and increased Wnt1 transcript levels driving the migration defect.</div>
 
@@ -6705,6 +6798,13 @@ This pathophysiological event involves decreased epithelial to mesenchymal trans
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ductal-contractile-tone" data-dismech-node="Impaired Ductal Contractile Tone" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ductal Contractile Tone</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The ductus arteriosus generates insufficient smooth muscle tone to constrict after birth. Myography of ductal segments from Prdm6-depleted embryos shows reduced tone and contractility despite normal smooth muscle investment.</div>
 
 
@@ -6881,6 +6981,13 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ductal-wall-remodeling" data-dismech-node="Impaired Ductal Wall Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ductal Wall Remodeling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The intimal thickening and medial reorganization that normally convert the functionally constricted duct into a permanently occluded ligamentum arteriosum do not proceed. Failure of this smooth-muscle-driven remodeling step is the common endpoint shared by the syndromic and nonsyndromic genetic forms of PDA.</div>
 
@@ -7097,6 +7204,13 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-postnatal-ductal-closure" data-dismech-node="Failure of Postnatal Ductal Closure" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Postnatal Ductal Closure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The ductus arteriosus does not undergo the functional constriction and subsequent anatomic obliteration that normally follow birth, and remains patent in a term infant with no prematurity-related or syndromic explanation.</div>
 
@@ -7345,6 +7459,13 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-left-to-right-aortopulmonary-shunt" data-dismech-node="Persistent Left-to-Right Aortopulmonary Shunt" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Left-to-Right Aortopulmonary Shunt</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">With the duct open and pulmonary vascular resistance falling after birth, blood shunts from the aorta into the pulmonary artery. The resulting pulmonary overcirculation and left heart volume load produce the clinical findings of the lesion.</div>
 
 
@@ -7480,7 +7601,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Coarctation of aorta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the thoracic aorta at the isthmus, reported alongside patent ductus arteriosus in PRDM6 variant carriers. Because the aortic isthmus and the ductus share ductal smooth muscle at their junction, a smooth-muscle-identity lesion is a plausible route to both, but the reported series is three patients and does not by itself establish coarctation as a component of PDA3. No frequency band is assigned: the only series was ascertained for the PDA-plus-coarctation combination, so it cannot estimate how often carriers have it.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001680\"}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Volume loading of the left heart from a large shunt produces heart failure with the associated feeding difficulty and failure to thrive of infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Cyclooxygenase-inhibitor pharmacologic closure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Indomethacin and ibuprofen close the duct in preterm infants by suppressing the prostaglandin E2 tone that maintains patency. They are recorded here for contrast rather than as a treatment for this disease: PDA3 is a defect of the ductal smooth muscle program rather than of the prostaglandin signal, and in the Prdm6-deficient mouse duct the same prostaglandin-inhibition manoeuvre that closes control ducts does nothing. No trial of pharmacologic closure in a PRDM6 variant carrier has been reported.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"indomethacin\", \"ibuprofen\"]}}, {\"id\": \"Deregulated Ductal Smooth Muscle Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRDM6 binds and regulates a large fraction of the genes whose expression it controls in outflow tract smooth muscle, and its loss shifts the ductus-specific gene program. This node is the shared molecular consequence from which the competing cellular models of PDA3 diverge.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"ductal vascular smooth muscle cell\"], \"biological_processes\": [\"PRDM6-dependent transcriptional control of the ductal smooth muscle program\"], \"locations\": [\"ductus arteriosus\"]}}, {\"id\": \"Failure of Postnatal Ductal Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ductus arteriosus does not undergo the functional constriction and subsequent anatomic obliteration that normally follow birth, and remains patent in a term infant with no prematurity-related or syndromic explanation.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"ductus arteriosus closure\"], \"locations\": [\"ductus arteriosus\"], \"animal_models\": [{\"name\": \"Wnt1Cre2 Prdm6fl/fl mouse\", \"species\": \"Mouse\", \"genotype\": \"Wnt1Cre2 Prdm6fl/fl (neural-crest-lineage conditional Prdm6 deletion)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model reproduces the defining lesion of PDA3 with complete penetrance.\"}, {\"name\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 mouse\", \"species\": \"Mouse\", \"genotype\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 (neural-crest-lineage conditional Prdm6 deletion with a ZsGreen1 lineage reporter)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The model produces patent ductus arteriosus, but as one element of a broader neural crest phenotype that includes ventricular noncompaction.\"}, {\"name\": \"Prdm6fl/fl SM22-Cre mouse\", \"species\": \"Mouse\", \"genotype\": \"Prdm6fl/fl SM22-Cre (smooth-muscle-restricted conditional Prdm6 deletion)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Completely penetrant ductal patency in both sexes.\"}]}}, {\"id\": \"Heart murmur\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A murmur is the usual presenting sign of an unrepaired duct. The classic finding is the continuous machinery murmur of flow across the duct through both systole and diastole.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030148\"}}, {\"id\": \"Impaired Cardiac Neural Crest Cell Specification and Migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the neural crest model, cardiac neural crest cells fail to complete epithelial-mesenchymal transition and migration, being retained in the dorsal neural tube, with diminished H4K20 monomethylation and increased Wnt1 transcript levels driving the migration defect.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"migratory cardiac neural crest cell\"], \"biological_processes\": [\"neural crest cell differentiation\", \"neural crest cell migration\", \"epithelial to mesenchymal transition\"], \"animal_models\": [{\"name\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 mouse\", \"species\": \"Mouse\", \"genotype\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 (neural-crest-lineage conditional Prdm6 deletion with a ZsGreen1 lineage reporter)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is the sole source of the neural-crest route in this entry, with lineage tracing and single-cell transcriptomics supporting the migration defect.\"}]}}, {\"id\": \"Impaired Ductal Contractile Tone\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ductus arteriosus generates insufficient smooth muscle tone to constrict after birth. Myography of ductal segments from Prdm6-depleted embryos shows reduced tone and contractility despite normal smooth muscle investment.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"vascular associated smooth muscle contraction\"], \"locations\": [\"ductus arteriosus\"], \"animal_models\": [{\"name\": \"Wnt1Cre2 Prdm6fl/fl mouse\", \"species\": \"Mouse\", \"genotype\": \"Wnt1Cre2 Prdm6fl/fl (neural-crest-lineage conditional Prdm6 deletion)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Myography on ductal segments provides the physiological measurement of reduced contractility that the tone node asserts.\"}]}}, {\"id\": \"Impaired Ductal Wall Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The intimal thickening and medial reorganization that normally convert the functionally constricted duct into a permanently occluded ligamentum arteriosum do not proceed. Failure of this smooth-muscle-driven remodeling step is the common endpoint shared by the syndromic and nonsyndromic genetic forms of PDA.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ductal vascular smooth muscle cell\"], \"biological_processes\": [\"intimal thickening and fibrotic remodeling of the ductal wall\"], \"locations\": [\"ductus arteriosus\"]}}, {\"id\": \"Loss of Ductal Smooth Muscle Contractile Identity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ductal smooth muscle cells lose the contraction-associated gene expression that distinguishes the ductus arteriosus from the adjacent aorta, while still populating the vessel wall normally.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ductal vascular smooth muscle cell\"], \"biological_processes\": [\"smooth muscle cell differentiation\"], \"animal_models\": [{\"name\": \"Prdm6fl/fl SM22-Cre mouse\", \"species\": \"Mouse\", \"genotype\": \"Prdm6fl/fl SM22-Cre (smooth-muscle-restricted conditional Prdm6 deletion)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Contractile transcripts are the genes most reduced in this duct, which is the claim the identity node makes, obtained without touching the crest lineage.\"}]}}, {\"id\": \"PRDM6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PRDM6\"], \"gene_terms\": [{\"label\": \"PRDM6\", \"id\": \"hgnc:9350\"}], \"presence\": \"Positive\", \"association\": \"Causal\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"PRDM6 Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous germline PRDM6 variants are the initiating lesion in PDA3. In vitro characterization of the variants found in PDA families showed loss of function, either because the mutant protein is redistributed within the cell or because its methyltransferase activity is altered.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"PRDM6 histone methyltransferase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"PRDM6\", \"id\": \"hgnc:9350\"}]}, \"locations\": [\"ductus arteriosus\"]}}, {\"id\": \"Patent ductus arteriosus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent postnatal patency of the ductus arteriosus in the absence of a syndromic diagnosis or prematurity. This is the defining lesion of PDA3.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001643\"}}, {\"id\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the duct open and pulmonary vascular resistance falling after birth, blood shunts from the aorta into the pulmonary artery. The resulting pulmonary overcirculation and left heart volume load produce the clinical findings of the lesion.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Prdm6fl/fl SM22-Cre mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Deleting Prdm6 in smooth muscle rather than in the neural crest lineage still gives a completely penetrant patent duct, with contractile genes as the most downregulated transcripts and proliferation unchanged. This is the model that carries the most weight in the crest-versus-contractility disagreement: Prdm6 is lost here only after crest migration and differentiation are complete, so a patent duct in this cross cannot be explained by failed crest migration.\"}, {\"id\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Disruption of Prdm6 in cardiac neural crest cells impairs their differentiation, delamination, and migration and produces patent ductus arteriosus together with ventricular noncompaction.\"}, {\"id\": \"Premature Ductal Smooth Muscle Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ductal smooth muscle cells exit the proliferative, undifferentiated state too early, so the ductal wall is differentiated on the wrong schedule when the postnatal remodeling window opens. The originally proposed corollary, that the medial cell population is thereby depleted, is refuted by the Ki67 evidence recorded on this node.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"ductal vascular smooth muscle cell\"], \"biological_processes\": [\"smooth muscle cell proliferation\"]}}, {\"id\": \"Pulmonary arterial hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sustained pulmonary overcirculation from an unrepaired duct can raise pulmonary artery pressure and, if untreated, progress to irreversible pulmonary vascular disease with shunt reversal.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002092\"}}, {\"id\": \"Supportive care for a symptomatic shunt\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fluid restriction and diuretics manage the volume-loaded circulation of a large shunt while closure is arranged. This treats the hemodynamic consequence, not the duct.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Surgical ductal ligation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical ligation or division of the duct remains an option where transcatheter closure is not feasible, notably in very small infants in whom device delivery is technically difficult.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Transcatheter device closure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Catheter-delivered coils or duct occluders close the duct and are the standard of care for most patients. Because PDA3 is a structural failure of ductal smooth muscle rather than a prostaglandin-mediated failure to constrict, mechanical closure, not pharmacological closure, is the definitive treatment.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Wnt1Cre2 Prdm6fl/fl mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional deletion of Prdm6 in Wnt1-expressing cells gives perinatal lethality with a fully penetrant patent ductus arteriosus, normal neural-crest-derived smooth muscle investment of the outflow tract, and reduced ductal tone on myography.\"}, {\"id\": \"c.1385A\u003eG (p.Gln462Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant reported in an affected mother and daughter.\", \"meta\": {\"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"LOF\"}}, {\"id\": \"c.1646G\u003eA (p.Arg549Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant in the fourth zinc-finger region. Reported in the index kindred and characterized in vitro as loss of function through cytoplasmic mislocalization of the protein.\", \"meta\": {\"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"LOF\"}}, {\"id\": \"c.788G\u003eC (p.Cys263Ser)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant in the SET (PR) domain, the catalytic region, reported in a proband with affected mother and maternal grandfather.\", \"meta\": {\"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"LOF\"}}], \"edges\": [{\"source\": \"PRDM6 Loss-of-Function Variants\", \"target\": \"Deregulated Ductal Smooth Muscle Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because PRDM6 acts on chromatin as a smooth-muscle-restricted transcriptional repressor, loss of its activity is read out directly as a change in the ductal transcriptional program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deregulated Ductal Smooth Muscle Transcriptional Program\", \"target\": \"Loss of Ductal Smooth Muscle Contractile Identity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"On the smooth-muscle-identity model, the altered program is specifically a loss of ductus-enriched contractile gene expression.\", \"hypothesis_groups\": [\"prdm6_smc_identity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deregulated Ductal Smooth Muscle Transcriptional Program\", \"target\": \"Premature Ductal Smooth Muscle Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"On the premature-differentiation model, the same loss of repression instead releases ductal smooth muscle cells from an undifferentiated proliferative state too early.\", \"hypothesis_groups\": [\"prdm6_premature_differentiation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deregulated Ductal Smooth Muscle Transcriptional Program\", \"target\": \"Impaired Cardiac Neural Crest Cell Specification and Migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the neural crest model the affected program is a network of crest specification genes rather than the mature smooth muscle contractile program.\", \"hypothesis_groups\": [\"prdm6_cncc_specification\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Ductal Smooth Muscle Contractile Identity\", \"target\": \"Impaired Ductal Contractile Tone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the contractile gene program is read out as loss of the tone that program exists to generate.\", \"hypothesis_groups\": [\"prdm6_smc_identity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Premature Ductal Smooth Muscle Differentiation\", \"target\": \"Impaired Ductal Wall Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"prdm6_premature_differentiation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cardiac Neural Crest Cell Specification and Migration\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"prdm6_cncc_specification\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Ductal Contractile Tone\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Functional closure is achieved by constriction, so a duct that cannot generate tone cannot take the first step of closing.\", \"hypothesis_groups\": [\"prdm6_smc_identity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Ductal Wall Remodeling\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Permanent closure requires the intimal and medial remodeling step, so a duct that cannot remodel stays open even if it constricts.\", \"hypothesis_groups\": [\"prdm6_premature_differentiation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Postnatal Ductal Closure\", \"target\": \"Patent ductus arteriosus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unclosed duct is the clinical lesion itself, so this edge is the mechanism-to-phenotype step rather than a further consequence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Postnatal Ductal Closure\", \"target\": \"Coarctation of aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Drawn because the aortic isthmus carries ductal smooth muscle at its junction with the duct, so the same smooth-muscle lesion is a plausible route to arch narrowing. The intermediate steps are not established, and the co-occurrence rests on a three-patient series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Postnatal Ductal Closure\", \"target\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An open duct shunts once pulmonary vascular resistance falls after birth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"target\": \"Heart murmur\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continuous flow across the duct is audible.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Left heart volume loading from a large shunt produces heart failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"target\": \"Pulmonary arterial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained overcirculation remodels the pulmonary vasculature over years, so the step runs through pulmonary vascular disease rather than directly.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Transcatheter device closure\", \"target\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical ductal ligation\", \"target\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cyclooxygenase-inhibitor pharmacologic closure\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive care for a symptomatic shunt\", \"target\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wnt1Cre2 Prdm6fl/fl mouse\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model reproduces the defining lesion of PDA3 with complete penetrance.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Human PDA3 arises from heterozygous variants with partial loss of function, whereas this model is a homozygous conditional null restricted to the neural-crest lineage, and it is perinatally lethal in a way human PDA3 is not.\"}, {\"source\": \"Wnt1Cre2 Prdm6fl/fl mouse\", \"target\": \"Impaired Ductal Contractile Tone\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Myography on ductal segments provides the physiological measurement of reduced contractility that the tone node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Tone was measured in embryonic (E18.5) ductal segments ex vivo, so it does not capture the postnatal oxygen- and prostaglandin-dependent constriction that fails in the human disease.\"}, {\"source\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 mouse\", \"target\": \"Impaired Cardiac Neural Crest Cell Specification and Migration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model is the sole source of the neural-crest route in this entry, with lineage tracing and single-cell transcriptomics supporting the migration defect.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The crest defect has not been demonstrated in human PDA3 tissue, and this model also produces ventricular noncompaction, which is not a reported feature of the human PRDM6-related phenotype.\"}, {\"source\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 mouse\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model produces patent ductus arteriosus, but as one element of a broader neural crest phenotype that includes ventricular noncompaction.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Human PDA3 is by definition isolated and nonsyndromic, so a model whose ductal lesion comes packaged with ventricular noncompaction departs from the human entity in exactly the feature that defines it.\"}, {\"source\": \"Prdm6fl/fl SM22-Cre mouse\", \"target\": \"Loss of Ductal Smooth Muscle Contractile Identity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Contractile transcripts are the genes most reduced in this duct, which is the claim the identity node makes, obtained without touching the crest lineage.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A homozygous conditional null, whereas human PDA3 is heterozygous; and the duct is smaller than in the crest-restricted cross, so the two lineages are not fully interchangeable.\"}, {\"source\": \"Prdm6fl/fl SM22-Cre mouse\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Completely penetrant ductal patency in both sexes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Homozygous conditional null and perinatally lethal, unlike the human heterozygous condition.\"}, {\"source\": \"c.1646G\u003eA (p.Arg549Gln)\", \"target\": \"PRDM6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.788G\u003eC (p.Cys263Ser)\", \"target\": \"PRDM6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1385A\u003eG (p.Gln462Arg)\", \"target\": \"PRDM6\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Coarctation of aorta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the thoracic aorta at the isthmus, reported alongside patent ductus arteriosus in PRDM6 variant carriers. Because the aortic isthmus and the ductus share ductal smooth muscle at their junction, a smooth-muscle-identity lesion is a plausible route to both, but the reported series is three patients and does not by itself establish coarctation as a component of PDA3. No frequency band is assigned: the only series was ascertained for the PDA-plus-coarctation combination, so it cannot estimate how often carriers have it.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001680\"}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Volume loading of the left heart from a large shunt produces heart failure with the associated feeding difficulty and failure to thrive of infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Cyclooxygenase-inhibitor pharmacologic closure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Indomethacin and ibuprofen close the duct in preterm infants by suppressing the prostaglandin E2 tone that maintains patency. They are recorded here for contrast rather than as a treatment for this disease: PDA3 is a defect of the ductal smooth muscle program rather than of the prostaglandin signal, and in the Prdm6-deficient mouse duct the same prostaglandin-inhibition manoeuvre that closes control ducts does nothing. No trial of pharmacologic closure in a PRDM6 variant carrier has been reported.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"indomethacin\", \"ibuprofen\"]}}, {\"id\": \"Deregulated Ductal Smooth Muscle Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRDM6 binds and regulates a large fraction of the genes whose expression it controls in outflow tract smooth muscle, and its loss shifts the ductus-specific gene program. This node is the shared molecular consequence from which the competing cellular models of PDA3 diverge.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"ductal vascular smooth muscle cell\"], \"biological_processes\": [\"PRDM6-dependent transcriptional control of the ductal smooth muscle program\"], \"locations\": [\"ductus arteriosus\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failure of Postnatal Ductal Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ductus arteriosus does not undergo the functional constriction and subsequent anatomic obliteration that normally follow birth, and remains patent in a term infant with no prematurity-related or syndromic explanation.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"ductus arteriosus closure\"], \"locations\": [\"ductus arteriosus\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Wnt1Cre2 Prdm6fl/fl mouse\", \"species\": \"Mouse\", \"genotype\": \"Wnt1Cre2 Prdm6fl/fl (neural-crest-lineage conditional Prdm6 deletion)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model reproduces the defining lesion of PDA3 with complete penetrance.\"}, {\"name\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 mouse\", \"species\": \"Mouse\", \"genotype\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 (neural-crest-lineage conditional Prdm6 deletion with a ZsGreen1 lineage reporter)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The model produces patent ductus arteriosus, but as one element of a broader neural crest phenotype that includes ventricular noncompaction.\"}, {\"name\": \"Prdm6fl/fl SM22-Cre mouse\", \"species\": \"Mouse\", \"genotype\": \"Prdm6fl/fl SM22-Cre (smooth-muscle-restricted conditional Prdm6 deletion)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Completely penetrant ductal patency in both sexes.\"}]}}, {\"id\": \"Heart murmur\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A murmur is the usual presenting sign of an unrepaired duct. The classic finding is the continuous machinery murmur of flow across the duct through both systole and diastole.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030148\"}}, {\"id\": \"Impaired Cardiac Neural Crest Cell Specification and Migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the neural crest model, cardiac neural crest cells fail to complete epithelial-mesenchymal transition and migration, being retained in the dorsal neural tube, with diminished H4K20 monomethylation and increased Wnt1 transcript levels driving the migration defect.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"migratory cardiac neural crest cell\"], \"biological_processes\": [\"neural crest cell differentiation\", \"neural crest cell migration\", \"epithelial to mesenchymal transition\"], \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 mouse\", \"species\": \"Mouse\", \"genotype\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 (neural-crest-lineage conditional Prdm6 deletion with a ZsGreen1 lineage reporter)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is the sole source of the neural-crest route in this entry, with lineage tracing and single-cell transcriptomics supporting the migration defect.\"}]}}, {\"id\": \"Impaired Ductal Contractile Tone\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ductus arteriosus generates insufficient smooth muscle tone to constrict after birth. Myography of ductal segments from Prdm6-depleted embryos shows reduced tone and contractility despite normal smooth muscle investment.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"vascular associated smooth muscle contraction\"], \"locations\": [\"ductus arteriosus\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Wnt1Cre2 Prdm6fl/fl mouse\", \"species\": \"Mouse\", \"genotype\": \"Wnt1Cre2 Prdm6fl/fl (neural-crest-lineage conditional Prdm6 deletion)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Myography on ductal segments provides the physiological measurement of reduced contractility that the tone node asserts.\"}]}}, {\"id\": \"Impaired Ductal Wall Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The intimal thickening and medial reorganization that normally convert the functionally constricted duct into a permanently occluded ligamentum arteriosum do not proceed. Failure of this smooth-muscle-driven remodeling step is the common endpoint shared by the syndromic and nonsyndromic genetic forms of PDA.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ductal vascular smooth muscle cell\"], \"biological_processes\": [\"intimal thickening and fibrotic remodeling of the ductal wall\"], \"locations\": [\"ductus arteriosus\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Loss of Ductal Smooth Muscle Contractile Identity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ductal smooth muscle cells lose the contraction-associated gene expression that distinguishes the ductus arteriosus from the adjacent aorta, while still populating the vessel wall normally.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ductal vascular smooth muscle cell\"], \"biological_processes\": [\"smooth muscle cell differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Prdm6fl/fl SM22-Cre mouse\", \"species\": \"Mouse\", \"genotype\": \"Prdm6fl/fl SM22-Cre (smooth-muscle-restricted conditional Prdm6 deletion)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Contractile transcripts are the genes most reduced in this duct, which is the claim the identity node makes, obtained without touching the crest lineage.\"}]}}, {\"id\": \"PRDM6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PRDM6\"], \"gene_terms\": [{\"label\": \"PRDM6\", \"id\": \"hgnc:9350\"}], \"presence\": \"Positive\", \"association\": \"Causal\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"PRDM6 Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous germline PRDM6 variants are the initiating lesion in PDA3. In vitro characterization of the variants found in PDA families showed loss of function, either because the mutant protein is redistributed within the cell or because its methyltransferase activity is altered.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"PRDM6 histone methyltransferase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"PRDM6\", \"id\": \"hgnc:9350\"}]}, \"locations\": [\"ductus arteriosus\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Patent ductus arteriosus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent postnatal patency of the ductus arteriosus in the absence of a syndromic diagnosis or prematurity. This is the defining lesion of PDA3.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001643\"}}, {\"id\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the duct open and pulmonary vascular resistance falling after birth, blood shunts from the aorta into the pulmonary artery. The resulting pulmonary overcirculation and left heart volume load produce the clinical findings of the lesion.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"pulmonary artery\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Prdm6fl/fl SM22-Cre mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Deleting Prdm6 in smooth muscle rather than in the neural crest lineage still gives a completely penetrant patent duct, with contractile genes as the most downregulated transcripts and proliferation unchanged. This is the model that carries the most weight in the crest-versus-contractility disagreement: Prdm6 is lost here only after crest migration and differentiation are complete, so a patent duct in this cross cannot be explained by failed crest migration.\"}, {\"id\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Disruption of Prdm6 in cardiac neural crest cells impairs their differentiation, delamination, and migration and produces patent ductus arteriosus together with ventricular noncompaction.\"}, {\"id\": \"Premature Ductal Smooth Muscle Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ductal smooth muscle cells exit the proliferative, undifferentiated state too early, so the ductal wall is differentiated on the wrong schedule when the postnatal remodeling window opens. The originally proposed corollary, that the medial cell population is thereby depleted, is refuted by the Ki67 evidence recorded on this node.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"ductal vascular smooth muscle cell\"], \"biological_processes\": [\"smooth muscle cell proliferation\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Pulmonary arterial hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sustained pulmonary overcirculation from an unrepaired duct can raise pulmonary artery pressure and, if untreated, progress to irreversible pulmonary vascular disease with shunt reversal.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002092\"}}, {\"id\": \"Supportive care for a symptomatic shunt\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fluid restriction and diuretics manage the volume-loaded circulation of a large shunt while closure is arranged. This treats the hemodynamic consequence, not the duct.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Surgical ductal ligation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical ligation or division of the duct remains an option where transcatheter closure is not feasible, notably in very small infants in whom device delivery is technically difficult.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Transcatheter device closure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Catheter-delivered coils or duct occluders close the duct and are the standard of care for most patients. Because PDA3 is a structural failure of ductal smooth muscle rather than a prostaglandin-mediated failure to constrict, mechanical closure, not pharmacological closure, is the definitive treatment.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Wnt1Cre2 Prdm6fl/fl mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional deletion of Prdm6 in Wnt1-expressing cells gives perinatal lethality with a fully penetrant patent ductus arteriosus, normal neural-crest-derived smooth muscle investment of the outflow tract, and reduced ductal tone on myography.\"}, {\"id\": \"c.1385A\u003eG (p.Gln462Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant reported in an affected mother and daughter.\", \"meta\": {\"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"LOF\"}}, {\"id\": \"c.1646G\u003eA (p.Arg549Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant in the fourth zinc-finger region. Reported in the index kindred and characterized in vitro as loss of function through cytoplasmic mislocalization of the protein.\", \"meta\": {\"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"LOF\"}}, {\"id\": \"c.788G\u003eC (p.Cys263Ser)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant in the SET (PR) domain, the catalytic region, reported in a proband with affected mother and maternal grandfather.\", \"meta\": {\"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"LOF\"}}], \"edges\": [{\"source\": \"PRDM6 Loss-of-Function Variants\", \"target\": \"Deregulated Ductal Smooth Muscle Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because PRDM6 acts on chromatin as a smooth-muscle-restricted transcriptional repressor, loss of its activity is read out directly as a change in the ductal transcriptional program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deregulated Ductal Smooth Muscle Transcriptional Program\", \"target\": \"Loss of Ductal Smooth Muscle Contractile Identity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"On the smooth-muscle-identity model, the altered program is specifically a loss of ductus-enriched contractile gene expression.\", \"hypothesis_groups\": [\"prdm6_smc_identity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deregulated Ductal Smooth Muscle Transcriptional Program\", \"target\": \"Premature Ductal Smooth Muscle Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"On the premature-differentiation model, the same loss of repression instead releases ductal smooth muscle cells from an undifferentiated proliferative state too early.\", \"hypothesis_groups\": [\"prdm6_premature_differentiation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deregulated Ductal Smooth Muscle Transcriptional Program\", \"target\": \"Impaired Cardiac Neural Crest Cell Specification and Migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the neural crest model the affected program is a network of crest specification genes rather than the mature smooth muscle contractile program.\", \"hypothesis_groups\": [\"prdm6_cncc_specification\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Ductal Smooth Muscle Contractile Identity\", \"target\": \"Impaired Ductal Contractile Tone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the contractile gene program is read out as loss of the tone that program exists to generate.\", \"hypothesis_groups\": [\"prdm6_smc_identity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Premature Ductal Smooth Muscle Differentiation\", \"target\": \"Impaired Ductal Wall Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"prdm6_premature_differentiation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cardiac Neural Crest Cell Specification and Migration\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"prdm6_cncc_specification\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Ductal Contractile Tone\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Functional closure is achieved by constriction, so a duct that cannot generate tone cannot take the first step of closing.\", \"hypothesis_groups\": [\"prdm6_smc_identity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Ductal Wall Remodeling\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Permanent closure requires the intimal and medial remodeling step, so a duct that cannot remodel stays open even if it constricts.\", \"hypothesis_groups\": [\"prdm6_premature_differentiation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Postnatal Ductal Closure\", \"target\": \"Patent ductus arteriosus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unclosed duct is the clinical lesion itself, so this edge is the mechanism-to-phenotype step rather than a further consequence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Postnatal Ductal Closure\", \"target\": \"Coarctation of aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Drawn because the aortic isthmus carries ductal smooth muscle at its junction with the duct, so the same smooth-muscle lesion is a plausible route to arch narrowing. The intermediate steps are not established, and the co-occurrence rests on a three-patient series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Postnatal Ductal Closure\", \"target\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An open duct shunts once pulmonary vascular resistance falls after birth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"target\": \"Heart murmur\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continuous flow across the duct is audible.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Left heart volume loading from a large shunt produces heart failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"target\": \"Pulmonary arterial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained overcirculation remodels the pulmonary vasculature over years, so the step runs through pulmonary vascular disease rather than directly.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Transcatheter device closure\", \"target\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical ductal ligation\", \"target\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cyclooxygenase-inhibitor pharmacologic closure\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive care for a symptomatic shunt\", \"target\": \"Persistent Left-to-Right Aortopulmonary Shunt\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wnt1Cre2 Prdm6fl/fl mouse\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model reproduces the defining lesion of PDA3 with complete penetrance.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Human PDA3 arises from heterozygous variants with partial loss of function, whereas this model is a homozygous conditional null restricted to the neural-crest lineage, and it is perinatally lethal in a way human PDA3 is not.\"}, {\"source\": \"Wnt1Cre2 Prdm6fl/fl mouse\", \"target\": \"Impaired Ductal Contractile Tone\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Myography on ductal segments provides the physiological measurement of reduced contractility that the tone node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Tone was measured in embryonic (E18.5) ductal segments ex vivo, so it does not capture the postnatal oxygen- and prostaglandin-dependent constriction that fails in the human disease.\"}, {\"source\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 mouse\", \"target\": \"Impaired Cardiac Neural Crest Cell Specification and Migration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model is the sole source of the neural-crest route in this entry, with lineage tracing and single-cell transcriptomics supporting the migration defect.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The crest defect has not been demonstrated in human PDA3 tissue, and this model also produces ventricular noncompaction, which is not a reported feature of the human PRDM6-related phenotype.\"}, {\"source\": \"Prdm6fl/fl Wnt1-Cre2 ZsGreen1 mouse\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model produces patent ductus arteriosus, but as one element of a broader neural crest phenotype that includes ventricular noncompaction.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Human PDA3 is by definition isolated and nonsyndromic, so a model whose ductal lesion comes packaged with ventricular noncompaction departs from the human entity in exactly the feature that defines it.\"}, {\"source\": \"Prdm6fl/fl SM22-Cre mouse\", \"target\": \"Loss of Ductal Smooth Muscle Contractile Identity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Contractile transcripts are the genes most reduced in this duct, which is the claim the identity node makes, obtained without touching the crest lineage.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A homozygous conditional null, whereas human PDA3 is heterozygous; and the duct is smaller than in the crest-restricted cross, so the two lineages are not fully interchangeable.\"}, {\"source\": \"Prdm6fl/fl SM22-Cre mouse\", \"target\": \"Failure of Postnatal Ductal Closure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Completely penetrant ductal patency in both sexes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Homozygous conditional null and perinatally lethal, unlike the human heterozygous condition.\"}, {\"source\": \"c.1646G\u003eA (p.Arg549Gln)\", \"target\": \"PRDM6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.788G\u003eC (p.Cys263Ser)\", \"target\": \"PRDM6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1385A\u003eG (p.Gln462Arg)\", \"target\": \"PRDM6\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7523,6 +7644,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7622,6 +7746,9 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7686,6 +7813,9 @@ This clinical feature is Heart murmur (HP:0030148). HP:0030148 is a phenotype fr
                     </span>
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">Cited from the general patent ductus arteriosus literature rather than from a PRDM6 cohort: this is a consequence of the shunt lesion, not a PDA3-specific finding. Bound to the general HP:0030148 rather than to HP:0031670 Continuous heart murmur: no reference cached for this entry uses the word continuous, so the narrower term would outrun its evidence.</div>
@@ -7759,6 +7889,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                 </div>
 
 
+
+
+
                 <div class="item-desc">Cited from the general patent ductus arteriosus literature rather than from a PRDM6 cohort: this is a consequence of the shunt lesion, not a PDA3-specific finding.</div>
 
 
@@ -7828,6 +7961,9 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
                     </span>
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">Cited from the general patent ductus arteriosus literature rather than from a PRDM6 cohort: this is a consequence of the shunt lesion, not a PDA3-specific finding.</div>
@@ -7926,6 +8062,9 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8001,7 +8140,9 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
@@ -8011,6 +8152,11 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense variant in the fourth zinc-finger region. Reported in the index kindred and characterized in vitro as loss of function through cytoplasmic mislocalization of the protein.</div>
@@ -8050,7 +8196,9 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
@@ -8060,6 +8208,11 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense variant in the SET (PR) domain, the catalytic region, reported in a proband with affected mother and maternal grandfather.</div>
@@ -8099,7 +8252,9 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
@@ -8109,6 +8264,11 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense variant reported in an affected mother and daughter.</div>
@@ -8204,6 +8364,9 @@ This treatment is transcatheter ductal occlusion, annotated with Interventional 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8214,6 +8377,9 @@ This treatment is transcatheter ductal occlusion, annotated with Interventional 
 
 
     </div>
+
+
+
 
 
 
@@ -8352,6 +8518,9 @@ This treatment is surgical ductal ligation, annotated with Ligation (NCIT:C15270
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8362,6 +8531,9 @@ This treatment is surgical ductal ligation, annotated with Ligation (NCIT:C15270
 
 
     </div>
+
+
+
 
 
 
@@ -8538,6 +8710,9 @@ This treatment uses ibuprofen (CHEBI:5855). CHEBI:5855 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8548,6 +8723,9 @@ This treatment uses ibuprofen (CHEBI:5855). CHEBI:5855 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -8715,6 +8893,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Fluid restriction and diuretics manage the volume-loaded circulation of a large shunt while closure is arranged. This treats the hemodynamic consequence, not the duct.</div>
 
 
@@ -8821,6 +9005,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8831,6 +9018,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -12660,6 +12850,55 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review response: repair corrupted description, revert HP:0031670, move rationale to notes</strong> · 2026-09-03T15:44:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Patent_Ductus_Arteriosus_3/2026-09-03T154416Z-claude-code-165725.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the ai4c-reviewer CHANGES_REQUESTED review on PR 10701 and to its follow-up approval.
+
+Correction to the earlier record in this directory. The 2026-09-03T100712Z record states &#39;HP:0030148 replaced by HP:0031670 Continuous heart murmur&#39;. That change was reversed here: the word continuous appears in no reference cached for this entry, so the narrower term outran its snippet and the binding is back to HP:0030148 Heart murmur, with the node name, preferred_term and term label now agreeing. History records are append-only, so the earlier line stands as an accurate account of what that session did; this record is the correction.
+
+Blocking defect fixed. The top-level description had been corrupted during the previous session&#39;s edits: a copy of a biological_processes block landed inside the folded scalar and the intended prose was fused onto the end of a label: line. Because a &gt;- scalar makes that one valid string, schema validation, term validation, snippet verification and every content gate passed while the rendered disease page would have shown a YAML fragment as the description. Restored, then every string value in the file was parsed and scanned for embedded keys (984 scalars, zero suspect), and the page was rendered to confirm the description comes out as prose. The root cause was blind string replacement on prose that shared wording with the block being edited, with no re-read of the file head afterwards; rendering the page and scanning scalars are now part of the loop rather than an afterthought.
+
+Other review items: dropped therapeutic_modality SMALL_MOLECULE from the supportive-care treatment, which bundles fluid restriction with diuretics so neither SMALL_MOLECULE nor BEHAVIORAL fits; gave Impaired Ductal Wall Remodeling the cell type and process its siblings carry (CL:0000359, GO:0048771 tissue remodeling, modifier DECREASED); retried just fetch-reference PMID:27181681 against PMC4908195, which still returns abstract_only, so the in vitro histone-mark, MYH11 suppression and no-dominant-negative claims stay uncurated and review_notes records the retry.
+
+Then, on the approving re-review&#39;s first two suggestions: curation rationale that had been written into reader-facing description fields was moved into notes. Affected the Heart murmur phenotype (why the narrower HP term was not used), the supportive-care treatment (why no modality is tagged), the top-level description (that the entry carries both readings of PRDM6&#39;s direction of effect, now in the entry notes), and the inheritance description (that penetrance and expressivity are enum values rather than cited claims, already covered in review_notes). Description fields now carry clinical prose only.
+
+Not acted on: the reviewer also noted the PR body&#39;s validation section is stale, still reporting the deep-research report&#39;s term-validation numbers including an obsolete GO:0034770 that appears nowhere in the entry. That body was generated by the PR-creation UI rather than by this session; the discrepancy was corrected in a PR comment, and editing the body itself is left to the PR author.
+
+Validation: just validate and just validate-disorders pass, 77/77 snippets verified, all content gates clean, full-file scalar scan clean. Model id omitted from this record for the same reason as the two earlier ones.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Patent Ductus Arteriosus 3 (PRDM6, MONDO:0024266)</strong> · 2026-09-03T09:42:03Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Patent_Ductus_Arteriosus_3/2026-09-03T094203Z-claude-code-a8b9ef.yaml">View source</a></p>
+                        <p class="research-review-text">New Mendelian entry for the PRDM6-caused, isolated nonsyndromic form of patent ductus arteriosus (PDA3). Deleted the matching stub.
+
+Deep research: &#39;just research-disorder falcon Patent_Ductus_Arteriosus_3&#39; failed because EDISON_API_KEY is present but empty (403 ProviderAuthError). Re-run with the fallback mechanism rather than hand-substituting a provider. A first &#39;--fallback&#39; run selected openscientist, which hung with no output for ~40 minutes (OPENSCIENTIST_API_KEY is also empty) and was killed; the run was then repeated as &#39;just dr_fallback=--fallback-provider claude_code research-disorder falcon Patent_Ductus_Arteriosus_3&#39;, which produced research/Patent_Ductus_Arteriosus_3-deep-research-claude_code.md with fell_back/requested_provider/provider_attempts recorded in its frontmatter.
+
+Report validation read before use: reference_validation needs_review true, 14/15 verified, one unresolved identifier (PMC:PMC38071433, a malformed PMC id built from PMID 38071433 digits) and one off-topic DOI. Neither was cited; the underlying paper is cited as PMID:38071433, which resolves and is cached. term_validation needs_review true with three mislabelled terms, all placeholder text the report itself wrote (&#39;verify&#39;, &#39;verify via OAK&#39;, &#39;Ontology identifier for PDA3&#39;), plus obsolete GO:0034770 (histone H4-K20 methylation) which was not bound. The report also suggested UBERON:0002106 for ductus arteriosus, which is spleen; the entry binds UBERON:0005440 instead.
+
+GeneReviews: PubMed searches for &#39;PRDM6 GeneReviews[All Fields]&#39; and &#39;patent ductus arteriosus GeneReviews[All Fields]&#39; return no chapter for PDA3 or PRDM6. The only Mendelian-PDA chapter is Char Syndrome (TFAP2B, PDA1/PDA2), a different syndromic entity, curated here only as a differential diagnosis. Recorded in the entry notes.
+
+Lump/split: curated as a separate DISEASE rather than a subtype of Patent_Ductus_Arteriosus. That entry curates PRDM6 as a developmental susceptibility locus and states explicitly that it is not curated there as a deterministic Mendelian cause, so the Mendelian form had no home.
+
+Content: a nine-node causal chain from heterozygous PRDM6 loss of function to the left-to-right shunt, deliberately branching at the transcriptional-program node into three hypothesis groups because the literature disagrees about the direction of PRDM6&#39;s effect. Li 2016 (human genetics plus in vitro) has PRDM6 restraining differentiation, so loss causes premature differentiation; Zou 2023 (conditional knockout) has Prdm6 building contractile identity, so loss reduces contractile gene expression and ductal tone. Both are curated as ALTERNATIVE hypotheses with a CONTROVERSY discussion and a dose-matched experiment proposal rather than silently preferring one. A third EMERGING group carries the cardiac-neural-crest route from Hong 2022. A HUMAN_MODEL_MISMATCH discussion records that mouse heterozygous Prdm6 deletion leaves ductal closure intact while human heterozygous variants cause disease.
+
+Two animal models with modeled_mechanisms and five readouts, including ABOLISHED depolarization- and oxygen-induced ductal constriction. A pharmacotherapy entry carries two REFUTE evidence items: indomethacin and 100 percent oxygen both close control ducts and fail in the Prdm6-deficient duct, which is why mechanical closure and not COX inhibition is the treatment paradigm here.
+
+Datasets: geo:GSE221004 and geo:GSE221094 added after manual relevance triage (both are PRDM6 ductus arteriosus series from PMID:36749647). The PRDM6 medulloblastoma and generic zinc-finger series that discover-datasets surfaced were GENE_ONLY name matches and were excluded.
+
+Deliberately not curated, recorded in review_notes: incomplete penetrance, the three specific missense variants, and the in vitro histone-mark and MYH11 assays. All are in the Li 2016 article body, and only its abstract is in the reference cache, so citing them would mean a snippet that cannot be verified.
+
+Validation: just validate passes (schema, terms, 59/59 snippets verified); just validate-disorders passes; check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading and check-environmental-evidence all clean; just verify-datasets resolves both accessions; compliance 86.0 percent. No DOI-keyed evidence items, so the snippet audit needed no --unskip-prefix run. The model id field is omitted from this record because this session&#39;s configuration forbids writing a model identifier into repository artifacts; the session URL in links carries the provenance.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

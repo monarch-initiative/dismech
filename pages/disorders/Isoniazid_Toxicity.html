@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4335,6 +4388,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-bioactivation-of-isoniazid" data-dismech-node="Hepatic Bioactivation of Isoniazid" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Bioactivation of Isoniazid</div>
 
+
                 <div class="item-desc">Conversion of isoniazid to a reactive metabolite in the liver. Which species does the damage is the point on which the field has changed its mind, so this node carries both models as hypothesis groups rather than asserting one chemistry.</div>
 
 
@@ -4491,6 +4545,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nat2-slow-acetylator-genotype" data-dismech-node="NAT2 Slow Acetylator Genotype" data-dismech-type="pathophysiology">
                 <div class="item-name">NAT2 Slow Acetylator Genotype</div>
 
+
                 <div class="item-desc">Reduced N-acetyltransferase 2 activity, which changes how much isoniazid is routed down the acetylation pathway and how long the parent drug persists. Slow acetylators carry roughly three times the risk of anti-tuberculosis drug-induced liver injury. This is one of the better-quantified pharmacogenetic effects in clinical toxicology.</div>
 
 
@@ -4592,6 +4647,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-injury-and-death" data-dismech-node="Hepatocyte Injury and Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocyte Injury and Death</div>
 
+
                 <div class="item-desc">Hepatocellular injury, showing first as transaminase elevation. Most of it is mild and resolves even on continued treatment, which is what the tolerance arm of the current model predicts.</div>
 
 
@@ -4667,6 +4723,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-mediated-amplification-of-hepatic-injury" data-dismech-node="Immune-Mediated Amplification of Hepatic Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune-Mediated Amplification of Hepatic Injury</div>
+
 
                 <div class="item-desc">Innate and adaptive immune responses to drug-modified hepatic proteins. In most patients this resolves into tolerance. In a minority it does not, and those are the cases carrying anti-drug and anti-CYP antibodies that progress.</div>
 
@@ -4765,6 +4822,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isoniazid-induced-liver-injury" data-dismech-node="Isoniazid-Induced Liver Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Isoniazid-Induced Liver Injury</div>
+
 
                 <div class="item-desc">Clinically apparent hepatitis, occasionally progressing to acute liver failure. The management threshold is biochemical: treatment is interrupted at a transaminase elevation above three times normal with symptoms or jaundice, or five times normal without.</div>
 
@@ -4882,6 +4940,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-pyridoxine-deficiency" data-dismech-node="Functional Pyridoxine Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional Pyridoxine Deficiency</div>
+
 
                 <div class="item-desc">Depletion of usable vitamin B6. Isoniazid is a hydrazide and reacts with pyridoxal, and the result is that the patient has a deficiency of the cofactor rather than a poison in the nerve. Everything downstream of this node is an enzyme failing for want of pyridoxal 5-phosphate, which is why one node supplies two clinically unrelated syndromes on two different timescales, and why one vitamin treats both.</div>
 
@@ -5019,6 +5078,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-nerve-deprivation-of-pyridoxal-phosphate" data-dismech-node="Peripheral Nerve Deprivation of Pyridoxal Phosphate" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral Nerve Deprivation of Pyridoxal Phosphate</div>
 
+
                 <div class="item-desc">Peripheral nerve deprived of the cofactor. The insult that reaches the neuron here is a nutritional one, which is unlike most of the toxic neuropathies - nothing is accumulating in the nerve, something is missing from it. Risk tracks the things that lower B6 reserve to begin with: malnutrition, alcoholism, and slow acetylation.</div>
 
 
@@ -5094,6 +5154,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isoniazid-induced-peripheral-neuropathy" data-dismech-node="Isoniazid-Induced Peripheral Neuropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Isoniazid-Induced Peripheral Neuropathy</div>
+
 
                 <div class="item-desc">Distal sensory symptoms appearing over months of treatment. It is preventable and reversible: pyridoxine prophylaxis is recommended for those at risk, and symptoms resolve when the deficiency is corrected.</div>
 
@@ -5171,6 +5232,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-gaba-synthesis" data-dismech-node="Impaired GABA Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired GABA Synthesis</div>
 
+
                 <div class="item-desc">Failure to make gamma-aminobutyric acid, because the enzyme that makes it requires pyridoxal 5-phosphate. This is what turns an overdose into a seizure that ordinary anticonvulsants cannot hold: the drugs that potentiate GABA signalling need GABA to potentiate, and there is not enough of it.</div>
 
 
@@ -5246,6 +5308,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isoniazid-overdose-seizures" data-dismech-node="Isoniazid Overdose Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Isoniazid Overdose Seizures</div>
+
 
                 <div class="item-desc">Generalised seizures in acute overdose, resistant to standard treatment because the deficit is upstream of the receptors those drugs act on. Clinically they arrive as part of a triad with coma and metabolic acidosis.</div>
 
@@ -5413,6 +5476,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lactic-acidosis" data-dismech-node="Lactic Acidosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Lactic Acidosis</div>
 
+
                 <div class="item-desc">Lactic acidosis in acute overdose. It is separated from the seizure node because the entry treats it as a consequence of the seizing rather than as a parallel toxicity, and because that causal claim is weaker than the seizure claim and should be visible as its own step.</div>
 
 
@@ -5575,6 +5639,9 @@ This clinical feature is Hepatitis progressing to liver failure, annotated with 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5657,6 +5724,9 @@ This clinical feature is Vomiting (HP:0002013), qualified as temporality acute. 
 
 
                     </div>
+
+
+
 
 
 
@@ -5749,6 +5819,9 @@ This clinical feature is Nausea (HP:0002018), qualified as temporality acute. HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5813,6 +5886,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5891,6 +5967,9 @@ This clinical feature is Elevated transaminases, annotated with Elevated circula
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5978,6 +6057,9 @@ This clinical feature is Metabolic acidosis (HP:0001942), qualified as temporali
 
 
                     </div>
+
+
+
 
 
 
@@ -6079,6 +6161,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830), qualified as tempor
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6161,6 +6246,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality acute. H
 
 
                     </div>
+
+
+
 
 
 
@@ -6278,6 +6366,9 @@ This clinical feature is Coma (HP:0001259), qualified as temporality acute. HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6360,6 +6451,9 @@ This clinical feature is Ataxia (HP:0001251), qualified as temporality acute. HP
 
 
                     </div>
+
+
+
 
 
 
@@ -6474,6 +6568,9 @@ This disease-associated gene is NAT2 (hgnc:7646). hgnc:7646 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -6602,6 +6699,9 @@ This disease-associated gene is CYP2E1 (hgnc:2631). hgnc:2631 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6670,6 +6770,9 @@ This disease-associated gene is GSTM1 (hgnc:4632). hgnc:4632 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -6746,6 +6849,9 @@ This disease-associated gene is GSTT1 (hgnc:4641). hgnc:4641 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6814,6 +6920,9 @@ This disease-associated gene is HLA-B (hgnc:4932). hgnc:4932 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -6965,6 +7074,9 @@ This treatment uses isoniazid, annotated with isoniazide (CHEBI:6030). CHEBI:603
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6975,6 +7087,9 @@ This treatment uses isoniazid, annotated with isoniazide (CHEBI:6030). CHEBI:603
 
 
     </div>
+
+
+
 
 
 
@@ -7169,6 +7284,9 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7179,6 +7297,9 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7373,6 +7494,9 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7383,6 +7507,9 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7495,6 +7622,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7505,6 +7635,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7652,6 +7785,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7662,6 +7798,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9778,6 +9917,180 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Isoniazid Toxicity</strong> · 2026-09-02T03:42:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Isoniazid_Toxicity/2026-09-02T034230Z-claude-code-ac328a.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for isoniazid toxicity (MONDO:0027677), curated as one drug producing
+two mechanistically opposite kinds of harm. The hepatic arm is what the liver
+does to isoniazid: bioactivation to a reactive metabolite, gated by NAT2
+acetylator genotype. The two neurological arms are what isoniazid does to
+vitamin B6: a functional pyridoxine deficiency that starves any enzyme needing
+pyridoxal 5-phosphate. Slow, over months, that is a peripheral neuropathy - the
+nerve is deprived rather than poisoned. Fast, in overdose, GABA synthesis fails
+and the seizures resist ordinary anticonvulsants. One vitamin treats both, which
+is why the entry routes both arms through a single deficiency node.
+
+Pathograph: 10 nodes, fully connected apart from the NAT2 modifier, which is an
+intentional entry point. 8 conforms_to across three modules:
+drug_induced_liver_injury (4), peripheral_axonal_degeneration (2),
+epilepsy_excitation_inhibition_imbalance (2).
+
+Two competing hepatic models curated as mechanistic_hypotheses rather than
+picking one. PMID:26773235 reports that the textbook account - acetylhydrazine
+bioactivation as a metabolic idiosyncrasy with no immune involvement - has been
+superseded by direct bioactivation of isoniazid itself with an immune response
+and two phenotypes. Recorded as acetylhydrazine_metabolic_idiosyncrasy
+(DEPRECATED) and direct_bioactivation_immune (CANONICAL). The deprecated model is
+kept rather than deleted so a curator meeting it in a secondary source can learn
+from this entry that it has moved. The shared hepatocyte-injury edge opts into
+both groups; the immune edge opts into the current one only.
+
+One conformance deliberately withheld. The epilepsy module ends at &#34;Recurrent
+Unprovoked Seizures&#34;. Isoniazid seizures are provoked by definition and stop when
+the drug clears and the cofactor is replaced, so this entry conforms at
+Excitation-Inhibition Imbalance and Seizure Generation and stops there.
+Conforming to the outcome node would turn a poisoning into an epilepsy. The entry
+also does not conform to peripheral_axonal_degeneration#Distal Axonal
+Degeneration and Demyelination: isoniazid neuropathy is conventionally described
+as a distal axonopathy, but the cited sources report no fibre pathology, and the
+one case they describe had normal nerve conduction velocity.
+
+Three mechanisms that appear in every standard account were initially NOT
+asserted, because no cached source stated them: covalent reaction between
+isoniazid and pyridoxal, pyridoxal kinase inhibition, and glutamate
+decarboxylase as the specific failing enzyme. Two of the three were then
+closed with primary evidence (see the deep-research note below). Glutamate
+decarboxylase remains unasserted, and so does the attribution of the overdose
+acidosis to seizure-generated lactate; both are flagged in notes with what a
+fixing source would look like.
+
+Evidence: 61 items over 12 references, all pre-verified before writing. Anchors
+are the mechanism review (PMID:26773235), a 2025 NAT2 meta-analysis of 48 studies
+and 11,035 patients giving pooled OR 3.02 (95% CI 2.50-3.64) for slow acetylators
+(PMID:41657030), the ATS statement on antituberculosis hepatotoxicity
+(PMID:17021358), two overdose case series (PMID:17535059, PMID:8522667), a
+pyridoxine toxicology review (PMID:15756083), a paediatric neuropathy case report
+(PMID:29897291), and a 2026 INH/RIF hepatotoxicity review (PMID:41793109).
+
+No frequency band is asserted on any phenotype. PMID:10842541 was fetched and
+then not cited: the cached record is 854 bytes of metadata with no abstract, so
+there is nothing in it to quote.
+
+Tooling finding, recorded because it changes how the rest of this work should be
+done. A quote containing &#34;[vitamin B6]&#34; passed the scratchpad pre-verifier and
+failed `just validate`. The scratchpad tool wrapped
+scripts/check_snippets_verbatim.py, which does no bracket stripping;
+src/dismech/reference_snippet_audit.py reads literal_bracket_patterns from
+conf/reference_validator_config.yaml, the same config the gate uses, and
+&#34;vitamin B6&#34; matches neither the all-caps nor the percent pattern. The quote was
+replaced rather than adding a bracket pattern, since a pattern change affects
+every cached reference in the repository. The pre-verifier was then rebuilt
+against the audit module and confirmed to reproduce the failure.
+
+Validation: just validate-disorders (the batched sweep CI runs) passed; 61/61
+snippets verified; check-folded-hyphens, check-duplicate-keys,
+check-title-snippets, check-entity-refs and check-environmental-evidence all
+clean; 18 structural tests pass; all 8 conformance anchors resolve. NAT2
+(hgnc:7646) was resolved from the ontology. All reference_title values were
+generated programmatically from the cache files, never typed.
+
+Deep research: just research-disorder claude_code produced an 85 KB report, 28
+PMIDs. NEC preflight returned SKIP (MONDO records no causal gene for a drug
+toxicity) and was cleared manually - NAT2 dominates the report&#39;s gene mentions
+at 51, ahead of CYP2E1, HLA-B and CYP3A4, which is the correct profile for
+isoniazid hepatotoxicity.
+
+The report asserted all three of the mechanisms this entry had withheld, and
+cited none of them: its chain gives ontology identifiers for pyridoxal kinase,
+the hydrazone step and glutamate decarboxylase, plus a StatPearls quotation
+that is not a verifiable citation. So the report could not close the gap, and
+the withholding was correct. It did make the gap worth chasing, and a targeted
+PubMed search then found PMID:9354586, an in vitro kinetic study of drug
+effects on erythrocyte pyridoxal kinase.
+
+That source is better than the account the report gave. It places isoniazid
+among the drugs that inhibit pyridoxal kinase AND reports that the inhibition
+follows from covalent complexes the drug forms with pyridoxal and pyridoxal
+5-phosphate. The report described covalent trapping and kinase inhibition as
+two parallel mechanisms (&#34;Two mechanisms, one deficit&#34;); the kinetic work
+reports them as sequential. The entry curates the sequential order, with the
+authors&#39; own hedge (&#34;kinetic studies suggested&#34;) preserved, and records that
+the work is in vitro on non-purified enzyme with isoniazid as one of several
+drugs examined.
+
+Glutamate decarboxylase was deliberately left unasserted even though the
+report names it, because no cached source states it and the targeted search
+did not produce one.
+
+Review round 1 (ai4c-reviewer, CHANGES_REQUESTED) raised six items. All six
+addressed.
+
+1. The overdose node bundled seizures and metabolic acidosis, and its own
+   description said they were sequential. Split into Isoniazid Overdose
+   Seizures and Lactic Acidosis, with the epilepsy conformance kept on the
+   seizure node. Renaming the node orphaned an inbound edge from Impaired GABA
+   Synthesis; `just validate` does not catch a dangling bare-name target, and
+   a graph check did.
+2. The most important item. The disease description asserted that isoniazid
+   &#34;stops glutamate decarboxylase from making GABA&#34;, and the overdose node
+   attributed the acidosis to seizure-generated lactate - while the notes on
+   both nodes correctly said neither claim was supported. The entry made and
+   disowned the same two claims, with the assertions rendering at the top of
+   the page and the disclaimers buried. Both assertions removed; the notes
+   recording the absences remain.
+3. Genetics extended. CYP2E1, GSTM1 and GSTT1 at no fetch cost from the
+   already-cached PMID:41793109. HLA-B added for HLA-B*52:01 (PMID:33135175),
+   which is the host-genotype evidence the CANONICAL immune hypothesis
+   otherwise lacked. The same GWAS corrected the entry&#39;s NAT2 story: NAT2*5 is
+   LESS frequent in cases while NAT2*6/*7 homozygotes are enriched, so the
+   pooled slow-acetylator odds ratio should not be read as uniform across slow
+   alleles. Both statements are curated, including that the *6/*7 interval
+   crosses 1.
+4. NAT2 genotype-guided dosing added as a treatment (PMID:23150149, 172
+   patients, randomised): 78 percent of slow acetylators developed liver
+   injury on standard dosing and none did under genotype-guided dosing. Wired
+   to the NAT2 modifier node with treatment_effect MODULATES, since dosing
+   changes exposure rather than genotype. The small strata and single-country
+   population are recorded.
+5. Nausea, ataxia and jaundice added from sentences the entry already quoted.
+6. MISNUMBERED IN THE ORIGINAL RECORD, corrected here. The reviewer&#39;s item 6
+   was rifampicin co-administration, not phenotype wiring. I read that review
+   through `head -50`, which cut off before item 6, then reported &#34;all six
+   items are in&#34; and filled the slot with the phenotype work - which was worth
+   doing but was not their item. The phenotype wiring did happen; the claim
+   that it discharged item 6 was false. Item 6 is addressed in round 2 below.
+
+Review round 2 (ai4c-reviewer, CHANGES_REQUESTED) accepted five of six and
+raised two items, one of which was round 1&#39;s item 6 resurfacing.
+
+1. Rifampicin co-administration, now modelled as an environmental entry with
+   environmental_effect EXACERBATES on the bioactivation node, quoting the
+   already-cached PMID:41793109 on synergistic potentiation. Isoniazid is
+   essentially never given alone, so a hepatic arm curated for it in isolation
+   describes a patient who does not exist. The entry had already conceded this
+   in an explanation without representing it anywhere. Link recorded as
+   INDIRECT_KNOWN_INTERMEDIATES, since the source does not resolve which step
+   of the isoniazid pathway rifampicin acts on.
+1b. Chronic alcohol use and pre-existing liver disease added as a second
+   exposure, from the ATS monitoring sentence the entry already quoted. The
+   ECTO binding fits alcohol and not liver disease; they are kept in one record
+   because the source names them in a single recommendation and splitting them
+   would produce two records citing the same sentence.
+2. The NAT2 genotype-guided dosing treatment was bound to NCIT:C15747
+   Supportive Care. It is the administration of isoniazid at a genotype-set
+   dose, so it is now NCIT:C15986 Pharmacotherapy with CHEBI:6030 as the
+   therapeutic agent, matching the pattern used twice elsewhere in the file.
+
+65/65 snippets over 12 references after these changes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

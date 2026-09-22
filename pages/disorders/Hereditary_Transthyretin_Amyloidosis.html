@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4728,6 +4781,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-amyloidogenic-variant-ttr-precursor" data-dismech-node="Amyloidogenic Variant TTR Precursor" data-dismech-type="pathophysiology">
                 <div class="item-name">Amyloidogenic Variant TTR Precursor</div>
 
+
                 <div class="item-desc">A heterozygous pathogenic TTR variant produces an amyloidogenic transthyretin precursor. TTR is synthesized predominantly in the liver and circulates as a tetramer; disease-associated variant protein makes the native complex more prone to leave its folded state.</div>
 
 
@@ -4904,6 +4958,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ttr-tetramer-destabilization-misfolding-and-oligomerization" data-dismech-node="TTR Tetramer Destabilization, Misfolding, and Oligomerization" data-dismech-type="pathophysiology">
                 <div class="item-name">TTR Tetramer Destabilization, Misfolding, and Oligomerization</div>
+
 
                 <div class="item-desc">Destabilized TTR tetramers dissociate into monomers that adopt abnormal, aggregation-prone conformations and self-associate. This is the proximal proteostasis defect targeted by TTR kinetic stabilizers.</div>
 
@@ -5096,6 +5151,7 @@ This pathophysiological event occurs in blood plasma (UBERON:0001969). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ttr-amyloid-fibril-formation-and-extracellular-deposition" data-dismech-node="TTR Amyloid Fibril Formation and Extracellular Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">TTR Amyloid Fibril Formation and Extracellular Deposition</div>
 
+
                 <div class="item-desc">Misfolded variant and wild-type TTR monomers nucleate and elongate into insoluble amyloid fibrils that deposit in extracellular tissue spaces.</div>
 
 
@@ -5252,6 +5308,7 @@ This pathophysiological event occurs in extracellular region (GO:0005576). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-multitissue-ttr-amyloid-accumulation" data-dismech-node="Progressive Multitissue TTR Amyloid Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Multitissue TTR Amyloid Accumulation</div>
+
 
                 <div class="item-desc">Ongoing extracellular deposition produces tissue amyloid burden in the peripheral and autonomic nervous systems, myocardium, eyes, kidneys, and other variant-dependent sites.</div>
 
@@ -5520,6 +5577,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutathione-and-inflammatory-metabolomic-signature" data-dismech-node="Glutathione and Inflammatory Metabolomic Signature" data-dismech-type="pathophysiology">
                 <div class="item-name">Glutathione and Inflammatory Metabolomic Signature</div>
 
+
                 <div class="item-desc">Symptomatic TTR-Val30Met carriers show elevated plasma pyroglutamate, consistent with impaired glutathione homeostasis, together with an increased kynurenine-to-tryptophan ratio consistent with inflammatory activation. This is an emerging genotype-specific association, not an established universal ATTR mechanism.</div>
 
 
@@ -5690,6 +5748,7 @@ This pathophysiological event occurs in blood plasma (UBERON:0001969). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-and-autonomic-nerve-injury" data-dismech-node="Peripheral and Autonomic Nerve Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral and Autonomic Nerve Injury</div>
+
 
                 <div class="item-desc">Endoneurial, dorsal-root-ganglion, and sympathetic-ganglion amyloid is associated with Schwann-cell atrophy and blood-nerve barrier disruption, producing a length-dependent sensory-predominant neuropathy with generalized autonomic failure.</div>
 
@@ -5870,6 +5929,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-amyloid-infiltration-and-dysfunction" data-dismech-node="Cardiac Amyloid Infiltration and Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Amyloid Infiltration and Dysfunction</div>
 
+
                 <div class="item-desc">Interstitial myocardial TTR amyloid produces an infiltrative cardiomyopathy with ventricular wall thickening and restrictive physiology; conduction system involvement contributes to arrhythmia and heart block.</div>
 
 
@@ -6033,6 +6093,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-and-renal-involvement" data-dismech-node="Ocular and Renal Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Ocular and Renal Involvement</div>
 
+
                 <div class="item-desc">ATTRv can involve the vitreous and aqueous outflow structures of the eye and can be accompanied by kidney disease. These manifestations are variant-dependent, and this record does not assume a single universal renal injury route.</div>
 
 
@@ -6162,6 +6223,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-ttr-transcript-abundance" data-dismech-node="Hepatic TTR Transcript Abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic TTR Transcript Abundance</div>
+
 
                 <div class="item-desc">Hepatocytes are the source of essentially all circulating transthyretin, so the hepatic TTR message is the single upstream point at which the supply of amyloid precursor - variant and wild-type alike - can be reduced. The transcript itself is structurally normal; it is the amount of protein it yields that feeds fibrillogenesis. This node exists to anchor the RNAi therapeutic chain and is not a claim that TTR transcription is abnormal in ATTR amyloidosis.</div>
 
@@ -6316,6 +6378,7 @@ This pathophysiological event involves mRNA metabolic process (GO:0016071). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-directed-sirna-delivery" data-dismech-node="Hepatocyte-Directed siRNA Delivery" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocyte-Directed siRNA Delivery</div>
 
+
                 <div class="item-desc">An administered TTR-directed siRNA reaches the hepatocyte cytosol by one of two platforms, and ATTR amyloidosis is the disease where both are approved against the same transcript. Patisiran is encapsulated in an ionizable lipid nanoparticle and infused intravenously; vutrisiran is a GalNAc conjugate taken up through the hepatocyte asialoglycoprotein receptor after subcutaneous injection. The targeting sequence is not what differs between them - the delivery platform is, and it is what sets route, dosing interval, and the need for premedication.</div>
 
 
@@ -6454,6 +6517,7 @@ This pathophysiological event involves increased receptor-mediated endocytosis o
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sirna-directed-ttr-transcript-cleavage" data-dismech-node="siRNA-Directed TTR Transcript Cleavage" data-dismech-type="pathophysiology">
                 <div class="item-name">siRNA-Directed TTR Transcript Cleavage</div>
+
 
                 <div class="item-desc">The siRNA guide strand base-pairs with hepatic TTR mRNA and Argonaute-2 cleaves it, blocking translation of further transthyretin. Because the complex is released to cleave again, the effect is catalytic, which is why a small intracellular dose sustains knockdown between widely spaced injections. This node is conditional on ongoing siRNA administration.</div>
 
@@ -6631,6 +6695,7 @@ This pathophysiological event involves increased Argonaute-2 slicer activity on 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-circulating-ttr-precursor-pool" data-dismech-node="Reduced Circulating TTR Precursor Pool" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Circulating TTR Precursor Pool</div>
+
 
                 <div class="item-desc">Serum transthyretin falls deeply and stays low for the dosing interval, removing the substrate upstream of tetramer dissociation. Knockdown is reversible and does not alter the genome, so the effect depends on continued dosing. Clinical benefit is curated on the treatments rather than asserted here: lowering the precursor slows further deposition but does not itself clear amyloid already laid down.</div>
 
@@ -6850,6 +6915,9 @@ This clinical feature is Orthostatic hypotension due to autonomic dysfunction (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6916,6 +6984,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6992,6 +7063,9 @@ This clinical feature is Restrictive cardiomyopathy (HP:0001723). HP:0001723 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7058,6 +7132,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7134,6 +7211,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7200,6 +7280,9 @@ This clinical feature is Heart block (HP:0012722). HP:0012722 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7285,6 +7368,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7356,6 +7442,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7422,6 +7511,9 @@ This clinical feature is Gastroparesis (HP:0002578). HP:0002578 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7507,6 +7599,9 @@ This clinical feature is Vitreous floaters (HP:0100832). HP:0100832 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7573,6 +7668,9 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7658,6 +7756,9 @@ This clinical feature is Urinary retention (HP:0000016). HP:0000016 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7724,6 +7825,9 @@ This clinical feature is Nephropathy (HP:0000112). HP:0000112 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7809,6 +7913,9 @@ This clinical feature is Sensorimotor neuropathy (HP:0007141). HP:0007141 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7880,6 +7987,9 @@ This clinical feature is Abnormal autonomic nervous system physiology (HP:001233
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7946,6 +8056,9 @@ This clinical feature is Constrictive median neuropathy (HP:0012185). HP:0012185
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8062,6 +8175,9 @@ This disease-associated gene is TTR (hgnc:12405). hgnc:12405 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -8215,6 +8331,9 @@ This treatment uses tafamidis (CHEBI:78538). CHEBI:78538 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8225,6 +8344,9 @@ This treatment uses tafamidis (CHEBI:78538). CHEBI:78538 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -8411,6 +8533,9 @@ This treatment uses diflunisal (CHEBI:39669). CHEBI:39669 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8421,6 +8546,9 @@ This treatment uses diflunisal (CHEBI:39669). CHEBI:39669 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -8607,6 +8735,9 @@ This treatment uses acoramidis (NCIT:C170791). NCIT:C170791 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8617,6 +8748,9 @@ This treatment uses acoramidis (NCIT:C170791). NCIT:C170791 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -8778,6 +8912,9 @@ This treatment uses vutrisiran (NCIT:C152919). NCIT:C152919 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8790,10 +8927,99 @@ This treatment uses vutrisiran (NCIT:C152919). NCIT:C152919 is a therapeutic age
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Ligand conjugate</span>
 
 
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: GalNAc</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: GalNAc</span>
 
 
     </div>
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Delivery target:</strong>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ASGR1
+
+
+    <a href="https://bioregistry.io/hgnc:742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:742</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this treatment&#39;s delivery system is taken up through this receptor
+This treatment&#39;s delivery system is taken up through ASGR1 (hgnc:742). hgnc:742 is a receptor from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-cell">
+
+        hepatocyte
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-53">CL:0000182</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">Cell Ontology (CL)
+Relation: this treatment&#39;s delivery system is aimed at this cell type
+This treatment&#39;s delivery system is aimed at hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+    <div class="item-meta" style="font-size: 0.8rem; color: #4b5563;">The GalNAc conjugate is the whole reason this drug is dosed subcutaneously once a quarter while patisiran, which silences the same transcript, needs a three-weekly infusion with premedication: the ligand engages a receptor expressed almost only on hepatocytes, which is where TTR is made.</div>
 
 
     <div class="item-meta">
@@ -8813,11 +9039,11 @@ This treatment uses vutrisiran (NCIT:C152919). NCIT:C152919 is a therapeutic age
         TTR
 
 
-    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:12405</a>
+    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:12405</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this treatment base-pairs with the transcript of this gene
 This treatment base-pairs with the transcript of TTR (hgnc:12405). hgnc:12405 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -8994,7 +9220,7 @@ This treatment base-pairs with the transcript of TTR (hgnc:12405). hgnc:12405 is
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9035,16 +9261,19 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C116792" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-54">NCIT:C116792</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C116792" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C116792</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses patisiran (NCIT:C116792). NCIT:C116792 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -9063,10 +9292,13 @@ This treatment uses patisiran (NCIT:C116792). NCIT:C116792 is a therapeutic agen
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Lipid nanoparticle</span>
 
 
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: Unconjugated</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
 
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -9086,11 +9318,11 @@ This treatment uses patisiran (NCIT:C116792). NCIT:C116792 is a therapeutic agen
         TTR
 
 
-    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:12405</a>
+    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:12405</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this treatment base-pairs with the transcript of this gene
 This treatment base-pairs with the transcript of TTR (hgnc:12405). hgnc:12405 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9242,7 +9474,7 @@ This treatment base-pairs with the transcript of TTR (hgnc:12405). hgnc:12405 is
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9283,16 +9515,19 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C121667" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C121667</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C121667" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C121667</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses inotersen (NCIT:C121667). NCIT:C121667 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -9311,12 +9546,15 @@ This treatment uses inotersen (NCIT:C121667). NCIT:C121667 is a therapeutic agen
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Unformulated (free uptake)</span>
 
 
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: Unconjugated</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
 
 
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: 2′-MOE</span>
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -9336,11 +9574,11 @@ This treatment uses inotersen (NCIT:C121667). NCIT:C121667 is a therapeutic agen
         TTR
 
 
-    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:12405</a>
+    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:12405</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this treatment base-pairs with the transcript of this gene
 This treatment base-pairs with the transcript of TTR (hgnc:12405). hgnc:12405 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9469,7 +9707,7 @@ This treatment base-pairs with the transcript of TTR (hgnc:12405). hgnc:12405 is
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9510,16 +9748,19 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C175062" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-60">NCIT:C175062</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C175062" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C175062</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses eplontersen (NCIT:C175062). NCIT:C175062 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -9538,12 +9779,15 @@ This treatment uses eplontersen (NCIT:C175062). NCIT:C175062 is a therapeutic ag
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Ligand conjugate</span>
 
 
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: GalNAc</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: GalNAc</span>
 
 
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: 2′-MOE</span>
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -9563,11 +9807,11 @@ This treatment uses eplontersen (NCIT:C175062). NCIT:C175062 is a therapeutic ag
         TTR
 
 
-    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-61">hgnc:12405</a>
+    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-63">hgnc:12405</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-61">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-63">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this treatment base-pairs with the transcript of this gene
 This treatment base-pairs with the transcript of TTR (hgnc:12405). hgnc:12405 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9671,7 +9915,7 @@ This treatment base-pairs with the transcript of TTR (hgnc:12405). hgnc:12405 is
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9713,16 +9957,19 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C204942" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-63">NCIT:C204942</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C204942" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-65">NCIT:C204942</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses NTLA-2001, annotated with Lipid Nanoparticle Encapsulating mRNA Encoding Cas9 Protein and TTR-targeting Single Guide RNA NTLA-2001 (NCIT:C204942). NCIT:C204942 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -9739,6 +9986,9 @@ This treatment uses NTLA-2001, annotated with Lipid Nanoparticle Encapsulating m
 
 
     </div>
+
+
+
 
 
 
@@ -9843,7 +10093,7 @@ This treatment uses NTLA-2001, annotated with Lipid Nanoparticle Encapsulating m
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">Liver Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">Liver Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9870,6 +10120,12 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9981,7 +10237,7 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10008,6 +10264,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10126,7 +10388,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-68">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10167,16 +10429,19 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_85078" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-67">CHEBI:85078</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85078" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-69">CHEBI:85078</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses dapagliflozin (CHEBI:85078). CHEBI:85078 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -10193,6 +10458,9 @@ This treatment uses dapagliflozin (CHEBI:85078). CHEBI:85078 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -10415,11 +10683,11 @@ This treatment uses dapagliflozin (CHEBI:85078). CHEBI:85078 is a therapeutic ag
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-68">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-70">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-70">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -10503,11 +10771,11 @@ This treatment uses dapagliflozin (CHEBI:85078). CHEBI:85078 is a therapeutic ag
         cardiac radionuclide scintigraphy
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62667" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-69">NCIT:C62667</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62667" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-71">NCIT:C62667</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-71">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -12429,8 +12697,39 @@ treatments:
         id: hgnc:12405
         label: TTR
     target_transcript: TTR mRNA
-    conjugation: GALNAC
+  delivery_system:
     delivery_platform: CONJUGATE
+    targeting_ligand: GALNAC
+    targeting_receptor:
+      preferred_term: ASGR1
+      term:
+        id: hgnc:742
+        label: ASGR1
+    target_cell_types:
+    - preferred_term: hepatocyte
+      term:
+        id: CL:0000182
+        label: hepatocyte
+    description: &gt;-
+      The GalNAc conjugate is the whole reason this drug is dosed subcutaneously once a
+      quarter while patisiran, which silences the same transcript, needs a three-weekly
+      infusion with premedication: the ligand engages a receptor expressed almost only
+      on hepatocytes, which is where TTR is made.
+    evidence:
+    - reference: PMID:42385331
+      reference_title: Application of two-dimensional liquid chromatography as a complementary technique to circular dichroism spectroscopy and high-resolution mass spectrometry for the characterization of GalNAc-siRNA conjugates.
+      supports: SUPPORT
+      directness: DIRECT
+      quote_role: BACKGROUND
+      evidence_source: OTHER
+      snippet: the approval of new siRNA therapies, particularly those conjugated with N-acetylgalactosamine (GalNAc) for targeted delivery to hepatocyte asialoglycoprotein receptor
+      explanation: &gt;-
+        Names all three facts this block records for the approved GalNAc siRNA class -
+        the ligand, the receptor, and the cell type it reaches. quote_role BACKGROUND
+        records that the sentence is the paper&#39;s statement of an established delivery
+        route rather than a result it reports, and evidence_source is OTHER because the
+        sentence itself reports no study; the paper itself is an analytical-chemistry
+        method study.
   dosing_interval: once every 3 months
   dosing_interval_days: 90
   description: &gt;-
@@ -13245,6 +13544,8 @@ classifications:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13513,7 +13814,7 @@ Core pathophysiology and current understanding
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Transthyretin Amyloidosis", "mondoId": "MONDO:0007100", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Transthyretin_Amyloidosis", "yamlRevision": "b80472ffea3f"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Transthyretin Amyloidosis", "mondoId": "MONDO:0007100", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Transthyretin_Amyloidosis", "yamlRevision": "d3684573308e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

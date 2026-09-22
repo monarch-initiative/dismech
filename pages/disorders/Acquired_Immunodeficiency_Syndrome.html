@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4253,6 +4306,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-hiv-infection-and-replication" data-dismech-node="Persistent HIV Infection and Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent HIV Infection and Replication</div>
 
+
                 <div class="item-desc">HIV establishes ongoing infection in susceptible immune cells. Viral replication drives pathogenesis, while the resulting immunodeficiency reflects both direct viral effects and dysregulated host immune homeostasis.</div>
 
 
@@ -4425,6 +4479,7 @@ This pathophysiological event involves abnormal viral process (GO:0016032). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-mucosal-cd4-t-cell-loss-and-gut-barrier-injury" data-dismech-node="Early Mucosal CD4 T-Cell Loss and Gut Barrier Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Early Mucosal CD4 T-Cell Loss and Gut Barrier Injury</div>
 
+
                 <div class="item-desc">Acute HIV infection causes marked depletion of mucosal CD4 memory T cells, persistent mucosal inflammation, and epithelial barrier injury.</div>
 
 
@@ -4556,6 +4611,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microbial-translocation-and-chronic-immune-activation" data-dismech-node="Microbial Translocation and Chronic Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Microbial Translocation and Chronic Immune Activation</div>
 
+
                 <div class="item-desc">Microbial products crossing the damaged gut barrier contribute to persistent innate and adaptive immune activation during chronic HIV infection.</div>
 
 
@@ -4669,6 +4725,7 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abortive-hiv-infection-and-caspase-1-pyroptosis" data-dismech-node="Abortive HIV Infection and Caspase-1 Pyroptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Abortive HIV Infection and Caspase-1 Pyroptosis</div>
+
 
                 <div class="item-desc">In ex vivo human lymphoid aggregates, abortive HIV-1 infection of quiescent CD4 T cells activates caspase-1, causing inflammatory pyroptotic cell death. This is a contributory experimental mechanism, not a universal quantitative estimate for every person with AIDS.</div>
 
@@ -4818,6 +4875,7 @@ This pathophysiological event involves increased pyroptotic inflammatory respons
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cd4-t-cell-depletion-and-homeostatic-failure" data-dismech-node="Progressive CD4 T-Cell Depletion and Homeostatic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive CD4 T-Cell Depletion and Homeostatic Failure</div>
 
+
                 <div class="item-desc">Direct viral effects and chronic immune activation eventually overwhelm CD4 memory T-cell regeneration, lowering critical effector populations.</div>
 
 
@@ -4927,6 +4985,7 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-cell-mediated-immunodeficiency" data-dismech-node="Severe Cell-Mediated Immunodeficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Cell-Mediated Immunodeficiency</div>
+
 
                 <div class="item-desc">Profound loss of CD4 T-cell number and function marks overt AIDS and undermines immune control of opportunistic pathogens and oncogenic viruses.</div>
 
@@ -5046,6 +5105,7 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-opportunistic-infection-susceptibility" data-dismech-node="Opportunistic Infection Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Opportunistic Infection Susceptibility</div>
 
+
                 <div class="item-desc">Severe cellular immunodeficiency permits AIDS-defining opportunistic infections; Pneumocystis pneumonia and esophageal candidiasis are representative manifestations rather than an exhaustive list.</div>
 
 
@@ -5129,6 +5189,7 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-oncogenic-virus-immune-control" data-dismech-node="Loss of Oncogenic-Virus Immune Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Oncogenic-Virus Immune Control</div>
+
 
                 <div class="item-desc">AIDS-associated immune dysfunction reduces surveillance of HHV-8, Epstein-Barr virus, and oncogenic human papillomavirus, enabling selected malignancies.</div>
 
@@ -5221,6 +5282,7 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-hiv-infection-and-neuroinflammation" data-dismech-node="CNS HIV Infection and Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">CNS HIV Infection and Neuroinflammation</div>
+
 
                 <div class="item-desc">HIV can establish compartmentalized infection in CNS macrophage-lineage cells. Local immune activation, neuroinflammation, and neurotoxicity can contribute to severe HIV-associated cognitive disease.</div>
 
@@ -5352,6 +5414,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-cellular-hiv-reservoir" data-dismech-node="Persistent Cellular HIV Reservoir" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Cellular HIV Reservoir</div>
+
 
                 <div class="item-desc">Resting CD4 memory T cells and other cellular compartments can retain integrated provirus during suppressive ART, preventing eradication and enabling renewed infection if therapy stops.</div>
 
@@ -5584,6 +5647,9 @@ This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:00201
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5664,6 +5730,9 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5725,6 +5794,9 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5772,6 +5844,9 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
 
 
                     </div>
+
+
+
 
 
 
@@ -5829,6 +5904,9 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5876,6 +5954,9 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
 
 
                     </div>
+
+
+
 
 
 
@@ -6007,6 +6088,12 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6254,6 +6341,12 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9144,6 +9237,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

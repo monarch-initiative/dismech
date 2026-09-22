@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5005,6 +5058,7 @@ This subtype is caused by variation in FAM20C (hgnc:22140). hgnc:22140 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-fam20c-golgi-casein-kinase-activity" data-dismech-node="Loss of FAM20C Golgi Casein Kinase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of FAM20C Golgi Casein Kinase Activity</div>
 
+
                 <div class="item-desc">FAM20C is the Golgi casein kinase: an atypical, secretory-pathway protein kinase that localizes to the Golgi apparatus and phosphorylates serine residues within S-x-E/pS motifs of secreted proteins. Biallelic loss-of-function variants in FAM20C abolish or markedly reduce this kinase activity. Raine syndrome missense substitutions impair both Golgi localization and catalytic activity of the recombinant enzyme; a non-lethal splice-altering variant produces an in-frame insertion that mislocalizes the protein and reduces its secretion without disrupting dimerization.
 </div>
 
@@ -5285,6 +5339,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypophosphorylation-of-secreted-biomineralization-proteins" data-dismech-node="Hypophosphorylation of Secreted Biomineralization Proteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypophosphorylation of Secreted Biomineralization Proteins</div>
+
 
                 <div class="item-desc">FAM20C phosphorylates well over one hundred substrates in the secretory pathway, including the caseins and members of the SIBLING (small integrin-binding ligand, N-linked glycoprotein) family — DMP1, MEPE, osteopontin (SPP1), bone sialoprotein and DSPP — which regulate extracellular matrix biomineralization. Loss of FAM20C activity leaves these substrates hypophosphorylated, removing a key post-translational control on mineral nucleation and inhibition in bone and dental hard tissue.
 </div>
@@ -5657,6 +5712,7 @@ This pathophysiological event involves abnormal biomineral tissue development (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-fgf23-and-renal-phosphate-wasting" data-dismech-node="Dysregulated FGF23 and Renal Phosphate Wasting" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated FGF23 and Renal Phosphate Wasting</div>
 
+
                 <div class="item-desc">FAM20C directly phosphorylates FGF23 on Ser180 within its R176XXR179/S180AE subtilisin-like proprotein convertase motif; this phosphorylation blocks GalNAc-T3 O-glycosylation and promotes furin cleavage and inactivation of FGF23. FAM20C also sustains DMP1 expression, which suppresses FGF23 production. Loss of FAM20C therefore raises circulating intact, biologically active FGF23, causing renal phosphate wasting, hypophosphatemia, and FGF23-related hypophosphatemic rickets or osteomalacia — the dominant endocrine feature of the non-lethal form.
 </div>
 
@@ -5888,6 +5944,7 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-bone-matrix-mineralization" data-dismech-node="Abnormal Bone Matrix Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Bone Matrix Mineralization</div>
+
 
                 <div class="item-desc">The matrix-level lesion. Loss of FAM20C-dependent substrate phosphorylation, compounded by FGF23-driven hypophosphatemia, leaves bone matrix abnormally mineralized with disorganized, thickened collagen fibrils and a widened, disorganized growth plate. Critically, this is an UNDER-mineralization lesion: non-decalcified human histology after tetracycline labeling documented severe osteomalacia (not rickets), and knock-in mouse tibiae that look osteosclerotic on radiography show reduced mineral density and increased porosity on micro-CT. FAM20C additionally fine-tunes chondroitin sulfate 4-O/6-O sulfation, an activity lost with Raine syndrome mutations, providing a further route to dysregulated osteoblast biomineralization. The relationship between this osteomalacic matrix and the sclerotic radiographic appearance is the entry&#39;s principal open question (see discussions).
 </div>
@@ -6155,6 +6212,7 @@ This pathophysiological event involves abnormal ossification (GO:0001503). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-osteosclerosis-and-periosteal-bone-formation" data-dismech-node="Generalized Osteosclerosis and Periosteal Bone Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized Osteosclerosis and Periosteal Bone Formation</div>
 
+
                 <div class="item-desc">The radiographic readout of the abnormal matrix: a diffuse, marked increase in radiodensity of all bones, most striking at the skull base and long bones, together with periosteal new bone formation — the feature that distinguishes Raine syndrome from osteopetrosis and other sclerosing dysplasias. Modeled as a distinct node from the matrix lesion because the two dissociate: the sclerotic radiographic appearance overlies an osteomalacic, porous matrix, and osteosclerosis may be mild or absent in the non-lethal form.
 </div>
 
@@ -6323,6 +6381,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thoracic-hypoplasia-and-pulmonary-hypoplasia" data-dismech-node="Thoracic Hypoplasia and Pulmonary Hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Thoracic Hypoplasia and Pulmonary Hypoplasia</div>
 
+
                 <div class="item-desc">A narrow, hypoplastic thorax restricts lung growth, producing pulmonary hypoplasia. This arm is mechanistically independent of the craniofacial arm; the two converge on neonatal respiratory failure.
 </div>
 
@@ -6409,6 +6468,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-respiratory-failure" data-dismech-node="Neonatal Respiratory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal Respiratory Failure</div>
+
 
                 <div class="item-desc">The convergent terminal node of the lethal form: upper-airway obstruction from choanal atresia/stenosis plus pulmonary hypoplasia from the narrow thorax produce severe respiratory distress from birth, the usual proximate cause of death within days to weeks.
 </div>
@@ -6512,6 +6572,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-skeletal-overgrowth" data-dismech-node="Craniofacial Skeletal Overgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial Skeletal Overgrowth</div>
+
 
                 <div class="item-desc">The dysplasia predominantly affects craniofacial development. Increased ossification of the skull and facial bones underlies the characteristic facies — narrow prominent forehead, severe proptosis, underdeveloped midface, depressed nasal bridge and short nose — and in the most severe cases multisuture craniosynostosis. Severe midface hypoplasia in turn produces choanal atresia or stenosis, obstructing the neonatal upper airway.
 </div>
@@ -6715,6 +6776,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-intracranial-and-soft-tissue-calcification" data-dismech-node="Ectopic Intracranial and Soft Tissue Calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Intracranial and Soft Tissue Calcification</div>
 
+
                 <div class="item-desc">Ectopic mineral is deposited outside the skeleton. The leading hypothesis is that loss of FAM20C-dependent phosphorylation of mineralization-INHIBITING secreted substrates removes a brake on mineral nucleation, but this has been demonstrated biochemically rather than at ectopic sites in patients, and a parallel in silico analysis proposes distinct brain-expressed FAM20C targets; the mechanism should be read as provisional. Intracranial calcifications are a cardinal feature, typically periventricular and involving basal ganglia and corpus callosum, and are accompanied in severe cases by periventricular gliosis, infarction, hemorrhage and leukomalacia. Brain-specific deletion of Fam20c in mice produces cerebral calcification without skeletal or dental defects, indicating that local loss of FAM20C function within the brain is sufficient. Ectopic calcification also occurs in soft tissue and solid organs in longer-surviving patients.
 </div>
 
@@ -6853,6 +6915,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dental-hard-tissue-mineralization-failure" data-dismech-node="Dental Hard Tissue Mineralization Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Dental Hard Tissue Mineralization Failure</div>
+
 
                 <div class="item-desc">FAM20C acts intracellularly within ameloblasts and odontoblasts, where its substrates (including DSPP and other SIBLINGs) direct enamel and dentin mineralization. Its loss produces a distinctive hypoplastic amelogenesis imperfecta affecting all teeth together with dentin abnormalities, a hallmark of the non-lethal form that should prompt FAM20C testing. Hypophosphatemic rickets adds spontaneous recurrent abscesses on non-carious teeth.
 </div>
@@ -7084,6 +7147,7 @@ This pathophysiological event involves abnormal biomineral tissue development (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gingival-fibroblast-activation-via-tgf-beta-and-yap-taz" data-dismech-node="Gingival Fibroblast Activation via TGF-beta and YAP/TAZ" data-dismech-type="pathophysiology">
                 <div class="item-name">Gingival Fibroblast Activation via TGF-beta and YAP/TAZ</div>
 
+
                 <div class="item-desc">In non-lethal Raine syndrome, resident gingival fibroblasts are activated along the conserved pro-fibrotic axis. Proteomic and functional analyses of patient gingival tissue and primary gingival fibroblasts show upregulated TGF-beta/SMAD signaling together with engagement of the fibrogenic transcriptional cofactors YAP and TAZ; FAM20C knockdown reproduces the TGF-beta-YAP/TAZ interplay, defining a self-reinforcing profibrotic loop. This is the disease-specific instance of the conserved mesenchymal cell activation step of the fibrotic response, with the gingival fibroblast substituted for the generic fibroblast.
 </div>
 
@@ -7258,6 +7322,7 @@ This pathophysiological event involves increased TGF-beta Receptor Signaling, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excessive-gingival-ecm-deposition-and-calcification" data-dismech-node="Excessive Gingival ECM Deposition and Calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">Excessive Gingival ECM Deposition and Calcification</div>
+
 
                 <div class="item-desc">Activated gingival fibroblasts overproduce and disorganize extracellular matrix, with increased profibrotic and pro-osteogenic proteins (POSTN, SPARC, VIM). The result is gingival fibrosis together with pathological ectopic gingival calcification — the tissue substrate of the gum hyperplasia seen clinically. The pro-osteogenic component distinguishes this from generic soft-tissue fibrosis and reflects the loss of FAM20C-dependent mineralization control.
 </div>
@@ -7494,6 +7559,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7558,6 +7626,9 @@ This clinical feature is Dysplastic/low-set ears, annotated with Low-set ears (H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7668,6 +7739,9 @@ This clinical feature is Exophthalmos, annotated with Proptosis (HP:0000520). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7732,6 +7806,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7842,6 +7919,9 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7906,6 +7986,9 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7980,6 +8063,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8044,6 +8130,9 @@ This clinical feature is Choanal atresia or stenosis, annotated with Choanal atr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Both complete atresia and stenosis are reported. The phenotype is bound to HP:0000453 Choanal atresia, which is narrower than the claim; HP:0000452 Choanal stenosis covers the milder end and is not separately modeled because the cited sources do not consistently distinguish the two.
@@ -8148,6 +8237,9 @@ This clinical feature is Gingival hyperplasia, annotated with Gingival overgrowt
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8242,6 +8334,9 @@ This clinical feature is Hypoplastic amelogenesis imperfecta, annotated with Ame
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8306,6 +8401,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8407,6 +8505,9 @@ This clinical feature is Multisuture craniosynostosis, annotated with Multiple s
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8471,6 +8572,9 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8556,6 +8660,9 @@ This clinical feature is Hypoplastic distal phalanges, annotated with Short dist
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8634,6 +8741,9 @@ This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8698,6 +8808,9 @@ This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8781,6 +8894,9 @@ This clinical feature is Generalized osteosclerosis (HP:0005789). HP:0005789 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8852,6 +8968,9 @@ This clinical feature is Periosteal new bone formation, annotated with Periostos
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8918,6 +9037,9 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9044,6 +9166,9 @@ This clinical feature is Ectopic calcification (HP:0010766). HP:0010766 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9151,6 +9276,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9222,6 +9350,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9286,6 +9417,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9396,6 +9530,9 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9460,6 +9597,9 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9601,6 +9741,9 @@ This disease-associated gene is FAM20C (hgnc:22140). hgnc:22140 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -9766,6 +9909,9 @@ This treatment is neonatal respiratory support and airway management, annotated 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9776,6 +9922,9 @@ This treatment is neonatal respiratory support and airway management, annotated 
 
 
     </div>
+
+
+
 
 
 
@@ -9934,6 +10083,9 @@ This treatment uses alfacalcidol (CHEBI:31186). CHEBI:31186 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9944,6 +10096,9 @@ This treatment uses alfacalcidol (CHEBI:31186). CHEBI:31186 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -10143,6 +10298,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10153,6 +10311,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10273,6 +10434,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10283,6 +10447,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -14292,6 +14459,29 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Raine_Syndrome</strong> · 2026-07-31T00:59:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Raine_Syndrome/2026-07-31T005952Z-claude-code-c49bf6.yaml">View source</a></p>
+                        <p class="research-review-text">Created the Raine syndrome (lethal osteosclerotic bone dysplasia, MONDO:0009821, FAM20C / hgnc:22140) disorder entry.
+
+Deep research: &#34;just research-disorder falcon Raine_Syndrome&#34; (Edison/Falcon, 434 s, 25 citations, 1 markdown artifact committed under research/Raine_Syndrome-deep-research-falcon_artifacts/). NEC preflight against MONDO:0009821 passed - FAM20C was the dominant gene mention (38 occurrences, no competing gene), and the report&#39;s OMIM 259775 and 259660 both match the MONDO xrefs. No GeneReviews chapter exists for Raine syndrome or FAM20C (PubMed esearch for both returned zero hits), so the phenotype baseline was drawn from PMID:25019372, PMID:34360805 and the non-lethal natural-history cohort PMID:32299476.
+
+Curated 9 pathophysiology nodes forming an explicit causal chain: loss of FAM20C Golgi casein kinase activity -&gt; hypophosphorylation of the secreted SIBLING/FGF23 phosphoproteome -&gt; (a) dysregulated FGF23 with renal phosphate wasting, (b) abnormal bone mineralization and osteosclerosis, (c) dental hard tissue mineralization failure; plus craniofacial skeletal overgrowth with airway compromise, ectopic intracranial and soft tissue calcification, and a two-node gingival fibrosis arm declaring conforms_to fibrotic_response#Mesenchymal Cell Activation and fibrotic_response#Excessive ECM Deposition.
+
+Also curated: 22 phenotypes (HPO-bound, subtype-tagged where subtype-specific), lethal vs non-lethal subtypes with the hypomorphic-allele rationale, structured prevalence slots (BELOW_1_IN_1000000 point prevalence plus a CASES_IN_LITERATURE record; the deprecated percentage field was not used), 4 treatments, 2 imaging findings, 2 biochemical markers, differential diagnoses, 4 animal models, and a HUMAN_MODEL_MISMATCH discussion capturing the mouse-osteomalacia versus human-osteosclerosis discrepancy with two proposed experiments.
+
+Evidence: 99 evidence items across 29 PMIDs. Every snippet was independently verified as an exact whitespace-normalized substring of its references_cache abstract (0 failures). Two new references were resolved from Falcon DOI leads via the PMC ID converter and fetched with just fetch-reference: PMID:32101876 (high-phosphate diet rescue in Fam20c-deficient mice) and PMID:37240249 (in silico FAM20C brain substrates).
+
+Validation: just validate (schema + terms + references) passed; just validate-terms passed; compliance 97.9 percent global / 98.3 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

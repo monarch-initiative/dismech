@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4859,6 +4912,13 @@ Nothing in this entry asserts that human patients are infertile, and a counselli
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-atp6v0a2-loss-of-function" data-dismech-node="Biallelic ATP6V0A2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ATP6V0A2 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Loss-of-function variants on both alleles of ATP6V0A2, the gene for the a2 subunit of the V-type H+-ATPase. The protein localises to the Golgi apparatus and is absent from patient dermal fibroblasts, so the lesion is loss of the subunit rather than a mislocalised or non-functional protein sitting in place.</div>
 
 
@@ -5073,6 +5133,13 @@ This pathophysiological event involves V-type H+-ATPase proton transport, annota
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-trans-golgi-luminal-ph" data-dismech-node="Elevated Trans-Golgi Luminal pH" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Trans-Golgi Luminal pH</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The single physical abnormality from which the rest of the disease follows. Direct measurement in mouse models puts trans-Golgi pH at 5.80 in wild type, 6.25 in a knock-in that abolishes only V0a2-mediated proton transport, and 6.52 in the null - and phenotype severity tracks that gradient rather than tracking whether the protein is present.
 The knock-in is what makes this node an established mechanism rather than an inference. It carries an R755Q missense change that selectively removes proton transport while leaving the protein in place, so the pH shift can be attributed to the pumping activity and not to loss of some structural or membrane-fusion role of the subunit.</div>
 
@@ -5271,6 +5338,13 @@ This pathophysiological event involves trans-Golgi network (GO:0005802). GO:0005
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-n-and-o-glycosylation-defect" data-dismech-node="Combined N- and O-Glycosylation Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined N- and O-Glycosylation Defect</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Golgi glycosyltransferases and glycosidases have narrow pH optima, so raising the luminal pH degrades their output. The result is a defect in both N-linked and mucin-type O-linked glycosylation - the combined pattern that places ARCL2A in the congenital disorders of glycosylation and that is detectable in serum by transferrin and apolipoprotein C-III isoelectric focusing.
 Which limb matters more is not settled the way the clinical framing implies. The mouse work concludes that altered O-glycosylation is the more relevant limb for the pathomechanism, and that it produces a secondary dystroglycanopathy through reduced O-mannosylation of alpha-dystroglycan - which is a specific, testable route to the neuronal-migration phenotype rather than a general appeal to hypoglycosylation.</div>
 
@@ -5467,6 +5541,13 @@ This pathophysiological event involves decreased mucin-type protein O-linked gly
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-golgi-trafficking" data-dismech-node="Impaired Golgi Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Golgi Trafficking</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Patient fibroblasts show distended Golgi cisternae, abnormal lysosomes and multivesicular bodies, and a delay in brefeldin-A-induced retrograde fusion of Golgi membranes with the endoplasmic reticulum. The delay is specific: it is absent in cells deficient for GORAB or PYCR1, the proteins behind two other autosomal recessive cutis laxa syndromes, so it is a property of the V-ATPase lesion rather than of cutis laxa generally.
 Elevated TGF-beta signalling accompanies it, with raised TGF-beta1 in the fibroblast supernatant.</div>
@@ -5719,6 +5800,13 @@ This pathophysiological event involves Golgi membrane (GO:0000139). GO:0000139 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tropoelastin-secretion-block" data-dismech-node="Tropoelastin Secretion Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Tropoelastin Secretion Block</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Tropoelastin accumulates in the Golgi and forms abnormal intracellular and extracellular aggregates; pulse-chase confirms impaired secretion and increased intracellular retention, and insoluble-elastin assays show significantly reduced deposition of mature extracellular elastin. Apoptosis of elastogenic cells is increased.
 Two negatives from the same experiments are what localise the lesion, and they are worth as much as the positive finding. Fibrillin-1 microfibril assembly is normal, and secreted lysyl oxidase activity is normal. So the defect is in getting tropoelastin out of the cell, not in the microfibrillar scaffold it deposits onto and not in the cross-linking step that matures it.</div>
@@ -5991,6 +6079,13 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-dermal-elastic-fiber-network" data-dismech-node="Deficient Dermal Elastic Fiber Network" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Dermal Elastic Fiber Network</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Reduced mature elastin in the dermis, giving skin that is redundant, sagging and inelastic. The mouse models show the tissue-level counterpart directly - reduced dermis thickness and reduced elastic fibre formation in both the null and the transport-dead knock-in.</div>
 
 
@@ -6135,6 +6230,13 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-cortical-neuron-migration" data-dismech-node="Aberrant Cortical Neuron Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Cortical Neuron Migration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Cortical neurons migrate abnormally, which is the substrate for the developmental delay, seizures and gyration abnormalities seen clinically.
 Graded PROVISIONAL for a reason specific to this node rather than to the entry. The abnormal migration itself is directly observed - but in mice, and the human evidence is imaging and clinical rather than histological. More awkwardly, the mouse data run against the intuitive dose-response: the knock-in with the smaller pH shift showed more abnormal migration than the null, correlating with seizures and with reduced O-mannosylation of alpha-dystroglycan. So the neuronal arm does not simply follow the pH gradient the way the skin arm does, and the entry does not pretend otherwise.</div>
@@ -6358,7 +6460,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP6V0A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ATP6V0A2\"], \"gene_terms\": [{\"label\": \"ATP6V0A2\", \"id\": \"hgnc:18481\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ATP6V0A2 patient dermal fibroblasts and siRNA-knockdown HeLa cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary dermal fibroblasts from ARCL2A patients, alongside HeLa cells depleted of ATP6V0A2 by siRNA. Read out by Golgi ultrastructure, brefeldin-A-induced retrograde transport, tropoelastin pulse-chase and immunostaining, insoluble elastin assay, TUNEL, and TGF-beta1 in the supernatant.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Aberrant Cortical Neuron Migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cortical neurons migrate abnormally, which is the substrate for the developmental delay, seizures and gyration abnormalities seen clinically.\\nGraded PROVISIONAL for a reason specific to this node rather than to the entry. The abnormal migration itself is directly observed - but in mice, and the human evidence is imaging and clinical rather than histological. More awkwardly, the mouse data run against the intuitive dose-response: the knock-in with the smaller pH shift showed more abnormal migration than the null, correlating with seizures and with reduced O-mannosylation of alpha-dystroglycan. So the neuronal arm does not simply follow the pH gradient the way the skin arm does, and the entry does not pretend otherwise.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"migrating cortical neuron\"], \"biological_processes\": [\"neuron migration\"], \"role\": \"consequence\", \"locations\": [\"cerebral cortex\"], \"animal_models\": [{\"name\": \"Atp6v0a2 R755Q knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v0a2RQ/RQ (R755Q missense, proton transport selectively abolished)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the migration abnormality and the associated seizures, and links them to reduced O-mannosylation of alpha-dystroglycan.\"}]}}, {\"id\": \"Anti-Seizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard anti-seizure treatment; no ATP6V0A2-specific regimen is recommended. Curated because seizures are in nearly all affected individuals and this is the one manifestation with a routine, effective symptomatic therapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atp6v0a2 R755Q knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The separation-of-function model, and the more informative of the pair. R755Q abolishes V0a2-mediated proton transport while leaving the subunit in place, so any phenotype it produces is attributable to the pumping activity rather than to the protein\u0027s presence.\"}, {\"id\": \"Atp6v0a2 knock-out mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive null. Trans-Golgi pH 6.52 against a wild-type 5.80, with reduced growth, dermis thickness and elastic fibre formation.\"}, {\"id\": \"Biallelic ATP6V0A2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function variants on both alleles of ATP6V0A2, the gene for the a2 subunit of the V-type H+-ATPase. The protein localises to the Golgi apparatus and is absent from patient dermal fibroblasts, so the lesion is loss of the subunit rather than a mislocalised or non-functional protein sitting in place.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dermal fibroblast\"], \"molecular_functions\": [\"V-type H+-ATPase proton transport\"], \"genes\": [\"ATP6V0A2\"], \"gene_terms\": [{\"label\": \"ATP6V0A2\", \"id\": \"hgnc:18481\"}], \"role\": \"trigger\"}}, {\"id\": \"Combined N- and O-Glycosylation Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Golgi glycosyltransferases and glycosidases have narrow pH optima, so raising the luminal pH degrades their output. The result is a defect in both N-linked and mucin-type O-linked glycosylation - the combined pattern that places ARCL2A in the congenital disorders of glycosylation and that is detectable in serum by transferrin and apolipoprotein C-III isoelectric focusing.\\nWhich limb matters more is not settled the way the clinical framing implies. The mouse work concludes that altered O-glycosylation is the more relevant limb for the pathomechanism, and that it produces a secondary dystroglycanopathy through reduced O-mannosylation of alpha-dystroglycan - which is a specific, testable route to the neuronal-migration phenotype rather than a general appeal to hypoglycosylation.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein N-linked glycosylation\", \"mucin-type protein O-linked glycosylation\"], \"role\": \"effector\"}}, {\"id\": \"Deficient Dermal Elastic Fiber Network\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced mature elastin in the dermis, giving skin that is redundant, sagging and inelastic. The mouse models show the tissue-level counterpart directly - reduced dermis thickness and reduced elastic fibre formation in both the null and the transport-dead knock-in.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"elastic fiber assembly\"], \"role\": \"consequence\", \"locations\": [\"dermis\"]}}, {\"id\": \"Elevated Trans-Golgi Luminal pH\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single physical abnormality from which the rest of the disease follows. Direct measurement in mouse models puts trans-Golgi pH at 5.80 in wild type, 6.25 in a knock-in that abolishes only V0a2-mediated proton transport, and 6.52 in the null - and phenotype severity tracks that gradient rather than tracking whether the protein is present.\\nThe knock-in is what makes this node an established mechanism rather than an inference. It carries an R755Q missense change that selectively removes proton transport while leaving the protein in place, so the pH shift can be attributed to the pumping activity and not to loss of some structural or membrane-fusion role of the subunit.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Golgi lumen acidification\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Atp6v0a2 knock-out mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v0a2-/- (null)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Provides the direct pH measurement that defines this node, and the largest pH shift of the two models.\"}, {\"name\": \"Atp6v0a2 R755Q knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v0a2RQ/RQ (R755Q missense, proton transport selectively abolished)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Establishes that proton transport is the disease-relevant function: removing only the transport raises pH to 6.25 and reproduces the connective-tissue phenotype.\"}]}}, {\"id\": \"Impaired Golgi Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show distended Golgi cisternae, abnormal lysosomes and multivesicular bodies, and a delay in brefeldin-A-induced retrograde fusion of Golgi membranes with the endoplasmic reticulum. The delay is specific: it is absent in cells deficient for GORAB or PYCR1, the proteins behind two other autosomal recessive cutis laxa syndromes, so it is a property of the V-ATPase lesion rather than of cutis laxa generally.\\nElevated TGF-beta signalling accompanies it, with raised TGF-beta1 in the fibroblast supernatant.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"dermal fibroblast\"], \"biological_processes\": [\"retrograde transport from Golgi to endoplasmic reticulum\", \"TGF-beta receptor signaling\"], \"role\": \"effector\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is the commonest neurological finding in ATP6V0A2 disease and is one of the features that discriminates it from the other autosomal recessive cutis laxa genes. It is enriched in patients ascertained at a younger age.\\nBanded VERY_FREQUENT on the GeneReviews statement that nearly all affected individuals have seizures. The earlier band rested on an age-at-ascertainment association with a p value, which is not a frequency; GeneReviews supplies the frequency directly and supersedes it.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tropoelastin Secretion Block\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tropoelastin accumulates in the Golgi and forms abnormal intracellular and extracellular aggregates; pulse-chase confirms impaired secretion and increased intracellular retention, and insoluble-elastin assays show significantly reduced deposition of mature extracellular elastin. Apoptosis of elastogenic cells is increased.\\nTwo negatives from the same experiments are what localise the lesion, and they are worth as much as the positive finding. Fibrillin-1 microfibril assembly is normal, and secreted lysyl oxidase activity is normal. So the defect is in getting tropoelastin out of the cell, not in the microfibrillar scaffold it deposits onto and not in the cross-linking step that matures it.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"dermal fibroblast\"], \"biological_processes\": [\"elastic fiber assembly\", \"extracellular matrix organization\"], \"role\": \"effector\", \"locations\": [\"dermis\"], \"experimental_models\": [{\"name\": \"ATP6V0A2 patient dermal fibroblasts and siRNA-knockdown HeLa cells\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"This is where the secretion block was demonstrated, in cells carrying the patient\u0027s own genotype rather than in a heterologous overexpression system.\"}]}}], \"edges\": [{\"source\": \"Biallelic ATP6V0A2 Loss of Function\", \"target\": \"Elevated Trans-Golgi Luminal pH\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated Trans-Golgi Luminal pH\", \"target\": \"Combined N- and O-Glycosylation Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated Trans-Golgi Luminal pH\", \"target\": \"Impaired Golgi Trafficking\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Aberrant Cortical Neuron Migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Golgi Trafficking\", \"target\": \"Tropoelastin Secretion Block\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tropoelastin Secretion Block\", \"target\": \"Deficient Dermal Elastic Fiber Network\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-Seizure Medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATP6V0A2 patient dermal fibroblasts and siRNA-knockdown HeLa cells\", \"target\": \"Tropoelastin Secretion Block\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"This is where the secretion block was demonstrated, in cells carrying the patient\u0027s own genotype rather than in a heterologous overexpression system.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A cultured dermal fibroblast is not dermis, so the assay measures the cell\u0027s secretory behaviour and infers the tissue consequence. The mouse dermis-thickness measurement is what closes that gap.\"}, {\"source\": \"Atp6v0a2 knock-out mouse\", \"target\": \"Elevated Trans-Golgi Luminal pH\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Provides the direct pH measurement that defines this node, and the largest pH shift of the two models.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A null allele removes the protein entirely, so it cannot distinguish loss of proton transport from loss of any other function of the subunit. That is precisely what the knock-in below was made to do, and the two must be read together.\"}, {\"source\": \"Atp6v0a2 R755Q knock-in mouse\", \"target\": \"Elevated Trans-Golgi Luminal pH\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes that proton transport is the disease-relevant function: removing only the transport raises pH to 6.25 and reproduces the connective-tissue phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The pH shift is smaller than the null\u0027s, so the two models are not interchangeable, and a phenotype milder in this line than in the null could reflect either residual pumping or a retained non-pumping function of the protein.\"}, {\"source\": \"Atp6v0a2 R755Q knock-in mouse\", \"target\": \"Aberrant Cortical Neuron Migration\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the migration abnormality and the associated seizures, and links them to reduced O-mannosylation of alpha-dystroglycan.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Graded PARTIALLY_RECAPITULATES because of a specific discordance rather than a general species caveat. The knock-in shows more abnormal migration than the null despite a smaller pH shift, which the simple pH-dose model does not predict, and the human neuronal phenotype is characterised by imaging and clinical features rather than by the histology this readout measures.\"}, {\"source\": \"ATP6V0A2\", \"target\": \"Biallelic ATP6V0A2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP6V0A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ATP6V0A2\"], \"gene_terms\": [{\"label\": \"ATP6V0A2\", \"id\": \"hgnc:18481\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ATP6V0A2 patient dermal fibroblasts and siRNA-knockdown HeLa cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary dermal fibroblasts from ARCL2A patients, alongside HeLa cells depleted of ATP6V0A2 by siRNA. Read out by Golgi ultrastructure, brefeldin-A-induced retrograde transport, tropoelastin pulse-chase and immunostaining, insoluble elastin assay, TUNEL, and TGF-beta1 in the supernatant.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Aberrant Cortical Neuron Migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cortical neurons migrate abnormally, which is the substrate for the developmental delay, seizures and gyration abnormalities seen clinically.\\nGraded PROVISIONAL for a reason specific to this node rather than to the entry. The abnormal migration itself is directly observed - but in mice, and the human evidence is imaging and clinical rather than histological. More awkwardly, the mouse data run against the intuitive dose-response: the knock-in with the smaller pH shift showed more abnormal migration than the null, correlating with seizures and with reduced O-mannosylation of alpha-dystroglycan. So the neuronal arm does not simply follow the pH gradient the way the skin arm does, and the entry does not pretend otherwise.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"migrating cortical neuron\"], \"biological_processes\": [\"neuron migration\"], \"role\": \"consequence\", \"locations\": [\"cerebral cortex\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Atp6v0a2 R755Q knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v0a2RQ/RQ (R755Q missense, proton transport selectively abolished)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the migration abnormality and the associated seizures, and links them to reduced O-mannosylation of alpha-dystroglycan.\"}]}}, {\"id\": \"Anti-Seizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard anti-seizure treatment; no ATP6V0A2-specific regimen is recommended. Curated because seizures are in nearly all affected individuals and this is the one manifestation with a routine, effective symptomatic therapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atp6v0a2 R755Q knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The separation-of-function model, and the more informative of the pair. R755Q abolishes V0a2-mediated proton transport while leaving the subunit in place, so any phenotype it produces is attributable to the pumping activity rather than to the protein\u0027s presence.\"}, {\"id\": \"Atp6v0a2 knock-out mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive null. Trans-Golgi pH 6.52 against a wild-type 5.80, with reduced growth, dermis thickness and elastic fibre formation.\"}, {\"id\": \"Biallelic ATP6V0A2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function variants on both alleles of ATP6V0A2, the gene for the a2 subunit of the V-type H+-ATPase. The protein localises to the Golgi apparatus and is absent from patient dermal fibroblasts, so the lesion is loss of the subunit rather than a mislocalised or non-functional protein sitting in place.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dermal fibroblast\"], \"molecular_functions\": [\"V-type H+-ATPase proton transport\"], \"genes\": [\"ATP6V0A2\"], \"gene_terms\": [{\"label\": \"ATP6V0A2\", \"id\": \"hgnc:18481\"}], \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Combined N- and O-Glycosylation Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Golgi glycosyltransferases and glycosidases have narrow pH optima, so raising the luminal pH degrades their output. The result is a defect in both N-linked and mucin-type O-linked glycosylation - the combined pattern that places ARCL2A in the congenital disorders of glycosylation and that is detectable in serum by transferrin and apolipoprotein C-III isoelectric focusing.\\nWhich limb matters more is not settled the way the clinical framing implies. The mouse work concludes that altered O-glycosylation is the more relevant limb for the pathomechanism, and that it produces a secondary dystroglycanopathy through reduced O-mannosylation of alpha-dystroglycan - which is a specific, testable route to the neuronal-migration phenotype rather than a general appeal to hypoglycosylation.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein N-linked glycosylation\", \"mucin-type protein O-linked glycosylation\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Deficient Dermal Elastic Fiber Network\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced mature elastin in the dermis, giving skin that is redundant, sagging and inelastic. The mouse models show the tissue-level counterpart directly - reduced dermis thickness and reduced elastic fibre formation in both the null and the transport-dead knock-in.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"elastic fiber assembly\"], \"role\": \"consequence\", \"locations\": [\"dermis\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Elevated Trans-Golgi Luminal pH\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single physical abnormality from which the rest of the disease follows. Direct measurement in mouse models puts trans-Golgi pH at 5.80 in wild type, 6.25 in a knock-in that abolishes only V0a2-mediated proton transport, and 6.52 in the null - and phenotype severity tracks that gradient rather than tracking whether the protein is present.\\nThe knock-in is what makes this node an established mechanism rather than an inference. It carries an R755Q missense change that selectively removes proton transport while leaving the protein in place, so the pH shift can be attributed to the pumping activity and not to loss of some structural or membrane-fusion role of the subunit.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Golgi lumen acidification\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Atp6v0a2 knock-out mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v0a2-/- (null)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Provides the direct pH measurement that defines this node, and the largest pH shift of the two models.\"}, {\"name\": \"Atp6v0a2 R755Q knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v0a2RQ/RQ (R755Q missense, proton transport selectively abolished)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Establishes that proton transport is the disease-relevant function: removing only the transport raises pH to 6.25 and reproduces the connective-tissue phenotype.\"}]}}, {\"id\": \"Impaired Golgi Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show distended Golgi cisternae, abnormal lysosomes and multivesicular bodies, and a delay in brefeldin-A-induced retrograde fusion of Golgi membranes with the endoplasmic reticulum. The delay is specific: it is absent in cells deficient for GORAB or PYCR1, the proteins behind two other autosomal recessive cutis laxa syndromes, so it is a property of the V-ATPase lesion rather than of cutis laxa generally.\\nElevated TGF-beta signalling accompanies it, with raised TGF-beta1 in the fibroblast supernatant.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"dermal fibroblast\"], \"biological_processes\": [\"retrograde transport from Golgi to endoplasmic reticulum\", \"TGF-beta receptor signaling\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is the commonest neurological finding in ATP6V0A2 disease and is one of the features that discriminates it from the other autosomal recessive cutis laxa genes. It is enriched in patients ascertained at a younger age.\\nBanded VERY_FREQUENT on the GeneReviews statement that nearly all affected individuals have seizures. The earlier band rested on an age-at-ascertainment association with a p value, which is not a frequency; GeneReviews supplies the frequency directly and supersedes it.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tropoelastin Secretion Block\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tropoelastin accumulates in the Golgi and forms abnormal intracellular and extracellular aggregates; pulse-chase confirms impaired secretion and increased intracellular retention, and insoluble-elastin assays show significantly reduced deposition of mature extracellular elastin. Apoptosis of elastogenic cells is increased.\\nTwo negatives from the same experiments are what localise the lesion, and they are worth as much as the positive finding. Fibrillin-1 microfibril assembly is normal, and secreted lysyl oxidase activity is normal. So the defect is in getting tropoelastin out of the cell, not in the microfibrillar scaffold it deposits onto and not in the cross-linking step that matures it.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"dermal fibroblast\"], \"biological_processes\": [\"elastic fiber assembly\", \"extracellular matrix organization\"], \"role\": \"effector\", \"locations\": [\"dermis\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"ATP6V0A2 patient dermal fibroblasts and siRNA-knockdown HeLa cells\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"This is where the secretion block was demonstrated, in cells carrying the patient\u0027s own genotype rather than in a heterologous overexpression system.\"}]}}], \"edges\": [{\"source\": \"Biallelic ATP6V0A2 Loss of Function\", \"target\": \"Elevated Trans-Golgi Luminal pH\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated Trans-Golgi Luminal pH\", \"target\": \"Combined N- and O-Glycosylation Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated Trans-Golgi Luminal pH\", \"target\": \"Impaired Golgi Trafficking\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-Glycosylation Defect\", \"target\": \"Aberrant Cortical Neuron Migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Golgi Trafficking\", \"target\": \"Tropoelastin Secretion Block\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tropoelastin Secretion Block\", \"target\": \"Deficient Dermal Elastic Fiber Network\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-Seizure Medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATP6V0A2 patient dermal fibroblasts and siRNA-knockdown HeLa cells\", \"target\": \"Tropoelastin Secretion Block\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"This is where the secretion block was demonstrated, in cells carrying the patient\u0027s own genotype rather than in a heterologous overexpression system.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A cultured dermal fibroblast is not dermis, so the assay measures the cell\u0027s secretory behaviour and infers the tissue consequence. The mouse dermis-thickness measurement is what closes that gap.\"}, {\"source\": \"Atp6v0a2 knock-out mouse\", \"target\": \"Elevated Trans-Golgi Luminal pH\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Provides the direct pH measurement that defines this node, and the largest pH shift of the two models.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A null allele removes the protein entirely, so it cannot distinguish loss of proton transport from loss of any other function of the subunit. That is precisely what the knock-in below was made to do, and the two must be read together.\"}, {\"source\": \"Atp6v0a2 R755Q knock-in mouse\", \"target\": \"Elevated Trans-Golgi Luminal pH\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes that proton transport is the disease-relevant function: removing only the transport raises pH to 6.25 and reproduces the connective-tissue phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The pH shift is smaller than the null\u0027s, so the two models are not interchangeable, and a phenotype milder in this line than in the null could reflect either residual pumping or a retained non-pumping function of the protein.\"}, {\"source\": \"Atp6v0a2 R755Q knock-in mouse\", \"target\": \"Aberrant Cortical Neuron Migration\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the migration abnormality and the associated seizures, and links them to reduced O-mannosylation of alpha-dystroglycan.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Graded PARTIALLY_RECAPITULATES because of a specific discordance rather than a general species caveat. The knock-in shows more abnormal migration than the null despite a smaller pH shift, which the simple pH-dose model does not predict, and the human neuronal phenotype is characterised by imaging and clinical features rather than by the histology this readout measures.\"}, {\"source\": \"ATP6V0A2\", \"target\": \"Biallelic ATP6V0A2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6433,6 +6535,9 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6518,6 +6623,9 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6598,6 +6706,9 @@ This clinical feature is High myopia (HP:0011003). HP:0011003 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6666,6 +6777,9 @@ This clinical feature is Astigmatism (HP:0000483). HP:0000483 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The frequency band rests on four patients. It is FREQUENT because four of four were affected in a prospectively and uniformly examined cohort, not because four patients is a large series - a reader deciding whether to order corneal tomography should weigh both facts.</div>
@@ -6807,6 +6921,9 @@ This clinical feature is Large fontanelles (HP:0000239), qualified as congenital
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6875,6 +6992,9 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The systematic review reports &#34;high/cleft palate&#34; as one combined category, so this phenotype is curated once under HP:0000218 &#34;High palate&#34; rather than split into a high-palate and a cleft-palate entry with the same citation. Splitting it would double-count a single reported observation.
@@ -6951,6 +7071,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Bound to the general term HP:0001999 &#34;Abnormal facial shape&#34; on purpose. The specific features named in the literature - long philtrum, downslanting palpebral fissures - each have their own HP term, but the systematic review counted &#34;facial dysmorphism&#34; as one category, and curating the specific terms against that citation would attribute a specificity the source does not carry.</div>
@@ -7083,6 +7206,9 @@ This clinical feature is Cutis laxa (HP:0000973). HP:0000973 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7227,6 +7353,9 @@ This clinical feature is Coarse hair (HP:0002208), qualified as course progressi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7295,6 +7424,9 @@ This clinical feature is Atrophic scars (HP:0001075). HP:0001075 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7409,6 +7541,9 @@ This clinical feature is Congenital hip dislocation (HP:0001374), qualified as c
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7486,6 +7621,9 @@ This clinical feature is Type II transferrin isoform profile (HP:0012301). HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7625,6 +7763,9 @@ This clinical feature is Neonatal hypotonia (HP:0001319), qualified as neonatal 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7691,6 +7832,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7771,6 +7915,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7897,6 +8044,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8010,6 +8160,9 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
                     </div>
 
 
+
+
+
                     <div class="item-desc">An earlier revision carried the GeneReviews sentence &#34;The skin findings decrease with age...&#34; as a second evidence item here, on the argument that the contrast with the skin is what makes the regression point. That was wrong: the sentence is about the skin and does not support a regression phenotype, whatever it illuminates. It now sits on the cutis laxa phenotype where it is evidence, and the contrast is made in this description instead - which is prose&#39;s job, not an evidence item&#39;s.</div>
 
 
@@ -8083,6 +8236,9 @@ This clinical feature is Abnormal cortical gyration (HP:0002536). HP:0002536 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8211,6 +8367,9 @@ This clinical feature is Abnormal cerebellum morphology (HP:0001317). HP:0001317
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8322,6 +8481,9 @@ This disease-associated gene is ATP6V0A2 (hgnc:18481). hgnc:18481 is a gene from
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8478,6 +8640,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8488,6 +8653,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8582,6 +8750,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8592,6 +8763,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8708,6 +8882,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8718,6 +8895,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -12121,6 +12301,37 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Lump/split call. Wrinkly skin syndrome is curated as a has_subtypes entry rather than a separate disease, on the ground that the same ATP6V0A2 variants cause both and the gene-discovery paper ascertained the two labels together. The stub&#39;s MONDO context supported this: MONDO:0018163 lists exactly one descendant, MONDO:0010208 wrinkly skin syndrome.
+On frequency bands. Four phenotypes - seizures, developmental delay, high/cleft palate and facial dysmorphism - are curated FREQUENT on the strength of a systematic review that reports their association with age at ascertainment and its p value, not their prevalence. The band is therefore a coarse literature reading, and the p values in the snippets should not be mistaken for frequency data. Where a real denominator exists it is stated instead: 4/4 for the corneal finding, all-patients for the glycosylation abnormality.
+Terminology. The disease appears in the literature under at least four names - ARCL2A, ATP6V0A2-CDG, cutis laxa Debre type, and wrinkly skin syndrome - and they are indexed inconsistently. A search on any one of them alone will miss papers; the synonym list here is meant to be used.
+On the GeneReviews chapter, and how it was missed. PMID:20301755 (ATP6V0A2-Related Cutis Laxa) was absent from the first revision of this entry and is now the source for eleven phenotypes, the diagnosis section, two treatments and the counselling content on `inheritance`. Its absence was a process failure rather than a judgement call: the deep-research report did not surface it, and no GeneReviews-specific search was run to compensate. It is worth stating because the chapter turned out to supply exactly the frequency data whose absence the first revision&#39;s own notes complained about - the entry said &#34;no counted figures exist&#34; while a source giving them went unread.
+Three frequency bands moved as a result, all upward, and one phenotype (neurologic regression) was missing entirely while the entry described the disease as attenuating with age. That framing was true of the skin and the opposite of true for the brain.
+On histopathology. No `histopathology:` section is curated. Abnormal elastic fibres are the classic finding and are quoted on the elastic-fibre pathophysiology node, but no source fetched here describes the stain, the fibre morphology, or the biopsy site in quotable terms - and a histopathology entry saying only &#34;abnormal elastic fibres&#34; would duplicate the phenotype without adding the detail that section exists to carry.
+Not curated for want of quotable evidence in the sources fetched here: the founder exon 16 deletion reported in southeastern Turkiye, the heterotopic calcifications and progressive dysmorphism described in the oldest reported patient, and retinal and chorioretinal scarring (a single case report).
+Provenance. Built from primary literature with an OpenScientist deep-research report run alongside and committed under research/. The report supplied four of the eight references - the systematic review, the neurometabolic cutis laxa cohort, the ocular case series and the 2024 mouse study - each verified on PubMed and fetched through &#39;just fetch-reference&#39; before use. Two of the report&#39;s own suggestions were not followed: it proposed GO:0006486 for protein glycosylation, which its term-validation section correctly flagged as obsolete, and it labelled HP:0002269 &#34;Abnormal cortical gyration&#34; when that identifier is &#34;Abnormality of neuronal migration&#34; - this entry uses HP:0002536, which is the term that label names. It also gave ATP6V0A2 as HGNC:865, which is wrong; the correct identifier is hgnc:18481, as the curation stub recorded.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: GeneReviews mined, eleven phenotypes added, diagnosis section</strong> · 2026-08-29T12:53:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Cutis_Laxa_Type_2A/2026-08-29T125316Z-claude-code-7eeafe.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the automated reviewer&#39;s CHANGES_REQUESTED on PR 10042, including one blocking finding. The blocking item was a genuine process failure: PMID:20301755, the GeneReviews chapter ATP6V0A2-Related Cutis Laxa, was absent from the entry. The deep-research report did not surface it and no GeneReviews-specific search was run to compensate, so the entry asserted that counted frequency data did not exist while a source giving them went unread. The chapter is now tagged and mined across all four of its sections. Three frequency bands moved upward on its evidence: seizures and global developmental delay from FREQUENT to VERY_FREQUENT on nearly all affected individuals, and cortical gyration abnormality from OCCASIONAL to FREQUENT on most but not all. Eleven phenotypes were added: neurologic regression, cerebellar malformation, neonatal hypotonia, large fontanelles, coarse hair, high myopia, congenital hip dislocation, inguinal hernia, and easy bruising. Neurologic regression mattered most because the entry had described the disease as attenuating with age, which is true of the skin and the opposite of true for the brain. Added a diagnosis section covering combined transferrin and apolipoprotein C-III isoelectric focusing, molecular confirmation, and the surveillance schedule, and moved the ophthalmological surveillance entry there from treatments where it had been misfiled against its own description. Added anti-seizure medication and early developmental intervention as treatments, and recurrence risks and reproductive options to inheritance. Refined the cortical neuron cell type from CL:0000540 to CL:0010012. Recorded why no histopathology section is curated. Snippets 80/80 verified; full gate battery re-run clean.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autosomal Recessive Cutis Laxa Type 2A</strong> · 2026-08-29T12:17:47Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Cutis_Laxa_Type_2A/2026-08-29T121747Z-claude-code-15d01a.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of ARCL2A (biallelic ATP6V0A2 loss of function) from primary literature, with an OpenScientist deep-research report run alongside and committed under research/. Seven-node pathograph rooted on a single physical variable: loss of the trans-Golgi V-ATPase a2 subunit raises Golgi luminal pH, which forks into a combined N-/O-glycosylation defect and a Golgi trafficking defect; the trafficking arm blocks tropoelastin secretion and gives the deficient dermal elastic fibre network, and the glycosylation arm reaches aberrant cortical neuron migration via reduced alpha-dystroglycan O-mannosylation. Wrinkly skin syndrome curated as a has_subtypes entry rather than a separate disease. Eight references, all fetched via &#39;just fetch-reference&#39;; 58/58 snippets verified. Four references were leads the deep-research report surfaced and were independently verified on PubMed before use. Three of the report&#39;s own suggestions were rejected: an obsolete GO term its own validation flagged, a mislabelled HP identifier (HP:0002269 given as &#39;Abnormal cortical gyration&#39;; the entry uses HP:0002536), and a wrong HGNC identifier for ATP6V0A2. Two discussions: why a 78 percent null-allele spectrum shows no genotype-phenotype correlation and what severity is actually tracking, and a HUMAN_MODEL_MISMATCH on mouse globozoospermia never having been looked for in human patients. Validated with validate, validate-terms, count-verified-snippets, check-entity-refs, check-duplicate-keys and validate-disorders.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

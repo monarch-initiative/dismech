@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4234,6 +4287,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncorrected-non-restrictive-systemic-to-pulmonary-shunt" data-dismech-node="Uncorrected non-restrictive systemic-to-pulmonary shunt" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncorrected non-restrictive systemic-to-pulmonary shunt</div>
 
+
                 <div class="item-desc">The initiating lesion is a large congenital communication at the atrial, ventricular, or aortopulmonary level that is never closed, or is closed too late. Shunt level governs risk: post-tricuspid defects (ventricular septal defect, patent ductus arteriosus, atrioventricular septal defect, truncus arteriosus) transmit systemic pressure as well as flow to the pulmonary bed and carry much the higher risk, whereas pre-tricuspid atrial-level defects transmit volume alone and progress far less often and far later. Trisomy 21 with a post-tricuspid lesion accelerates the whole sequence.
 </div>
 
@@ -4357,6 +4411,7 @@ This pathophysiological event occurs in Heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shear-stress-mediated-pulmonary-endothelial-dysfunction" data-dismech-node="Shear-stress-mediated pulmonary endothelial dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Shear-stress-mediated pulmonary endothelial dysfunction</div>
+
 
                 <div class="item-desc">Pulmonary arterial endothelial cells exposed to sustained abnormal shear stress lose homeostatic function, shifting the balance from vasodilation toward vasoconstriction and proliferation. Nitric oxide and prostacyclin production fall while endothelin-1 rises. This is the same endothelial lesion that initiates idiopathic and heritable pulmonary arterial hypertension, reached here by a mechanical rather than a genetic route, which is why the three endothelium-directed drug classes developed for those diseases also work in Eisenmenger syndrome.
 </div>
@@ -4554,6 +4609,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-artery-smooth-muscle-proliferation-and-vasoconstriction" data-dismech-node="Pulmonary artery smooth muscle proliferation and vasoconstriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary artery smooth muscle proliferation and vasoconstriction</div>
 
+
                 <div class="item-desc">Paracrine signals from the dysfunctional endothelium drive a pro-proliferative, anti-apoptotic switch in pulmonary artery smooth muscle cells together with sustained vasoconstriction, increasing medial cellularity. This is the amplifying step shared with all forms of pulmonary arterial hypertension.
 </div>
 
@@ -4704,6 +4760,7 @@ This pathophysiological event involves increased smooth muscle cell proliferatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obstructive-pulmonary-vascular-remodeling" data-dismech-node="Obstructive pulmonary vascular remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Obstructive pulmonary vascular remodeling</div>
 
+
                 <div class="item-desc">Progressive structural obliteration of the small pulmonary arteries: medial hypertrophy, then intimal cellular proliferation and concentric fibrosis, then plexiform arteriopathy, the sequence graded histologically by Heath and Edwards. In situ thrombosis compounds the luminal loss. Once advanced, the lesion is irreversible, which is what converts a correctable congenital defect into an inoperable one.
 </div>
 
@@ -4850,6 +4907,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-pulmonary-vascular-resistance" data-dismech-node="Increased pulmonary vascular resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased pulmonary vascular resistance</div>
 
+
                 <div class="item-desc">Fixed structural obstruction plus a residual vasoconstrictive component raise pulmonary vascular resistance toward and beyond systemic levels. The degree of elevation and its reversibility on vasoreactivity testing are what determine whether any operability window remains.
 </div>
 
@@ -4936,6 +4994,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shunt-reversal-to-right-to-left-or-bidirectional-flow" data-dismech-node="Shunt reversal to right-to-left or bidirectional flow" data-dismech-type="pathophysiology">
                 <div class="item-name">Shunt reversal to right-to-left or bidirectional flow</div>
+
 
                 <div class="item-desc">The defining event. Once pulmonary vascular resistance matches or exceeds systemic resistance, deoxygenated blood crosses the defect into the systemic circulation instead of the reverse, producing chronic arterial hypoxaemia and central cyanosis. This node is what distinguishes Eisenmenger syndrome from every other form of pulmonary arterial hypertension and from earlier, still-operable stages of pulmonary arterial hypertension associated with congenital heart disease; it is deliberately not mapped onto the `pulmonary_vascular_remodeling` module, which has no counterpart for it.
 </div>
@@ -5058,6 +5117,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-to-left-shunt-as-a-protective-right-ventricular-pop-off" data-dismech-node="Right-to-left shunt as a protective right ventricular pop-off" data-dismech-type="pathophysiology">
                 <div class="item-name">Right-to-left shunt as a protective right ventricular pop-off</div>
 
+
                 <div class="item-desc">A genuinely counterintuitive node, and the reason management differs from every other severe pulmonary arterial hypertension. By venting the pressure-loaded right ventricle into the systemic circulation, the reversed shunt preserves cardiac output and defers right ventricular failure, so patients with Eisenmenger syndrome survive longer and have more favourable haemodynamics than adults with idiopathic pulmonary arterial hypertension at comparable pulmonary pressures. The therapeutic corollary is that closing the defect once the physiology is established removes the pop-off and precipitates right heart failure, which is why shunt closure is contraindicated rather than curative at this stage.
 </div>
 
@@ -5144,6 +5204,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-arterial-hypertension-with-right-ventricular-pressure-overload" data-dismech-node="Pulmonary arterial hypertension with right ventricular pressure overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary arterial hypertension with right ventricular pressure overload</div>
+
 
                 <div class="item-desc">Sustained elevation of pulmonary arterial pressure imposes chronic pressure overload on the right ventricle, driving hypertrophy and ultimately maladaptive remodeling and failure. Right heart failure remains the leading cause of death in the modern drug-therapy era, unchanged from before it.
 </div>
@@ -5299,6 +5360,7 @@ This pathophysiological event occurs in Right ventricle, annotated with heart ri
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-arrhythmia-and-conduction-system-disease" data-dismech-node="Atrial arrhythmia and conduction system disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial arrhythmia and conduction system disease</div>
+
 
                 <div class="item-desc">Chronic right atrial stretch and right ventricular pressure overload generate an arrhythmic substrate: atrial fibrillation, prolonged QRS duration, complete heart block, and right bundle branch block are all associated with sudden cardiac death in this population, and atrial fibrillation is by some margin the strongest independent predictor. This is the proximate route to the sudden deaths that make up a large share of mortality, and it is separable from the progressive pump failure that kills the rest. Notably, advanced pulmonary vasodilator therapy was strongly protective against sudden death in the same analysis.
 </div>
@@ -5467,6 +5529,7 @@ This pathophysiological event occurs in Right atrium, annotated with right cardi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-hypoxaemia-and-secondary-erythrocytosis" data-dismech-node="Chronic hypoxaemia and secondary erythrocytosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic hypoxaemia and secondary erythrocytosis</div>
 
+
                 <div class="item-desc">Sustained arterial desaturation drives renal erythropoietin release and an appropriate compensatory rise in red cell mass. The rise is adaptive, not pathological in itself, and the historical practice of routine venesection to lower it is now recognised as harmful because it induces iron deficiency. Iron-deficient erythrocytes are less deformable, and iron deficiency, not haematocrit, is what tracks with symptoms and stroke risk.
 </div>
 
@@ -5597,6 +5660,7 @@ This pathophysiological event occurs in Right atrium, annotated with right cardi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperviscosity-and-haemostatic-derangement" data-dismech-node="Hyperviscosity and haemostatic derangement" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperviscosity and haemostatic derangement</div>
 
+
                 <div class="item-desc">The haematologic consequence is bidirectional and awkward to manage: patients carry both a thrombotic tendency (in situ pulmonary artery thrombosis, paradoxical embolism) and a bleeding diathesis (haemoptysis, mucosal bleeding, perioperative haemorrhage). Pulmonary artery thrombosis in this disease tracks with biventricular dysfunction and slow pulmonary flow rather than with haematocrit or clotting-factor abnormalities, which argues for stasis rather than hypercoagulability as its proximate cause.
 </div>
 
@@ -5725,6 +5789,7 @@ This pathophysiological event occurs in Right atrium, annotated with right cardi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-pulmonary-filtration-of-venous-emboli" data-dismech-node="Loss of pulmonary filtration of venous emboli" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of pulmonary filtration of venous emboli</div>
 
+
                 <div class="item-desc">With a right-to-left shunt the pulmonary capillary bed no longer filters the venous return, so thrombi and septic emboli pass directly into the systemic arterial circulation. This is the mechanism behind paradoxical embolic stroke and behind cerebral abscess, and it is why meticulous air-filtering of intravenous lines and endocarditis prophylaxis matter more here than in an acyanotic patient.
 </div>
 
@@ -5811,6 +5876,7 @@ This pathophysiological event occurs in Right atrium, annotated with right cardi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-complications-of-chronic-cyanosis" data-dismech-node="Multisystem complications of chronic cyanosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem complications of chronic cyanosis</div>
+
 
                 <div class="item-desc">Beyond the heart and lungs, sustained cyanosis and high red cell turnover produce a recognisable multiorgan burden: hyperuricaemia and gout, pigment cholelithiasis from chronic hyperbilirubinaemia, renal impairment with proteinuria, hypertrophic osteoarthropathy, and neurologic events. These are what make Eisenmenger syndrome a systemic disease rather than a cardiopulmonary one.
 </div>
@@ -6035,6 +6101,9 @@ This clinical feature is Increased hematocrit (HP:0001899). HP:0001899 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6101,6 +6170,9 @@ This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6186,6 +6258,9 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6250,6 +6325,9 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6324,6 +6402,9 @@ This clinical feature is Right ventricular failure (HP:0001708). HP:0001708 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6388,6 +6469,9 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6459,6 +6543,9 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6553,6 +6640,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6661,6 +6751,9 @@ This clinical feature is Cholelithiasis (HP:0001081). HP:0001081 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6736,6 +6829,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6846,6 +6942,9 @@ This clinical feature is Central cyanosis (HP:0034032). HP:0034032 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6924,6 +7023,9 @@ This clinical feature is Clubbing (HP:0001217). HP:0001217 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6997,6 +7099,9 @@ This clinical feature is Gout (HP:0001997). HP:0001997 is a phenotype from the H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7082,6 +7187,9 @@ This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7148,6 +7256,9 @@ This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7258,6 +7369,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7322,6 +7436,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7442,6 +7559,9 @@ This disease-associated gene is BMPR2 (hgnc:1078). hgnc:1078 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7543,6 +7663,9 @@ This disease-associated gene is ACVRL1 (hgnc:175). hgnc:175 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-eng" data-dismech-node="ENG" data-dismech-type="genetic">
@@ -7582,6 +7705,9 @@ This disease-associated gene is ENG (hgnc:3349). hgnc:3349 is a gene from the HU
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-trisomy-21" data-dismech-node="Trisomy 21" data-dismech-type="genetic">
@@ -7599,6 +7725,9 @@ This disease-associated gene is ENG (hgnc:3349). hgnc:3349 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7750,6 +7879,9 @@ This treatment uses bosentan (CHEBI:51450). CHEBI:51450 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7760,6 +7892,9 @@ This treatment uses bosentan (CHEBI:51450). CHEBI:51450 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -8022,6 +8157,9 @@ This treatment uses sildenafil (CHEBI:9139). CHEBI:9139 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8032,6 +8170,9 @@ This treatment uses sildenafil (CHEBI:9139). CHEBI:9139 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -8250,6 +8391,9 @@ This treatment uses iloprost (CHEBI:63916). CHEBI:63916 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8260,6 +8404,9 @@ This treatment uses iloprost (CHEBI:63916). CHEBI:63916 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -8424,6 +8571,9 @@ This treatment uses iron(2+) (CHEBI:29033). CHEBI:29033 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8434,6 +8584,9 @@ This treatment uses iron(2+) (CHEBI:29033). CHEBI:29033 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -8613,6 +8766,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8623,6 +8779,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -11940,6 +12099,72 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Edit: Eisenmenger Syndrome - address PR #8269 review</strong> · 2026-08-09T20:55:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Eisenmenger_Syndrome/2026-08-09T205558Z-claude-code-fb8d36.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the ai4c-reviewer CHANGES_REQUESTED review on PR #8269 (0 critical, 4 important, 2 suggestions). All six items acted on.
+
+IMPORTANT 1 - missing arrhythmia/atrial fibrillation phenotype. Added an `Atrial fibrillation` phenotype (HP:0005110) carrying the 11.45-fold sudden-cardiac-death risk, and a new pathophysiology node `Atrial arrhythmia and conduction system disease` wired downstream of `Pulmonary arterial hypertension with right ventricular pressure overload`, so the arrhythmic route to sudden death now appears in the pathograph rather than only as prose. The reviewer suggested a downstream edge into the sudden-death phenotype; `downstream` targets are pathophysiology nodes, so the arrhythmic substrate was modeled as its own node instead, which is the structurally correct way to express the same claim. New reference fetched: PMID:32174228 (Determinants of Sudden Cardiac Death in Adult Patients With Eisenmenger Syndrome, 246 patients, two centres), which the deep-research report had cited only by PMC URL. Also curated from it: advanced pulmonary vasodilator therapy was strongly protective against sudden death, and heart-failure symptoms predicted overall mortality but NOT sudden death, which is the authors&#39; basis for inferring an arrhythmic cause.
+
+IMPORTANT 2 - missing syncope phenotype. Added `Syncope` (HP:0001279) at frequency OCCASIONAL from a documented 8.1% in the same 246-patient cohort. Curated with a correction the review did not anticipate: the review described syncope as a &#34;validated poor-prognosis predictor&#34;, and the largest dedicated sudden-death analysis in this disease found the opposite - prior syncope showed NO significant association with sudden cardiac death, cardiac mortality, or all-cause mortality. That null result is curated as a REFUTE evidence item and the phenotype description states the caveat explicitly, so the entry does not propagate the claim.
+
+IMPORTANT 3 - five cached-but-uncited PMIDs. Four are now cited: PMID:32565271 (UNOS analysis of 442 Eisenmenger transplants, added to the transplantation treatment with absolute bilateral-lung survival figures and the refractory-RV-failure indication), PMID:27054605 (systematic review, added to the endothelin antagonist treatment, including its own statement that the evidence does not settle when to start or escalate these drugs), PMID:11923814 (106-patient prognosis cohort with survival figures and two independent haemodynamic mortality predictors) and PMID:40204597 (risk stratification; cited both for the independent predictors and for the fact that no externally validated risk score exists). The fifth, PMID:28566473, CANNOT be cited: it is a Heart editorial comment whose PubMed record carries no abstract text, so no verifiable snippet exists. That is now stated explicitly in the entry&#39;s top-level notes, together with the fact that the same epidemiological decline is curated from PMID:39711759 which does state it quotably. Also replaced a weak BREATHE-5 open-label-extension snippet with the quantitative walk-distance result from the same abstract.
+
+IMPORTANT 4 - truncated snippet. The evidence item quoting PMID:17692749 ended mid-word at &#34;thrombosi&#34;. Replaced with a complete sentence from the same abstract giving the pulmonary artery diameter and peak systolic velocity findings, and the explanation was updated to match what the new quote actually says (dilated artery plus slow flow, rather than velocity alone).
+
+SUGGESTION 5 - CL term specificity. `CL:0000192` smooth muscle cell replaced with `CL:0002591` smooth muscle cell of the pulmonary artery, which matches the preferred_term exactly. Verified with OAK and by `just validate-terms`.
+
+SUGGESTION 6 - secondary omissions. Added: `Fatigue` (HP:0012378) as PARTIAL, since the sources name clinical heart failure symptoms rather than fatigue itself; a `biochemical` entry for brain natriuretic peptide as a prognostic marker, with the caveat that it is a risk marker and not part of any validated score; two `clinical_trials` entries for the MAESTRO programme (NCT01743001 phase 3 and NCT01739400 open-label extension), both fetched via `just fetch-reference` after an initial ClinicalTrials.gov 500 error resolved on retry, with the description recording that MAESTRO was negative for its primary endpoint, which is precisely why this entry curates bosentan rather than macitentan as the endothelin antagonist with Eisenmenger-specific randomised support; and an `ACVRL1 and ENG` genetic entry curated as DISPUTED rather than SUSCEPTIBILITY, because unlike BMPR2 no cohort has shown them enriched in congenital heart disease with pulmonary vascular disease relative to congenital heart disease without it - their only support here is inclusion on a clinical gene panel.
+
+The `has_subtypes` decision the reviewer asked to see justified is now stated in the entry&#39;s notes: progression risk is strongly lesion-dependent (nearly all unrepaired truncus arteriosus, about half of large VSDs, under a tenth of large ASDs), but that variation is a property of the underlying congenital defect rather than of Eisenmenger syndrome, which is the same entity once established regardless of which defect produced it. Splitting by lesion would model the antecedent, not the disease. The one place lesion identity genuinely changes management - transplant strategy selection - is curated on the transplantation treatment instead, and shunt level is carried in the trigger node description.
+
+Validation actually run and read after the changes:
+- `just validate kb/disorders/Eisenmenger_Syndrome.yaml` - passed (schema, terms, references).
+- `just count-verified-snippets` - 105/105 snippets verified against cached references, up from 85/85, 0 skipped by prefix.
+- `just validate-disorders kb/disorders/Eisenmenger_Syndrome.yaml` - passed. This is the batched pre-PR sweep CI runs.
+- `tests/test_data.py -k &#34;conforms_to_module_node or unique_name or subtype_foreign or treatment_mechanism or environmental_mechanism or graph or clinical_trial&#34;` - 5878 passed, exercising the new pathophysiology node&#39;s foreign keys and the two new clinical trial records.
+- `just compliance` - 97.9% global, 97.8% weighted. The small drop from 98.5% is expected and is a scoring artifact of adding new object types (biochemical, clinical_trials, an extra genetic entry) that introduce their own recommended-slot denominators; no previously satisfied slot regressed.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Eisenmenger Syndrome</strong> · 2026-08-09T20:09:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Eisenmenger_Syndrome/2026-08-09T200925Z-claude-code-ce0894.yaml">View source</a></p>
+                        <p class="research-review-text">Created a new KB entry for Eisenmenger syndrome (MONDO:0019944), the terminal stage of an uncorrected congenital systemic-to-pulmonary shunt and the most advanced form of pulmonary arterial hypertension associated with congenital heart disease.
+
+Deep research provider: claude_code, via `just research-disorder claude_code Eisenmenger_Syndrome` (research/Eisenmenger_Syndrome-deep-research-claude_code.md; 25 web searches, 31 turns, 44 citations, 317s). claude_code was used because no other provider&#39;s API key is present in this environment; it reuses the Claude Code credential.
+
+NEC preflight: `just preflight-dr` returned SKIP, because MONDO records no causal gene (RO:0004003) for this acquired physiologic end-state. The manual fallback was run and passed. Note the tool&#39;s gene-frequency line is misleading here and should not be read as a signal: its top hit &#34;PAH=35&#34; is the report&#39;s abbreviation for pulmonary arterial hypertension being matched as the phenylalanine hydroxylase gene symbol, an artifact of the heuristic lexicon. The genes genuinely discussed (BMPR2, ACVRL1, ENG) are PAH-pathway susceptibility genes appropriate to this disease. MONDO carries no OMIM xref for MONDO:0019944, so there was nothing to compare the report&#39;s OMIM 600799 against; that number is the BMPR2/heritable-PAH entry cited in the report&#39;s genetics section, not a claimed identifier for Eisenmenger syndrome. Report synonyms (Eisenmenger complex, Eisenmenger reaction, Eisenmenger physiology) match.
+
+GeneReviews: none exists. A PubMed search for `Eisenmenger GeneReviews[All Fields]` returned 0 results, expected for an acquired end-state of a congenital lesion rather than a Mendelian disorder. Recorded in the entry&#39;s top-level notes.
+
+Module conformance: this entry declares `conforms_to` against five nodes of the `pulmonary_vascular_remodeling` module (endothelial dysfunction, PASMC proliferation and vasoconstriction, obstructive remodeling, increased pulmonary vascular resistance, pulmonary arterial hypertension). The shunt-reversal node is deliberately NOT mapped: the module has no counterpart for it, and it is precisely what distinguishes Eisenmenger syndrome from idiopathic and heritable PAH. That deliberate non-mapping is stated in the node description so a future curator does not &#34;complete&#34; the mapping by mistake.
+
+Curated content: a twelve-node pathograph running from the uncorrected non-restrictive shunt through shear-stress endothelial dysfunction, PASMC proliferation, obstructive remodeling, rising pulmonary vascular resistance, shunt reversal, and onward to chronic hypoxaemia with secondary erythrocytosis, hyperviscosity with haemostatic derangement, loss of pulmonary filtration of emboli, and the multisystem complications of chronic cyanosis; 12 causal edges, all evidence-bearing. A deliberately counterintuitive node, &#34;Right-to-left shunt as a protective right ventricular pop-off&#34;, captures why this disease behaves unlike other severe PAH: the shunt that caused it now decompresses the right ventricle, which is why survival exceeds idiopathic PAH at comparable haemodynamics and why closing the defect is contraindicated rather than curative. Also 15 phenotypes across cardiovascular, haematologic, neurologic, renal, rheumatologic and gastrointestinal domains; 6 treatments (endothelin receptor antagonist, PDE5 inhibitor, prostanoid, iron replacement, transplantation) with target_mechanisms edges; 4 diagnostic modalities; 2 differential diagnoses, of which the operable-PAH-CHD one is the clinically decisive distinction because the two are managed in opposite directions; structured prevalence; clinical_burden HIGH; 2 genetic entries (BMPR2 SUSCEPTIBILITY with structured case_fractions, trisomy 21 RISK_FACTOR); and one CONTROVERSY discussion on the treat-and-repair strategy with a proposed registry study.
+
+Evidence discipline worth noting: several results are curated at reduced strength or as REFUTE rather than smoothed over. The EIGER iloprost study improved walk distance and quality of life but explicitly did NOT improve pulmonary artery pressure or resistance, curated as a REFUTE item so the drug is not presented as resistance-lowering. Adding sildenafil to bosentan did not improve walk distance though it did raise resting saturation, curated PARTIAL. Pulmonary artery thrombosis was shown NOT to differ by haemoglobin or haematocrit, curated to argue against erythrocytosis as its driver. The systematic review correcting for immortal time bias, finding no survival improvement in treatment-naive patients across four decades, is curated alongside the modern survival figures rather than in place of them.
+
+Five ontology errors in the deep-research output were caught and corrected by independent OAK lookup, all of them ID/label mismatches where the cited ID belongs to an unrelated concept: HP:0007204 claimed as &#34;Central cyanosis&#34; is Diffuse white matter abnormalities (correct: HP:0034032); HP:0100738 claimed as &#34;Brain abscess&#34; is Abnormal eating behavior (correct: HP:0030049); HP:0040217 claimed as hypertrophic pulmonary osteoarthropathy is Elevated hemoglobin A1c (no HPO term for that phenotype exists, so it was omitted rather than substituted); CL:0002544 claimed as &#34;pulmonary artery endothelial cell&#34; is aortic endothelial cell (correct: CL:1001568); hgnc:11177 claimed as SMAD9 is SOAT1 (correct: hgnc:6774, though SMAD9 was ultimately not curated). The report self-flagged a sixth (HP:0002804) as inexact. By contrast every PMID the report cited was real and correctly attributed, checked by esummary lookup - the failure mode in this provider is ontology identifiers, not citations.
+
+Three further term errors were my own, not the report&#39;s, and were caught by `just validate-terms`: NCIT:C38084 and NCIT:C51948 were guessed rather than looked up (correct: NCIT:C38085 Pulse Oximetry, NCIT:C28133 Blood Cell Count), and MONDO:0015924 for idiopathic PAH is the parent term (correct: MONDO:0001999).
+
+Datasets: added geo:GSE126322 with an explicit note that it contains NO Eisenmenger and no congenital heart disease samples. It is human pulmonary artery endothelial cell chromatin profiling in pulmonary arterial hypertension, included only because the entry conforms to the shared endothelial-dysfunction module node; no evidence item cites it and it cannot support an Eisenmenger-specific claim. All 12 discovery candidates were gene-only BMPR2 matches with no congenital-heart-disease content.
+
+Validation actually run and read:
+- `just validate kb/disorders/Eisenmenger_Syndrome.yaml` - passed (schema, terms, references).
+- `just count-verified-snippets` - 85/85 snippets verified against cached references, 0 skipped by prefix.
+- `just validate-disorders kb/disorders/Eisenmenger_Syndrome.yaml` - passed. This is the batched pre-PR sweep CI runs.
+- `just verify-datasets` - 1/1 OK.
+- `tests/test_data.py -k &#34;conforms_to_module_node or unique_name or subtype_foreign or treatment_mechanism or environmental_mechanism or graph&#34;` - 5878 passed, which exercises the five new module conformance references and the pathograph foreign keys.
+- `just compliance` - 98.5% global, 98.5% weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

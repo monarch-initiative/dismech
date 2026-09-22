@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5032,6 +5085,13 @@ This experiment is of type Patient-cell proteomics plus isogenic iPSC allelic se
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-asxl1-truncation-disrupts-epigenetic-regulation-of-developmental-gene-expression" data-dismech-node="ASXL1 truncation disrupts epigenetic regulation of developmental gene expression" data-dismech-type="pathophysiology">
                 <div class="item-name">ASXL1 truncation disrupts epigenetic regulation of developmental gene expression</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Late protein-truncating ASXL1 variants disrupt the protein&#39;s chromatin regulatory function and alter developmental transcriptional programs across tissues. The variants should not be represented as simple ASXL1 depletion: available patient-cell data support escape from nonsense-mediated decay, while the relative contributions of lost full-length function, dominant-negative activity, and gain of function remain unresolved.</div>
 
 
@@ -5131,6 +5191,8 @@ This genetic context concerns ASXL1 (hgnc:18318). hgnc:18318 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -5143,6 +5205,9 @@ This genetic context concerns ASXL1 (hgnc:18318). hgnc:18318 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">De novo heterozygous protein-truncating ASXL1 alleles clustered in the last exons. Recorded as UNKNOWN: the alleles are expected to escape nonsense-mediated decay, and whether the truncated protein merely lacks full-length repressive function (mechanistic_hypotheses#asxl1_loss_of_full_length_function) or acts dominantly or with gained activity (mechanistic_hypotheses#asxl1_truncated_protein_dominant_or_gain) is the open question the bos_truncation_molecular_consequence discussion records.</div>
 
@@ -5435,6 +5500,13 @@ This pathophysiological event involves abnormal regulation of transcription by R
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-asxl1-truncation-dysregulates-wnt-signaling-and-tissue-patterning" data-dismech-node="ASXL1 truncation dysregulates Wnt signaling and tissue patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">ASXL1 truncation dysregulates Wnt signaling and tissue patterning</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Multiomics studies in patient-derived cells show canonical and noncanonical Wnt pathway perturbation, including broad activation of canonical Wnt signaling and increased VANGL2 expression. The cell-level signal is replicated across blood and fibroblast assays, but its causal translation to embryonic craniofacial and organ phenotypes remains provisional because the study examined differentiated postnatal cells.</div>
 
 
@@ -5702,7 +5774,7 @@ This pathophysiological event involves abnormal Wnt signaling pathway, planar ce
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASXL1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ASXL1\"], \"gene_terms\": [{\"label\": \"ASXL1\", \"id\": \"hgnc:18318\"}], \"association\": \"Heterozygous protein-truncating pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Late protein-truncating ASXL1 variants disrupt the protein\u0027s chromatin regulatory function and alter developmental transcriptional programs across tissues. The variants should not be represented as simple ASXL1 depletion: available patient-cell data support escape from nonsense-mediated decay, while the relative contributions of lost full-length function, dominant-negative activity, and gain of function remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"epigenetic regulation of gene expression\", \"chromatin remodeling\", \"regulation of transcription by RNA polymerase II\"], \"genes\": [\"ASXL1\"], \"gene_terms\": [{\"label\": \"ASXL1\", \"id\": \"hgnc:18318\", \"modifier\": \"ABNORMAL\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"De novo heterozygous protein-truncating ASXL1 alleles clustered in the last exons. Recorded as UNKNOWN: the alleles are expected to escape nonsense-mediated decay, and whether the truncated protein merely lacks full-length repressive function (mechanistic_hypotheses#asxl1_loss_of_full_length_function) or acts dominantly or with gained activity (mechanistic_hypotheses#asxl1_truncated_protein_dominant_or_gain) is the open question the bos_truncation_molecular_consequence discussion records.\", \"gene_terms\": [{\"label\": \"ASXL1\", \"id\": \"hgnc:18318\"}]}}}, {\"id\": \"ASXL1 truncation dysregulates Wnt signaling and tissue patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiomics studies in patient-derived cells show canonical and noncanonical Wnt pathway perturbation, including broad activation of canonical Wnt signaling and increased VANGL2 expression. The cell-level signal is replicated across blood and fibroblast assays, but its causal translation to embryonic craniofacial and organ phenotypes remains provisional because the study examined differentiated postnatal cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\", \"canonical Wnt signaling pathway\", \"Wnt signaling pathway, planar cell polarity pathway\"], \"genes\": [\"ASXL1\"], \"gene_terms\": [{\"label\": \"ASXL1\", \"id\": \"hgnc:18318\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Characteristic BOS posture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The typical flexed elbow, wrist, and metacarpophalangeal posture is a defining BOS clinical sign.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001376\"}}, {\"id\": \"Cyclic vomiting prevention and early abortive treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Identify and avoid individual emesis triggers, consider daily preventive medication, and use an early abortive antiemetic plan. Controlling severe vomiting can reduce dehydration, aspiration, hospitalization, and infectious exposure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Enteral feeding support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gastrostomy or gastrojejunal tube feeding is commonly used when oral intake is inadequate because of severe feeding difficulty and cyclic emesis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor postnatal weight gain and failure to thrive are common in BOS and are strongly influenced by feeding difficulty.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding intolerance, often with cyclic vomiting or aspiration, is a major early-life BOS complication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is common in BOS and reflects pervasive neurodevelopmental impairment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"High myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe or high myopia is a characteristic ocular manifestation and motivates regular vision follow-up.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011003\"}}, {\"id\": \"Hypertrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrichosis is a recurrent dysmorphic feature in BOS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000998\"}}, {\"id\": \"Intrauterine growth restriction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prenatal growth restriction is a common early component of the BOS growth phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001511\"}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micrognathia is part of the characteristic BOS craniofacial gestalt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000347\"}}, {\"id\": \"Nephroblastoma (Wilms tumor)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Individuals with BOS appear to have an elevated risk of Wilms tumor, motivating surveillance in childhood.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002667\"}}, {\"id\": \"Nevus flammeus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Glabellar and eyelid nevus flammeus is part of the characteristic BOS facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001052\"}}, {\"id\": \"Obstructive sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea is an important airway complication that may require polysomnography and escalating respiratory or craniofacial management.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002870\"}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infections contribute substantially to early-life morbidity but often become less frequent with age.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002719\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are common in BOS and are generally responsive to standard antiseizure treatment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe intellectual disability is a defining BOS neurodevelopmental manifestation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010864\"}}, {\"id\": \"Sleep-apnea and aspiration-related airway management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Consider polysomnography and craniofacial or respiratory evaluation. Management can include noninvasive positive airway pressure, craniofacial surgery, or tracheostomy when severe obstructive apnea or aspiration-related lung disease is not adequately controlled.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Standard antiseizure management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treat seizures with standard syndrome-appropriate antiseizure medication and neurologic follow-up; no BOS-specific antiseizure regimen has been established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Trigonocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Trigonocephaly or a prominent metopic ridge is a recurring cranial shape abnormality in BOS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000243\"}}], \"edges\": [{\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Severe intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted developmental gene expression contributes to profound neurodevelopmental impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted developmental gene expression contributes to broad developmental delay across motor, language, and adaptive domains.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASXL1-related developmental dysregulation is associated with recurrent seizures, but the intervening neural-circuit mechanism is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent infection is part of the early-life BOS phenotype, although a specific immune mechanism has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial and upper-airway abnormalities contribute to obstructive sleep apnea, but the path from ASXL1 dysregulation remains incompletely specified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"High myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe myopia is a recurrent ocular manifestation of the ASXL1-related syndrome; its intervening developmental mechanism is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Intrauterine growth restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prenatal growth restriction is a common early manifestation, although the specific downstream growth pathway is not known.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth failure follows the developmental and feeding phenotype of BOS.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted development and hypotonia contribute to feeding intolerance and poor oral intake.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Hypertrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASXL1-related developmental gene-expression disruption is associated with the characteristic BOS hypertrichosis phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Characteristic BOS posture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The typical flexed elbow, wrist, and metacarpophalangeal posture is part of the ASXL1-related developmental syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Nephroblastoma (Wilms tumor)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutional ASXL1 truncation is associated with increased Wilms tumor surveillance concern in BOS, although the intervening tumor mechanism is not fully specified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation dysregulates Wnt signaling and tissue patterning\", \"target\": \"Trigonocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed craniofacial patterning contributes to abnormal skull shape and metopic ridge prominence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation dysregulates Wnt signaling and tissue patterning\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed craniofacial development contributes to the characteristic small jaw phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation dysregulates Wnt signaling and tissue patterning\", \"target\": \"Nevus flammeus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed tissue patterning in BOS is associated with the glabellar and eyelid nevus flammeus component of the craniofacial gestalt.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enteral feeding support\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cyclic vomiting prevention and early abortive treatment\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sleep-apnea and aspiration-related airway management\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Standard antiseizure management\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ASXL1\", \"target\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASXL1\", \"target\": \"ASXL1 truncation dysregulates Wnt signaling and tissue patterning\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASXL1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ASXL1\"], \"gene_terms\": [{\"label\": \"ASXL1\", \"id\": \"hgnc:18318\"}], \"association\": \"Heterozygous protein-truncating pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Late protein-truncating ASXL1 variants disrupt the protein\u0027s chromatin regulatory function and alter developmental transcriptional programs across tissues. The variants should not be represented as simple ASXL1 depletion: available patient-cell data support escape from nonsense-mediated decay, while the relative contributions of lost full-length function, dominant-negative activity, and gain of function remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"epigenetic regulation of gene expression\", \"chromatin remodeling\", \"regulation of transcription by RNA polymerase II\"], \"genes\": [\"ASXL1\"], \"gene_terms\": [{\"label\": \"ASXL1\", \"id\": \"hgnc:18318\", \"modifier\": \"ABNORMAL\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"De novo heterozygous protein-truncating ASXL1 alleles clustered in the last exons. Recorded as UNKNOWN: the alleles are expected to escape nonsense-mediated decay, and whether the truncated protein merely lacks full-length repressive function (mechanistic_hypotheses#asxl1_loss_of_full_length_function) or acts dominantly or with gained activity (mechanistic_hypotheses#asxl1_truncated_protein_dominant_or_gain) is the open question the bos_truncation_molecular_consequence discussion records.\", \"gene_terms\": [{\"label\": \"ASXL1\", \"id\": \"hgnc:18318\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"ASXL1 truncation dysregulates Wnt signaling and tissue patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiomics studies in patient-derived cells show canonical and noncanonical Wnt pathway perturbation, including broad activation of canonical Wnt signaling and increased VANGL2 expression. The cell-level signal is replicated across blood and fibroblast assays, but its causal translation to embryonic craniofacial and organ phenotypes remains provisional because the study examined differentiated postnatal cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\", \"canonical Wnt signaling pathway\", \"Wnt signaling pathway, planar cell polarity pathway\"], \"genes\": [\"ASXL1\"], \"gene_terms\": [{\"label\": \"ASXL1\", \"id\": \"hgnc:18318\", \"modifier\": \"ABNORMAL\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Characteristic BOS posture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The typical flexed elbow, wrist, and metacarpophalangeal posture is a defining BOS clinical sign.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001376\"}}, {\"id\": \"Cyclic vomiting prevention and early abortive treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Identify and avoid individual emesis triggers, consider daily preventive medication, and use an early abortive antiemetic plan. Controlling severe vomiting can reduce dehydration, aspiration, hospitalization, and infectious exposure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Enteral feeding support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gastrostomy or gastrojejunal tube feeding is commonly used when oral intake is inadequate because of severe feeding difficulty and cyclic emesis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor postnatal weight gain and failure to thrive are common in BOS and are strongly influenced by feeding difficulty.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding intolerance, often with cyclic vomiting or aspiration, is a major early-life BOS complication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is common in BOS and reflects pervasive neurodevelopmental impairment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"High myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe or high myopia is a characteristic ocular manifestation and motivates regular vision follow-up.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011003\"}}, {\"id\": \"Hypertrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrichosis is a recurrent dysmorphic feature in BOS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000998\"}}, {\"id\": \"Intrauterine growth restriction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prenatal growth restriction is a common early component of the BOS growth phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001511\"}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micrognathia is part of the characteristic BOS craniofacial gestalt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000347\"}}, {\"id\": \"Nephroblastoma (Wilms tumor)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Individuals with BOS appear to have an elevated risk of Wilms tumor, motivating surveillance in childhood.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002667\"}}, {\"id\": \"Nevus flammeus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Glabellar and eyelid nevus flammeus is part of the characteristic BOS facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001052\"}}, {\"id\": \"Obstructive sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea is an important airway complication that may require polysomnography and escalating respiratory or craniofacial management.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002870\"}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infections contribute substantially to early-life morbidity but often become less frequent with age.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002719\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are common in BOS and are generally responsive to standard antiseizure treatment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe intellectual disability is a defining BOS neurodevelopmental manifestation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010864\"}}, {\"id\": \"Sleep-apnea and aspiration-related airway management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Consider polysomnography and craniofacial or respiratory evaluation. Management can include noninvasive positive airway pressure, craniofacial surgery, or tracheostomy when severe obstructive apnea or aspiration-related lung disease is not adequately controlled.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Standard antiseizure management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treat seizures with standard syndrome-appropriate antiseizure medication and neurologic follow-up; no BOS-specific antiseizure regimen has been established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Trigonocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Trigonocephaly or a prominent metopic ridge is a recurring cranial shape abnormality in BOS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000243\"}}], \"edges\": [{\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Severe intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted developmental gene expression contributes to profound neurodevelopmental impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted developmental gene expression contributes to broad developmental delay across motor, language, and adaptive domains.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASXL1-related developmental dysregulation is associated with recurrent seizures, but the intervening neural-circuit mechanism is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent infection is part of the early-life BOS phenotype, although a specific immune mechanism has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial and upper-airway abnormalities contribute to obstructive sleep apnea, but the path from ASXL1 dysregulation remains incompletely specified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"High myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe myopia is a recurrent ocular manifestation of the ASXL1-related syndrome; its intervening developmental mechanism is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Intrauterine growth restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prenatal growth restriction is a common early manifestation, although the specific downstream growth pathway is not known.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth failure follows the developmental and feeding phenotype of BOS.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted development and hypotonia contribute to feeding intolerance and poor oral intake.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Hypertrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASXL1-related developmental gene-expression disruption is associated with the characteristic BOS hypertrichosis phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Characteristic BOS posture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The typical flexed elbow, wrist, and metacarpophalangeal posture is part of the ASXL1-related developmental syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"target\": \"Nephroblastoma (Wilms tumor)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutional ASXL1 truncation is associated with increased Wilms tumor surveillance concern in BOS, although the intervening tumor mechanism is not fully specified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation dysregulates Wnt signaling and tissue patterning\", \"target\": \"Trigonocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed craniofacial patterning contributes to abnormal skull shape and metopic ridge prominence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation dysregulates Wnt signaling and tissue patterning\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed craniofacial development contributes to the characteristic small jaw phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ASXL1 truncation dysregulates Wnt signaling and tissue patterning\", \"target\": \"Nevus flammeus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed tissue patterning in BOS is associated with the glabellar and eyelid nevus flammeus component of the craniofacial gestalt.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enteral feeding support\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cyclic vomiting prevention and early abortive treatment\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sleep-apnea and aspiration-related airway management\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Standard antiseizure management\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ASXL1\", \"target\": \"ASXL1 truncation disrupts epigenetic regulation of developmental gene expression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASXL1\", \"target\": \"ASXL1 truncation dysregulates Wnt signaling and tissue patterning\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5773,6 +5845,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5856,6 +5931,9 @@ This clinical feature is High myopia (HP:0011003). HP:0011003 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5929,6 +6007,9 @@ This clinical feature is Nephroblastoma (HP:0002667). HP:0002667 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6012,6 +6093,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6076,6 +6160,9 @@ This clinical feature is Trigonocephaly (HP:0000243). HP:0000243 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6159,6 +6246,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6237,6 +6327,9 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6301,6 +6394,9 @@ This clinical feature is Port-wine stain, annotated with Nevus flammeus (HP:0001
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6386,6 +6482,9 @@ This clinical feature is Characteristic BOS posture, annotated with Limitation o
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6464,6 +6563,9 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6528,6 +6630,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6602,6 +6707,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6666,6 +6774,9 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6751,6 +6862,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6815,6 +6929,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6933,6 +7050,9 @@ This disease-associated gene is ASXL1 (hgnc:18318). hgnc:18318 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 
@@ -7095,6 +7215,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Gastrostomy or gastrojejunal tube feeding is commonly used when oral intake is inadequate because of severe feeding difficulty and cyclic emesis.</div>
 
 
@@ -7238,6 +7364,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Identify and avoid individual emesis triggers, consider daily preventive medication, and use an early abortive antiemetic plan. Controlling severe vomiting can reduce dehydration, aspiration, hospitalization, and infectious exposure.</div>
 
 
@@ -7343,6 +7475,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7474,6 +7612,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Treat seizures with standard syndrome-appropriate antiseizure medication and neurologic follow-up; no BOS-specific antiseizure regimen has been established.</div>
 
 
@@ -7579,6 +7723,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7700,6 +7850,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10464,6 +10620,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Edit: Bohring-Opitz syndrome - promote assessed provider findings</strong> · 2026-09-07T18:57:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bohring-Opitz_syndrome/2026-09-07T185730Z-claude-code-c590cd.yaml">View source</a></p>
+                        <p class="research-review-text">Screened the entry&#39;s contested-mechanism hypothesis with the OpenScientist hypothesis deep-research runner, assessed the report into kb/hypotheses/&lt;disease&gt;/&lt;hypothesis_id&gt;/assessments/, and promoted only claims that survived that review. Bohring-Opitz gained three references: direct protein-level detection of truncated ASXL1 and sufficiency of a truncated fragment for neural-crest defects on the dominant/gain side, and constitutive Asxl1 deletion reproducing BOS-like malformations on the loss side, with the controversy rationale widened accordingly. Arboleda-Tham gained no new evidence; its late-truncating hypothesis was reframed as a severity modifier layered on a haploinsufficiency baseline rather than a competing primary mechanism. ADNP gained two items from one paper, mutant mRNA detected in patient blood supporting the branch premise and a systematic failure to detect mutant protein in patient material recorded as REFUTE, with the hypothesis description amended so it no longer implies the question is merely unexamined. The variant functional_impact_category stays UNKNOWN in all three: no run performed the comparison that would settle it, and nothing from any provider computational analysis was promoted because every bundle omitted the manifest and code it claimed. Validated with linkml-validate, the reference snippet audit, term validation, and the snippet-grading, enum, duplicate-key, entity-ref, title-snippet and reference-title checks.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

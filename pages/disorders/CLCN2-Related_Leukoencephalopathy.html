@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5171,6 +5224,7 @@ Penetrance is recorded as UNKNOWN rather than complete, and the reason is specif
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-loss-of-function-clcn2-variants" data-dismech-node="Biallelic Loss-of-Function CLCN2 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Loss-of-Function CLCN2 Variants</div>
 
+
                 <div class="item-desc">The primary lesion is biallelic damage to CLCN2 at 3q27, encoding the ClC-2 chloride channel. The reported allelic spectrum is broad and includes nonsense (p.Trp570*, p.Arg610*, p.Arg753*), frameshift (c.61dupC, p.Leu21Profs*27), canonical splice (c.983+2T&gt;A) and missense (p.Ala500Val, p.Ala506Val, p.His590Pro) changes. No consistent genotype-phenotype correlation has been established across that spectrum - the same class of allele has been reported in a subclinical adult and in a child with severe spastic paraplegia - which is why this entry does not model severity as an allelic property the way an entry with a defined hypomorph would.</div>
 
 
@@ -5266,6 +5320,8 @@ This genetic context concerns CLCN2 (hgnc:2020). hgnc:2020 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5276,6 +5332,9 @@ This genetic context concerns CLCN2 (hgnc:2020). hgnc:2020 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic CLCN2 alleles (homozygous or compound heterozygous). Recorded as LOSS_OF_FUNCTION on the basis of functional expression studies showing loss of ClC-2 channel function.</div>
 
@@ -5398,6 +5457,7 @@ This genetic context concerns CLCN2 (hgnc:2020). hgnc:2020 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-clc-2-channel-function-and-surface-expression" data-dismech-node="Reduced ClC-2 Channel Function and Surface Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced ClC-2 Channel Function and Surface Expression</div>
+
 
                 <div class="item-desc">ClC-2 is a broadly expressed plasma membrane chloride channel modulated by voltage, cell swelling and pH, and it is the one mammalian CLC homolog that is activated by hyperpolarization rather than by depolarization. Cryo-EM of the human channel places the gate in an N-terminal 15-residue hairpin peptide that occludes the chloride permeation pathway from the cytoplasmic side - a ball-and-chain mechanism - and that hairpin is conserved among species variants of CLC-2 but absent from the other CLC homologs. Against that background, the leukodystrophy-causing alleles act by two separable routes rather than one. Functional characterisation of most of the reported disease alleles showed that they reduce channel function AND impair plasma membrane expression, and dissection of p.Ala500Val attributed the loss to both defective gating and increased cellular and plasma-membrane turnover. The practical consequence is that a variant can be pathogenic here without abolishing the protein: a partly mistrafficked, partly mis-gated channel is sufficient.</div>
 
@@ -5655,6 +5715,7 @@ This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-glialcam-mlc1-clc-2-glial-complex-function" data-dismech-node="Impaired GlialCAM-MLC1-ClC-2 Glial Complex Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired GlialCAM-MLC1-ClC-2 Glial Complex Function</div>
+
 
                 <div class="item-desc">ClC-2 does not act alone in glia. GlialCAM (HGNC-approved symbol HEPACAM) is its auxiliary subunit: it binds ClC-2, targets it to cell junctions, increases the currents it carries and changes its functional properties, and it does the same for MLC1, so the three proteins behave as one glial complex. This node matters for two reasons that pull in opposite directions. First, GlialCAM and MLC1 partially rescue disease-causing ClC-2 mutants - GlialCAM restores mutant function by modifying gating and restores surface levels by impeding turnover, and that rescue requires ClC-2 to be localised at cell-cell junctions - so the residual severity of a CLCN2 allele in vivo is set jointly by the allele and by how much the partners can compensate. Second, the same complex is the point of convergence with megalencephalic leukoencephalopathy with subcortical cysts: MLC1 and HEPACAM are the MLC genes, GlialCAM is important for modifying ClC-2&#39;s biophysical properties specifically in oligodendrocytes, the cells chiefly affected by vacuolization, and mouse Glialcam and Mlc1 nulls vacuolate myelin much as Clcn2 nulls do.
 The compensation is nonetheless not the whole story of the MLC side of the axis. Crossing Glialcam-null mice to a knock-in carrying a constitutively open ClC-2 did not rescue their leukodystrophy, from which the authors conclude that GlialCAM-induced changes in the biophysical properties of ClC-2 are irrelevant for GLIALCAM-related leukodystrophy. That is a negative result about MLC pathogenesis, not about this disorder, and it is recorded here so the complex is not overread as a single shared mechanism.</div>
@@ -5997,6 +6058,7 @@ This pathophysiological event involves astrocyte end-foot (GO:0097450). GO:00974
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-clc-2-from-the-panglial-syncytium" data-dismech-node="Loss of ClC-2 from the Panglial Syncytium" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ClC-2 from the Panglial Syncytium</div>
 
+
                 <div class="item-desc">The cellular substrate of the disease is the panglial syncytium - the coupled network of astrocytes, oligodendrocytes and ependymal cells that handles ion and water movement between the vasculature, the interstitium and the myelin. ClC-2 was detected in all components of that syncytium in normal human brain, enriched in astrocytic endfeet at the perivascular basal lamina, in the glia limitans and in ependymal cells. Removing it does not damage neurons: in the knockout mouse, neuronal morphology seemed normal while the white matter vacuolated. Conditional deletion resolves the requirement further, and the answer is that neither glial cell type alone is sufficient - leukodystrophy was fully developed only when ClC-2 was disrupted in both astrocytes and oligodendrocytes. That two-cell requirement is the strongest available argument that the lesion is a failure of the coupled syncytium rather than of a single cell type.</div>
 
 
@@ -6315,6 +6377,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-glial-chloride-and-extracellular-ion-homeostasis" data-dismech-node="Failure of Glial Chloride and Extracellular Ion Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Glial Chloride and Extracellular Ion Homeostasis</div>
+
 
                 <div class="item-desc">With the dominant resting chloride conductance of the glial network removed, the syncytium can no longer buffer the ion and water fluxes that accompany neuronal activity. The founding study framed the disorder in exactly these terms - it belongs to an emerging group of disorders affecting brain ion and water homoeostasis - and the mouse work reaches the same conclusion from the other direction, attributing the pathology of Clcn2 disruption to disturbed extracellular ion homeostasis. Chloride is the primary carrier, but the consequence is not chloride-specific: glial potassium clearance during high neuronal activity requires an accompanying anion flux, and water follows osmotically, so a chloride conductance defect presents as a volume and water problem. The channel&#39;s own modulation by cell swelling closes that loop, making ClC-2 both an effector and a sensor of glial volume.</div>
 
@@ -6678,6 +6741,7 @@ This pathophysiological event involves dysregulated multicellular organismal-lev
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intramyelinic-oedema-and-myelin-vacuolation" data-dismech-node="Intramyelinic Oedema and Myelin Vacuolation" data-dismech-type="pathophysiology">
                 <div class="item-name">Intramyelinic Oedema and Myelin Vacuolation</div>
 
+
                 <div class="item-desc">The lesion that defines the disease is fluid accumulating within the myelin sheath itself. In the knockout mouse the white matter of brain and spinal cord developed widespread vacuolation that progressed with age, with fluid-filled spaces appearing between myelin sheaths of the central but not the peripheral nervous system. The peripheral sparing is diagnostically important and is not incidental: it says the lesion tracks the panglial syncytium, which is a CNS structure, rather than myelin as such.
 Naming this correctly matters clinically. This is oedema, not demyelination and not hypomyelination: the myelin is present and the water is between its lamellae. That is why the MRI shows restricted diffusion rather than the free-water signal of myelin loss, why the disease is compatible with decades of near-normal function, and why the imaging can look far worse than the patient.</div>
 
@@ -6925,6 +6989,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tract-selective-white-matter-involvement" data-dismech-node="Tract-Selective White Matter Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Tract-Selective White Matter Involvement</div>
 
+
                 <div class="item-desc">The oedema is not distributed at random. In adults it is confined to the posterior limbs of the internal capsules, the midbrain cerebral peduncles and the middle cerebellar peduncles; in children it involves the cerebral white matter more diffusely as well. The 2024 series found this pattern in all twelve patients and the Japanese series used it as the screening criterion, so it is the most reproducible feature of the disease. Why these particular tracts is unresolved and is filed as a knowledge gap below; the honest statement is that the selectivity is an empirical fact without a mechanistic explanation, and that no property of the panglial syncytium has been shown to differ in these tracts.</div>
 
 
@@ -7121,6 +7186,7 @@ This pathophysiological event occurs in cerebral white matter, annotated with ce
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-conduction-in-affected-white-matter-tracts" data-dismech-node="Impaired Conduction in Affected White Matter Tracts" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Conduction in Affected White Matter Tracts</div>
 
+
                 <div class="item-desc">Fluid between myelin lamellae degrades saltatory conduction without destroying the axon. The direct measurement comes from the mouse, where despite widespread vacuolation the neurological deficits were mild and included a decreased conduction velocity in neurons of the central auditory pathway. That single observation is the mechanistic bridge from the imaging lesion to the clinical picture, and it also explains the shape of the clinical picture: slowed conduction in the affected tracts, not axonal loss, which is why the deficits are mild, why they are dominated by the tracts that happen to be involved, and why hearing loss and tinnitus appear in a disorder that does not otherwise look otological. Human tractography in one patient found reduced fibre number and increased radial diffusivity with unchanged axial diffusivity - the profile expected from a myelin-water lesion sparing axons.</div>
 
 
@@ -7258,6 +7324,7 @@ This pathophysiological event occurs in posterior limb of the internal capsule, 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mild-cerebellar-and-pyramidal-syndrome" data-dismech-node="Mild Cerebellar and Pyramidal Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Mild Cerebellar and Pyramidal Syndrome</div>
 
+
                 <div class="item-desc">The clinical endpoint of the white matter arm. Involvement of the middle cerebellar peduncles produces cerebellar signs - action tremor, gait instability, later frank ataxia and dysarthria; involvement of the posterior limbs of the internal capsules, which carry the corticospinal tract, produces pyramidal signs and spasticity. The syndrome is characteristically mild and non-progressive enough that affected individuals remain ambulatory and do not require support for walking, but the 2024 series established that this is a central tendency rather than a rule: severe spastic paraplegia and developmental delay are within the spectrum. Cognitive impairment, when present, is typically mild and only rarely severe.</div>
 
 
@@ -7389,6 +7456,7 @@ This pathophysiological event occurs in middle cerebellar peduncle (UBERON:00021
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-pigment-epithelial-clc-2-loss-and-chorioretinal-degeneration" data-dismech-node="Retinal Pigment Epithelial ClC-2 Loss and Chorioretinal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Pigment Epithelial ClC-2 Loss and Chorioretinal Degeneration</div>
+
 
                 <div class="item-desc">The visual arm of the disease is a chorioretinal degeneration rather than a primary optic neuropathy, although optic atrophy is also reported. Cell-type-specific deletion in mice localises it unambiguously: retinal degeneration depends on loss of ClC-2 in retinal pigment epithelial cells. A second mouse line carrying an early stop codon in Clcn2 loses photoreceptors severely by 14 days of age, and that loss is preceded by elongation of the RPE apical microvilli - a structural change in the supporting epithelium before the sensory cells die, which is the order the RPE-primary model predicts. Human ophthalmological findings match the localisation: macular atrophy with pigment epithelium atrophy and choroidal capillary atrophy in one detailed case. Clinically the result is mild - visual field defects and mild visual impairment, with blindness rare.</div>
 
@@ -7577,6 +7645,7 @@ This pathophysiological event involves CLCN2 (hgnc:2020). hgnc:2020 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sertoli-cell-clc-2-loss-and-testicular-degeneration" data-dismech-node="Sertoli Cell ClC-2 Loss and Testicular Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Sertoli Cell ClC-2 Loss and Testicular Degeneration</div>
+
 
                 <div class="item-desc">Male infertility is a recognised feature of the human disorder and is one of the two routes by which otherwise asymptomatic men have been ascertained. The mechanism is assigned to the Sertoli cell by conditional deletion in mice, and the untargeted mouse alleles agree: homozygotes for the early-stop Clcn2 allele are azoospermic and sterile. In humans the picture is genuinely inconsistent, and this entry does not smooth that over. Infertility and azoospermia are reported in individual men, while the Japanese series records a male patient who had two children, which the authors read as preserved fertility. Whether that reflects allele-specific residual function, an age effect, or simply that Sertoli-cell dependence is less absolute in humans than in mice is unresolved and is filed as a discussion below.</div>
 
@@ -7858,6 +7927,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7947,6 +8019,9 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8046,6 +8121,9 @@ This clinical feature is Vertigo (HP:0002321). HP:0002321 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8121,6 +8199,9 @@ This clinical feature is Chorioretinopathy, annotated with Abnormal chorioretina
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HP:0001145 (&#34;Chorioretinopathy&#34;) is obsolete in HPO (verified with OAK, 2026-08-01), so the clinical term is carried in `preferred_term` and the binding is to the non-obsolete parent HP:0000532. The more specific HP:0000533 (Chorioretinal atrophy) would fit the one detailed case report but not the term the founding study and GeneReviews use across the cohort, so the parent is bound deliberately rather than by omission.</div>
@@ -8222,6 +8303,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8291,6 +8375,9 @@ This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8355,6 +8442,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8433,6 +8523,9 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8532,6 +8625,9 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8605,6 +8701,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The severity range here is the widest of any feature in the disorder and no `severity` qualifier is asserted for that reason. GeneReviews (2021) says &#34;occasionally, mild spasticity&#34;; PMID:38173802 (2024) adds &#34;severe spastic paraplegia&#34;. Both are quoted below rather than averaged.</div>
@@ -8730,6 +8829,9 @@ This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251), 
                     </div>
 
 
+
+
+
                     <div class="item-desc">HP:0001251 is labelled &#34;Ataxia&#34; in HPO with &#34;Cerebellar ataxia&#34; as an EXACT synonym (verified with OAK, 2026-08-01); there is no separate non-obsolete &#34;Cerebellar ataxia&#34; identifier, so the clinical term is carried in `preferred_term`. `severity: MILD` reflects the consistent wording of the GeneReviews chapter and of the Japanese series, not a graded scale score; the 2024 series shows that severe presentations exist.</div>
 
 
@@ -8829,6 +8931,9 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8893,6 +8998,9 @@ This clinical feature is Action tremor (HP:0002345). HP:0002345 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8987,6 +9095,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9104,6 +9215,9 @@ This clinical feature is Headache (HP:0002315), qualified as temporality recurre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9195,6 +9309,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Only depression is bound to an HPO term. The source&#39;s other wording is &#34;schizophrenia-like symptoms&#34;, which is deliberately NOT bound to HP:0100753 (Schizophrenia): a schizophrenia-like presentation is not a diagnosis of schizophrenia, and binding it would overstate what the chapter says. The quoted snippet preserves the original wording so the distinction survives into the evidence.</div>
 
 
@@ -9264,6 +9381,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9358,6 +9478,9 @@ This clinical feature is Paroxysmal dyskinesia (HP:0007166). HP:0007166 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HP:0007166 (Paroxysmal dyskinesia) has no children in HPO (checked with `runoak descendants -p i`, 2026-08-01), so the kinesigenic/non-kinesigenic distinction cannot be expressed in the binding and is carried in the description instead.</div>
@@ -9459,6 +9582,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9528,6 +9654,9 @@ This clinical feature is Scanning speech (HP:0002168). HP:0002168 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9592,6 +9721,9 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9735,6 +9867,9 @@ This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9897,6 +10032,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is supportive: physical therapy and rehabilitation to maintain motor function, special education where needed, treatment of headache, and guidance for visual impairment. Because the natural history is comparatively benign - ambulation preserved, blindness rare - the realistic goal is maintenance of function rather than arrest of progression.</div>
 
 
@@ -9986,6 +10127,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9996,6 +10140,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -10083,6 +10230,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10202,6 +10355,12 @@ This treatment is evaluation of relatives at risk, annotated with Genetic Screen
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -13890,8 +14049,11 @@ differential_diagnoses:
     MONDO:0010549 was verified with OAK, including its gene (`runoak
     relationships -p RO:0004003 MONDO:0010549` returns HGNC:4283 GJB1),
     confirming that the &#34;GJB1, encoding connexin 32&#34; of the founding study maps
-    to this MONDO term. There is no dismech entry for CMTX1 at the time of
-    writing.
+    to this MONDO term. CMTX1 is curated in dismech as the CMTX1 record in
+    kb/disorders/Charcot-Marie-Tooth_Disease_Type_X.yaml
+    (`has_subtypes#CMTX1`), where MONDO:0010549 is bound as the subtype term;
+    that record carries the connexin-32 reflexive gap-junction mechanism this
+    differential turns on.
   evidence:
   - reference: PMID:23707145
     reference_title: &#34;Brain white matter oedema due to ClC-2 chloride channel deficiency: an observational analytical study.&#34;
@@ -14929,7 +15091,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CLCN2-Related Leukoencephalopathy", "mondoId": "MONDO:0014292", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CLCN2-Related_Leukoencephalopathy", "yamlRevision": "e209030e2b14"};
+        const OS_CONFIG = {"diseaseName": "CLCN2-Related Leukoencephalopathy", "mondoId": "MONDO:0014292", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CLCN2-Related_Leukoencephalopathy", "yamlRevision": "d541cee68a82"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4519,6 +4572,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-nfu1-loss-of-function" data-dismech-node="Biallelic NFU1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NFU1 Loss of Function</div>
 
+
                 <div class="item-desc">Pathogenic variants abolish mature mitochondrial NFU1 or disrupt its structure so that it can no longer receive a [4Fe-4S] cluster. NFU1 dimerises and reductively assembles a bridging [4Fe-4S] cluster from two [2Fe-2S] clusters donated by the scaffold ISCU2 and the carrier ISCA1, aided by ferredoxin 2, through a conserved hydrophobic patch at its C-terminal helix; disease variants near the cluster-binding site perturb folding and oligomerisation and block this acceptance.
 </div>
 
@@ -4656,6 +4710,7 @@ This pathophysiological event involves decreased 4 iron, 4 sulfur cluster bindin
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-delivery-of-4fe-4s-clusters-to-nfu1-dependent-targets" data-dismech-node="Defective Delivery of 4Fe-4S Clusters to NFU1-Dependent Targets" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Delivery of 4Fe-4S Clusters to NFU1-Dependent Targets</div>
+
 
                 <div class="item-desc">NFU1 is a specific, late-acting maturation factor: its depletion diminishes lipoic acid synthase and succinate dehydrogenase (and, via the ISCA1-NFU1 node, the [4Fe-4S] mitoribosome assembly factor METTL17) but spares most other Fe-S proteins, unlike depletion of the general scaffold ISCU. NFU1 also requires BOLA3 for its stability.
 </div>
@@ -4798,6 +4853,7 @@ This pathophysiological event involves decreased iron-sulfur cluster assembly (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lipoic-acid-synthase-deficiency-and-loss-of-protein-lipoylation" data-dismech-node="Lipoic Acid Synthase Deficiency and Loss of Protein Lipoylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lipoic Acid Synthase Deficiency and Loss of Protein Lipoylation</div>
+
 
                 <div class="item-desc">LIAS is a [4Fe-4S] radical-SAM enzyme that requires NFU1 for cluster delivery. Its failure reduces protein-bound lipoic acid in tissues, inactivating the E2 subunits of pyruvate dehydrogenase, 2-oxoglutarate dehydrogenase, branched-chain ketoacid dehydrogenase and the H protein of the glycine cleavage system.
 </div>
@@ -4949,6 +5005,7 @@ This pathophysiological event involves decreased lipoate synthase activity (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-2-oxoacid-dehydrogenase-and-glycine-cleavage-system-deficiency" data-dismech-node="Combined 2-Oxoacid Dehydrogenase and Glycine Cleavage System Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined 2-Oxoacid Dehydrogenase and Glycine Cleavage System Deficiency</div>
+
 
                 <div class="item-desc">Loss of lipoylation inactivates the pyruvate dehydrogenase complex and the other 2-oxoacid dehydrogenases, blocking pyruvate entry into the TCA cycle and producing lactic acidosis, and inactivates the glycine cleavage system, producing non-ketotic hyperglycinemia; the same biochemistry is shared with LIAS, LIPT1/2, BOLA3 and IBA57 deficiencies.
 </div>
@@ -5172,6 +5229,7 @@ This pathophysiological event involves decreased pyruvate dehydrogenase (acetyl-
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-chain-complex-i-and-ii-deficiency" data-dismech-node="Respiratory Chain Complex I and II Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Chain Complex I and II Deficiency</div>
 
+
                 <div class="item-desc">Complexes I and II carry [4Fe-4S] clusters whose maturation depends on the NFU1 node; patient muscle and fibroblasts show reduced complex I and II (and II+III) activities, compounding the block in oxidative metabolism from PDH loss.
 </div>
 
@@ -5345,6 +5403,7 @@ This pathophysiological event involves decreased mitochondrial electron transpor
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-mitochondrial-protein-synthesis" data-dismech-node="Attenuated Mitochondrial Protein Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Mitochondrial Protein Synthesis</div>
 
+
                 <div class="item-desc">The mitoribosome small subunit depends on the [4Fe-4S] assembly factor METTL17, proposed to receive its cluster through the ISCA1-NFU1 node; MMDS1 patient fibroblasts show a previously unrecognised attenuation of mitochondrial protein synthesis that adds to the OXPHOS deficit.
 </div>
 
@@ -5457,6 +5516,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-and-neurodegeneration" data-dismech-node="Bioenergetic Failure and Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure and Neurodegeneration</div>
+
 
                 <div class="item-desc">Combined loss of PDH-driven and respiratory-chain ATP production, with reactive oxygen species and, in some alleles, mitochondrial iron dyshomeostasis, injures energy-dependent tissues. In the brain this produces a leukoencephalopathy with cavitation of deep white matter, developmental regression, hypotonia evolving to spasticity, seizures and encephalopathy; intercurrent infection precipitates decompensation.
 </div>
@@ -5702,6 +5762,7 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-endothelial-metabolic-dysfunction" data-dismech-node="Pulmonary Endothelial Metabolic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Endothelial Metabolic Dysfunction</div>
+
 
                 <div class="item-desc">Pulmonary arterial hypertension is a distinctive feature of MMDS1. Autopsy of an affected sib showed a developmental lung disorder, and in the allied BOLA3 form loss of Fe-S integrity in pulmonary artery endothelial cells impairs lipoate-dependent oxidative metabolism and glycine handling, increasing endothelial proliferation and vasoconstriction; the NFU1-specific mechanism remains undefined.
 </div>
@@ -5980,6 +6041,9 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6080,6 +6144,9 @@ This clinical feature is Poor feeding and vomiting, annotated with Feeding diffi
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6190,6 +6257,9 @@ This clinical feature is Non-ketotic hyperglycinemia, annotated with Hyperglycin
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6256,6 +6326,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6341,6 +6414,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6407,6 +6483,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6517,6 +6596,9 @@ This clinical feature is Cavitating leukoencephalopathy, annotated with Leukoenc
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6608,6 +6690,9 @@ This clinical feature is Neurological regression, annotated with Developmental r
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6709,6 +6794,9 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6780,6 +6868,9 @@ This clinical feature is Infantile encephalopathy, annotated with Encephalopathy
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6844,6 +6935,9 @@ This clinical feature is Developmental delay, annotated with Global developmenta
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6929,6 +7023,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7009,6 +7106,9 @@ This clinical feature is Combined complex I and II deficiency in muscle and fibr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7075,6 +7175,9 @@ This clinical feature is Succinate dehydrogenase deficiency, annotated with Decr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7155,6 +7258,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7298,6 +7404,9 @@ This disease-associated gene is NFU1 (hgnc:16287). hgnc:16287 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7373,7 +7482,9 @@ This disease-associated gene is NFU1 (hgnc:16287). hgnc:16287 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7381,6 +7492,11 @@ This disease-associated gene is NFU1 (hgnc:16287). hgnc:16287 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Founder missense variant, homozygous in nine of the ten original Spanish patients; near the cluster-binding site, it increases dimerisation, perturbs secondary structure and severely reduces the ability of NFU1 to accept an Fe-S cluster.
@@ -7469,7 +7585,9 @@ This disease-associated gene is NFU1 (hgnc:16287). hgnc:16287 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7477,6 +7595,11 @@ This disease-associated gene is NFU1 (hgnc:16287). hgnc:16287 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense variant near the exon 6 splice donor found in the first Canadian family; it causes abnormal splicing of exon 6 and no mature protein is detectable in fibroblast mitochondria.
@@ -7540,7 +7663,9 @@ This disease-associated gene is NFU1 (hgnc:16287). hgnc:16287 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7548,6 +7673,11 @@ This disease-associated gene is NFU1 (hgnc:16287). hgnc:16287 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent missense variant, reported compound heterozygous with p.Cys210Phe in an Italian cavitating-leukoencephalopathy case and homozygous in a Turkish family with marked intrafamilial variability; in vitro it increases flexibility, decreases stability and shifts NFU1 toward monomer, impairing cluster acceptance.
@@ -7697,6 +7827,12 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No treatment corrects the Fe-S defect; management is supportive, including nutritional support with tube feeding, antiseizure therapy, management of spasticity and respiratory support, with prompt treatment of intercurrent infections that precipitate decompensation.
 </div>
 
@@ -7802,6 +7938,12 @@ This treatment uses sildenafil (CHEBI:9139). CHEBI:9139 is a therapeutic agent f
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -7924,6 +8066,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7934,6 +8079,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8008,6 +8156,12 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10980,6 +11134,31 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated as a per-gene Disease entry (stub entry_type decision: DISEASE), the same granularity as Multiple_Mitochondrial_Dysfunctions_Syndrome_9B and the open MMDS4/MMDS6 PRs; MMDS2 (BOLA3) and MMDS5 (ISCA1) are curated as sibling entries in the same tranche and share the lipoate-deficiency chain, which is duplicated rather than inherited. The pulmonary node conforms to pulmonary_vascular_remodeling at its endothelial-dysfunction entry point on the strength of the BOLA3 endothelial data; the NFU1-specific mechanism is recorded as a knowledge gap. Sources: the 2011 discovery papers (PMID:21944046, PMID:22077971), cohort and case series (PMID:25918518, PMID:25477904, PMID:29441221, PMID:28470589, PMID:32747156, PMID:36256512, PMID:31970900, PMID:42192213), structural and biochemical work (PMID:28161430, PMID:28906594, PMID:32776106, PMID:32151725, PMID:37823603, PMID:28803783), reviews (PMID:34440194, PMID:35883565), the C. elegans models (PMID:34449775, PMID:36645076) and the humanized NFU1 G206C rat (PMID:31461310), the last surfaced by the Edison/falcon deep-research report, which completed after the first draft and passed preflight (its PAH gene-symbol mentions refer to pulmonary arterial hypertension, not the PAH gene). No GeneReviews chapter exists for NFU1-related MMDS (the ISCA1 and ISCA2 chapters cover the sibling forms).
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Edit: add humanized NFU1 G206C rat model and the completed deep-research report</strong> · 2026-09-06T03:15:41Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Multiple_Mitochondrial_Dysfunctions_Syndrome_1/2026-09-06T031541Z-claude-code-9c4f84.yaml">View source</a></p>
+                        <p class="research-review-text">The relaunched Edison/falcon deep-research run completed after the entry was first committed and passed just preflight-dr (NFU1 59 mentions, OMIM 605711; the PAH rival-gene warning refers to pulmonary arterial hypertension in the text, not the PAH gene). Cross-checking its reference list against the entry surfaced one uncited primary source, the humanized Nfu1 G206C (human G208C) CRISPR rat (PMID:31461310), which was added as an animal model linked to the pulmonary endothelial node (PARTIALLY_RECAPITULATES, ORGANISM scale, PAH haemodynamic/remodelling readout) and to the complex I/II deficiency node (RECAPITULATES, complex II readout). The pulmonary knowledge-gap rationale no longer states that no NFU1-specific pulmonary model exists, and the rat sex-dimorphism sentence was added as evidence on the human-model-mismatch discussion. The report, its citations sidecar and artifacts are committed. Validation: just validate pass, just validate-terms pass, count-verified-snippets 71/71, check-causal-targets and check-entity-refs clean.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Multiple_Mitochondrial_Dysfunctions_Syndrome_1 (NFU1, MONDO:0011582)</strong> · 2026-09-06T02:46:00Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Multiple_Mitochondrial_Dysfunctions_Syndrome_1/2026-09-06T024600Z-claude-code-c025a0.yaml">View source</a></p>
+                        <p class="research-review-text">Created MMDS1 as a per-gene Disease entry (stub entry_type decision: DISEASE), matching the granularity of MMDS9B and the open MMDS4/MMDS6 PRs; the stub&#39;s suggestion of a single MMDS1/MMDS2 entry with per-gene subtypes was considered and declined so the series stays uniform, with MMDS2 and MMDS5 curated as sibling entries in the same tranche. Chain: biallelic NFU1 loss, defective 4Fe-4S delivery to NFU1-dependent targets, LIAS deficiency and loss of lipoylation, combined 2-oxoacid dehydrogenase/GCS deficiency, complex I/II deficiency, attenuated mitochondrial translation, bioenergetic failure and neurodegeneration, and a pulmonary endothelial node conforming to pulmonary_vascular_remodeling. Sources: PMID:21944046, PMID:22077971 (discovery), PMID:25918518, PMID:25477904, PMID:29441221, PMID:28470589, PMID:32747156, PMID:36256512, PMID:31970900, PMID:42192213 (clinical), PMID:28161430, PMID:28906594, PMID:32776106, PMID:32151725, PMID:37823603, PMID:28803783 (biochemistry), PMID:34440194, PMID:35883565 (reviews), PMID:34449775, PMID:36645076 (C. elegans), PMID:30759996 (BOLA3 endothelial mechanism, used for the PAH node with an explicit extrapolation note). Deep research: the Edison/falcon run for this entry had not completed when the entry was written (the provider connection was retrying); the entry was built from PubMed abstracts fetched with just fetch-reference and cross-checked against the completed sibling reports where relevant. Corrections during validation: NFU1 HGNC id corrected to hgnc:16287 (an initial wrong id failed term validation), and four snippets containing bracketed Fe-S notation were shortened because bracketed spans are stripped before matching. Validation: just validate pass, just validate-terms pass, count-verified-snippets 66/66, check-causal-targets and check-entity-refs clean. No GeneReviews chapter exists for NFU1-related MMDS.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

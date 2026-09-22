@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4651,6 +4704,13 @@ The cristae finding is where this matters most, because it exists only in the wo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ndufa11-splice-site-variant" data-dismech-node="Biallelic NDUFA11 Splice-Site Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NDUFA11 Splice-Site Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion, and the only allele class reported in a patient cohort whose primary data can be read. A single splice-site mutation was found in all six patients of the defining series, in three families with no known relationship to each other, which is the pattern of a founder allele rather than of recurrent independent mutation.
 The 2019 clinical letter is titled as reporting missense alleles instead. It is listed in `references` because a reader should know it exists, but it has no retrievable abstract or full text, so no allele, phenotype, or frequency from it is asserted anywhere in this entry.</div>
 
@@ -4712,6 +4772,8 @@ This pathophysiological event involves NDUFA11 (hgnc:20371). hgnc:20371 is a gen
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4724,6 +4786,9 @@ This pathophysiological event involves NDUFA11 (hgnc:20371). hgnc:20371 is a gen
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Curated as loss of function on the authors&#39; predicted consequence - a splice-site change removing the first transmembrane domain - rather than on a measured residual activity, because no functional assay of the mutant protein is reported in the abstract that is available. `zygosity` is set to homozygous because homozygosity mapping is what identified the locus, which presupposes it.</div>
 
@@ -4794,6 +4859,13 @@ This pathophysiological event involves NDUFA11 (hgnc:20371). hgnc:20371 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-ndufa11-first-transmembrane-helix" data-dismech-node="Loss of the NDUFA11 First Transmembrane Helix" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the NDUFA11 First Transmembrane Helix</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The proposed protein-level consequence of the splice-site allele: the transcript loses the sequence encoding the first membrane-spanning helix, so the subunit can no longer be anchored in the inner membrane where it belongs.
 Graded PROVISIONAL deliberately. The source states this as a prediction, and the entry says the same. No western blot, no complexome profile, and no transcript analysis of a patient sample is reported in the material that can be verified here, so what is on record is a sequence-based inference about the mutant product and not a measurement of it.</div>
@@ -4875,6 +4947,13 @@ Graded PROVISIONAL deliberately. The source states this as a prediction, and the
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilization-of-assembled-complex-i" data-dismech-node="Destabilization of Assembled Complex I" data-dismech-type="pathophysiology">
                 <div class="item-name">Destabilization of Assembled Complex I</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Losing an accessory subunit of the membrane arm does not slow assembly, it destabilises the assembled enzyme. This is the node where the general complex I literature does the work that the NDUFA11 patient literature cannot: a systematic gene-editing study made human knockout lines for every accessory subunit and found that losing one destabilises the other subunits of its own structural module, and RNAi knockdown of the C. elegans NDUFA11 homologue destabilises complex I directly.
 Neither of those measurements was made on an NDUFA11 patient, and both are marked INDIRECT for that reason. What makes the node ESTABLISHED rather than provisional is that the human clinical, human cell-line, and invertebrate lines of evidence agree, and that the defining clinical paper reaches the same conclusion from the sequence.</div>
@@ -5043,6 +5122,13 @@ This pathophysiological event involves decreased complex I assembly and stabilit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-supercomplex-assembly" data-dismech-node="Impaired Supercomplex Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Supercomplex Assembly</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The node that is specific to this subunit rather than generic to complex I deficiency. Two independent cryo-EM structures of the mammalian respirasome place NDUFA11 at the contact between complex I and complex III, and name it among the handful of complex I subunits that hold the supercomplex together. If that interface is what a patient loses, then MC1DN14 is not only a complex I deficiency but a supercomplex assembly defect.
 That is not merely inferred from the structures. Silencing NDUFA11 with two independent siRNAs in rat H9c2 cardioblasts disintegrates the respirasome and drops complex III and complex IV activity by 63-72 percent alongside complex I - and silencing a complex II subunit in the same system does not, so the effect is attributable to NDUFA11 rather than to perturbing the inner membrane. The C. elegans knockdown reports the same combination independently. So the mechanism itself is demonstrated, in the right gene, with a functional consequence and a negative control attached.
@@ -5233,6 +5319,13 @@ This pathophysiological event involves decreased respirasome assembly, annotated
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-cristae-morphology" data-dismech-node="Aberrant Cristae Morphology" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Cristae Morphology</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Complex I and its supercomplexes are structural as well as catalytic residents of the inner membrane, so losing them can change the shape of the membrane itself. Cryo-electron tomography of the C. elegans nduf-11 knockdown found widened cristae junctions and a widened intermembrane space alongside the enzymatic defect.
 This is curated because it is a distinct, measurable consequence rather than a restatement of the enzyme deficiency, and because it predicts something checkable in human tissue. It is HYPOTHETICAL for the human disease: the observation exists only in the worm, and no ultrastructural study of an NDUFA11 patient has been reported.</div>
 
@@ -5329,6 +5422,13 @@ This is curated because it is a distinct, measurable consequence rather than a r
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isolated-complex-i-deficiency" data-dismech-node="Isolated Complex I Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Isolated Complex I Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The measured endpoint of the molecular lesion and the biochemical phenotype that defines the entity&#39;s name. Isolated means complex I activity is reduced while the other respiratory chain complexes are not, which is what makes a complex I subunit gene the place to look and is the biochemical entry point to the diagnosis.
 Tagged MOLECULAR rather than CELLULAR on the schema&#39;s own terms: the substrate is an enzyme complex and the claim is that it is deficient.</div>
@@ -5442,6 +5542,13 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-nadh-reoxidation-and-atp-synthesis" data-dismech-node="Impaired Mitochondrial NADH Reoxidation and ATP Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial NADH Reoxidation and ATP Synthesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Complex I is the entry point for NADH-derived electrons into the respiratory chain and one of its three proton pumps, so a complex I deficiency both blocks NADH reoxidation and removes part of the proton-motive force that drives ATP synthesis. The C. elegans knockdown adds a detail that a purely bioenergetic account would miss: the lost NADH dehydrogenase activity is partly compensated by increased complex II flux, which keeps the chain running but is a route to reactive oxygen species rather than a rescue.</div>
 
@@ -5641,6 +5748,13 @@ This pathophysiological event involves increased mitochondrial reactive oxygen s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytosolic-redox-shift-and-lactate-accumulation" data-dismech-node="Cytosolic Redox Shift and Lactate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytosolic Redox Shift and Lactate Accumulation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">With NADH reoxidation blocked at complex I, the cytosolic NADH/NAD+ ratio rises and pyruvate is reduced to lactate to regenerate NAD+, so lactate accumulates. This is the classical systemic read-out of a respiratory chain defect and it is what one pole of the reported MC1DN14 cohort presented with.
 Named for the mechanism rather than for the finding, so that it is not a near-duplicate of the `Lactic Acidosis` phenotype it feeds. The node is the reason lactate rises; the phenotype is the measured clinical consequence.</div>
 
@@ -5715,6 +5829,13 @@ Named for the mechanism rather than for the finding, so that it is not a near-du
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-energy-deficit-in-heart-and-brain" data-dismech-node="Energy Deficit in Heart and Brain" data-dismech-type="pathophysiology">
                 <div class="item-name">Energy Deficit in Heart and Brain</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Why the heart and the brain rather than every tissue: both have high, largely inflexible oxidative demand and little capacity to make up an ATP shortfall glycolytically, so a fixed proportional loss of respiratory capacity reaches a symptomatic threshold there first. The reported presentation of encephalocardiomyopathy is consistent with that account.
 Graded PROVISIONAL because the tissue-selectivity argument is inference from general bioenergetics; no study has measured respiratory capacity in cardiac or neural tissue from an NDUFA11 patient, and no alternative explanation such as tissue-specific NDUFA11 expression has been excluded.</div>
@@ -5819,7 +5940,7 @@ Graded PROVISIONAL because the tissue-selectivity argument is inference from gen
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Cristae Morphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex I and its supercomplexes are structural as well as catalytic residents of the inner membrane, so losing them can change the shape of the membrane itself. Cryo-electron tomography of the C. elegans nduf-11 knockdown found widened cristae junctions and a widened intermembrane space alongside the enzymatic defect.\\nThis is curated because it is a distinct, measurable consequence rather than a restatement of the enzyme deficiency, and because it predicts something checkable in human tissue. It is HYPOTHETICAL for the human disease: the observation exists only in the worm, and no ultrastructural study of an NDUFA11 patient has been reported.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"animal_models\": [{\"name\": \"C. elegans nduf-11 knockout and RNAi knockdown\", \"species\": \"Caenorhabditis elegans\", \"genotype\": \"nduf-11 (B0491.5) CRISPR-Cas9 knockout allele, homozygous; and nduf-11 RNAi knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Cryo-electron tomography of the knockdown animal shows the inner-membrane abnormality that this node asserts.\"}]}}, {\"id\": \"Biallelic NDUFA11 Splice-Site Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion, and the only allele class reported in a patient cohort whose primary data can be read. A single splice-site mutation was found in all six patients of the defining series, in three families with no known relationship to each other, which is the pattern of a founder allele rather than of recurrent independent mutation.\\nThe 2019 clinical letter is titled as reporting missense alleles instead. It is listed in `references` because a reader should know it exists, but it has no retrievable abstract or full text, so no allele, phenotype, or frequency from it is asserted anywhere in this entry.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NDUFA11\"], \"gene_terms\": [{\"label\": \"NDUFA11\", \"id\": \"hgnc:20371\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Curated as loss of function on the authors\u0027 predicted consequence - a splice-site change removing the first transmembrane domain - rather than on a measured residual activity, because no functional assay of the mutant protein is reported in the abstract that is available. `zygosity` is set to homozygous because homozygosity mapping is what identified the locus, which presupposes it.\"}, \"role\": \"trigger\"}}, {\"id\": \"C. elegans nduf-11 knockout and RNAi knockdown\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only animal model of NDUFA11 loss in the literature, and it is informative in two settings at once. Complete knockout is developmentally lethal - homozygotes arrest at the L2 larval stage - so the null is not viable to characterise. Partial knockdown by RNAi permits development to adulthood and is what yields the phenotype: destabilised complex I and supercomplexes, disturbed respiration, a compensatory rise in complex II activity, and widened cristae junctions on cryo-electron tomography.\\nThe dose-dependence is the useful part. It says NDUFA11 function is required in a graded way rather than all-or-nothing, which is the shape a human hypomorphic allele would need in order to be survivable.\"}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The cardiac half of the reported encephalocardiomyopathy. Bound to the generic cardiomyopathy term rather than to hypertrophic cardiomyopathy: the source word is encephalocardiomyopathy, which names the organ but not the morphology, and hypertrophic is the pattern usually seen in complex I deficiency as a class rather than something reported for these patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001638\"}}, {\"id\": \"Cytosolic Redox Shift and Lactate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With NADH reoxidation blocked at complex I, the cytosolic NADH/NAD+ ratio rises and pyruvate is reduced to lactate to regenerate NAD+, so lactate accumulates. This is the classical systemic read-out of a respiratory chain defect and it is what one pole of the reported MC1DN14 cohort presented with.\\nNamed for the mechanism rather than for the finding, so that it is not a near-duplicate of the `Lactic Acidosis` phenotype it feeds. The node is the reason lactate rises; the phenotype is the measured clinical consequence.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\"}}, {\"id\": \"Destabilization of Assembled Complex I\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Losing an accessory subunit of the membrane arm does not slow assembly, it destabilises the assembled enzyme. This is the node where the general complex I literature does the work that the NDUFA11 patient literature cannot: a systematic gene-editing study made human knockout lines for every accessory subunit and found that losing one destabilises the other subunits of its own structural module, and RNAi knockdown of the C. elegans NDUFA11 homologue destabilises complex I directly.\\nNeither of those measurements was made on an NDUFA11 patient, and both are marked INDIRECT for that reason. What makes the node ESTABLISHED rather than provisional is that the human clinical, human cell-line, and invertebrate lines of evidence agree, and that the defining clinical paper reaches the same conclusion from the sequence.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"complex I assembly and stability\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"C. elegans nduf-11 knockout and RNAi knockdown\", \"species\": \"Caenorhabditis elegans\", \"genotype\": \"nduf-11 (B0491.5) CRISPR-Cas9 knockout allele, homozygous; and nduf-11 RNAi knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Knockdown of the NDUFA11 homologue destabilises complex I and its supercomplexes, which is the central molecular claim of this entry measured rather than predicted.\"}]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The neurological half of the reported encephalocardiomyopathy. Bound to the generic encephalopathy term because the source names no syndrome, no imaging pattern, and no specific neurological sign. In particular it is deliberately not bound to a Leigh syndrome or basal ganglia term - see the entry description and notes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Energy Deficit in Heart and Brain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Why the heart and the brain rather than every tissue: both have high, largely inflexible oxidative demand and little capacity to make up an ATP shortfall glycolytically, so a fixed proportional loss of respiratory capacity reaches a symptomatic threshold there first. The reported presentation of encephalocardiomyopathy is consistent with that account.\\nGraded PROVISIONAL because the tissue-selectivity argument is inference from general bioenergetics; no study has measured respiratory capacity in cardiac or neural tissue from an NDUFA11 patient, and no alternative explanation such as tissue-specific NDUFA11 expression has been excluded.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\"}}, {\"id\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex I is the entry point for NADH-derived electrons into the respiratory chain and one of its three proton pumps, so a complex I deficiency both blocks NADH reoxidation and removes part of the proton-motive force that drives ATP synthesis. The C. elegans knockdown adds a detail that a purely bioenergetic account would miss: the lost NADH dehydrogenase activity is partly compensated by increased complex II flux, which keeps the chain running but is a route to reactive oxygen species rather than a rescue.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"mitochondrial reactive oxygen species production\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"NDUFA11 siRNA knockdown in H9c2 cardioblasts\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"NDUFA11 knockdown halves cellular ATP, depolarises the inner membrane and raises mitochondrial ROS - the bioenergetic consequences this node asserts, measured on loss of the gene this entry is about.\"}]}}, {\"id\": \"Impaired Supercomplex Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The node that is specific to this subunit rather than generic to complex I deficiency. Two independent cryo-EM structures of the mammalian respirasome place NDUFA11 at the contact between complex I and complex III, and name it among the handful of complex I subunits that hold the supercomplex together. If that interface is what a patient loses, then MC1DN14 is not only a complex I deficiency but a supercomplex assembly defect.\\nThat is not merely inferred from the structures. Silencing NDUFA11 with two independent siRNAs in rat H9c2 cardioblasts disintegrates the respirasome and drops complex III and complex IV activity by 63-72 percent alongside complex I - and silencing a complex II subunit in the same system does not, so the effect is attributable to NDUFA11 rather than to perturbing the inner membrane. The C. elegans knockdown reports the same combination independently. So the mechanism itself is demonstrated, in the right gene, with a functional consequence and a negative control attached.\\nIt is graded PROVISIONAL rather than established because the step that remains untaken is the one to a patient. Nobody has run blue native gel electrophoresis on tissue from an NDUFA11-deficient patient and asked whether the respirasome is present, which is the experiment this node is waiting on and the subject of an open discussion below. Note also that the knockdown result cuts both ways for the entry\u0027s own logic: reduced complex III and IV activity alongside complex I is what a supercomplex defect predicts, yet the patients\u0027 biochemistry is described as an isolated complex I deficiency.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"respirasome assembly\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"NDUFA11 siRNA knockdown in H9c2 cardioblasts\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of NDUFA11 disintegrates the respirasome and collapses the activity of the partner complexes, which is this node\u0027s claim measured directly rather than inferred from where the subunit sits in a structure.\"}]}}, {\"id\": \"Isolated Complex I Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured endpoint of the molecular lesion and the biochemical phenotype that defines the entity\u0027s name. Isolated means complex I activity is reduced while the other respiratory chain complexes are not, which is what makes a complex I subunit gene the place to look and is the biochemical entry point to the diagnosis.\\nTagged MOLECULAR rather than CELLULAR on the schema\u0027s own terms: the substrate is an enzyme complex and the claim is that it is deficient.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"role\": \"central_effector\"}}, {\"id\": \"Lactic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised blood lactate with acidosis, present at the fatal infantile pole of the reported presentations. No frequency band is recorded: the single sentence describing how the cohort presented is disjunctive - patients had encephalocardiomyopathy or fatal infantile lactic acidemia - and gives no split between the two, so any percentage would be invented.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003128\"}}, {\"id\": \"Loss of the NDUFA11 First Transmembrane Helix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed protein-level consequence of the splice-site allele: the transcript loses the sequence encoding the first membrane-spanning helix, so the subunit can no longer be anchored in the inner membrane where it belongs.\\nGraded PROVISIONAL deliberately. The source states this as a prediction, and the entry says the same. No western blot, no complexome profile, and no transcript analysis of a patient sample is reported in the material that can be verified here, so what is on record is a sequence-based inference about the mutant product and not a measurement of it.\", \"meta\": {\"evidence_count\": 1, \"role\": \"central_effector\"}}, {\"id\": \"NDUFA11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NDUFA11\"], \"gene_terms\": [{\"label\": \"NDUFA11\", \"id\": \"hgnc:20371\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NDUFA11 siRNA knockdown in H9c2 cardioblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The only mammalian system in which NDUFA11 itself has been removed and the consequences measured, and therefore the most load-bearing piece of non-patient evidence in this entry. NDUFA11 was silenced with two independent siRNAs in H9c2 embryonic rat cardioblasts, and respirasome levels, individual complex activities, ATP, membrane potential and mitochondrial ROS were read out against a negative-control siRNA.\\nTwo features make it more than a single-gene knockdown. The first is the comparison arm: silencing SDHC, the membrane-anchored subunit of complex II, did not disintegrate the respirasome, so respirasome loss is not the generic consequence of removing any inner-membrane respiratory subunit. The second is that the authors chose NDUFA11 precisely because of the cryo-EM structures this entry also cites - so the biochemical and structural lines of evidence are one argument rather than two coincidences.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:30531981\"}}], \"edges\": [{\"source\": \"Biallelic NDUFA11 Splice-Site Variant\", \"target\": \"Loss of the NDUFA11 First Transmembrane Helix\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the NDUFA11 First Transmembrane Helix\", \"target\": \"Destabilization of Assembled Complex I\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the NDUFA11 First Transmembrane Helix\", \"target\": \"Impaired Supercomplex Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Destabilization of Assembled Complex I\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilization of Assembled Complex I\", \"target\": \"Aberrant Cristae Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Supercomplex Assembly\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Cristae Morphology\", \"target\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"target\": \"Cytosolic Redox Shift and Lactate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"target\": \"Energy Deficit in Heart and Brain\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cytosolic Redox Shift and Lactate Accumulation\", \"target\": \"Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Energy Deficit in Heart and Brain\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Energy Deficit in Heart and Brain\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NDUFA11 siRNA knockdown in H9c2 cardioblasts\", \"target\": \"Impaired Supercomplex Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of NDUFA11 disintegrates the respirasome and collapses the activity of the partner complexes, which is this node\u0027s claim measured directly rather than inferred from where the subunit sits in a structure.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"An immortalised rat cardioblast line under acute siRNA knockdown, not human patient tissue carrying the chronic splice-site allele, so it cannot show that the same thing happens in a person or that a lifetime of it is what makes patients ill. More substantively, the model and the disease disagree on one point that this entry records rather than smooths over: NDUFA11 silencing cut complex III activity by 63-72 percent and complex IV by about 71 percent alongside complex I, whereas the patients\u0027 biochemistry is reported as an *isolated* complex I deficiency. Either the patients\u0027 allele is milder than an siRNA knockdown, or a supercomplex phenotype is present in patients and has not been looked for. Both are testable and neither has been tested.\"}, {\"source\": \"NDUFA11 siRNA knockdown in H9c2 cardioblasts\", \"target\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"NDUFA11 knockdown halves cellular ATP, depolarises the inner membrane and raises mitochondrial ROS - the bioenergetic consequences this node asserts, measured on loss of the gene this entry is about.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"An acutely silenced rat cell line, so it does not speak to the chronic, whole-organism energy deficit that reaches a patient\u0027s heart and brain, and cardioblasts are proliferating cells whose energetic demands differ from those of post-mitotic myocardium.\\nThe ROS half of this link is not specific to NDUFA11: knocking down the complex II subunit SDHC raised mitochondrial ROS as well, and by a larger margin (114 and 82 percent, against 62 and 30 percent for NDUFA11) even though the paper\u0027s own prose characterises the two as similar effects. So raised mitochondrial ROS reads here as a general consequence of losing respiratory capacity rather than as a signature of losing this subunit. The membrane-potential half is a different matter - SDHC knockdown did not affect membrane potential at all - and that specificity is recorded on the readout below.\"}, {\"source\": \"C. elegans nduf-11 knockout and RNAi knockdown\", \"target\": \"Destabilization of Assembled Complex I\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Knockdown of the NDUFA11 homologue destabilises complex I and its supercomplexes, which is the central molecular claim of this entry measured rather than predicted.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"C. elegans is an invertebrate whose respiratory chain and supercomplex organisation are similar but not identical to the mammalian one, and the perturbation is an engineered knockdown of expression rather than the patients\u0027 splice-site allele, so it models loss of the protein and not loss of this particular helix. The complete knockout is larval lethal, which no human patient is, so the model\u0027s viable arm is a hypomorph whose residual expression level does not correspond to any measured human value.\"}, {\"source\": \"C. elegans nduf-11 knockout and RNAi knockdown\", \"target\": \"Aberrant Cristae Morphology\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cryo-electron tomography of the knockdown animal shows the inner-membrane abnormality that this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is LOW because the human counterpart is entirely unobserved: no ultrastructural study of tissue from an NDUFA11 patient has been reported, so there is nothing to compare the worm finding against. Cristae architecture also differs between nematode and human mitochondria, and the finding comes from the hypomorphic knockdown rather than the null.\"}, {\"source\": \"NDUFA11\", \"target\": \"Biallelic NDUFA11 Splice-Site Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Cristae Morphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex I and its supercomplexes are structural as well as catalytic residents of the inner membrane, so losing them can change the shape of the membrane itself. Cryo-electron tomography of the C. elegans nduf-11 knockdown found widened cristae junctions and a widened intermembrane space alongside the enzymatic defect.\\nThis is curated because it is a distinct, measurable consequence rather than a restatement of the enzyme deficiency, and because it predicts something checkable in human tissue. It is HYPOTHETICAL for the human disease: the observation exists only in the worm, and no ultrastructural study of an NDUFA11 patient has been reported.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"C. elegans nduf-11 knockout and RNAi knockdown\", \"species\": \"Caenorhabditis elegans\", \"genotype\": \"nduf-11 (B0491.5) CRISPR-Cas9 knockout allele, homozygous; and nduf-11 RNAi knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Cryo-electron tomography of the knockdown animal shows the inner-membrane abnormality that this node asserts.\"}]}}, {\"id\": \"Biallelic NDUFA11 Splice-Site Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion, and the only allele class reported in a patient cohort whose primary data can be read. A single splice-site mutation was found in all six patients of the defining series, in three families with no known relationship to each other, which is the pattern of a founder allele rather than of recurrent independent mutation.\\nThe 2019 clinical letter is titled as reporting missense alleles instead. It is listed in `references` because a reader should know it exists, but it has no retrievable abstract or full text, so no allele, phenotype, or frequency from it is asserted anywhere in this entry.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NDUFA11\"], \"gene_terms\": [{\"label\": \"NDUFA11\", \"id\": \"hgnc:20371\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Curated as loss of function on the authors\u0027 predicted consequence - a splice-site change removing the first transmembrane domain - rather than on a measured residual activity, because no functional assay of the mutant protein is reported in the abstract that is available. `zygosity` is set to homozygous because homozygosity mapping is what identified the locus, which presupposes it.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"C. elegans nduf-11 knockout and RNAi knockdown\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only animal model of NDUFA11 loss in the literature, and it is informative in two settings at once. Complete knockout is developmentally lethal - homozygotes arrest at the L2 larval stage - so the null is not viable to characterise. Partial knockdown by RNAi permits development to adulthood and is what yields the phenotype: destabilised complex I and supercomplexes, disturbed respiration, a compensatory rise in complex II activity, and widened cristae junctions on cryo-electron tomography.\\nThe dose-dependence is the useful part. It says NDUFA11 function is required in a graded way rather than all-or-nothing, which is the shape a human hypomorphic allele would need in order to be survivable.\"}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The cardiac half of the reported encephalocardiomyopathy. Bound to the generic cardiomyopathy term rather than to hypertrophic cardiomyopathy: the source word is encephalocardiomyopathy, which names the organ but not the morphology, and hypertrophic is the pattern usually seen in complex I deficiency as a class rather than something reported for these patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001638\"}}, {\"id\": \"Cytosolic Redox Shift and Lactate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With NADH reoxidation blocked at complex I, the cytosolic NADH/NAD+ ratio rises and pyruvate is reduced to lactate to regenerate NAD+, so lactate accumulates. This is the classical systemic read-out of a respiratory chain defect and it is what one pole of the reported MC1DN14 cohort presented with.\\nNamed for the mechanism rather than for the finding, so that it is not a near-duplicate of the `Lactic Acidosis` phenotype it feeds. The node is the reason lactate rises; the phenotype is the measured clinical consequence.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Destabilization of Assembled Complex I\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Losing an accessory subunit of the membrane arm does not slow assembly, it destabilises the assembled enzyme. This is the node where the general complex I literature does the work that the NDUFA11 patient literature cannot: a systematic gene-editing study made human knockout lines for every accessory subunit and found that losing one destabilises the other subunits of its own structural module, and RNAi knockdown of the C. elegans NDUFA11 homologue destabilises complex I directly.\\nNeither of those measurements was made on an NDUFA11 patient, and both are marked INDIRECT for that reason. What makes the node ESTABLISHED rather than provisional is that the human clinical, human cell-line, and invertebrate lines of evidence agree, and that the defining clinical paper reaches the same conclusion from the sequence.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"complex I assembly and stability\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"C. elegans nduf-11 knockout and RNAi knockdown\", \"species\": \"Caenorhabditis elegans\", \"genotype\": \"nduf-11 (B0491.5) CRISPR-Cas9 knockout allele, homozygous; and nduf-11 RNAi knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Knockdown of the NDUFA11 homologue destabilises complex I and its supercomplexes, which is the central molecular claim of this entry measured rather than predicted.\"}]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The neurological half of the reported encephalocardiomyopathy. Bound to the generic encephalopathy term because the source names no syndrome, no imaging pattern, and no specific neurological sign. In particular it is deliberately not bound to a Leigh syndrome or basal ganglia term - see the entry description and notes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Energy Deficit in Heart and Brain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Why the heart and the brain rather than every tissue: both have high, largely inflexible oxidative demand and little capacity to make up an ATP shortfall glycolytically, so a fixed proportional loss of respiratory capacity reaches a symptomatic threshold there first. The reported presentation of encephalocardiomyopathy is consistent with that account.\\nGraded PROVISIONAL because the tissue-selectivity argument is inference from general bioenergetics; no study has measured respiratory capacity in cardiac or neural tissue from an NDUFA11 patient, and no alternative explanation such as tissue-specific NDUFA11 expression has been excluded.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex I is the entry point for NADH-derived electrons into the respiratory chain and one of its three proton pumps, so a complex I deficiency both blocks NADH reoxidation and removes part of the proton-motive force that drives ATP synthesis. The C. elegans knockdown adds a detail that a purely bioenergetic account would miss: the lost NADH dehydrogenase activity is partly compensated by increased complex II flux, which keeps the chain running but is a route to reactive oxygen species rather than a rescue.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"mitochondrial reactive oxygen species production\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"NDUFA11 siRNA knockdown in H9c2 cardioblasts\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"NDUFA11 knockdown halves cellular ATP, depolarises the inner membrane and raises mitochondrial ROS - the bioenergetic consequences this node asserts, measured on loss of the gene this entry is about.\"}]}}, {\"id\": \"Impaired Supercomplex Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The node that is specific to this subunit rather than generic to complex I deficiency. Two independent cryo-EM structures of the mammalian respirasome place NDUFA11 at the contact between complex I and complex III, and name it among the handful of complex I subunits that hold the supercomplex together. If that interface is what a patient loses, then MC1DN14 is not only a complex I deficiency but a supercomplex assembly defect.\\nThat is not merely inferred from the structures. Silencing NDUFA11 with two independent siRNAs in rat H9c2 cardioblasts disintegrates the respirasome and drops complex III and complex IV activity by 63-72 percent alongside complex I - and silencing a complex II subunit in the same system does not, so the effect is attributable to NDUFA11 rather than to perturbing the inner membrane. The C. elegans knockdown reports the same combination independently. So the mechanism itself is demonstrated, in the right gene, with a functional consequence and a negative control attached.\\nIt is graded PROVISIONAL rather than established because the step that remains untaken is the one to a patient. Nobody has run blue native gel electrophoresis on tissue from an NDUFA11-deficient patient and asked whether the respirasome is present, which is the experiment this node is waiting on and the subject of an open discussion below. Note also that the knockdown result cuts both ways for the entry\u0027s own logic: reduced complex III and IV activity alongside complex I is what a supercomplex defect predicts, yet the patients\u0027 biochemistry is described as an isolated complex I deficiency.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"respirasome assembly\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"NDUFA11 siRNA knockdown in H9c2 cardioblasts\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of NDUFA11 disintegrates the respirasome and collapses the activity of the partner complexes, which is this node\u0027s claim measured directly rather than inferred from where the subunit sits in a structure.\"}]}}, {\"id\": \"Isolated Complex I Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured endpoint of the molecular lesion and the biochemical phenotype that defines the entity\u0027s name. Isolated means complex I activity is reduced while the other respiratory chain complexes are not, which is what makes a complex I subunit gene the place to look and is the biochemical entry point to the diagnosis.\\nTagged MOLECULAR rather than CELLULAR on the schema\u0027s own terms: the substrate is an enzyme complex and the claim is that it is deficient.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Lactic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised blood lactate with acidosis, present at the fatal infantile pole of the reported presentations. No frequency band is recorded: the single sentence describing how the cohort presented is disjunctive - patients had encephalocardiomyopathy or fatal infantile lactic acidemia - and gives no split between the two, so any percentage would be invented.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003128\"}}, {\"id\": \"Loss of the NDUFA11 First Transmembrane Helix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed protein-level consequence of the splice-site allele: the transcript loses the sequence encoding the first membrane-spanning helix, so the subunit can no longer be anchored in the inner membrane where it belongs.\\nGraded PROVISIONAL deliberately. The source states this as a prediction, and the entry says the same. No western blot, no complexome profile, and no transcript analysis of a patient sample is reported in the material that can be verified here, so what is on record is a sequence-based inference about the mutant product and not a measurement of it.\", \"meta\": {\"evidence_count\": 1, \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"NDUFA11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NDUFA11\"], \"gene_terms\": [{\"label\": \"NDUFA11\", \"id\": \"hgnc:20371\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NDUFA11 siRNA knockdown in H9c2 cardioblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The only mammalian system in which NDUFA11 itself has been removed and the consequences measured, and therefore the most load-bearing piece of non-patient evidence in this entry. NDUFA11 was silenced with two independent siRNAs in H9c2 embryonic rat cardioblasts, and respirasome levels, individual complex activities, ATP, membrane potential and mitochondrial ROS were read out against a negative-control siRNA.\\nTwo features make it more than a single-gene knockdown. The first is the comparison arm: silencing SDHC, the membrane-anchored subunit of complex II, did not disintegrate the respirasome, so respirasome loss is not the generic consequence of removing any inner-membrane respiratory subunit. The second is that the authors chose NDUFA11 precisely because of the cryo-EM structures this entry also cites - so the biochemical and structural lines of evidence are one argument rather than two coincidences.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:30531981\"}}], \"edges\": [{\"source\": \"Biallelic NDUFA11 Splice-Site Variant\", \"target\": \"Loss of the NDUFA11 First Transmembrane Helix\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the NDUFA11 First Transmembrane Helix\", \"target\": \"Destabilization of Assembled Complex I\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the NDUFA11 First Transmembrane Helix\", \"target\": \"Impaired Supercomplex Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Destabilization of Assembled Complex I\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilization of Assembled Complex I\", \"target\": \"Aberrant Cristae Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Supercomplex Assembly\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Cristae Morphology\", \"target\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"target\": \"Cytosolic Redox Shift and Lactate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"target\": \"Energy Deficit in Heart and Brain\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cytosolic Redox Shift and Lactate Accumulation\", \"target\": \"Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Energy Deficit in Heart and Brain\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Energy Deficit in Heart and Brain\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NDUFA11 siRNA knockdown in H9c2 cardioblasts\", \"target\": \"Impaired Supercomplex Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of NDUFA11 disintegrates the respirasome and collapses the activity of the partner complexes, which is this node\u0027s claim measured directly rather than inferred from where the subunit sits in a structure.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"An immortalised rat cardioblast line under acute siRNA knockdown, not human patient tissue carrying the chronic splice-site allele, so it cannot show that the same thing happens in a person or that a lifetime of it is what makes patients ill. More substantively, the model and the disease disagree on one point that this entry records rather than smooths over: NDUFA11 silencing cut complex III activity by 63-72 percent and complex IV by about 71 percent alongside complex I, whereas the patients\u0027 biochemistry is reported as an *isolated* complex I deficiency. Either the patients\u0027 allele is milder than an siRNA knockdown, or a supercomplex phenotype is present in patients and has not been looked for. Both are testable and neither has been tested.\"}, {\"source\": \"NDUFA11 siRNA knockdown in H9c2 cardioblasts\", \"target\": \"Impaired Mitochondrial NADH Reoxidation and ATP Synthesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"NDUFA11 knockdown halves cellular ATP, depolarises the inner membrane and raises mitochondrial ROS - the bioenergetic consequences this node asserts, measured on loss of the gene this entry is about.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"An acutely silenced rat cell line, so it does not speak to the chronic, whole-organism energy deficit that reaches a patient\u0027s heart and brain, and cardioblasts are proliferating cells whose energetic demands differ from those of post-mitotic myocardium.\\nThe ROS half of this link is not specific to NDUFA11: knocking down the complex II subunit SDHC raised mitochondrial ROS as well, and by a larger margin (114 and 82 percent, against 62 and 30 percent for NDUFA11) even though the paper\u0027s own prose characterises the two as similar effects. So raised mitochondrial ROS reads here as a general consequence of losing respiratory capacity rather than as a signature of losing this subunit. The membrane-potential half is a different matter - SDHC knockdown did not affect membrane potential at all - and that specificity is recorded on the readout below.\"}, {\"source\": \"C. elegans nduf-11 knockout and RNAi knockdown\", \"target\": \"Destabilization of Assembled Complex I\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Knockdown of the NDUFA11 homologue destabilises complex I and its supercomplexes, which is the central molecular claim of this entry measured rather than predicted.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"C. elegans is an invertebrate whose respiratory chain and supercomplex organisation are similar but not identical to the mammalian one, and the perturbation is an engineered knockdown of expression rather than the patients\u0027 splice-site allele, so it models loss of the protein and not loss of this particular helix. The complete knockout is larval lethal, which no human patient is, so the model\u0027s viable arm is a hypomorph whose residual expression level does not correspond to any measured human value.\"}, {\"source\": \"C. elegans nduf-11 knockout and RNAi knockdown\", \"target\": \"Aberrant Cristae Morphology\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cryo-electron tomography of the knockdown animal shows the inner-membrane abnormality that this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is LOW because the human counterpart is entirely unobserved: no ultrastructural study of tissue from an NDUFA11 patient has been reported, so there is nothing to compare the worm finding against. Cristae architecture also differs between nematode and human mitochondria, and the finding comes from the hypomorphic knockdown rather than the null.\"}, {\"source\": \"NDUFA11\", \"target\": \"Biallelic NDUFA11 Splice-Site Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5878,6 +5999,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5988,6 +6112,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6061,6 +6188,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6175,6 +6305,9 @@ This disease-associated gene is NDUFA11 (hgnc:20371). hgnc:20371 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -9325,6 +9458,184 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">What this entry deliberately does not contain, and why.
+No Leigh syndrome. MONDO:0032619 has exactly one parent, mitochondrial complex I deficiency nuclear type, and no Leigh ancestor; the defining paper&#39;s only mention of Leigh&#39;s disease is in a sentence describing complex I deficiency as a class. The Leigh MeSH keyword on that record is an indexing decision, not a finding about these patients, and it is not treated as one here.
+No hypertrophic qualifier on the cardiomyopathy. Hypertrophic cardiomyopathy is the pattern usually reported in complex I deficiency generally, and it would have been easy to write; the source word is encephalocardiomyopathy, which names the organ and not the morphology.
+No phenotype frequencies. The one sentence describing the cohort&#39;s presentation is disjunctive and gives no split *in the cached abstract*, which is all this repository holds for that paper - the split may well be given in the full text. So the absence of a frequency band records what is quotable here, not a claim that the source never reported it.
+No enzyme activity values or reference intervals in the biochemical section, and no treatment section. Same qualification: the cached record for the defining cohort is abstract-only, and it gives the biochemical category without measurements and describes no management. Cofactor cocktails are prescribed across primary mitochondrial disease, but nothing has been reported for an NDUFA11 patient in anything quotable here, and a class-level prescribing practice is not this disease&#39;s treatment evidence.
+GeneReviews was checked and deliberately not tagged, following the reasoning recorded in the sibling MC1DN24 entry. There is no GeneReviews chapter for NDUFA11 or for mitochondrial complex I deficiency; the nearest candidate, PMID:26425749 (Nuclear Gene-Encoded Leigh Syndrome Spectrum Overview), is what MC1DN2 and MC1DN6 tag, but its cached record names no genes - NDUFA11 does not appear in it at all - and tagging a Leigh overview here would import exactly the class membership this entry declines to assume. Recorded so the absence reads as a decision rather than an oversight.
+Nothing from PMID:31074871. Its cached record has no abstract and no full text. It is listed in `references` and its unreadability is recorded as a knowledge gap, which is the honest disposition of a paper whose title promises a second clinical pole that cannot be checked.
+The committed Falcon deep-research report contains further detail on the defining cohort&#39;s variant that its abstract does not - a legacy IVS1+5G&gt;A nomenclature, an activated cryptic splice site, and a transcript missing the final 78 bp of exon 1 - drawn from full-text pages this repository&#39;s cache does not hold. Those are recorded here as an uncited lead for anyone with journal access, and none of them is asserted as evidence anywhere above.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address review: add H9c2 NDUFA11 knockdown model, wire phenotypes into the pathograph</strong> · 2026-09-02T21:09:21Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Mitochondrial_Complex_I_Deficiency_Nuclear_Type_14/2026-09-02T210921Z-claude-code-9707c2.yaml">View source</a></p>
+                        <p class="research-review-text">Revision addressing the CHANGES_REQUESTED review on PR #10613. Both findings
+were verified before acting and both were correct.
+
+FINDING 1 - a cached reference was cited nowhere. The deep-research run&#39;s
+reference validation wrote references_cache/DOI_10.1038_s41598-018-36040-9.md
+(Jang &amp; Javadov 2018) and the entry used it nowhere, not even in `references`.
+Checking it showed it is direct mammalian NDUFA11 knockdown evidence, which is
+the strongest non-patient evidence available for this entity and the thing the
+supercomplex node most needed. This was a genuine miss.
+
+While fixing it I found the DOI-keyed cache was abstract-only, and that its nine
+snippets were being silently skipped by the snippet verifier (&#34;31/40 verified,
+9 skipped by prefix&#34;). Re-fetched under PMID:30531981, which returns full text
+(41,916 chars). All references were switched to the PMID form, and the entry now
+verifies 43/43 with nothing skipped.
+
+The full text also settled a question I had deliberately left open. Against the
+abstract-only cache I had recorded that the cardioblast line&#39;s species was
+unstated and declined to name it; the full text names H9c2 embryonic rat
+cardioblasts (ATCC) and siRNA silencing explicitly, so the model is now curated
+with its real identity, NCBITaxon:10116 organism, cell_source and
+culture_system, and the note about deliberate omission was removed as obsolete.
+
+Added an `experimental_models:` entry (CELL_LINE) with two ModelMechanismLinks
+and seven readouts, all quantified from the full text:
+  - respirasome level DECREASED (13% / 30%, two independent siRNAs)
+  - complex III activity DECREASED (72% / 63%)
+  - complex IV activity DECREASED (71% / 72%)
+  - respirasome after SDHC knockdown UNCHANGED - the specificity control, and a
+    real negative result: losing a complex II subunit does not disintegrate the
+    respirasome, so the NDUFA11 effect is attributable to NDUFA11
+  - cellular ATP DECREASED (to 48%)
+  - mitochondrial membrane potential DECREASED (47% / 14%)
+  - mitochondrial ROS INCREASED (62% / 30%)
+
+`Impaired Supercomplex Assembly` moved HYPOTHETICAL -&gt; PROVISIONAL on that
+evidence, and `Impaired Mitochondrial NADH Reoxidation and ATP Synthesis` gained
+the GO:0072593 reactive oxygen species metabolic process INCREASED annotation.
+That last point was a 🔵 note in the review and a real inconsistency: the node
+declares conformance to mitochondrial_dysfunction#Bioenergetic Decline and
+Oxidative Stress, whose module node carries that INCREASED ROS process, and the
+conforming node had never evidenced it. The cardioblast ROS measurement supplies
+it.
+
+An honest disagreement between model and disease is now curated rather than
+hidden: NDUFA11 knockdown takes complex III and IV activity down with complex I,
+while the patients&#39; biochemistry is on record as an *isolated* complex I
+deficiency. It appears in the link `limitations`, in the node description, and
+in the supercomplex discussion, framed as two testable alternatives.
+
+FINDING 2 - all three phenotypes were orphaned in the pathograph. Confirmed:
+no downstream edge reached them, and `check-causal-targets` passed only because
+every written target resolved. Confirmed also that patho-&gt;phenotype edges are
+established convention (3,668 of them across kb/disorders). Added
+Energy Deficit in Heart and Brain -&gt; Cardiomyopathy and -&gt; Encephalopathy.
+
+For the third phenotype the review offered a choice between linking and
+collapsing a near-duplicate. Took a third option: renamed the pathophysiology
+node `Lactic Acidemia` to `Cytosolic Redox Shift and Lactate Accumulation` and
+linked it to the `Lactic Acidosis` phenotype. The node names the mechanism (a
+raised cytosolic NADH/NAD+ ratio driving pyruvate to lactate) and the phenotype
+names the clinical finding, so the duplication disappears without losing the
+mechanistic step. No phenotype is orphaned now.
+
+Also from the 🔵 notes: recorded the GeneReviews decision in `notes:` following
+the MC1DN24 precedent (no chapter covers NDUFA11; PMID:26425749 does not mention
+it, and tagging a Leigh overview would import the class membership this entry
+declines); and reworded the &#34;not reported&#34; claims about the clinical split,
+enzyme values and treatment to say they are not quotable from the cached
+abstract-only record rather than that the source never reported them.
+
+Validation after revision, all exit 0: validate (43/43 snippets verified),
+validate-terms, validate-disorders, check-entity-refs, check-duplicate-keys,
+check-causal-targets, check-snippet-length, check-title-snippets,
+check-snippet-grading, check-environmental-evidence, check-folded-hyphens,
+check-stubs, check-term-cache-integrity. pytest -k &#34;model_readout or
+failure_to_recapitulate or entity_ref or causal&#34;: 10809 passed.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Mitochondrial Complex I Deficiency, Nuclear Type 14 (NDUFA11)</strong> · 2026-09-02T20:14:51Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Mitochondrial_Complex_I_Deficiency_Nuclear_Type_14/2026-09-02T201451Z-claude-code-01358d.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Mitochondrial_Complex_I_Deficiency_Nuclear_Type_14.yaml for
+MONDO:0032619 (NDUFA11), claim issue #10607.
+
+Entry-type decision: DISEASE. MONDO:0032619 is a leaf term whose only parent is
+MONDO:0100223 (mitochondrial complex I deficiency, nuclear type), with no Leigh
+syndrome ancestor anywhere in its closure. It therefore sits beside the MC1DN
+types already curated as standalone entries (1, 6, 23, 24, 34) rather than under
+any of them, and the settled per-subunit convention applies. The Leigh
+relationship curated for type 1 does not transfer: it is not in this term&#39;s
+ancestry, and the only mention of Leigh&#39;s disease in the defining paper&#39;s
+abstract is a sentence describing complex I deficiency as a class.
+
+Evidence base. The disease-specific clinical literature is two papers.
+PMID:18306244 (Berger 2008) defines the entity - six patients, three unrelated
+families, homozygosity mapping, a splice-site allele predicted to abolish the
+first transmembrane domain, presenting as encephalocardiomyopathy or fatal
+infantile lactic acidemia. PMID:31074871 (2019) is titled as reporting missense
+variants in late-onset myopathy, but `just fetch-reference` returns
+content_type: unavailable for it - no abstract, no full text - so nothing is
+curated from it. It is listed in `references` and its unreadability is recorded
+as a KNOWLEDGE_GAP discussion.
+
+Because that base is thin, most of the mechanism is carried by evidence that is
+not about NDUFA11 patients, and every such item is marked directness: INDIRECT:
+PMID:27626371 (gene-edited human knockout lines for every complex I accessory
+subunit), PMID:27654917 and PMID:27912063 (two independent mammalian respirasome
+cryo-EM structures that place NDUFA11 at the complex I/complex III interface),
+and PMID:34106255 (C. elegans nduf-11 knockout and RNAi knockdown). Node
+confidence is graded to match - HYPOTHETICAL for the supercomplex and cristae
+nodes, PROVISIONAL for the predicted helix loss and the tissue-selectivity node.
+
+The C. elegans work is curated in `animal_models:` with two ModelMechanismLinks
+(RECAPITULATES against the destabilisation node at MODERATE fidelity, and
+against the cristae node at LOW), each with limitations and readouts whose
+target repeats the link target. A HUMAN_MODEL_MISMATCH discussion records the
+specific mismatch: the worm null is L2-lethal while human patients are born and
+present in infancy homozygous for their allele.
+
+Ontology note. HP:0001522 (Death in infancy) is NOT in the schema&#39;s PhenotypeTerm
+dynamic enum - HPO places it under clinical course rather than under phenotypic
+abnormality - so the fatal infantile outcome is curated as a `progression:` phase
+instead of a phenotype, with the reason recorded in its notes. GO:0005747
+(mitochondrial respiratory chain complex I) is obsolete, replaced by GO:0045271;
+the deep-research report proposed it and the term validator flagged it. Neither
+was used.
+
+Deep research. A Falcon run was made specifically for this entry and is committed
+under research/. `just preflight-dr ... MONDO:0032619` PASSES: NDUFA11 is
+mentioned 41 times and is the dominant gene in the report, and the OMIM ID in the
+report (618236) matches MONDO&#39;s. Its own reference validation resolved 9/9 with 0
+possible confabulations; its term validation flagged 1 obsolete term (GO:0005747)
+and 0 unresolved. The report contains variant-level detail from Berger 2008
+full-text pages that this repository&#39;s abstract-only cache does not hold (a legacy
+IVS1+5G&gt;A nomenclature, an activated cryptic splice site, a transcript missing the
+final 78 bp of exon 1). None of it is asserted as evidence; it is recorded in
+`notes` as an uncited lead for anyone with journal access.
+
+Deliberately absent, and recorded in `notes`: Leigh syndrome; a hypertrophic
+qualifier on the cardiomyopathy (the source word is encephalocardiomyopathy, which
+names the organ not the morphology); phenotype frequencies (the one sentence
+describing the cohort&#39;s presentation is disjunctive and gives no split, so there is
+no denominator); enzyme activity values and reference intervals; and any treatment
+section, since no management is reported for any NDUFA11 patient and a class-level
+mitochondrial cofactor prescribing practice is not this disease&#39;s evidence.
+
+Validation: just validate, validate-terms, validate-disorders, count-verified-snippets
+(31/31 verified), check-duplicate-keys, check-entity-refs, check-causal-targets,
+check-snippet-length, check-title-snippets, check-snippet-grading,
+check-environmental-evidence, check-folded-hyphens, check-stubs, validate-stubs
+all exit 0.
+
+Retires stubs/Mitochondrial_Complex_I_Deficiency_Nuclear_Type_14.yaml.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

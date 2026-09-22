@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4817,6 +4870,13 @@ The practical consequence is unchanged. The gene-discovery work framed CMT4D as 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ndrg1-loss-of-function-variant" data-dismech-node="Biallelic NDRG1 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NDRG1 Loss-of-Function Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is biallelic loss of NDRG1. The founder allele p.Arg148* (c.442C&gt;T) introduces a premature termination codon and accounts for roughly two-thirds of reported patients. The remaining alleles converge on the same functional endpoint by different routes: frameshifts (p.His247Thrfs*74, p.Ser317Argfs*4, p.Glu170Glyfs*35), further nonsense alleles, canonical splice-acceptor variants whose transcripts favour exon skipping, a duplication of exons 6-8, and two missense alleles (p.Leu146Pro, p.Arg234Gln) that destabilise the protein rather than truncating it. The missense alleles matter mechanistically because they show the disease can be produced by reduced NDRG1 abundance alone, with no truncation involved.</div>
 
 
@@ -4877,6 +4937,8 @@ This pathophysiological event involves NDRG1 (hgnc:7679). hgnc:7679 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4889,6 +4951,9 @@ This pathophysiological event involves NDRG1 (hgnc:7679). hgnc:7679 is a gene fr
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline biallelic loss of function, most often homozygous for a founder nonsense allele. Functional characterisation of the novel Bulgarian splice-site alleles showed shorter gene products consistent with loss of protein function, and cell-culture work on the missense alleles showed accelerated degradation and lower steady-state protein levels.</div>
 
@@ -5019,6 +5084,13 @@ This pathophysiological event involves NDRG1 (hgnc:7679). hgnc:7679 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-schwann-cell-ndrg1-function" data-dismech-node="Loss of Schwann Cell NDRG1 Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Schwann Cell NDRG1 Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">NDRG1 is highly expressed in human Schwann cells. Its loss impairs Schwann-cell function and peripheral myelin maintenance. Mouse models demonstrate initially normal myelination followed by demyelination; that temporal sequence has not been reconstructed in human nerves. The cellular trafficking and signaling routes below remain provisional.</div>
 
@@ -5193,6 +5265,13 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-schwann-cell-vesicular-trafficking" data-dismech-node="Impaired Schwann Cell Vesicular Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Schwann Cell Vesicular Trafficking</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The leading account of what NDRG1 actually does in the Schwann cell is vesicular trafficking. NDRG1 regulates endosomal recycling through Rab4a-positive compartments and low-density lipoprotein receptor turnover; CMT4D missense mutants leave the NDRG1-Rab4a interaction intact but produce enlarged Rab4a-positive compartments and fail to support LDL uptake or to restore receptor levels at the cell surface. The proposal that follows - that a trafficking Schwann cell simply cannot meet the membrane demand of myelin growth - is supported by a striking timing coincidence in the stretcher mouse, where widespread large-fibre demyelination coincides exactly with the period in which myelin volume and length in large fibres increase several hundred-fold, and small fibres are spared. It is marked PROVISIONAL because the trafficking defect is demonstrated in cell lines and the demand-mismatch argument is an inference from the timing rather than a direct measurement of membrane flux in a CMT4D nerve. The same work explicitly argues against several earlier candidate functions.</div>
 
@@ -5412,6 +5491,13 @@ This pathophysiological event involves decreased endosomal recycling of membrane
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-neuregulin-1-erbb-signaling" data-dismech-node="Attenuated Neuregulin 1-ErbB Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Neuregulin 1-ErbB Signaling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Axonal neuregulin 1 signalling through Schwann-cell ErbB2/ErbB3 is the main route by which an axon instructs its Schwann cell how much myelin to make. In Ndrg1-deficient mice this pathway is decoupled in an informative way: ligand and receptor are not scarce - neuregulin 1 and total ErbB2/3 are both increased - yet the phosphorylated receptors and their downstream cascades are reduced, and integrin beta-4, the co-receptor that positively regulates the pathway, is markedly reduced. The lesion is therefore in receptor activation, not in ligand supply, which fits a trafficking defect that fails to present or maintain the receptor complex correctly at the Schwann-cell membrane. Marked PROVISIONAL for a specific reason: every one of these measurements comes from mouse sciatic nerve, and no equivalent has been shown in human CMT4D nerve. The same paper reports that its mouse does not reproduce the axonal loss that defines the human disease.</div>
 
 
@@ -5628,6 +5714,13 @@ This pathophysiological event involves decreased ERBB signaling pathway (GO:0038
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-myelination-transcription-program" data-dismech-node="Dysregulated Myelination Transcription Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Myelination Transcription Program</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Downstream of the signalling defect, the Schwann-cell myelination program itself is disordered in Ndrg1-deficient mice. EGR2, SOX10 and OCT6 - the transcription factors that drive myelination - are all abnormally expressed, and the structural myelin proteins follow: MBP and MPZ fall at both mRNA and protein level. PMP22 behaves differently and is worth recording separately, because its mRNA falls while its protein rises, which the authors read as NDRG1 loss impairing PMP22 degradation. That dissociation is a second, independent pointer at a trafficking or turnover defect rather than a transcriptional one. PROVISIONAL: mouse only.</div>
 
 
@@ -5798,6 +5891,13 @@ This pathophysiological event involves decreased myelination in peripheral nervo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myelin-sheath-breakdown-with-onion-bulb-formation" data-dismech-node="Myelin Sheath Breakdown with Onion Bulb Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Myelin Sheath Breakdown with Onion Bulb Formation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Human sural nerve shows depletion of myelinated fibres, thin myelin sheaths on surviving fibres and onion bulb formations. Preserved fibres are small and onion bulbs may be poorly developed. Ndrg1-deficient mice show normal initial myelination followed by progressive myelin breakdown, providing evidence for impaired maintenance; normal initial myelination is not established longitudinally in humans.</div>
 
@@ -6030,6 +6130,13 @@ This pathophysiological event involves decreased myelin maintenance (GO:0043217)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-severe-axonal-loss" data-dismech-node="Early Severe Axonal Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Early Severe Axonal Loss</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Severe axonal loss occurs early in human CMT4D and contributes to neurological disability. Human expression and pathology implicate impaired Schwann-cell support of axons, but the specific glia-to-axon causal route remains provisional. Mouse models reproduce demyelination but fail to reproduce the early severe axonal loss typical of patients. The Greyhound model has axonal pathology, although its timing and proportionality relative to demyelination have not been established to the same standard. The peripheral-neuron target here does not imply that NDRG1 loss acts cell-autonomously in the axon.</div>
 
 
@@ -6246,6 +6353,13 @@ This pathophysiological event involves peripheral nervous system neuron (CL:2000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-demyelinating-sensorimotor-neuropathy" data-dismech-node="Progressive Demyelinating Sensorimotor Neuropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Demyelinating Sensorimotor Neuropathy</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint: a severe, progressive, childhood-onset demyelinating sensorimotor neuropathy. Distal lower-limb weakness with steppage gait and frequent falls is the presenting complaint, hand weakness follows in the second decade, and the disorder leads to loss of ambulation. Median age at onset across the published literature is seven years. Unlike most CMT the involvement is not confined to the distal limbs - the two most recently reported siblings had distal-proximal weakness with generalised areflexia - and bulbar and respiratory involvement has now been documented.</div>
 
 
@@ -6418,6 +6532,13 @@ This pathophysiological event involves peripheral nervous system neuron (CL:2000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-auditory-pathway-involvement" data-dismech-node="Auditory Pathway Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Auditory Pathway Involvement</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Auditory pathway dysfunction produces progressive sensorineural hearing loss, usually recognized in the third decade but sometimes in childhood. Brainstem auditory evoked potentials may be delayed before hearing complaints. The original human electrophysiology suggested eighth-nerve demyelination and abnormal central auditory conduction; their relative contributions remain unresolved. This node is separate from the somatic nerve chain and is reached from the genotype through an edge with unknown intermediates. Broad hearing impairment was reported in 61% of published cases, but that estimate does not establish specifically sensorineural loss in every reviewed patient.</div>
 
 
@@ -6546,6 +6667,13 @@ This pathophysiological event involves peripheral nervous system neuron (CL:2000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-denervation" data-dismech-node="Motor Denervation" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor Denervation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Motor axonal loss deprives affected muscles of innervation. Human CMT4D electromyography demonstrates chronic denervation, supporting neurogenic weakness and wasting in distal muscles and, in severe disease, proximal muscles.</div>
 
 
@@ -6655,6 +6783,13 @@ This pathophysiological event involves peripheral nervous system neuron (CL:2000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-visual-pathway-dysfunction" data-dismech-node="Visual Pathway Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Visual Pathway Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Abnormal visual evoked potentials demonstrate dysfunction of the visual system in reported CMT4D siblings. The anatomical substrate and causal route from NDRG1 loss are unresolved; this node identifies the state measured by VEPs without assigning it to the cerebral white matter lesions reported in a different family.</div>
 
 
@@ -6738,7 +6873,7 @@ This pathophysiological event involves peripheral nervous system neuron (CL:2000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Visual Evoked Potentials\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced P100 amplitude and absent visual evoked responses were reported in the Italian siblings. These tests document visual pathway dysfunction without identifying its precise anatomical substrate.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Visual Pathway Dysfunction\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"VEP amplitude reduction and absent responses report impaired visual pathway function; they do not by themselves identify a cerebral white matter lesion or its cause.\"}], \"term_id\": \"HP:0000649\"}}, {\"id\": \"Absent Distal Sensory Nerve Action Potentials\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory nerve action potentials were absent in the upper and lower limbs of examined Turkish CMT4D patients. Absence is represented under the decreased-amplitude HPO term.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Absent sensory responses report severe sensory nerve dysfunction in the demyelinating and axonal neuropathy; the test alone does not separate conduction failure from sensory axonal loss.\"}], \"term_id\": \"HP:0007230\"}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower-limb tendon reflexes were absent in all examined Bulgarian patients, with upper-limb reflexes attenuated but preserved in five of seven. Generalized areflexia was also reported in the Italian siblings.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Attenuated Neuregulin 1-ErbB Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Axonal neuregulin 1 signalling through Schwann-cell ErbB2/ErbB3 is the main route by which an axon instructs its Schwann cell how much myelin to make. In Ndrg1-deficient mice this pathway is decoupled in an informative way: ligand and receptor are not scarce - neuregulin 1 and total ErbB2/3 are both increased - yet the phosphorylated receptors and their downstream cascades are reduced, and integrin beta-4, the co-receptor that positively regulates the pathway, is markedly reduced. The lesion is therefore in receptor activation, not in ligand supply, which fits a trafficking defect that fails to present or maintain the receptor complex correctly at the Schwann-cell membrane. Marked PROVISIONAL for a specific reason: every one of these measurements comes from mouse sciatic nerve, and no equivalent has been shown in human CMT4D nerve. The same paper reports that its mouse does not reproduce the axonal loss that defines the human disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"ERBB signaling pathway\"], \"role\": \"mediator\", \"animal_models\": [{\"name\": \"Ndrg1 exon 4-5 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1-/- (CRISPR/Cas9 deletion of exons 4 and 5)\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is the sole source of the neuregulin 1/ErbB evidence in this entry: it is where receptor phosphorylation, ligand level and integrin beta-4 abundance were measured.\"}]}}, {\"id\": \"Auditory Pathway Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Auditory pathway dysfunction produces progressive sensorineural hearing loss, usually recognized in the third decade but sometimes in childhood. Brainstem auditory evoked potentials may be delayed before hearing complaints. The original human electrophysiology suggested eighth-nerve demyelination and abnormal central auditory conduction; their relative contributions remain unresolved. This node is separate from the somatic nerve chain and is reached from the genotype through an edge with unknown intermediates. Broad hearing impairment was reported in 61% of published cases, but that estimate does not establish specifically sensorineural loss in every reviewed patient.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\"}}, {\"id\": \"Biallelic NDRG1 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is biallelic loss of NDRG1. The founder allele p.Arg148* (c.442C\u003eT) introduces a premature termination codon and accounts for roughly two-thirds of reported patients. The remaining alleles converge on the same functional endpoint by different routes: frameshifts (p.His247Thrfs*74, p.Ser317Argfs*4, p.Glu170Glyfs*35), further nonsense alleles, canonical splice-acceptor variants whose transcripts favour exon skipping, a duplication of exons 6-8, and two missense alleles (p.Leu146Pro, p.Arg234Gln) that destabilise the protein rather than truncating it. The missense alleles matter mechanistically because they show the disease can be produced by reduced NDRG1 abundance alone, with no truncation involved.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"NDRG1\"], \"gene_terms\": [{\"label\": \"NDRG1\", \"id\": \"hgnc:7679\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline biallelic loss of function, most often homozygous for a founder nonsense allele. Functional characterisation of the novel Bulgarian splice-site alleles showed shorter gene products consistent with loss of protein function, and cell-culture work on the missense alleles showed accelerated degradation and lower steady-state protein levels.\"}, \"role\": \"trigger\"}}, {\"id\": \"Bilateral Vocal Cord Paralysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral vocal cord paralysis caused respiratory insufficiency requiring non-invasive ventilation in the reported Italian siblings. The source does not establish the affected nerve or exclude additional respiratory muscle involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012820\"}}, {\"id\": \"Claw Hand Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Claw hands develop with distal hand muscle wasting. They were reported in 40% of patients in the published-case review and throughout the examined Bulgarian series.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034337\"}}, {\"id\": \"Decreased Motor Nerve Conduction Velocity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked slowing of motor nerve conduction is an electrophysiological indicator of peripheral demyelination. It is accompanied by prolonged distal latencies, and is not specific enough to identify NDRG1 without molecular confirmation.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Reduced conduction velocity reports peripheral myelin dysfunction; it is an electrophysiological measurement, not an additional causal step.\"}], \"term_id\": \"HP:0003431\"}}, {\"id\": \"Delayed Brainstem Auditory Evoked Responses\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged auditory wave and interpeak latencies were observed in the Bulgarian cohort, including two adults without hearing complaints and with normal audiograms.\", \"meta\": {\"evidence_count\": 2, \"reports_on\": [{\"target\": \"Auditory Pathway Involvement\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Auditory evoked-response delay reports dysfunction of the eighth-nerve/brainstem auditory route, without resolving peripheral versus central localization.\"}], \"term_id\": \"HP:0004466\"}}, {\"id\": \"Demyelinating Sensorimotor Polyneuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset progressive demyelinating motor and sensory peripheral neuropathy with severe, early axonal loss. Motor conduction is markedly slowed and sensory responses may be absent.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007108\"}}, {\"id\": \"Distal Amyotrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal wasting affects the abductor pollicis brevis, interossei, gastrocnemius and tibialis anterior muscles. It was present throughout the examined Bulgarian series, with slight asymmetry in two reported patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003693\"}}, {\"id\": \"Distal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive weakness usually begins in the distal lower limbs. In the examined Bulgarian patients, toe and ankle flexion and extension strength was 0\\u20131/5, and hand weakness developed between ages 10 and 17 years.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002460\"}}, {\"id\": \"Distal Sensory Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Light touch, pin prick and temperature sensation are diminished to absent distally in all four limbs; vibration sense is impaired in the lower limbs but was preserved in the upper limbs of most of the Bulgarian cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002936\"}}, {\"id\": \"Dysregulated Myelination Transcription Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Downstream of the signalling defect, the Schwann-cell myelination program itself is disordered in Ndrg1-deficient mice. EGR2, SOX10 and OCT6 - the transcription factors that drive myelination - are all abnormally expressed, and the structural myelin proteins follow: MBP and MPZ fall at both mRNA and protein level. PMP22 behaves differently and is worth recording separately, because its mRNA falls while its protein rises, which the authors read as NDRG1 loss impairing PMP22 degradation. That dissociation is a second, independent pointer at a trafficking or turnover defect rather than a transcriptional one. PROVISIONAL: mouse only.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"myelination in peripheral nervous system\"], \"role\": \"effector\"}}, {\"id\": \"Early Severe Axonal Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe axonal loss occurs early in human CMT4D and contributes to neurological disability. Human expression and pathology implicate impaired Schwann-cell support of axons, but the specific glia-to-axon causal route remains provisional. Mouse models reproduce demyelination but fail to reproduce the early severe axonal loss typical of patients. The Greyhound model has axonal pathology, although its timing and proportionality relative to demyelination have not been established to the same standard. The peripheral-neuron target here does not imply that NDRG1 loss acts cell-autonomously in the axon.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"peripheral nervous system neuron\"], \"role\": \"amplifier\", \"animal_models\": [{\"name\": \"Ndrg1 exon 4-5 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1-/- (CRISPR/Cas9 deletion of exons 4 and 5)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The defining human feature - early severe axonal loss - is absent from this model despite otherwise faithful demyelination, and the authors say so explicitly.\"}, {\"name\": \"Stretcher mouse (spontaneous Ndrg1 null)\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1 str/str (spontaneous total Ndrg1 deficiency)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Neither the stretcher mouse nor the hypomorphic knockout reproduces the early severe axonal loss of human CMT4D. Axon damage occurs, but regenerative capacity is unimpaired.\"}, {\"name\": \"Ndrg1 knockout mouse (Okuda)\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1-/- (targeted knockout)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"This model was one of the two compared head to head in PMID:21303696, and that comparison found neither reproduces the early severe axonal loss of human CMT4D.\"}]}}, {\"id\": \"Equinovarus Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Equinovarus deformity accompanied distal muscle atrophy in the examined Bulgarian patients. The report does not establish a congenital clubfoot, so the broader equinovarus term is used.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008110\"}}, {\"id\": \"Frequent Falls\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequent falls accompanied the initial distal weakness and steppage gait in the examined Bulgarian patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002359\"}}, {\"id\": \"Greyhound polyneuropathy (NDRG1 exon 15 deletion)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring canine model: juvenile Greyhound show dogs with a recessive polyneuropathy tracing to a single founder male, in which a ten-base deletion in NDRG1 exon 15 is perfectly associated with the phenotype and abolishes NDRG1 protein in peripheral nerve.\"}, {\"id\": \"Hammertoe\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hammer toes were reported in the three NDRG1-duplication homozygous Turkish siblings, together with pes cavus and claw hands.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001765\"}}, {\"id\": \"Impaired Schwann Cell Vesicular Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The leading account of what NDRG1 actually does in the Schwann cell is vesicular trafficking. NDRG1 regulates endosomal recycling through Rab4a-positive compartments and low-density lipoprotein receptor turnover; CMT4D missense mutants leave the NDRG1-Rab4a interaction intact but produce enlarged Rab4a-positive compartments and fail to support LDL uptake or to restore receptor levels at the cell surface. The proposal that follows - that a trafficking Schwann cell simply cannot meet the membrane demand of myelin growth - is supported by a striking timing coincidence in the stretcher mouse, where widespread large-fibre demyelination coincides exactly with the period in which myelin volume and length in large fibres increase several hundred-fold, and small fibres are spared. It is marked PROVISIONAL because the trafficking defect is demonstrated in cell lines and the demand-mismatch argument is an inference from the timing rather than a direct measurement of membrane flux in a CMT4D nerve. The same work explicitly argues against several earlier candidate functions.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"endosomal recycling of membrane receptors\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Stretcher mouse (spontaneous Ndrg1 null)\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1 str/str (spontaneous total Ndrg1 deficiency)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is the basis of the trafficking-demand-mismatch hypothesis: its large-fibre demyelination coincides precisely with the period of rapid myelin growth and small fibres are spared, while gene expression profiling found only non-specific secondary changes and normal proteasomal function.\"}]}}, {\"id\": \"Loss of Ambulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive motor and sensory impairment can lead to loss of ambulation. One patient in the Bulgarian series lost ambulation at age 23; a disease-wide frequency or age distribution is not established.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002505\"}}, {\"id\": \"Loss of Schwann Cell NDRG1 Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NDRG1 is highly expressed in human Schwann cells. Its loss impairs Schwann-cell function and peripheral myelin maintenance. Mouse models demonstrate initially normal myelination followed by demyelination; that temporal sequence has not been reconstructed in human nerves. The cellular trafficking and signaling routes below remain provisional.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Schwann cell\"], \"role\": \"central_effector\"}}, {\"id\": \"Motor Denervation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Motor axonal loss deprives affected muscles of innervation. Human CMT4D electromyography demonstrates chronic denervation, supporting neurogenic weakness and wasting in distal muscles and, in severe disease, proximal muscles.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human sural nerve shows depletion of myelinated fibres, thin myelin sheaths on surviving fibres and onion bulb formations. Preserved fibres are small and onion bulbs may be poorly developed. Ndrg1-deficient mice show normal initial myelination followed by progressive myelin breakdown, providing evidence for impaired maintenance; normal initial myelination is not established longitudinally in humans.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"myelin maintenance\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Ndrg1 exon 4-5 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1-/- (CRISPR/Cas9 deletion of exons 4 and 5)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the demyelinating lesion with correct timing - normal at two weeks, thinning from four weeks when myelination would normally be complete, progressive thereafter, with occasional onion bulbs.\"}, {\"name\": \"Ndrg1 knockout mouse (Okuda)\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1-/- (targeted knockout)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Establishes progressive demyelination of an initially normally myelinated nerve, with Schwann-cell dysfunction as the proximate cause.\"}]}}, {\"id\": \"NDRG1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"NDRG1\"], \"gene_terms\": [{\"label\": \"NDRG1\", \"id\": \"hgnc:7679\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Ndrg1 exon 4-5 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A CRISPR-generated null mouse that develops early progressive demyelinating neuropathy and limb muscle weakness, with reduced motor nerve conduction velocity and compound muscle action potential amplitude by eight weeks. It is the model in which the neuregulin 1/ErbB findings were made.\"}, {\"id\": \"Ndrg1 knockout mouse (Okuda)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The first published Ndrg1-null mouse, and the model the stretcher work later used as its hypomorphic comparator. Its contribution is a timing argument: sciatic nerve myelination is normal for the first two postnatal weeks and only then degenerates with demyelination at about five weeks, which separates myelin maintenance from myelin formation as the affected process.\"}, {\"id\": \"Pes Cavus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A high-arched foot deformity reported in 67% of patients in the published-case review and in all examined patients in the Bulgarian series.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001761\"}}, {\"id\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: a severe, progressive, childhood-onset demyelinating sensorimotor neuropathy. Distal lower-limb weakness with steppage gait and frequent falls is the presenting complaint, hand weakness follows in the second decade, and the disorder leads to loss of ambulation. Median age at onset across the published literature is seven years. Unlike most CMT the involvement is not confined to the distal limbs - the two most recently reported siblings had distal-proximal weakness with generalised areflexia - and bulbar and respiratory involvement has now been documented.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\", \"animal_models\": [{\"name\": \"Greyhound polyneuropathy (NDRG1 exon 15 deletion)\", \"species\": \"Dog\", \"genotype\": \"NDRG1 c.1080_1089delTCGCCTGGAC homozygous (p.Arg361SerfsX60)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces a severe chronic progressive polyneuropathy of juvenile onset on a recessive founder background, with NDRG1 protein absent from peripheral nerve on Western blot.\"}]}}, {\"id\": \"Proximal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal weakness accompanied the more severe distal weakness in genetically affected Turkish siblings; severity ranged from mild in the proband to moderate in his examined affected sister.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency requiring non-invasive ventilation was attributed to bilateral vocal cord paralysis in the Italian siblings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive sensorineural hearing loss commonly becomes apparent in the third decade, although childhood onset also occurs. The Bulgarian series emphasized high-frequency loss, whereas a Turkish proband had predominantly low-frequency loss. The literature review quantified broad hearing impairment (61%), without specifying the ascertainment of sensorineural loss in every reviewed patient.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Steppage Gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A compensatory gait associated with distal lower-limb weakness, reported among the initial manifestations in the examined Bulgarian patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003376\"}}, {\"id\": \"Stretcher mouse (spontaneous Ndrg1 null)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A spontaneous total Ndrg1-null mutant, compared directly against a hypomorphic Ndrg1 knockout. The comparison is the informative part: the markedly more severe stretcher phenotype implies that even low residual Ndrg1 expression rescues a large part of the phenotype, which is a dosage statement no single model could make.\"}, {\"id\": \"Visual Pathway Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal visual evoked potentials demonstrate dysfunction of the visual system in reported CMT4D siblings. The anatomical substrate and causal route from NDRG1 loss are unresolved; this node identifies the state measured by VEPs without assigning it to the cerebral white matter lesions reported in a different family.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\"}}], \"edges\": [{\"source\": \"Biallelic NDRG1 Loss-of-Function Variant\", \"target\": \"Loss of Schwann Cell NDRG1 Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic NDRG1 Loss-of-Function Variant\", \"target\": \"Auditory Pathway Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The genotype-to-deafness link is established by segregation - sensorineural deafness is a hallmark of the NDRG1 phenotype - but the intervening mechanism is not. The evoked-potential data implicate the eighth cranial nerve and the central auditory pathways simultaneously, and no cochlear or auditory-nerve pathology from a CMT4D patient has been reported, so this edge deliberately skips over unknown intermediates rather than routing the deafness through the somatic Schwann-cell chain as if the mechanism were shared.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Schwann Cell NDRG1 Function\", \"target\": \"Impaired Schwann Cell Vesicular Trafficking\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Schwann Cell NDRG1 Function\", \"target\": \"Attenuated Neuregulin 1-ErbB Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Schwann Cell NDRG1 Function\", \"target\": \"Early Severe Axonal Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired Schwann-cell support is implicated in early human axonal injury, but the glia-to-axon intermediates remain unresolved and rodent models fail to reproduce its early severity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Schwann Cell Vesicular Trafficking\", \"target\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Neuregulin 1-ErbB Signaling\", \"target\": \"Dysregulated Myelination Transcription Program\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated Myelination Transcription Program\", \"target\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"target\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myelin breakdown contributes the demyelinating component of the clinically observed sensorimotor neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early Severe Axonal Loss\", \"target\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Early Severe Axonal Loss\", \"target\": \"Motor Denervation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of motor axons removes muscle innervation; human CMT4D EMG documents the resulting chronic denervation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"target\": \"Demyelinating Sensorimotor Polyneuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The phenotype is the clinical expression of this established demyelinating sensorimotor nerve lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"target\": \"Distal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic motor nerve dysfunction produces the predominantly distal weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"target\": \"Distal Sensory Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory nerve dysfunction produces distal sensory loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The sensorimotor nerve lesion impairs the peripheral limbs of tendon reflex arcs, explaining the absent tendon reflexes observed with the neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Auditory Pathway Involvement\", \"target\": \"Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysfunction of the auditory nerve/central auditory route produces sensorineural hearing loss. The link does not select one anatomical localization over the other.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor Denervation\", \"target\": \"Distal Amyotrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic loss of motor innervation causes neurogenic wasting in the predominantly affected distal muscles.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor Denervation\", \"target\": \"Proximal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Denervation also compromises proximal motor units in severely affected patients; proximal denervation and weakness were both documented in the Turkish NDRG1-duplication homozygote.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal Muscle Weakness\", \"target\": \"Loss of Ambulation\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive lower-limb weakness, together with sensory loss, can result in loss of ambulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Progressive impairment of lower-limb motor function and gait\"]}, {\"source\": \"Distal Muscle Weakness\", \"target\": \"Steppage Gait\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Ankle dorsiflexor weakness reduces foot clearance, leading to compensatory steppage. General-CMT gait studies support this explanation for the same weakness/gait combination observed in CMT4D.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced ankle dorsiflexion and compensatory foot clearance\"]}, {\"source\": \"Distal Muscle Weakness\", \"target\": \"Frequent Falls\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Distal weakness impairs foot clearance and balance, contributing to frequent falls. The mechanism is described in broader CMT and applied with that limitation to the weakness and falls directly observed in CMT4D.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired foot clearance and balance during walking\"]}, {\"source\": \"Distal Amyotrophy\", \"target\": \"Pes Cavus\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Uneven muscle wasting and weakness alter the balance of forces across the distal joints, producing this deformity. The biomechanical account is supported in broader CMT and applied to the corresponding documented CMT4D deformity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Distal muscle imbalance and progressive joint deformity\"]}, {\"source\": \"Distal Amyotrophy\", \"target\": \"Equinovarus Deformity\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Uneven muscle wasting and weakness alter the balance of forces across the distal joints, producing this deformity. The biomechanical account is supported in broader CMT and applied to the corresponding documented CMT4D deformity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Distal muscle imbalance and progressive joint deformity\"]}, {\"source\": \"Distal Amyotrophy\", \"target\": \"Claw Hand Deformity\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Uneven muscle wasting and weakness alter the balance of forces across the distal joints, producing this deformity. The biomechanical account is supported in broader CMT and applied to the corresponding documented CMT4D deformity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Distal muscle imbalance and progressive joint deformity\"]}, {\"source\": \"Distal Amyotrophy\", \"target\": \"Hammertoe\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Uneven muscle wasting and weakness alter the balance of forces across the distal joints, producing this deformity. The biomechanical account is supported in broader CMT and applied to the corresponding documented CMT4D deformity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Distal muscle imbalance and progressive joint deformity\"]}, {\"source\": \"Bilateral Vocal Cord Paralysis\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The Italian report explicitly attributes the respiratory insufficiency to bilateral vocal cord paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ndrg1 exon 4-5 knockout mouse\", \"target\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the demyelinating lesion with correct timing - normal at two weeks, thinning from four weeks when myelination would normally be complete, progressive thereafter, with occasional onion bulbs.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The hypomyelination does not lead to apparent axonal loss, so the model reproduces the demyelination while missing the early severe axonal loss that produces disability in patients.\"}, {\"source\": \"Ndrg1 exon 4-5 knockout mouse\", \"target\": \"Early Severe Axonal Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The defining human feature - early severe axonal loss - is absent from this model despite otherwise faithful demyelination, and the authors say so explicitly.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"A shift in axonal size distribution occurs, but no apparent axonal loss. Any therapeutic result obtained in this model therefore speaks to the demyelinating arm only and cannot be assumed to address the axonal degeneration that causes disability in patients.\"}, {\"source\": \"Ndrg1 exon 4-5 knockout mouse\", \"target\": \"Attenuated Neuregulin 1-ErbB Signaling\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The model is the sole source of the neuregulin 1/ErbB evidence in this entry: it is where receptor phosphorylation, ligand level and integrin beta-4 abundance were measured.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"No equivalent measurement exists in human CMT4D nerve, so the entire signalling arm of this entry\u0027s pathograph rests on this mouse.\"}, {\"source\": \"Stretcher mouse (spontaneous Ndrg1 null)\", \"target\": \"Impaired Schwann Cell Vesicular Trafficking\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model is the basis of the trafficking-demand-mismatch hypothesis: its large-fibre demyelination coincides precisely with the period of rapid myelin growth and small fibres are spared, while gene expression profiling found only non-specific secondary changes and normal proteasomal function.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The trafficking defect itself is not measured in this model; the inference rests on the timing and fibre-size selectivity of the lesion, and gene expression profiling was explicitly non-specific.\"}, {\"source\": \"Stretcher mouse (spontaneous Ndrg1 null)\", \"target\": \"Early Severe Axonal Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Neither the stretcher mouse nor the hypomorphic knockout reproduces the early severe axonal loss of human CMT4D. Axon damage occurs, but regenerative capacity is unimpaired.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Because both models compared in that study fail at the same point, as does the independent CRISPR Ndrg1-/- mouse, no rodent model reconstructs the step from Schwann-cell NDRG1 loss to axonal degeneration, which constrains what preclinical work on this disorder can test. The canine model is deliberately excluded from that claim: it does show axonal pathology, and is treated separately in the HUMAN_MODEL_MISMATCH discussion.\"}, {\"source\": \"Ndrg1 knockout mouse (Okuda)\", \"target\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes progressive demyelination of an initially normally myelinated nerve, with Schwann-cell dysfunction as the proximate cause.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Reported as a hypomorphic rather than complete null in the later head-to-head comparison with the stretcher mouse, and neither model in that comparison displays the early severe axonal loss of the human disease.\"}, {\"source\": \"Ndrg1 knockout mouse (Okuda)\", \"target\": \"Early Severe Axonal Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"This model was one of the two compared head to head in PMID:21303696, and that comparison found neither reproduces the early severe axonal loss of human CMT4D.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The failure is shared with the stretcher mouse and is the reason no rodent model reconstructs the axonal arm. It says nothing about the canine model, which does show axonal pathology.\"}, {\"source\": \"Greyhound polyneuropathy (NDRG1 exon 15 deletion)\", \"target\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces a severe chronic progressive polyneuropathy of juvenile onset on a recessive founder background, with NDRG1 protein absent from peripheral nerve on Western blot.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The canine lesion is described as a mixed polyneuropathy rather than the predominantly demyelinating picture with early axonal loss seen in patients, and deafness - a defining human feature - is not reported in the affected dogs.\"}, {\"source\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"target\": \"Decreased Motor Nerve Conduction Velocity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced conduction velocity reports peripheral myelin dysfunction; it is an electrophysiological measurement, not an additional causal step.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Visual Pathway Dysfunction\", \"target\": \"Abnormal Visual Evoked Potentials\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"VEP amplitude reduction and absent responses report impaired visual pathway function; they do not by themselves identify a cerebral white matter lesion or its cause.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"target\": \"Absent Distal Sensory Nerve Action Potentials\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Absent sensory responses report severe sensory nerve dysfunction in the demyelinating and axonal neuropathy; the test alone does not separate conduction failure from sensory axonal loss.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Auditory Pathway Involvement\", \"target\": \"Delayed Brainstem Auditory Evoked Responses\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Auditory evoked-response delay reports dysfunction of the eighth-nerve/brainstem auditory route, without resolving peripheral versus central localization.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"NDRG1\", \"target\": \"Biallelic NDRG1 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Visual Evoked Potentials\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced P100 amplitude and absent visual evoked responses were reported in the Italian siblings. These tests document visual pathway dysfunction without identifying its precise anatomical substrate.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Visual Pathway Dysfunction\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"VEP amplitude reduction and absent responses report impaired visual pathway function; they do not by themselves identify a cerebral white matter lesion or its cause.\"}], \"term_id\": \"HP:0000649\"}}, {\"id\": \"Absent Distal Sensory Nerve Action Potentials\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory nerve action potentials were absent in the upper and lower limbs of examined Turkish CMT4D patients. Absence is represented under the decreased-amplitude HPO term.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Absent sensory responses report severe sensory nerve dysfunction in the demyelinating and axonal neuropathy; the test alone does not separate conduction failure from sensory axonal loss.\"}], \"term_id\": \"HP:0007230\"}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower-limb tendon reflexes were absent in all examined Bulgarian patients, with upper-limb reflexes attenuated but preserved in five of seven. Generalized areflexia was also reported in the Italian siblings.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Attenuated Neuregulin 1-ErbB Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Axonal neuregulin 1 signalling through Schwann-cell ErbB2/ErbB3 is the main route by which an axon instructs its Schwann cell how much myelin to make. In Ndrg1-deficient mice this pathway is decoupled in an informative way: ligand and receptor are not scarce - neuregulin 1 and total ErbB2/3 are both increased - yet the phosphorylated receptors and their downstream cascades are reduced, and integrin beta-4, the co-receptor that positively regulates the pathway, is markedly reduced. The lesion is therefore in receptor activation, not in ligand supply, which fits a trafficking defect that fails to present or maintain the receptor complex correctly at the Schwann-cell membrane. Marked PROVISIONAL for a specific reason: every one of these measurements comes from mouse sciatic nerve, and no equivalent has been shown in human CMT4D nerve. The same paper reports that its mouse does not reproduce the axonal loss that defines the human disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"ERBB signaling pathway\"], \"role\": \"mediator\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Ndrg1 exon 4-5 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1-/- (CRISPR/Cas9 deletion of exons 4 and 5)\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is the sole source of the neuregulin 1/ErbB evidence in this entry: it is where receptor phosphorylation, ligand level and integrin beta-4 abundance were measured.\"}]}}, {\"id\": \"Auditory Pathway Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Auditory pathway dysfunction produces progressive sensorineural hearing loss, usually recognized in the third decade but sometimes in childhood. Brainstem auditory evoked potentials may be delayed before hearing complaints. The original human electrophysiology suggested eighth-nerve demyelination and abnormal central auditory conduction; their relative contributions remain unresolved. This node is separate from the somatic nerve chain and is reached from the genotype through an edge with unknown intermediates. Broad hearing impairment was reported in 61% of published cases, but that estimate does not establish specifically sensorineural loss in every reviewed patient.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Biallelic NDRG1 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is biallelic loss of NDRG1. The founder allele p.Arg148* (c.442C\u003eT) introduces a premature termination codon and accounts for roughly two-thirds of reported patients. The remaining alleles converge on the same functional endpoint by different routes: frameshifts (p.His247Thrfs*74, p.Ser317Argfs*4, p.Glu170Glyfs*35), further nonsense alleles, canonical splice-acceptor variants whose transcripts favour exon skipping, a duplication of exons 6-8, and two missense alleles (p.Leu146Pro, p.Arg234Gln) that destabilise the protein rather than truncating it. The missense alleles matter mechanistically because they show the disease can be produced by reduced NDRG1 abundance alone, with no truncation involved.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"NDRG1\"], \"gene_terms\": [{\"label\": \"NDRG1\", \"id\": \"hgnc:7679\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline biallelic loss of function, most often homozygous for a founder nonsense allele. Functional characterisation of the novel Bulgarian splice-site alleles showed shorter gene products consistent with loss of protein function, and cell-culture work on the missense alleles showed accelerated degradation and lower steady-state protein levels.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Bilateral Vocal Cord Paralysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral vocal cord paralysis caused respiratory insufficiency requiring non-invasive ventilation in the reported Italian siblings. The source does not establish the affected nerve or exclude additional respiratory muscle involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012820\"}}, {\"id\": \"Claw Hand Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Claw hands develop with distal hand muscle wasting. They were reported in 40% of patients in the published-case review and throughout the examined Bulgarian series.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034337\"}}, {\"id\": \"Decreased Motor Nerve Conduction Velocity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked slowing of motor nerve conduction is an electrophysiological indicator of peripheral demyelination. It is accompanied by prolonged distal latencies, and is not specific enough to identify NDRG1 without molecular confirmation.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Reduced conduction velocity reports peripheral myelin dysfunction; it is an electrophysiological measurement, not an additional causal step.\"}], \"term_id\": \"HP:0003431\"}}, {\"id\": \"Delayed Brainstem Auditory Evoked Responses\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged auditory wave and interpeak latencies were observed in the Bulgarian cohort, including two adults without hearing complaints and with normal audiograms.\", \"meta\": {\"evidence_count\": 2, \"reports_on\": [{\"target\": \"Auditory Pathway Involvement\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Auditory evoked-response delay reports dysfunction of the eighth-nerve/brainstem auditory route, without resolving peripheral versus central localization.\"}], \"term_id\": \"HP:0004466\"}}, {\"id\": \"Demyelinating Sensorimotor Polyneuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset progressive demyelinating motor and sensory peripheral neuropathy with severe, early axonal loss. Motor conduction is markedly slowed and sensory responses may be absent.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007108\"}}, {\"id\": \"Distal Amyotrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal wasting affects the abductor pollicis brevis, interossei, gastrocnemius and tibialis anterior muscles. It was present throughout the examined Bulgarian series, with slight asymmetry in two reported patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003693\"}}, {\"id\": \"Distal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive weakness usually begins in the distal lower limbs. In the examined Bulgarian patients, toe and ankle flexion and extension strength was 0\\u20131/5, and hand weakness developed between ages 10 and 17 years.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002460\"}}, {\"id\": \"Distal Sensory Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Light touch, pin prick and temperature sensation are diminished to absent distally in all four limbs; vibration sense is impaired in the lower limbs but was preserved in the upper limbs of most of the Bulgarian cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002936\"}}, {\"id\": \"Dysregulated Myelination Transcription Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Downstream of the signalling defect, the Schwann-cell myelination program itself is disordered in Ndrg1-deficient mice. EGR2, SOX10 and OCT6 - the transcription factors that drive myelination - are all abnormally expressed, and the structural myelin proteins follow: MBP and MPZ fall at both mRNA and protein level. PMP22 behaves differently and is worth recording separately, because its mRNA falls while its protein rises, which the authors read as NDRG1 loss impairing PMP22 degradation. That dissociation is a second, independent pointer at a trafficking or turnover defect rather than a transcriptional one. PROVISIONAL: mouse only.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"myelination in peripheral nervous system\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Early Severe Axonal Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe axonal loss occurs early in human CMT4D and contributes to neurological disability. Human expression and pathology implicate impaired Schwann-cell support of axons, but the specific glia-to-axon causal route remains provisional. Mouse models reproduce demyelination but fail to reproduce the early severe axonal loss typical of patients. The Greyhound model has axonal pathology, although its timing and proportionality relative to demyelination have not been established to the same standard. The peripheral-neuron target here does not imply that NDRG1 loss acts cell-autonomously in the axon.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"peripheral nervous system neuron\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Ndrg1 exon 4-5 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1-/- (CRISPR/Cas9 deletion of exons 4 and 5)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The defining human feature - early severe axonal loss - is absent from this model despite otherwise faithful demyelination, and the authors say so explicitly.\"}, {\"name\": \"Stretcher mouse (spontaneous Ndrg1 null)\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1 str/str (spontaneous total Ndrg1 deficiency)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Neither the stretcher mouse nor the hypomorphic knockout reproduces the early severe axonal loss of human CMT4D. Axon damage occurs, but regenerative capacity is unimpaired.\"}, {\"name\": \"Ndrg1 knockout mouse (Okuda)\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1-/- (targeted knockout)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"This model was one of the two compared head to head in PMID:21303696, and that comparison found neither reproduces the early severe axonal loss of human CMT4D.\"}]}}, {\"id\": \"Equinovarus Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Equinovarus deformity accompanied distal muscle atrophy in the examined Bulgarian patients. The report does not establish a congenital clubfoot, so the broader equinovarus term is used.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008110\"}}, {\"id\": \"Frequent Falls\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequent falls accompanied the initial distal weakness and steppage gait in the examined Bulgarian patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002359\"}}, {\"id\": \"Greyhound polyneuropathy (NDRG1 exon 15 deletion)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring canine model: juvenile Greyhound show dogs with a recessive polyneuropathy tracing to a single founder male, in which a ten-base deletion in NDRG1 exon 15 is perfectly associated with the phenotype and abolishes NDRG1 protein in peripheral nerve.\"}, {\"id\": \"Hammertoe\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hammer toes were reported in the three NDRG1-duplication homozygous Turkish siblings, together with pes cavus and claw hands.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001765\"}}, {\"id\": \"Impaired Schwann Cell Vesicular Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The leading account of what NDRG1 actually does in the Schwann cell is vesicular trafficking. NDRG1 regulates endosomal recycling through Rab4a-positive compartments and low-density lipoprotein receptor turnover; CMT4D missense mutants leave the NDRG1-Rab4a interaction intact but produce enlarged Rab4a-positive compartments and fail to support LDL uptake or to restore receptor levels at the cell surface. The proposal that follows - that a trafficking Schwann cell simply cannot meet the membrane demand of myelin growth - is supported by a striking timing coincidence in the stretcher mouse, where widespread large-fibre demyelination coincides exactly with the period in which myelin volume and length in large fibres increase several hundred-fold, and small fibres are spared. It is marked PROVISIONAL because the trafficking defect is demonstrated in cell lines and the demand-mismatch argument is an inference from the timing rather than a direct measurement of membrane flux in a CMT4D nerve. The same work explicitly argues against several earlier candidate functions.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"endosomal recycling of membrane receptors\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Stretcher mouse (spontaneous Ndrg1 null)\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1 str/str (spontaneous total Ndrg1 deficiency)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is the basis of the trafficking-demand-mismatch hypothesis: its large-fibre demyelination coincides precisely with the period of rapid myelin growth and small fibres are spared, while gene expression profiling found only non-specific secondary changes and normal proteasomal function.\"}]}}, {\"id\": \"Loss of Ambulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive motor and sensory impairment can lead to loss of ambulation. One patient in the Bulgarian series lost ambulation at age 23; a disease-wide frequency or age distribution is not established.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002505\"}}, {\"id\": \"Loss of Schwann Cell NDRG1 Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NDRG1 is highly expressed in human Schwann cells. Its loss impairs Schwann-cell function and peripheral myelin maintenance. Mouse models demonstrate initially normal myelination followed by demyelination; that temporal sequence has not been reconstructed in human nerves. The cellular trafficking and signaling routes below remain provisional.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Schwann cell\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Motor Denervation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Motor axonal loss deprives affected muscles of innervation. Human CMT4D electromyography demonstrates chronic denervation, supporting neurogenic weakness and wasting in distal muscles and, in severe disease, proximal muscles.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human sural nerve shows depletion of myelinated fibres, thin myelin sheaths on surviving fibres and onion bulb formations. Preserved fibres are small and onion bulbs may be poorly developed. Ndrg1-deficient mice show normal initial myelination followed by progressive myelin breakdown, providing evidence for impaired maintenance; normal initial myelination is not established longitudinally in humans.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"myelin maintenance\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Ndrg1 exon 4-5 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1-/- (CRISPR/Cas9 deletion of exons 4 and 5)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the demyelinating lesion with correct timing - normal at two weeks, thinning from four weeks when myelination would normally be complete, progressive thereafter, with occasional onion bulbs.\"}, {\"name\": \"Ndrg1 knockout mouse (Okuda)\", \"species\": \"Mouse\", \"genotype\": \"Ndrg1-/- (targeted knockout)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Establishes progressive demyelination of an initially normally myelinated nerve, with Schwann-cell dysfunction as the proximate cause.\"}]}}, {\"id\": \"NDRG1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"NDRG1\"], \"gene_terms\": [{\"label\": \"NDRG1\", \"id\": \"hgnc:7679\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Ndrg1 exon 4-5 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A CRISPR-generated null mouse that develops early progressive demyelinating neuropathy and limb muscle weakness, with reduced motor nerve conduction velocity and compound muscle action potential amplitude by eight weeks. It is the model in which the neuregulin 1/ErbB findings were made.\"}, {\"id\": \"Ndrg1 knockout mouse (Okuda)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The first published Ndrg1-null mouse, and the model the stretcher work later used as its hypomorphic comparator. Its contribution is a timing argument: sciatic nerve myelination is normal for the first two postnatal weeks and only then degenerates with demyelination at about five weeks, which separates myelin maintenance from myelin formation as the affected process.\"}, {\"id\": \"Pes Cavus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A high-arched foot deformity reported in 67% of patients in the published-case review and in all examined patients in the Bulgarian series.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001761\"}}, {\"id\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: a severe, progressive, childhood-onset demyelinating sensorimotor neuropathy. Distal lower-limb weakness with steppage gait and frequent falls is the presenting complaint, hand weakness follows in the second decade, and the disorder leads to loss of ambulation. Median age at onset across the published literature is seven years. Unlike most CMT the involvement is not confined to the distal limbs - the two most recently reported siblings had distal-proximal weakness with generalised areflexia - and bulbar and respiratory involvement has now been documented.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Greyhound polyneuropathy (NDRG1 exon 15 deletion)\", \"species\": \"Dog\", \"genotype\": \"NDRG1 c.1080_1089delTCGCCTGGAC homozygous (p.Arg361SerfsX60)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces a severe chronic progressive polyneuropathy of juvenile onset on a recessive founder background, with NDRG1 protein absent from peripheral nerve on Western blot.\"}]}}, {\"id\": \"Proximal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal weakness accompanied the more severe distal weakness in genetically affected Turkish siblings; severity ranged from mild in the proband to moderate in his examined affected sister.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency requiring non-invasive ventilation was attributed to bilateral vocal cord paralysis in the Italian siblings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive sensorineural hearing loss commonly becomes apparent in the third decade, although childhood onset also occurs. The Bulgarian series emphasized high-frequency loss, whereas a Turkish proband had predominantly low-frequency loss. The literature review quantified broad hearing impairment (61%), without specifying the ascertainment of sensorineural loss in every reviewed patient.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Steppage Gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A compensatory gait associated with distal lower-limb weakness, reported among the initial manifestations in the examined Bulgarian patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003376\"}}, {\"id\": \"Stretcher mouse (spontaneous Ndrg1 null)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A spontaneous total Ndrg1-null mutant, compared directly against a hypomorphic Ndrg1 knockout. The comparison is the informative part: the markedly more severe stretcher phenotype implies that even low residual Ndrg1 expression rescues a large part of the phenotype, which is a dosage statement no single model could make.\"}, {\"id\": \"Visual Pathway Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal visual evoked potentials demonstrate dysfunction of the visual system in reported CMT4D siblings. The anatomical substrate and causal route from NDRG1 loss are unresolved; this node identifies the state measured by VEPs without assigning it to the cerebral white matter lesions reported in a different family.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"Biallelic NDRG1 Loss-of-Function Variant\", \"target\": \"Loss of Schwann Cell NDRG1 Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic NDRG1 Loss-of-Function Variant\", \"target\": \"Auditory Pathway Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The genotype-to-deafness link is established by segregation - sensorineural deafness is a hallmark of the NDRG1 phenotype - but the intervening mechanism is not. The evoked-potential data implicate the eighth cranial nerve and the central auditory pathways simultaneously, and no cochlear or auditory-nerve pathology from a CMT4D patient has been reported, so this edge deliberately skips over unknown intermediates rather than routing the deafness through the somatic Schwann-cell chain as if the mechanism were shared.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Schwann Cell NDRG1 Function\", \"target\": \"Impaired Schwann Cell Vesicular Trafficking\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Schwann Cell NDRG1 Function\", \"target\": \"Attenuated Neuregulin 1-ErbB Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Schwann Cell NDRG1 Function\", \"target\": \"Early Severe Axonal Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired Schwann-cell support is implicated in early human axonal injury, but the glia-to-axon intermediates remain unresolved and rodent models fail to reproduce its early severity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Schwann Cell Vesicular Trafficking\", \"target\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Neuregulin 1-ErbB Signaling\", \"target\": \"Dysregulated Myelination Transcription Program\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated Myelination Transcription Program\", \"target\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"target\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myelin breakdown contributes the demyelinating component of the clinically observed sensorimotor neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early Severe Axonal Loss\", \"target\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Early Severe Axonal Loss\", \"target\": \"Motor Denervation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of motor axons removes muscle innervation; human CMT4D EMG documents the resulting chronic denervation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"target\": \"Demyelinating Sensorimotor Polyneuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The phenotype is the clinical expression of this established demyelinating sensorimotor nerve lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"target\": \"Distal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic motor nerve dysfunction produces the predominantly distal weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"target\": \"Distal Sensory Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory nerve dysfunction produces distal sensory loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The sensorimotor nerve lesion impairs the peripheral limbs of tendon reflex arcs, explaining the absent tendon reflexes observed with the neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Auditory Pathway Involvement\", \"target\": \"Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysfunction of the auditory nerve/central auditory route produces sensorineural hearing loss. The link does not select one anatomical localization over the other.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor Denervation\", \"target\": \"Distal Amyotrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic loss of motor innervation causes neurogenic wasting in the predominantly affected distal muscles.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor Denervation\", \"target\": \"Proximal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Denervation also compromises proximal motor units in severely affected patients; proximal denervation and weakness were both documented in the Turkish NDRG1-duplication homozygote.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal Muscle Weakness\", \"target\": \"Loss of Ambulation\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive lower-limb weakness, together with sensory loss, can result in loss of ambulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Progressive impairment of lower-limb motor function and gait\"]}, {\"source\": \"Distal Muscle Weakness\", \"target\": \"Steppage Gait\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Ankle dorsiflexor weakness reduces foot clearance, leading to compensatory steppage. General-CMT gait studies support this explanation for the same weakness/gait combination observed in CMT4D.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced ankle dorsiflexion and compensatory foot clearance\"]}, {\"source\": \"Distal Muscle Weakness\", \"target\": \"Frequent Falls\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Distal weakness impairs foot clearance and balance, contributing to frequent falls. The mechanism is described in broader CMT and applied with that limitation to the weakness and falls directly observed in CMT4D.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired foot clearance and balance during walking\"]}, {\"source\": \"Distal Amyotrophy\", \"target\": \"Pes Cavus\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Uneven muscle wasting and weakness alter the balance of forces across the distal joints, producing this deformity. The biomechanical account is supported in broader CMT and applied to the corresponding documented CMT4D deformity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Distal muscle imbalance and progressive joint deformity\"]}, {\"source\": \"Distal Amyotrophy\", \"target\": \"Equinovarus Deformity\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Uneven muscle wasting and weakness alter the balance of forces across the distal joints, producing this deformity. The biomechanical account is supported in broader CMT and applied to the corresponding documented CMT4D deformity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Distal muscle imbalance and progressive joint deformity\"]}, {\"source\": \"Distal Amyotrophy\", \"target\": \"Claw Hand Deformity\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Uneven muscle wasting and weakness alter the balance of forces across the distal joints, producing this deformity. The biomechanical account is supported in broader CMT and applied to the corresponding documented CMT4D deformity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Distal muscle imbalance and progressive joint deformity\"]}, {\"source\": \"Distal Amyotrophy\", \"target\": \"Hammertoe\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Uneven muscle wasting and weakness alter the balance of forces across the distal joints, producing this deformity. The biomechanical account is supported in broader CMT and applied to the corresponding documented CMT4D deformity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Distal muscle imbalance and progressive joint deformity\"]}, {\"source\": \"Bilateral Vocal Cord Paralysis\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The Italian report explicitly attributes the respiratory insufficiency to bilateral vocal cord paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ndrg1 exon 4-5 knockout mouse\", \"target\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the demyelinating lesion with correct timing - normal at two weeks, thinning from four weeks when myelination would normally be complete, progressive thereafter, with occasional onion bulbs.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The hypomyelination does not lead to apparent axonal loss, so the model reproduces the demyelination while missing the early severe axonal loss that produces disability in patients.\"}, {\"source\": \"Ndrg1 exon 4-5 knockout mouse\", \"target\": \"Early Severe Axonal Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The defining human feature - early severe axonal loss - is absent from this model despite otherwise faithful demyelination, and the authors say so explicitly.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"A shift in axonal size distribution occurs, but no apparent axonal loss. Any therapeutic result obtained in this model therefore speaks to the demyelinating arm only and cannot be assumed to address the axonal degeneration that causes disability in patients.\"}, {\"source\": \"Ndrg1 exon 4-5 knockout mouse\", \"target\": \"Attenuated Neuregulin 1-ErbB Signaling\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The model is the sole source of the neuregulin 1/ErbB evidence in this entry: it is where receptor phosphorylation, ligand level and integrin beta-4 abundance were measured.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"No equivalent measurement exists in human CMT4D nerve, so the entire signalling arm of this entry\u0027s pathograph rests on this mouse.\"}, {\"source\": \"Stretcher mouse (spontaneous Ndrg1 null)\", \"target\": \"Impaired Schwann Cell Vesicular Trafficking\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model is the basis of the trafficking-demand-mismatch hypothesis: its large-fibre demyelination coincides precisely with the period of rapid myelin growth and small fibres are spared, while gene expression profiling found only non-specific secondary changes and normal proteasomal function.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The trafficking defect itself is not measured in this model; the inference rests on the timing and fibre-size selectivity of the lesion, and gene expression profiling was explicitly non-specific.\"}, {\"source\": \"Stretcher mouse (spontaneous Ndrg1 null)\", \"target\": \"Early Severe Axonal Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Neither the stretcher mouse nor the hypomorphic knockout reproduces the early severe axonal loss of human CMT4D. Axon damage occurs, but regenerative capacity is unimpaired.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Because both models compared in that study fail at the same point, as does the independent CRISPR Ndrg1-/- mouse, no rodent model reconstructs the step from Schwann-cell NDRG1 loss to axonal degeneration, which constrains what preclinical work on this disorder can test. The canine model is deliberately excluded from that claim: it does show axonal pathology, and is treated separately in the HUMAN_MODEL_MISMATCH discussion.\"}, {\"source\": \"Ndrg1 knockout mouse (Okuda)\", \"target\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes progressive demyelination of an initially normally myelinated nerve, with Schwann-cell dysfunction as the proximate cause.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Reported as a hypomorphic rather than complete null in the later head-to-head comparison with the stretcher mouse, and neither model in that comparison displays the early severe axonal loss of the human disease.\"}, {\"source\": \"Ndrg1 knockout mouse (Okuda)\", \"target\": \"Early Severe Axonal Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"This model was one of the two compared head to head in PMID:21303696, and that comparison found neither reproduces the early severe axonal loss of human CMT4D.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The failure is shared with the stretcher mouse and is the reason no rodent model reconstructs the axonal arm. It says nothing about the canine model, which does show axonal pathology.\"}, {\"source\": \"Greyhound polyneuropathy (NDRG1 exon 15 deletion)\", \"target\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces a severe chronic progressive polyneuropathy of juvenile onset on a recessive founder background, with NDRG1 protein absent from peripheral nerve on Western blot.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The canine lesion is described as a mixed polyneuropathy rather than the predominantly demyelinating picture with early axonal loss seen in patients, and deafness - a defining human feature - is not reported in the affected dogs.\"}, {\"source\": \"Myelin Sheath Breakdown with Onion Bulb Formation\", \"target\": \"Decreased Motor Nerve Conduction Velocity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced conduction velocity reports peripheral myelin dysfunction; it is an electrophysiological measurement, not an additional causal step.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Visual Pathway Dysfunction\", \"target\": \"Abnormal Visual Evoked Potentials\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"VEP amplitude reduction and absent responses report impaired visual pathway function; they do not by themselves identify a cerebral white matter lesion or its cause.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Progressive Demyelinating Sensorimotor Neuropathy\", \"target\": \"Absent Distal Sensory Nerve Action Potentials\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Absent sensory responses report severe sensory nerve dysfunction in the demyelinating and axonal neuropathy; the test alone does not separate conduction failure from sensory axonal loss.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Auditory Pathway Involvement\", \"target\": \"Delayed Brainstem Auditory Evoked Responses\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Auditory evoked-response delay reports dysfunction of the eighth-nerve/brainstem auditory route, without resolving peripheral versus central localization.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"NDRG1\", \"target\": \"Biallelic NDRG1 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6805,6 +6940,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6903,6 +7041,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     </div>
+
+
+
 
 
 
@@ -7038,6 +7179,9 @@ This clinical feature is Abnormality of visual evoked potentials (HP:0000649). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7113,6 +7257,9 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7212,6 +7359,9 @@ This clinical feature is Equinovarus deformity (HP:0008110). HP:0008110 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7278,6 +7428,9 @@ This clinical feature is Claw hand deformity (HP:0034337). HP:0034337 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7372,6 +7525,9 @@ This clinical feature is Hammertoe (HP:0001765). HP:0001765 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7496,6 +7652,9 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7601,6 +7760,9 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7682,6 +7844,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7783,6 +7948,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7872,6 +8040,9 @@ This clinical feature is Frequent falls (HP:0002359). HP:0002359 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7975,6 +8146,9 @@ This clinical feature is Demyelinating motor and sensory neuropathy, annotated w
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8057,6 +8231,9 @@ This clinical feature is Loss of ambulation (HP:0002505), qualified as course pr
 
 
                     </div>
+
+
+
 
 
 
@@ -8156,6 +8333,9 @@ This clinical feature is Steppage gait (HP:0003376). HP:0003376 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8225,6 +8405,9 @@ This clinical feature is Decreased motor nerve conduction velocity (HP:0003431).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8289,6 +8472,9 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8390,6 +8576,9 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8454,6 +8643,9 @@ This clinical feature is Bilateral vocal cord paralysis (HP:0012820). HP:0012820
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8535,6 +8727,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8601,6 +8796,9 @@ This clinical feature is Cerebral white matter abnormality, annotated with Abnor
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8702,6 +8900,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8766,6 +8967,9 @@ This clinical feature is Cervical spinal cord atrophy (HP:0010873). HP:0010873 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8842,6 +9046,9 @@ This clinical feature is Atrophy/Degeneration affecting the brainstem (HP:000736
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8906,6 +9113,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9007,6 +9217,9 @@ This clinical feature is Decreased distal sensory nerve action potential (HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9073,6 +9286,9 @@ This clinical feature is Delayed brainstem auditory evoked response conduction t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9176,6 +9392,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9292,6 +9511,9 @@ This disease-associated gene is NDRG1 (hgnc:7679). hgnc:7679 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9449,6 +9671,9 @@ This treatment is percutaneous endoscopic gastrostomy (NCIT:C106040). NCIT:C1060
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9459,6 +9684,9 @@ This treatment is percutaneous endoscopic gastrostomy (NCIT:C106040). NCIT:C1060
 
 
     </div>
+
+
+
 
 
 
@@ -9554,6 +9782,9 @@ This treatment is non-invasive mechanical ventilation (NCIT:C171457). NCIT:C1714
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9564,6 +9795,9 @@ This treatment is non-invasive mechanical ventilation (NCIT:C171457). NCIT:C1714
 
 
     </div>
+
+
+
 
 
 
@@ -13793,6 +14027,71 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Charcot-Marie-Tooth disease type 4D</strong> · 2026-08-27T15:53:47Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Charcot-Marie-Tooth_Disease_Type_4D/2026-08-27T155347Z-claude-code-c16243.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo creation of the CMT4D (HMSN-Lom, NDRG1) entry from stubs/.
+
+Entry-type decision: dedicated Disease entry rather than folding into the
+existing Charcot-Marie-Tooth_Disease_Type_4 parent, which already carries CMT4D
+as a subtype block. MONDO:0011085 records no descendants and a single causal
+gene (NDRG1, RO:0004003), and per-subtype entries alongside a type-level entry
+are established convention here (CMT2JJ and CMT2W alongside CMT2). The parent&#39;s
+subtype block and this entry are complementary; the notes: section records the
+boundary.
+
+Deep research: falcon report generated and NEC-preflighted against MONDO:0011085
+-&gt; PASS (NDRG1 = 50 mentions, next gene NRG1 = 3; report OMIM 601455 matches the
+MONDO xref). Report reference_validation reported 11/12 resolved, 0 unresolved,
+0 off topic. The report was used as a lead source only; every curated PMID was
+independently fetched with just fetch-reference and every snippet checked
+against the cached text. Two leads taken from the report (PMID:9549516 original
+1998 clinical delineation, PMID:15082788 Okuda Ndrg1 knockout) were fetched and
+curated; the report&#39;s own caution that phenotype frequencies could not be
+assigned from its evidence was superseded by the 2026 systematic review
+(PMID:42089726), which supplies them directly.
+
+Pathograph: 9 nodes, 9 edges, single root, every node reachable from the root
+(measured, not asserted). Chain runs biallelic NDRG1 loss of function -&gt;
+Schwann-cell NDRG1 loss -&gt; two parallel arms (vesicular trafficking failure;
+attenuated neuregulin 1/ErbB signalling -&gt; dysregulated myelination transcription
+program) -&gt; myelin breakdown with onion bulbs -&gt; early severe axonal loss -&gt;
+clinical neuropathy. Auditory pathway involvement is reached from the genotype by
+an edge explicitly typed INDIRECT_UNKNOWN_INTERMEDIATES rather than routed
+through the somatic Schwann-cell chain, because the evoked-potential evidence
+implicates the eighth nerve and the central pathways simultaneously and no
+cochlear pathology has been reported. Conformance declared to three
+peripheral_axonal_degeneration nodes.
+
+Honesty decisions worth recording: the entire neuregulin 1/ErbB and myelination
+transcription arm is mouse-only and is marked PROVISIONAL with MODEL_ORGANISM
+evidence; all three NDRG1-null RODENT models fail to reproduce the early severe
+axonal loss that defines the human disease, curated as FAILS_TO_RECAPITULATE
+links plus a HUMAN_MODEL_MISMATCH discussion rather than glossed. The canine
+model is excluded from that claim - it shows axonal pathology, and what is
+unassessed there is whether the loss is early and disproportionate to the
+demyelination. Scoliosis
+carries a FREQUENT band from the 72-patient literature review together with a
+PARTIAL-tagged contradicting observation from the Bulgarian cohort (1/7) rather
+than averaging them. Bulbar and central-nervous-system phenotypes carry no
+frequency because they rest on single families. No disease-modifying treatment
+exists; the two curated treatments (PEG feeding, non-invasive ventilation) were
+actually performed in reported CMT4D patients rather than extrapolated.
+
+Validation run in the worktree: just validate -&gt; all validations passed;
+just count-verified-snippets -&gt; 97/97 verified against cached references;
+just validate-terms -&gt; passed. A reference_title audit script confirmed all 14
+cited reference_title values byte-match the title: line in their cache
+frontmatter. just validate-disorders run once before opening the PR.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

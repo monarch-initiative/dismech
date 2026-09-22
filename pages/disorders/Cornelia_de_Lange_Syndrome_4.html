@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4326,6 +4379,7 @@ The RAD21 series offers one concrete lead, which this entry records but does not
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-rad21-variant" data-dismech-node="Heterozygous RAD21 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous RAD21 Variant</div>
 
+
                 <div class="item-desc">A single altered RAD21 allele. The variant spectrum is dominated by frameshift alleles (36% of 36 published patients), followed by missense (19%) and nonsense (17%), with whole-gene and intragenic microdeletions also reported. Where variants have been mapped to protein domains, most fall in the RAD21-SMC1A interaction domain. The allelic gradient runs the opposite way to intuition for a structural subunit: dominant missense alleles cause worse structural and cognitive findings than loss-of-function alleles do, which argues that the missense protein interferes with the ring rather than simply failing to join it.</div>
 
 
@@ -4381,11 +4435,16 @@ This genetic context concerns RAD21 (hgnc:9811). hgnc:9811 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
 
 
 
     </div>
+
+
+
 
 
 
@@ -4485,6 +4544,7 @@ This genetic context concerns RAD21 (hgnc:9811). hgnc:9811 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disruption-of-the-cohesin-ring-at-the-rad21-subunit-interfaces" data-dismech-node="Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces" data-dismech-type="pathophysiology">
                 <div class="item-name">Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces</div>
+
 
                 <div class="item-desc">RAD21 is the kleisin that closes the tripartite cohesin ring: its N-terminus engages SMC3, its C-terminus engages SMC1, and its central STAG domain recruits STAG1 or STAG2. CdLS4 variants act at those interfaces. This is the step that distinguishes CdLS4 from classic CdLS at the level of mechanism — NIPBL is the cohesin loading factor and NIPBL-related disease is a dosage problem in getting cohesin onto chromatin, whereas CdLS4 is a lesion in the ring itself.</div>
 
@@ -4619,6 +4679,7 @@ This pathophysiological event involves cohesin complex (GO:0008278). GO:0008278 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cohesin-dependent-transcriptional-dysregulation" data-dismech-node="Cohesin-Dependent Transcriptional Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cohesin-Dependent Transcriptional Dysregulation</div>
+
 
                 <div class="item-desc">Beyond holding sister chromatids together, cohesin organizes the genome in interphase and regulates transcription, and it is this arm rather than mitotic cohesion failure that is held responsible for the developmental phenotype. Disrupted transcription was demonstrated directly for CdLS4 variants in a zebrafish model.</div>
 
@@ -4851,6 +4912,7 @@ This pathophysiological event involves dysregulated chromatin organization (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-dna-damage-response" data-dismech-node="Impaired DNA Damage Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired DNA Damage Response</div>
 
+
                 <div class="item-desc">RAD21 is also a double-strand-break repair protein, and CdLS4 variants impair the cellular DNA damage response. This arm is well demonstrated biochemically but is not connected to any specific clinical feature of CdLS4, so it is curated as a consequence of the ring lesion without a downstream edge into the phenotype.</div>
 
 
@@ -4978,6 +5040,7 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-cornelia-de-lange-phenotype" data-dismech-node="Attenuated Cornelia de Lange Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Cornelia de Lange Phenotype</div>
+
 
                 <div class="item-desc">The clinical result is recognisably CdLS but muted. Compared with NIPBL- and SMC1A-related disease the facial morphology and limb anomalies are milder, and cognition and behaviour are considerably less affected — 14 of 26 scored patients were mild and only one severe on the CdLS severity score. Because the consensus clinical score is built around the classic phenotype, CdLS4 patients score low on it, which is a diagnostic problem rather than a cosmetic difference.</div>
 
@@ -5311,6 +5374,9 @@ This clinical feature is Congenital heart malformation, annotated with Abnormal 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5388,6 +5454,9 @@ This clinical feature is Gastroesophageal reflux disease, annotated with Gastroe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5475,6 +5544,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5557,6 +5629,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5625,6 +5700,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5709,6 +5787,9 @@ This clinical feature is Cornelia de Lange facial gestalt (long or smooth philtr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5843,6 +5924,9 @@ This clinical feature is Postnatal microcephaly, annotated with Microcephaly (HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5911,6 +5995,9 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5998,6 +6085,9 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6080,6 +6170,9 @@ This clinical feature is Short fifth finger, annotated with Short 5th finger (HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6148,6 +6241,9 @@ This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6230,6 +6326,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6362,6 +6461,9 @@ This clinical feature is Verbal developmental delay, annotated with Delayed spee
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6459,6 +6561,9 @@ This clinical feature is Anxiety, attention deficit and obsessive-compulsive beh
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6602,6 +6707,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6715,6 +6823,9 @@ This disease-associated gene is RAD21 (hgnc:9811). hgnc:9811 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -6878,6 +6989,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6888,6 +7002,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7004,6 +7121,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4210,6 +4263,7 @@ A note on the sources. The GeneReviews chapter for this disease, PMID:20614582, 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dnm2-variant-impairing-dynamin-2-lipid-binding" data-dismech-node="DNM2 Variant Impairing Dynamin-2 Lipid Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">DNM2 Variant Impairing Dynamin-2 Lipid Binding</div>
 
+
                 <div class="item-desc">Heterozygous DNM2 variants, most of them in the pleckstrin homology domain, which is the membrane-binding module of the protein. Two further disease-causing positions are known outside it - one in the middle domain and the first reported in the proline-rich domain - so the PH domain is where most CMT variants fall rather than the only place they can.</div>
 
 
@@ -4269,6 +4323,8 @@ This pathophysiological event involves DNM2 (hgnc:2974). hgnc:2974 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">allele_type: VARIANT</span>
 
 
@@ -4284,6 +4340,9 @@ This pathophysiological event involves DNM2 (hgnc:2974). hgnc:2974 is a gene fro
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4402,6 +4461,7 @@ This pathophysiological event involves DNM2 (hgnc:2974). hgnc:2974 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-dynamin-2-membrane-fission-activity" data-dismech-node="Reduced Dynamin-2 Membrane Fission Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Dynamin-2 Membrane Fission Activity</div>
+
 
                 <div class="item-desc">Dynamin-2 oligomerises at the neck of membrane invaginations and severs them. Reduced activity impairs endocytosis and the vesicle traffic that depends on it. Because the protein is ubiquitously expressed, the consequences are not restricted to nerve - which is the most economical explanation for the neutropenia and cataracts that accompany the neuropathy in some families.</div>
 
@@ -4637,6 +4697,7 @@ This pathophysiological event involves decreased GTPase activity (GO:0003924). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-axon-branching-and-maintenance-failure" data-dismech-node="Motor Axon Branching and Maintenance Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor Axon Branching and Maintenance Failure</div>
 
+
                 <div class="item-desc">The axonal arm. Zebrafish expressing CMT-mutant human DNM2 mRNA show a total absence of secondary motor neuron branching - a more severe defect than the incorrect branching seen with CNM-mutant mRNA in the same experiment, which is the clearest available evidence that the two mutation classes are not simply degrees of one lesion.</div>
 
 
@@ -4764,6 +4825,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-schwann-cell-myelin-dysfunction" data-dismech-node="Schwann Cell Myelin Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Schwann Cell Myelin Dysfunction</div>
+
 
                 <div class="item-desc">The demyelinating arm, and it is directly demonstrated rather than inferred. In a peripheral nerve model built from Dnm2-deficient mouse tissue, CMTDIB-associated dynamin-2 mutants impaired myelination while centronuclear myopathy mutants did not - which supplies both the Schwann cell lesion and, in one experiment, the tissue specificity that separates the two DNM2 diseases. Schwann cells expressing the CMT mutants show defective clathrin-mediated endocytosis with altered protein surface levels, and myelination is strictly dependent on Dnm2 and clathrin-mediated endocytosis function.</div>
 
@@ -4961,6 +5023,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-length-dependent-distal-axonal-degeneration" data-dismech-node="Length-Dependent Distal Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Length-Dependent Distal Axonal Degeneration</div>
 
+
                 <div class="item-desc">The final common path of the axonal arm: distal muscle weakness and atrophy with sensory loss, worst in the longest nerves, producing the pes cavus and depressed reflexes of a classical CMT phenotype.</div>
 
 
@@ -5073,6 +5136,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intermediate-nerve-conduction-slowing" data-dismech-node="Intermediate Nerve Conduction Slowing" data-dismech-type="pathophysiology">
                 <div class="item-name">Intermediate Nerve Conduction Slowing</div>
 
+
                 <div class="item-desc">Motor median NCV from about 26 m/s to normal - the electrophysiological signature that defines the &#34;intermediate&#34; designation and the reason this is a separate CMT category rather than a variant of CMT1 or CMT2.</div>
 
 
@@ -5133,6 +5197,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extraneural-dynamin-2-dependence" data-dismech-node="Extraneural Dynamin-2 Dependence" data-dismech-type="pathophysiology">
                 <div class="item-name">Extraneural Dynamin-2 Dependence</div>
+
 
                 <div class="item-desc">DNM2 is ubiquitously expressed, and two non-neural features accompany the neuropathy in some families: asymptomatic neutropenia, which cosegregated with the neuropathy in two families carrying different variants at the same residue (Lys558), and early-onset cataracts. The residue-specific cosegregation is the strongest available hint that these are genotype-dependent consequences of the same protein defect rather than incidental findings - but neither the tissue mechanism nor the genotype correlation has been worked out, and a large Czech family with a different variant had neither feature.</div>
 
@@ -5390,6 +5455,9 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5494,6 +5562,9 @@ This clinical feature is Cataract (HP:0000518), qualified as childhood onset. HP
 
 
                     </div>
+
+
+
 
 
 
@@ -5604,6 +5675,9 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5679,6 +5753,9 @@ This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5766,6 +5843,9 @@ This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5834,6 +5914,9 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5952,6 +6035,9 @@ This disease-associated gene is DNM2 (hgnc:2974). hgnc:2974 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6026,6 +6112,12 @@ This disease-associated gene is DNM2 (hgnc:2974). hgnc:2974 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">One of two variants at Lys558 - the other is Lys558del - carried by the Australian and Belgian families in which the neuropathy cosegregated with neutropenia. The residue, not the specific substitution, is what the neutropenia association tracks.</div>
 
 
@@ -6085,6 +6177,12 @@ This disease-associated gene is DNM2 (hgnc:2974). hgnc:2974 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A middle-domain variant, one of the two exceptions to the pleckstrin homology domain clustering.</div>
 
 
@@ -6142,6 +6240,12 @@ This disease-associated gene is DNM2 (hgnc:2974). hgnc:2974 is a gene from the H
         Thr855_Ile856del
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The first disease-causing variant reported in the proline-rich domain of dynamin-2.</div>
@@ -6259,6 +6363,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6269,6 +6376,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -6382,6 +6492,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6392,6 +6505,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -6526,6 +6642,9 @@ This treatment uses acetaminophen, annotated with paracetamol (CHEBI:46195). CHE
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6536,6 +6655,9 @@ This treatment uses acetaminophen, annotated with paracetamol (CHEBI:46195). CHE
 
 
     </div>
+
+
+
 
 
 
@@ -6631,6 +6753,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6641,6 +6766,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -6753,6 +6881,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6763,6 +6894,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6857,6 +6991,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6867,6 +7004,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6961,6 +7101,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6971,6 +7114,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8883,6 +9029,25 @@ progression:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review round 1: consume Sidiropoulos and Goret, add histopathology and models</strong> · 2026-08-28T12:24:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Charcot-Marie-Tooth_Disease_Dominant_Intermediate_B/2026-08-28T122424Z-claude-code-24a168.yaml">View source</a></p>
+                        <p class="research-review-text">Addresses the ai4c-reviewer CHANGES_REQUESTED review on PR #9834, one CRITICAL and five IMPORTANT items. The CRITICAL was a real and instructive miss: the entry asserted that no cited source demonstrates a primary Schwann cell lesion, and encoded that belief structurally as INDIRECT_UNKNOWN_INTERMEDIATES plus a PARTIAL grade, while the deep-research report committed in the same PR block-quoted PMID:22451505 at section 6.1, which demonstrates exactly that. I built the entry from PubMed searches and used the report only as a cross-check, so the caveat was true of what I had cited and false of the literature. Sidiropoulos 2012 shows CMT-associated dynamin-2 mutants impair myelination where CNM mutants do not, and that Schwann cells and neurons expressing CMT mutants have defective clathrin-mediated endocytosis with altered protein surface levels. The node is rewritten, carries GO:0042552 myelination DECREASED, and its downstream edge is now DIRECT. The same paper supplies the missing evidence for the two DECREASED modifiers on the fission node. Also added PMID:40393994 Goret 2025, which demonstrates the loss-of-function direction in vitro rather than proposing it, superseding the review hedge that previously carried functional_impact_category; the corresponding DOI cache was discarded because its extracted text has ligature and spacing corruption, and the PubMed abstract is clean. Added a histopathology section from an already-cached sural nerve biopsy showing axonal loss and focal myelin thickenings together, which is the human tissue basis for the intermediate framing. Added two animal models with modeled_mechanisms: the zebrafish CMT-versus-CNM mRNA comparison with an ABOLISHED branching readout, and the Dnm2 S619L/K562E compound cross as a RESCUES link, which is the genetic test of the opposite-directions hypothesis. Mined the remaining GeneReviews management items as analgesia, surveillance and pregnancy management, and unbundled orthopedic surgery from the DEVICE orthoses entry. Added six downstream phenotypes# edges, CHILDHOOD onset on cataract, and three structured variants including both Lys558 alleles. Revalidated: 47/47 snippets verified, check-entity-refs, check-duplicate-keys and check-snippet-length all pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Charcot-Marie-Tooth Disease Dominant Intermediate B, DNM2, MONDO:0011674</strong> · 2026-08-28T11:55:01Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Charcot-Marie-Tooth_Disease_Dominant_Intermediate_B/2026-08-28T115501Z-claude-code-54db35.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of CMTDIB from claim issue #9819. Deep research: Perplexity sonar-deep-research, report at research/Charcot-Marie-Tooth_Disease_Dominant_Intermediate_B-deep-research-perplexity.md; 4/4 identifiers resolved, 0 confabulation, 4/4 on topic, though only 4 of 19 citations were resolvable identifiers. Used as a lead source; every snippet anchored to an independently fetched PMID. The pathograph carries a Schwann cell arm and an axonal arm rather than choosing one, because the defining feature of this entity is intermediate nerve conduction velocity straddling the CMT1 and CMT2 ranges; the Schwann cell node is deliberately thin and its upstream edge marked INDIRECT_UNKNOWN_INTERMEDIATES because no cited source demonstrates a primary Schwann cell lesion. Records the allelic relationship with DNM2 centronuclear myopathy as a mechanistic contrast rather than as subtypes, with functional_impact_category PARTIAL_LOSS_OF_FUNCTION on the CMT variant node, graded PARTIAL against a review that says CMT mutations could impair activity, so the claim is a proposal rather than a demonstrated result. Important source limitation, recorded in entry notes: the GeneReviews chapter for this disease, PMID:20614582, is RETIRED, and every evidence item drawing on it says so in its explanation, with peer-reviewed cohort papers cited in preference wherever they state the same fact. A tags value of retired on the top-level reference was attempted and rejected by the schema, whose ReferenceTag enum permits only GeneReviews, so this can only live in prose. Two ontology labels were wrong on first pass and corrected against OLS: HP:0007107 is Segmental peripheral demyelination not a vibration term, replaced with HP:0002936 Distal sensory impairment; HP:0001875 label is Decreased total neutrophil count. Validated with just validate, 28/28 snippets verified, plus check-entity-refs and check-duplicate-keys.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

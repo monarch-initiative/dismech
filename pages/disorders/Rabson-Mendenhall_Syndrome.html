@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4326,6 +4379,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-insr-loss-of-function" data-dismech-node="Biallelic INSR Loss-of-Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic INSR Loss-of-Function</div>
 
+
                 <div class="item-desc">Biallelic pathogenic variants in the insulin receptor gene (INSR, 19p13.2) reduce the number and/or function of cell-surface insulin receptors, most commonly through missense substitutions that impair receptor processing, insulin-binding affinity, or tyrosine-kinase activity. This is the initiating molecular lesion of the syndrome.</div>
 
 
@@ -4378,6 +4432,8 @@ This genetic context concerns INSR (hgnc:6091). hgnc:6091 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4388,6 +4444,9 @@ This genetic context concerns INSR (hgnc:6091). hgnc:6091 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4529,6 +4588,7 @@ This pathophysiological event involves insulin receptor tyrosine kinase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-insulin-receptor-signaling" data-dismech-node="Impaired Insulin Receptor Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Insulin Receptor Signaling</div>
+
 
                 <div class="item-desc">Loss of functional insulin receptor blunts the downstream insulin receptor signalling pathway, principally the PI3K-AKT metabolic arm, in liver, skeletal muscle, and adipose tissue, so target tissues fail to mount a normal glucose-lowering response to insulin.</div>
 
@@ -4772,6 +4832,7 @@ This pathophysiological event involves decreased PI3K-AKT signal transduction, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-insulin-resistance" data-dismech-node="Severe Insulin Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Insulin Resistance</div>
 
+
                 <div class="item-desc">Extreme, generalized insulin resistance is the cardinal systemic consequence, driving compensatory hyperinsulinaemia and the early paradoxical glycaemic pattern.</div>
 
 
@@ -4855,6 +4916,7 @@ This pathophysiological event involves decreased PI3K-AKT signal transduction, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paradoxical-glycemic-regulation" data-dismech-node="Paradoxical Glycemic Regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Paradoxical Glycemic Regulation</div>
+
 
                 <div class="item-desc">In infancy and early childhood, severely elevated insulin acting on residual receptor and cross-reactive pathways produces fasting hypoglycaemia with postprandial hyperglycaemia; with disease progression insulin levels decline and sustained hyperglycaemia supervenes.</div>
 
@@ -4964,6 +5026,7 @@ This pathophysiological event involves decreased PI3K-AKT signal transduction, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-hyperinsulinemia" data-dismech-node="Compensatory Hyperinsulinemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Hyperinsulinemia</div>
+
 
                 <div class="item-desc">Pancreatic beta-cell hypersecretion produces the extreme hyperinsulinaemia that is the earliest biochemical hallmark of the syndrome (median fasting insulin ~300 uIU/mL, versus a normal range of 5-20 uIU/mL). Chronic hyperinsulinaemia cross-activates IGF-1 receptors in skin and ovary and ultimately exhausts beta-cell reserve.</div>
 
@@ -5132,6 +5195,7 @@ This pathophysiological event involves Pancreatic beta cell, annotated with type
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-igf-1-receptor-cross-activation" data-dismech-node="Cutaneous IGF-1 Receptor Cross-activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous IGF-1 Receptor Cross-activation</div>
 
+
                 <div class="item-desc">Chronic supraphysiologic insulin cross-activates IGF-1 receptors on keratinocytes and dermal fibroblasts, promoting epidermal proliferation that manifests as acanthosis nigricans and contributes to soft-tissue overgrowth.</div>
 
 
@@ -5271,6 +5335,7 @@ This pathophysiological event involves Fibroblast (CL:0000057). CL:0000057 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ovarian-androgen-excess" data-dismech-node="Ovarian Androgen Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Ovarian Androgen Excess</div>
+
 
                 <div class="item-desc">In females, extreme hyperinsulinaemia acting on ovarian theca cells drives androgen biosynthesis, producing hyperandrogenism, enlarged/polycystic ovaries, and clitoromegaly.</div>
 
@@ -5438,6 +5503,7 @@ This pathophysiological event involves increased Androgen biosynthetic process (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pancreatic-beta-cell-decompensation" data-dismech-node="Pancreatic Beta-Cell Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pancreatic Beta-Cell Decompensation</div>
 
+
                 <div class="item-desc">Sustained compensatory hypersecretion eventually exhausts beta-cell reserve, so hyperinsulinaemic hypoglycaemia gives way to sustained hyperglycaemia and overt insulin-resistant diabetes mellitus.</div>
 
 
@@ -5548,6 +5614,7 @@ This pathophysiological event involves Pancreatic beta cell, annotated with type
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-insulin-receptor-dysfunction" data-dismech-node="Renal Insulin Receptor Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Insulin Receptor Dysfunction</div>
 
+
                 <div class="item-desc">The insulin receptor is expressed throughout the nephron. Biallelic INSR loss produces hypercalciuria and nephrocalcinosis that appear tissue-autonomous (present with normotension and stable glomerular function), rather than being a secondary complication of hyperglycaemia.</div>
 
 
@@ -5656,6 +5723,7 @@ This pathophysiological event involves Pancreatic beta cell, annotated with type
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-hormone-resistance-and-growth-failure" data-dismech-node="Growth Hormone Resistance and Growth Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Hormone Resistance and Growth Failure</div>
+
 
                 <div class="item-desc">Affected individuals show a growth-hormone-resistant state (elevated basal GH with low-normal IGF-1) and severe growth retardation that is not corrected by exogenous growth hormone or standard-dose IGF-1.</div>
 
@@ -5856,6 +5924,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5931,6 +6002,9 @@ This clinical feature is Protuberant abdomen (HP:0001538). HP:0001538 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6014,6 +6088,9 @@ This clinical feature is Hyperinsulinemia (HP:0000842). HP:0000842 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6080,6 +6157,9 @@ This clinical feature is Insulin-resistant diabetes mellitus (HP:0000831). HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6161,6 +6241,9 @@ This clinical feature is Diabetic ketoacidosis (HP:0001953). HP:0001953 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6227,6 +6310,9 @@ This clinical feature is Hyperandrogenism, annotated with Increased circulating 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6305,6 +6391,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6392,6 +6481,9 @@ This clinical feature is Enlarged external genitalia, annotated with Abnormal ex
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6456,6 +6548,9 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6555,6 +6650,9 @@ This clinical feature is Ovarian enlargement, annotated with Enlarged ovaries (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6621,6 +6719,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6708,6 +6809,9 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6772,6 +6876,9 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6857,6 +6964,9 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6928,6 +7038,9 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6992,6 +7105,9 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7070,6 +7186,9 @@ This clinical feature is Nail hypertrophy, annotated with Abnormal nail morpholo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7136,6 +7255,9 @@ This clinical feature is Reduced subcutaneous fat, annotated with Reduced subcut
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7219,6 +7341,9 @@ This clinical feature is Fasting hypoglycemia, annotated with Hypoglycemia (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7283,6 +7408,9 @@ This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7363,6 +7491,9 @@ This clinical feature is Growth retardation, annotated with Growth delay (HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7479,6 +7610,9 @@ This disease-associated gene is INSR (hgnc:6091). hgnc:6091 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7647,6 +7781,9 @@ This treatment uses pioglitazone (CHEBI:8228). CHEBI:8228 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7657,6 +7794,9 @@ This treatment uses pioglitazone (CHEBI:8228). CHEBI:8228 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7826,6 +7966,9 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7836,6 +7979,9 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7952,6 +8098,9 @@ This treatment uses empagliflozin (CHEBI:82720). CHEBI:82720 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7962,6 +8111,9 @@ This treatment uses empagliflozin (CHEBI:82720). CHEBI:82720 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -8156,6 +8308,9 @@ This treatment uses mecasermin (CHEBI:749581). CHEBI:749581 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8166,6 +8321,9 @@ This treatment uses mecasermin (CHEBI:749581). CHEBI:749581 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -8360,6 +8518,9 @@ This treatment uses metreleptin (CHEBI:752900). CHEBI:752900 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8370,6 +8531,9 @@ This treatment uses metreleptin (CHEBI:752900). CHEBI:752900 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -8517,6 +8681,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8527,6 +8694,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8675,6 +8845,9 @@ This treatment is oophorectomy, annotated with Surgical Procedure (NCIT:C15329).
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8685,6 +8858,9 @@ This treatment is oophorectomy, annotated with Surgical Procedure (NCIT:C15329).
 
 
     </div>
+
+
+
 
 
 
@@ -8779,6 +8955,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8789,6 +8968,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8883,6 +9065,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8893,6 +9078,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8987,6 +9175,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8997,6 +9188,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9091,6 +9285,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9101,6 +9298,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -11659,6 +11859,29 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record review notes</strong></p>
+                        <p class="research-review-text">Created de novo from a claude_code deep-research report treated as leads. Two ontology bindings suggested by the report were hallucinated or Named-Entity confusions and were corrected during curation: HP:0000707 (suggested for &#34;dentition&#34;) is actually &#34;Abnormality of the nervous system&#34; (used HP:0000164); NCIT:C77082 (suggested for metreleptin) is Tolvaptan and NCIT:C1966 (suggested for mecasermin) is Imaging Agent (used CHEBI:752900 metreleptin and CHEBI:749581 mecasermin). HP:0000857, initially considered for diabetes, is &#34;Neonatal insulin-dependent diabetes mellitus&#34;; HP:0000831 (insulin-resistant diabetes mellitus) was used instead. All evidence snippets are exact substrings of PubMed abstracts/full text cached via just fetch-reference.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">LUMP/SPLIT: Rabson-Mendenhall syndrome is kept as a separate entry from the other members of the INSR allelic series. It is the intermediate-severity form of INSR-related severe insulin resistance (INSR-SIRS), a continuum running from the neonatally lethal Donohue syndrome (leprechaunism; near-complete loss of receptor function) through Rabson-Mendenhall to the milder type A insulin resistance (PMID:29369573, PMID:29695048). Although the three share the same causal gene and are described by GeneReviews as one phenotypic continuum, they are curated separately here because they differ in onset, severity, survival, and (for type A) typical inheritance and are represented by distinct MONDO concepts. Keep-separate is the expected call. This entry is also deliberately distinct from the acquired, autoantibody-mediated type B insulin resistance syndrome (kb/disorders/Type_B_Insulin_Resistance_Syndrome.yaml), which shares the extreme-insulin-resistance clinical picture but has no INSR genetic lesion. CURATION SCOPE: Pineal hyperplasia is named in the OMIM title of RMS (262190) and reported in case series, but none of the abstracts fetched into the local reference cache carried a directly quotable statement of it, so it is described here without a separately evidenced phenotype rather than being asserted on a weaker citation. Emerging GLP-1/GIP-agonist (tirzepatide) case reports were identified in deep research but were not indexed in PubMed at curation time and could not be snippet-verified, so they are noted here rather than curated as a treatment.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Rabson-Mendenhall syndrome</strong> · 2026-09-04T14:41:09Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Rabson-Mendenhall_Syndrome/2026-09-04T144109Z-claude-code-7f8e48.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of Rabson-Mendenhall syndrome (MONDO:0009874), the intermediate-severity INSR-related severe insulin resistance syndrome. Pathograph: biallelic INSR loss-of-function -&gt; impaired insulin receptor (PI3K-AKT) signalling -&gt; severe insulin resistance -&gt; compensatory hyperinsulinaemia branching to cutaneous IGF-1R cross-activation (acanthosis nigricans), ovarian androgen excess (hyperandrogenism), beta-cell decompensation (insulin-resistant diabetes -&gt; DKA), GH resistance (growth failure), plus a tissue-autonomous renal INSR dysfunction node (nephrocalcinosis). 11 phenotypes with HP terms and cohort frequencies from the 42-patient pooled series (PMID:38957655); INSR genetic section (hgnc:6091, AR, LOSS_OF_FUNCTION functional_impact_category on the trigger node); treatments (insulin sensitizers, high-dose insulin, empagliflozin/SGLT2i, mecasermin/rhIGF-1, metreleptin, antiandrogens, oophorectomy, genetic counseling) using the therapeutic_agent pattern; HUMAN_MODEL_MISMATCH discussion on the murine-vs-human renal phenotype (PMID:25358339) and a KNOWLEDGE_GAP on the absent genotype-phenotype correlation. All 65 evidence snippets verified against cached references. Corrected two Named-Entity-Confusion NCIT codes (metreleptin/mecasermin) and two hallucinated HP codes suggested by the deep-research lead. Kept separate from Donohue and type A (INSR allelic series) and from autoimmune type B insulin resistance.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

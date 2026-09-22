@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4813,6 +4866,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-follicular-hyperkeratosis" data-dismech-node="Follicular Hyperkeratosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Follicular Hyperkeratosis</div>
 
+
                 <div class="item-desc">Aberrant keratinization of the hair follicle infundibulum leads to follicular plugging. Hyperproliferative keratinocytes produce excess keratin that occludes the follicular ostium. In the canonical occlusion-first model this is the initiating event in HS pathogenesis; in the emerging autoinflammatory keratinization model it may be coupled to epithelial-intrinsic immune activation rather than purely preceding it.
 </div>
 
@@ -5032,6 +5086,7 @@ This pathophysiological event involves abnormal Keratinization (GO:0031424). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-follicular-rupture" data-dismech-node="Follicular Rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Follicular Rupture</div>
 
+
                 <div class="item-desc">Continued keratinization causes follicular dilation and eventual mechanical rupture, releasing keratin, commensal bacteria, and damage-associated molecular patterns (DAMPs) into the surrounding dermis. This triggers the innate immune response.
 </div>
 
@@ -5159,6 +5214,7 @@ This pathophysiological event involves abnormal Keratinization (GO:0031424). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-immune-hyperactivation" data-dismech-node="Innate Immune Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate Immune Hyperactivation</div>
+
 
                 <div class="item-desc">Following follicular rupture, DAMPs and PAMPs activate TLR2 and inflammasome pathways (NLRP3/CASP1). This drives IL-1beta and IL-36 release from keratinocytes and myeloid cells, recruiting neutrophils and macrophages to form the early inflammatory infiltrate and abscess.
 </div>
@@ -5438,6 +5494,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abscess-formation" data-dismech-node="Abscess Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Abscess Formation</div>
 
+
                 <div class="item-desc">Neutrophilic infiltration at the site of follicular rupture leads to abscess formation. Dense collections of neutrophils, cellular debris, and purulent material form painful nodules in intertriginous skin.
 </div>
 
@@ -5568,6 +5625,7 @@ This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th17-driven-adaptive-inflammation" data-dismech-node="Th17-Driven Adaptive Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Th17-Driven Adaptive Inflammation</div>
+
 
                 <div class="item-desc">IL-23 from dendritic cells drives Th17 polarization. IL-17A/F-producing T cells amplify neutrophil recruitment via CXCL1/8 and sustain chronic inflammation. The Th17:Treg imbalance perpetuates the inflammatory cycle.
 </div>
@@ -5762,6 +5820,7 @@ This pathophysiological event involves increased T-helper 17 Cell Differentiatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epigenetic-reprogramming-of-keratinocytes" data-dismech-node="Epigenetic Reprogramming of Keratinocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Epigenetic Reprogramming of Keratinocytes</div>
+
 
                 <div class="item-desc">HS basal progenitor keratinocytes undergo epigenetic rewiring with extensive chromatin remodeling (1,434 gained / 3,722 lost ATAC peaks) that primes inflammatory gene programs. This produces pathogenic keratinocyte clones marked by S100A7/8/9 and KRT6 that trigger IL-1, IL-10, and complement cascades. This represents an epithelial-intrinsic disease driver.
 </div>
@@ -5958,6 +6017,7 @@ This pathophysiological event involves increased Cell Population Proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tertiary-lymphoid-structure-formation" data-dismech-node="Tertiary Lymphoid Structure Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Tertiary Lymphoid Structure Formation</div>
+
 
                 <div class="item-desc">In chronic HS lesions, organized tertiary lymphoid structures (TLSs) form near epithelialized tunnels. These TLSs contain proliferative T cells (including Tfh, Treg, and IL-17A+/IFNG+ pathogenic T cells) and clonally expanded plasma cells producing anti-keratinocyte autoantibodies. HS fibroblasts expressing CXCL13 or CCL19 orchestrate lymphocyte aggregation via TNF-alpha feedback loops.
 </div>
@@ -6255,6 +6315,7 @@ This pathophysiological event involves increased Type II Interferon Production (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sinus-tract-formation" data-dismech-node="Sinus Tract Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sinus Tract Formation</div>
 
+
                 <div class="item-desc">Chronic inflammation and recurrent abscess cycles lead to tissue destruction and formation of epithelialized sinus tracts (tunnels) that grow deeply into the dermis. These tracts serve as persistent inflammatory niches and sites of TLS formation, perpetuating the disease cycle.
 </div>
 
@@ -6375,6 +6436,7 @@ This pathophysiological event involves increased Type II Interferon Production (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microbiome-dysbiosis-and-biofilm-formation" data-dismech-node="Microbiome Dysbiosis and Biofilm Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Microbiome Dysbiosis and Biofilm Formation</div>
+
 
                 <div class="item-desc">HS lesions and tunnels harbor distinct polymicrobial, predominantly anaerobic communities with reduced aerobic commensals. Biofilm-associated bacterial aggregates are common in chronic lesions and tunnels and may amplify TLR/IL-1R innate inflammation, but current evidence does not resolve whether dysbiosis is a primary trigger, an inflammatory amplifier, or a consequence of follicular rupture and tunnel anatomy.
 </div>
@@ -6663,6 +6725,7 @@ This pathophysiological event involves dysregulated Response to Bacterium (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tissue-destruction-and-scarring" data-dismech-node="Tissue Destruction and Scarring" data-dismech-type="pathophysiology">
                 <div class="item-name">Tissue Destruction and Scarring</div>
 
+
                 <div class="item-desc">Recurrent cycles of inflammation, abscess formation, and tissue remodeling result in progressive tissue destruction. Fibroblast activation and extracellular matrix remodeling produce hypertrophic and atrophic scarring.
 </div>
 
@@ -6832,6 +6895,9 @@ This clinical feature is Recurrent abscess formation (HP:0002722). HP:0002722 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6898,6 +6964,9 @@ This clinical feature is Folliculitis (HP:0025084). HP:0025084 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Band corrected from FREQUENT to OCCASIONAL to match the only quantitative source available: 23.1% falls in the OCCASIONAL range (29-5%), not FREQUENT (79-30%). Note also that the source is a single-centre PEDIATRIC cohort and reports folliculitis as a co-occurring condition rather than as a lesion of HS itself, so this band should be treated as provisional pending an adult series.</div>
@@ -6973,6 +7042,9 @@ This clinical feature is Purulent drainage from skin (HP:6001119). HP:6001119 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7060,6 +7132,9 @@ This clinical feature is Draining sinus tract in skin (HP:6000095). HP:6000095 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7133,6 +7208,9 @@ This clinical feature is Atypical scarring of skin (HP:0000987). HP:0000987 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7199,6 +7277,9 @@ This clinical feature is Inflammatory skin nodules, annotated with Skin nodule (
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7284,6 +7365,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7364,6 +7448,9 @@ This clinical feature is Chronic pain (HP:0012532). HP:0012532 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7430,6 +7517,9 @@ This clinical feature is Diminished health-related quality of life (HP:0033665).
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7571,6 +7661,9 @@ This disease-associated gene is NCSTN (hgnc:17091). hgnc:17091 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7674,6 +7767,9 @@ This disease-associated gene is PSEN1 (hgnc:9508). hgnc:9508 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7750,6 +7846,9 @@ This disease-associated gene is PSENEN (hgnc:30100). hgnc:30100 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7877,6 +7976,12 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -8130,6 +8235,12 @@ This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Secukinumab targets IL-17A-mediated neutrophilic inflammation. SUNSHINE/SUNRISE phase III trials demonstrated sustained efficacy through 52 weeks in moderate-to-severe HS.</div>
 
 
@@ -8324,6 +8435,12 @@ This treatment uses bimekizumab (NCIT:C171829). NCIT:C171829 is a therapeutic ag
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Bimekizumab selectively inhibits both IL-17A and IL-17F. BE HEARD I and II phase III trials demonstrated HiSCR50 response rates of 48-52% versus 29-32% placebo at week 16, with responses maintained or increased to week 48.</div>
 
 
@@ -8466,6 +8583,9 @@ This treatment is IRAK4 targeted protein degradation, annotated with Pharmacothe
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8476,6 +8596,9 @@ This treatment is IRAK4 targeted protein degradation, annotated with Pharmacothe
 
 
     </div>
+
+
+
 
 
 
@@ -8676,6 +8799,12 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Topical clindamycin for mild disease (Hurley I); combination oral tetracyclines or clindamycin-rifampicin for moderate disease (Hurley II). Target both bacterial colonization and anti-inflammatory effects.</div>
 
 
@@ -8757,6 +8886,12 @@ This treatment is surgical excision, annotated with Excision (NCIT:C15232). NCIT
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8939,6 +9074,12 @@ This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Anti-androgen therapy (e.g., spironolactone, cyproterone acetate) may benefit some female patients by modulating hormonal triggers contributing to follicular occlusion.</div>
 
 
@@ -9041,6 +9182,12 @@ This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic age
                 <div class="item-name">
                     Lifestyle Modification
                 </div>
+
+
+
+
+
+
 
 
 
@@ -13190,6 +13337,8 @@ classifications:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

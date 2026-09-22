@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4190,6 +4243,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rubcn-rubicon-loss-of-function" data-dismech-node="RUBCN (Rubicon) Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">RUBCN (Rubicon) Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic truncating variants in RUBCN abolish or truncate Rubicon (rundataxin), a protein with an N-terminal RUN domain and a C-terminal diacylglycerol-binding-like / Rubicon Homology (RH) domain that assembles with the Beclin-1 / class III PI3K (VPS34) complex. Rubicon&#39;s principal function is to negatively regulate macroautophagy (and LC3-associated phagocytosis). The recurrent founder allele is an exon 18/19 single-base deletion (c.2624delC / historically 2927delC; p.Ala875ValfsX146 / p.Ala943ValfsX146) that frameshifts and deletes the C-terminal domain.
 </div>
 
@@ -4329,6 +4383,7 @@ This pathophysiological event involves decreased negative regulation of macroaut
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-rubicon-endolysosomal-localization" data-dismech-node="Impaired Rubicon Endolysosomal Localization" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Rubicon Endolysosomal Localization</div>
+
 
                 <div class="item-desc">Wild-type Rubicon colocalizes with the late-endosome GTPase Rab7 and with the lysosomal marker LAMP1. The Salih-ataxia truncation, which removes the diacylglycerol-binding-like / RH domain, causes a diffuse cytosolic redistribution and loss of late-endosomal localization, establishing pathogenicity and linking the disorder to endosomal/lysosomal machinery rather than to the mitochondrial or nuclear pathways of other recessive ataxias.
 </div>
@@ -4529,6 +4584,7 @@ This pathophysiological event involves abnormal late endosome to lysosome transp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-autophagy-and-endolysosomal-trafficking" data-dismech-node="Dysregulated Autophagy and Endolysosomal Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Autophagy and Endolysosomal Trafficking</div>
 
+
                 <div class="item-desc">Loss of correctly localized Rubicon perturbs the late (maturation) step of autophagy and endosome-to-lysosome trafficking, impairing neuronal protein and organelle quality control.
 </div>
 
@@ -4711,6 +4767,7 @@ This pathophysiological event involves abnormal autophagosome maturation (GO:009
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-neurodegeneration" data-dismech-node="Cerebellar Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Neurodegeneration</div>
+
 
                 <div class="item-desc">Cerebellar (predominantly superior vermian) atrophy on MRI underlies the gait/limb ataxia, dysarthria, and oculomotor signs. Atrophy is often subtle and may be absent early, consistent with the slowly progressive course. Purkinje cells are the presumptively vulnerable cerebellar cortical neuron on mechanistic grounds; direct evidence of Purkinje-cell loss in SCAR15 tissue has not been reported, so this cell-type attribution is an inference from the imaging phenotype rather than a documented histopathological finding.
 </div>
@@ -4945,6 +5002,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5025,6 +5085,9 @@ This clinical feature is Saccadic pursuit, annotated with Abnormality of ocular 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5089,6 +5152,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5190,6 +5256,9 @@ This clinical feature is Gait ataxia (HP:0002066), qualified as course progressi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5254,6 +5323,9 @@ This clinical feature is Limb ataxia (HP:0002070). HP:0002070 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5328,6 +5400,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5392,6 +5467,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5491,6 +5569,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5555,6 +5636,9 @@ This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5629,6 +5713,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5693,6 +5780,9 @@ This clinical feature is Lower limb hyperreflexia (HP:0002395). HP:0002395 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5767,6 +5857,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5836,6 +5929,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5900,6 +5996,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6018,6 +6117,9 @@ This disease-associated gene is RUBCN (hgnc:28991). hgnc:28991 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6093,7 +6195,9 @@ This disease-associated gene is RUBCN (hgnc:28991). hgnc:28991 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
@@ -6103,6 +6207,11 @@ This disease-associated gene is RUBCN (hgnc:28991). hgnc:28991 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent Arab founder single-base frameshift deletion in RUBCN exon 18/19 (NM_014687:c.2624delC, p.A875fs; the same allele reported in the original family as 2927delC / p.Ala943ValfsX146 under earlier transcript/protein numbering). Truncates the C-terminal diacylglycerol-binding / RH domain; homozygous in the two reported Saudi families.
@@ -6166,7 +6275,9 @@ This disease-associated gene is RUBCN (hgnc:28991). hgnc:28991 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice site</span>
@@ -6176,6 +6287,11 @@ This disease-associated gene is RUBCN (hgnc:28991). hgnc:28991 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Novel homozygous splice-donor variant abolishing the exon 14/intron 14 consensus donor site; produces frameshifted alternative transcripts and a truncated protein lacking the RH domain. First RUBCN splice variant, reported in a patient with epileptic encephalopathy.
@@ -6299,6 +6415,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Symptomatic pharmacologic management of epilepsy. In the originally described patients, infantile-onset seizures responded to antiseizure treatment without relapse.
 </div>
 
@@ -6388,6 +6510,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6398,6 +6523,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -7453,6 +7581,25 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Drop unverifiable Orphanet:404499 from prevalence notes</strong> · 2026-08-06T19:57:19Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Spinocerebellar_Ataxia_15/2026-08-06T195719Z-claude-code-ae7169.yaml">View source</a></p>
+                        <p class="research-review-text">Post-approval follow-up on PR #8088. Removed the bare, uncited &#39;Orphanet:404499.&#39; identifier from prevalence.notes per reviewer request: no DR artifact asserted the ORPHA code and no references_cache/ORPHA_404499.md exists, so it was an unverifiable database identifier. The prevalence claim&#39;s substance (ultra-rare; ancient RUBCN founder haplotype in the Arabian Peninsula) remains snippet-backed by PMID:32450808. just validate passes.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autosomal Recessive Spinocerebellar Ataxia 15 SCAR15 RUBCN</strong> · 2026-08-05T22:00:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Spinocerebellar_Ataxia_15/2026-08-05T220055Z-claude-code-bac2b5.yaml">View source</a></p>
+                        <p class="research-review-text">Created SCAR15 / Salih ataxia [MONDO:0014311, gene RUBCN] de novo from primary literature: Assoum 2010 rundataxin paper PMID:20826435, Assoum 2013 Rubicon endosomal-mislocalization mechanism PMID:23728897, Seidahmed 2020 founder-mutation second-family confirmation PMID:32450808, and the Kamble 2024 dystonia PMID:38934208 and 2025 epileptic-encephalopathy PMID:39520129 spectrum-expansion reports. Falcon deep research run; NEC preflight PASS [RUBCN 25 mentions, canonical]. 4-node autophagy/endolysosomal pathophysiology chain, 12 evidenced phenotypes, molecular-genetics diagnosis section, prevalence, treatments. All 28 evidence snippets verified against cached abstracts; schema/terms/references pass; weighted compliance 94.5 percent. Pre-PR red-team review applied.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4371,6 +4424,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nf1-tumor-suppressor-loss" data-dismech-node="NF1 Tumor Suppressor Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">NF1 Tumor Suppressor Loss</div>
 
+
                 <div class="item-desc">Germline heterozygous NF1 pathogenic variants reduce neurofibromin dosage across tissues. In focal lesions such as neurofibromas, cafe-au-lait macules, optic pathway gliomas, and tibial pseudoarthrosis, somatic loss or mutation of the remaining allele can create cell-specific biallelic NF1 inactivation. Loss of neurofibromin removes RAS-GAP restraint, allowing hyperactive RAS effector signaling and tissue-specific developmental or neoplastic outcomes.</div>
 
 
@@ -4569,6 +4623,7 @@ This pathophysiological event involves decreased regulation of Ras protein signa
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ras-mapk-pathway-hyperactivation" data-dismech-node="RAS-MAPK Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">RAS-MAPK Pathway Hyperactivation</div>
 
+
                 <div class="item-desc">Neurofibromin normally accelerates GTP hydrolysis on RAS proteins, promoting the inactive GDP-bound state. Loss of neurofibromin results in prolonged RAS-GTP accumulation and constitutive activation of the RAS-RAF-MEK-ERK cascade. In NF1, this branch drives Schwann-cell tumor initiation, melanocyte pigmentation programs, glial proliferation, skeletal remodeling defects, and neurodevelopmental plasticity abnormalities.</div>
 
 
@@ -4749,6 +4804,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pi3k-akt-mtor-pathway-hyperactivation" data-dismech-node="PI3K-AKT-mTOR Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">PI3K-AKT-mTOR Pathway Hyperactivation</div>
 
+
                 <div class="item-desc">NF1 loss activates PI3K-AKT-mTOR signaling in susceptible glial and Schwann lineage tumors. In optic glioma models, PI3K/Akt and MEK/ERK converge on mTOR to maintain tumor cell proliferation. During peripheral nerve sheath tumor progression, reduced PTEN restraint cooperates with Nf1 loss to accelerate transition toward high-grade malignant PNST.</div>
 
 
@@ -4905,6 +4961,7 @@ This pathophysiological event involves increased mTOR signaling pathway, annotat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-camp-pka-signaling-dysregulation" data-dismech-node="cAMP-PKA Signaling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">cAMP-PKA Signaling Dysregulation</div>
 
+
                 <div class="item-desc">NF1 loss perturbs cAMP-PKA signaling in cell-type-specific contexts. In melanocytes, increased cAMP-mediated PKA activity cooperates with ERK1/2 to drive MITF and melanogenic enzyme expression, producing the pigmentation branch of the NF1 pathograph.</div>
 
 
@@ -5018,6 +5075,7 @@ This pathophysiological event involves abnormal cAMP/PKA signal transduction (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-melanocyte-pigmentation-program-activation" data-dismech-node="Melanocyte Pigmentation Program Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Melanocyte Pigmentation Program Activation</div>
+
 
                 <div class="item-desc">NF1-deficient melanocytes reproduce the cafe-au-lait hyperpigmentation phenotype in vitro. Increased cAMP-PKA and ERK1/2 signaling induces MITF and melanogenic enzymes, increasing melanin synthesis and supporting the pigmentary manifestations of NF1.</div>
 
@@ -5209,6 +5267,7 @@ This pathophysiological event involves increased developmental pigmentation (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-schwann-cell-neurofibroma-initiation" data-dismech-node="Schwann Cell Neurofibroma Initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Schwann Cell Neurofibroma Initiation</div>
 
+
                 <div class="item-desc">Biallelic NF1 loss in Schwann cells or Schwann-cell precursors is the initiating lesion for peripheral nerve sheath tumor formation. Schwann lineage NF1 loss creates the tumor cell compartment, while the NF1 heterozygous microenvironment supplies cooperating stromal, immune, and paracrine signals.</div>
 
 
@@ -5372,6 +5431,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mast-cell-rich-neurofibroma-microenvironment" data-dismech-node="Mast Cell-Rich Neurofibroma Microenvironment" data-dismech-type="pathophysiology">
                 <div class="item-name">Mast Cell-Rich Neurofibroma Microenvironment</div>
+
 
                 <div class="item-desc">Nf1-deficient Schwann cells secrete soluble Kit ligand, attracting Nf1+/- mast cells that can remodel extracellular matrix and support angiogenesis. This paracrine Schwann cell-mast cell loop helps convert cell-autonomous NF1 loss into multicellular neurofibroma growth.</div>
 
@@ -5566,6 +5626,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malignant-peripheral-nerve-sheath-tumor-progression" data-dismech-node="Malignant Peripheral Nerve Sheath Tumor Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">Malignant Peripheral Nerve Sheath Tumor Progression</div>
+
 
                 <div class="item-desc">Most neurofibromas remain benign, but cooperating tumor-suppressor pathway lesions can convert NF1-deficient peripheral nerve sheath tumors into MPNST. Experimental Nf1/Pten inactivation accelerates low-grade PNST development and promotes progression to high-grade tumors, matching the PI3K-AKT-mTOR branch of the NF1 pathograph.</div>
 
@@ -5831,6 +5892,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glial-progenitor-hyperproliferation" data-dismech-node="Glial Progenitor Hyperproliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Glial Progenitor Hyperproliferation</div>
 
+
                 <div class="item-desc">NF1 inactivation in CNS glial lineages produces reactive astrogliosis and increased glial progenitor proliferation. Enlarged optic nerves with hyperplastic lesions can progress to optic pathway glioma, and MEK/Akt-mTOR signaling maintains subsequent Nf1 optic glioma growth.</div>
 
 
@@ -5978,6 +6040,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-optic-glioma-mtor-dependent-maintenance" data-dismech-node="Optic Glioma mTOR-Dependent Maintenance" data-dismech-type="pathophysiology">
                 <div class="item-name">Optic Glioma mTOR-Dependent Maintenance</div>
+
 
                 <div class="item-desc">In Nf1 optic glioma models, MEK and Akt pathways converge on mTOR to sustain astrocyte and optic glioma proliferation. This maintenance branch connects NF1-loss glial progenitor hyperproliferation to clinical optic pathway glioma risk.</div>
 
@@ -6161,6 +6224,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-gabaergic-plasticity-defect" data-dismech-node="Neurodevelopmental GABAergic Plasticity Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental GABAergic Plasticity Defect</div>
 
+
                 <div class="item-desc">NF1-associated learning problems are modeled as excessive Ras activity increasing GABA-mediated inhibition and decreasing long-term potentiation. This branch links the same proximal RAS dysregulation that drives tumors to neurodevelopmental circuit-level learning impairment.</div>
 
 
@@ -6342,6 +6406,7 @@ This pathophysiological event involves increased Ras protein signal transduction
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteoblast-osteoclast-remodeling-defect" data-dismech-node="Osteoblast-Osteoclast Remodeling Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Osteoblast-Osteoclast Remodeling Defect</div>
+
 
                 <div class="item-desc">Neurofibromin deficiency in skeletal progenitors and bone-resorbing lineages disrupts osteoblast differentiation, osteoclast maturation, fracture repair, and bone remodeling. This skeletal branch links NF1 Ras/MAPK hyperactivation to scoliosis and focal dysplasia/pseudoarthrosis phenotypes.</div>
 
@@ -6692,6 +6757,9 @@ This clinical feature is Neoplasm of the breast (HP:0100013). HP:0100013 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6769,6 +6837,9 @@ This clinical feature is Gastrointestinal stromal tumor, annotated with Gastroin
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6854,6 +6925,9 @@ This clinical feature is Pheochromocytoma (HP:0002666). HP:0002666 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6929,6 +7003,9 @@ This clinical feature is Lisch nodules (HP:0009737). HP:0009737 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7032,6 +7109,9 @@ This clinical feature is Choroidal abnormalities, annotated with Abnormal choroi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7107,6 +7187,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7189,6 +7272,9 @@ This clinical feature is Multiple cafe-au-lait spots (HP:0007565). HP:0007565 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7287,6 +7373,9 @@ This clinical feature is Axillary freckling (HP:0000997). HP:0000997 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This phenotype aggregates the NF1 diagnostic criterion of axillary or inguinal freckling. The local HPO snapshot contains separate terms for axillary freckling (HP:0000997) and inguinal freckling (HP:0030052), so the axillary term is used as the representative mapped descriptor.</div>
@@ -7417,6 +7506,9 @@ This clinical feature is Neurofibroma (HP:0001067). HP:0001067 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7483,6 +7575,9 @@ This clinical feature is Plexiform neurofibroma (HP:0009732). HP:0009732 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7593,6 +7688,9 @@ This clinical feature is Tibial pseudarthrosis (HP:0009736). HP:0009736 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7693,6 +7791,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7802,6 +7903,9 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
                     </div>
 
 
+
+
+
                     <div class="item-desc">Most NF1 patients have normal IQ but specific learning disabilities, attention deficits, or executive function problems.</div>
 
 
@@ -7903,6 +8007,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7980,6 +8087,9 @@ This clinical feature is Optic pathway glioma, annotated with Optic nerve glioma
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The local HPO snapshot does not contain a distinct optic pathway glioma term; HP:0009734 is used as the closest available term because its definition covers glioma originating in the optic nerve or optic chiasm.</div>
@@ -8080,6 +8190,9 @@ This clinical feature is Neurofibrosarcoma (HP:0100697). HP:0100697 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8194,6 +8307,9 @@ This disease-associated gene is NF1 (hgnc:7765). hgnc:7765 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -8438,6 +8554,12 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Selumetinib is FDA-approved for symptomatic, inoperable plexiform neurofibromas in children aged 2 years and older. As a MEK inhibitor, it targets the downstream effector of hyperactive RAS signaling. Shrinkage of plexiform neurofibromas observed in clinical trials.</div>
 
 
@@ -8531,6 +8653,12 @@ This treatment is Surgical Management (NCIT:C16080). NCIT:C16080 is a clinical i
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Surgery for symptomatic neurofibromas causing pain, functional impairment, or disfigurement. Complete resection of plexiform neurofibromas often impossible due to infiltrative nature. Surgery is primary treatment for operable MPNST.</div>
 
 
@@ -8577,6 +8705,12 @@ This treatment is cancer screening (NCIT:C15406). NCIT:C15406 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8683,6 +8817,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for affected individuals and at-risk family members. Children of affected parents have 50% risk. High rate of de novo mutations means negative family history does not exclude NF1. Variable expressivity makes predicting severity difficult.</div>
 
 
@@ -8764,6 +8904,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10592,6 +10738,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

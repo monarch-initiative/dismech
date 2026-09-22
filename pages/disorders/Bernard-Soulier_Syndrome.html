@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4922,6 +4975,7 @@ This subtype is caused by variation in GP1BA (hgnc:4439). hgnc:4439 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-loss-of-function-in-gp1ba-gp1bb-or-gp9" data-dismech-node="Biallelic Loss of Function in GP1BA, GP1BB, or GP9" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Loss of Function in GP1BA, GP1BB, or GP9</div>
 
+
                 <div class="item-desc">Pathogenic variants in any one of the three genes encoding the GPIbalpha, GPIbbeta, or GPIX subunits cause the disease. Across 211 genotyped families the burden splits GP9 44%, GP1BA 28%, GP1BB 28%, spanning 112 distinct variants of every class, and 85% of probands are homozygous with founder effects in several regions. The fourth subunit gene, GP5, has never been implicated, which is a genuine negative finding rather than an absence of looking.</div>
 
 
@@ -5169,6 +5223,7 @@ This pathophysiological event involves GP9 (hgnc:4444). hgnc:4444 is a gene from
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-gpib-ix-v-complex-assembly-and-surface-expression" data-dismech-node="Failure of GPIb-IX-V Complex Assembly and Surface Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of GPIb-IX-V Complex Assembly and Surface Expression</div>
 
+
                 <div class="item-desc">The dominant molecular consequence is failure of the complex to reach the platelet surface at all, because assembly is obligately stoichiometric and a single null subunit sinks the whole receptor. A minority of variants instead permit surface expression but abolish von Willebrand factor binding, a genuinely separate mechanism with the same clinical result. Surface GPIbalpha in biallelic disease is consistently under 10% of control values.</div>
 
 
@@ -5391,6 +5446,7 @@ This pathophysiological event involves absent glycoprotein Ib-IX-V complex (GO:1
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-von-willebrand-factor-capture-under-shear" data-dismech-node="Loss of von Willebrand Factor Capture Under Shear" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of von Willebrand Factor Capture Under Shear</div>
 
+
                 <div class="item-desc">Under arterial shear, von Willebrand factor unfurls on exposed subendothelium and its A1 domain is the only thing fast enough to catch a platelet moving at that velocity. GPIbalpha is the catcher&#39;s mitt. Without it there is no capture step, so nothing downstream ever starts: no rolling, no outside-in signaling, no inside-out activation of the integrin alphaIIb-beta3, no firm adhesion. The laboratory expression of this node is the absent ristocetin-induced agglutination that is not corrected by adding normal plasma, which is the entire diagnostic logic of the disease in one sentence.</div>
 
 
@@ -5572,6 +5628,7 @@ This pathophysiological event involves decreased primary hemostasis, annotated w
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-platelet-surface-coagulation-factor-binding" data-dismech-node="Loss of Platelet-Surface Coagulation Factor Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Platelet-Surface Coagulation Factor Binding</div>
 
+
                 <div class="item-desc">GPIbalpha is not only a von Willebrand factor receptor. It also binds thrombin, factor XI, factor XII, high-molecular-weight kininogen, P-selectin, and the leukocyte integrin Mac-1. Losing this hub degrades platelet-supported coagulation and platelet-leukocyte crosstalk on top of the adhesion defect, and the clinical fingerprint of that second loss is the markedly reduced prothrombin consumption seen in these patients. This is the arm that gets dropped from modern write-ups, and it is part of why bleeding is worse than a pure adhesion defect would predict.</div>
 
 
@@ -5731,6 +5788,7 @@ This pathophysiological event involves absent glycoprotein Ib-IX-V complex (GO:1
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncoupling-of-the-membrane-skeleton-from-the-megakaryocyte-cytoskeleton" data-dismech-node="Uncoupling of the Membrane Skeleton from the Megakaryocyte Cytoskeleton" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncoupling of the Membrane Skeleton from the Megakaryocyte Cytoskeleton</div>
+
 
                 <div class="item-desc">The second job. The GPIbalpha cytoplasmic tail binds filamin A and 14-3-3 zeta, anchoring the membrane skeleton to the underlying cytoskeleton while a megakaryocyte extrudes proplatelets. Without it, megakaryocyte progenitor numbers, differentiation, and endoreplication are all normal, but the mature cells have a thickened peripheral zone and a poorly developed demarcation membrane system, proplatelet extension falls by about 41%, and the marginal microtubular ring contains twice as many tubulin fibers. The same defect is demonstrable in cultured human megakaryocytes from patients, with proplatelet formation reduced about 50%, enlarged proplatelet tips, and severely deranged alpha-tubulin distribution. Human and mouse converge here unusually well for a rare disease.</div>
 
@@ -5967,6 +6025,7 @@ This pathophysiological event involves decreased platelet formation (GO:0030220)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-release-of-fewer-abnormally-large-platelets" data-dismech-node="Release of Fewer, Abnormally Large Platelets" data-dismech-type="pathophysiology">
                 <div class="item-name">Release of Fewer, Abnormally Large Platelets</div>
 
+
                 <div class="item-desc">The output of the thrombopoietic branch: a moderate thrombocytopenia, typically not severe, with platelets that can approach lymphocyte size. The two arms of the disease are cleanly dissociable at the domain level. A chimeric receptor swapping the GPIbalpha ectodomain for an unrelated one doubles the circulating platelet count and halves platelet size while leaving the bleeding phenotype severe, so the cytoplasmic tail drives size and count and the ectodomain drives hemostasis.</div>
 
 
@@ -6162,6 +6221,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-primary-hemostatic-plug-formation" data-dismech-node="Failure of Primary Hemostatic Plug Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Primary Hemostatic Plug Formation</div>
+
 
                 <div class="item-desc">The convergence of both hemostatic losses, adhesion and platelet-supported coagulation. The clinical signature is bleeding disproportionate to the platelet count, which is the observation that separates this from a simple thrombocytopenia and which drove the search for a receptor defect in the first place.</div>
 
@@ -6477,6 +6537,9 @@ This clinical feature is Macrothrombocytopenia (HP:0040185). HP:0040185 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6573,6 +6636,9 @@ This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6637,6 +6703,9 @@ This clinical feature is Increased mean platelet volume (HP:0011877). HP:0011877
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6713,6 +6782,9 @@ This clinical feature is Impaired ristocetin-induced platelet aggregation (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6777,6 +6849,9 @@ This clinical feature is Prolonged bleeding time (HP:0003010). HP:0003010 is a p
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6848,6 +6923,9 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6949,6 +7027,9 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7015,6 +7096,9 @@ This clinical feature is Gingival bleeding (HP:0000225). HP:0000225 is a phenoty
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7091,6 +7175,9 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7155,6 +7242,9 @@ This clinical feature is Petechiae (HP:0000967). HP:0000967 is a phenotype from 
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7231,6 +7321,9 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7295,6 +7388,9 @@ This clinical feature is Prolonged bleeding after surgery (HP:0004846). HP:00048
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7371,6 +7467,9 @@ This clinical feature is Post-partum hemorrhage (HP:0011891). HP:0011891 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7435,6 +7534,9 @@ This clinical feature is Intracranial hemorrhage (HP:0002170). HP:0002170 is a p
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7527,6 +7629,9 @@ This clinical feature is Iron deficiency anemia (HP:0001891), qualified as tempo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7612,6 +7717,9 @@ This disease-associated gene is GP1BA (hgnc:4439). hgnc:4439 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7740,6 +7848,9 @@ This disease-associated gene is GP1BA (hgnc:4439). hgnc:4439 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7835,6 +7946,9 @@ This disease-associated gene is GP1BB (hgnc:4440). hgnc:4440 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7986,6 +8100,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7996,6 +8113,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -8134,6 +8254,9 @@ This treatment is platelet transfusion (NCIT:C15366). NCIT:C15366 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8144,6 +8267,9 @@ This treatment is platelet transfusion (NCIT:C15366). NCIT:C15366 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -8281,6 +8407,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8291,6 +8420,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8475,6 +8607,9 @@ This treatment uses levonorgestrel (CHEBI:6443). CHEBI:6443 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8485,6 +8620,9 @@ This treatment uses levonorgestrel (CHEBI:6443). CHEBI:6443 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -8598,6 +8736,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8608,6 +8749,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -8742,6 +8886,9 @@ This treatment uses eltrombopag (CHEBI:85010). CHEBI:85010 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8752,6 +8899,9 @@ This treatment uses eltrombopag (CHEBI:85010). CHEBI:85010 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -8889,6 +9039,9 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8899,6 +9052,9 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -12679,6 +12835,35 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">The two-branch model is the organizing idea of this entry and it is experimentally earned rather than merely tidy. A chimeric receptor swapping the GPIbalpha ectodomain for an unrelated one doubles platelet count and halves platelet size while leaving the bleeding phenotype severe. Cytoplasmic tail drives size and count; ectodomain drives hemostasis. Two jobs, two domains, cleanly dissociable, which is why the pathograph branches at the surface-expression node rather than running as a single chain.
+A third contributor is recorded as an EMERGING mechanistic_hypotheses entry rather than as a node: shear-induced unfolding of the GPIbalpha mechanosensory domain triggers platelet clearance, so a destabilizing missense variant could in principle shorten platelet survival independently of production. The direct link from BSS-causing variants to accelerated clearance in patients has not been demonstrated, so it stays a hypothesis.
+GPIbbeta cytoplasmic-tail deletion in mouse produced enhanced arterial thrombosis, a repressor role that studies in heterologous cells had not predicted. It is not modeled here because it describes a gain of thrombotic function from a specific engineered deletion rather than anything observed in patients, but it is the kind of cell-line-versus-in-vivo discordance worth keeping in view when reasoning about this receptor.
+Prevalence is recorded as CASES_IN_LITERATURE rather than as a population rate. The available figures are a count of about 100 reported cases and 211 genotyped families; no validated population prevalence estimate was found, and converting a case count into a rate would be invention.
+Recombinant factor VIIa carries no therapeutic_agent binding. The available NCIT term for coagulation factor VIIa is not a reliable member of the therapeutic agent enum in this repository, and rather than force a binding that would fail validation the agent identity is carried in the treatment name and description.
+Deep research. Curated from a claude_code deep-research report (research/Bernard-Soulier_Syndrome-deep-research-claude_code.md), whose own reference validation reported 34/34 references verified with a confabulation rate of 0.0. Every snippet used here was independently re-verified against the cached PubMed record.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address remaining PR review suggestions B through E</strong> · 2026-08-15T16:36:36Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bernard-Soulier_Syndrome/2026-08-15T163636Z-claude-code-439794.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the remaining four suggestions from the PR 8529 review, having already handled the three IMPORTANT findings and suggestion A in the previous commit. Suggestion B: added a clinical_trials block with NCT02422394, the eltrombopag phase 2 in inherited thrombocytopenias, with its description stating plainly that the cohort was mixed and included monoallelic Bernard-Soulier syndrome only, so it is not evidence for biallelic disease. Suggestion C: added the Cocker Spaniel GP9 large-deletion natural model (PMID:31484196) with a RECAPITULATES modeled_mechanisms link and an immunocytochemistry readout; this is the only naturally occurring animal model of the disease and the section-14 flagship of the deep-research report, and both previously curated models were engineered knockouts. Suggestion D: joined the two unconnected treatments to the pathograph. Antifibrinolytic therapy now carries a MODULATES edge onto the primary-hemostasis node with an explanation that antifibrinolytics stabilize the clot that does form rather than restoring platelet adhesion, which is why MODULATES rather than RESTORES; hormonal control of menorrhagia now carries a MODULATES edge onto the Menorrhagia phenotype plus a levonorgestrel therapeutic_agent, since it acts on the bleeding substrate rather than on the platelet. Suggestion E accepted in full: 22q11.2 deletion syndrome was removed from differential_diagnoses and recurated as a genetic entry with relationship_type SUSCEPTIBILITY, because the reviewer is right that it is a contiguous-gene predisposition unmasking a monoallelic GP1BB variant rather than a phenotypic mimic; the features text now says so explicitly and carries the second-hit variant evidence. Validated: just validate passed (schema, terms, references), just count-verified-snippets reports 87/87 verified against cached references, up from 81/81, all 22 reference_title values audited against references_cache with zero mismatches, and check_folded_hyphens clean.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Bernard-Soulier Syndrome</strong> · 2026-08-15T15:00:54Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bernard-Soulier_Syndrome/2026-08-15T150054Z-claude-code-996eb1.yaml">View source</a></p>
+                        <p class="research-review-text">New KB entry for Bernard-Soulier syndrome (MONDO:0009276), curated from a claude_code deep-research report (research/Bernard-Soulier_Syndrome-deep-research-claude_code.md), whose own reference validation reported 34/34 references verified with a confabulation rate of 0.0. Seven pathophysiology nodes built around a two-branch model that is experimentally earned rather than merely tidy: loss of the GPIb-IX-V complex disables both an adhesion function (ectodomain capture of von Willebrand factor under shear, plus platelet-surface coagulation factor binding) and a thrombopoietic function (cytoplasmic-tail anchoring of the membrane skeleton during proplatelet extrusion), and a chimeric-receptor mouse dissociates the two cleanly by domain. Four subtypes with MONDO subtype terms (A1/GP1BA, B/GP1BB, C/GP9, A2 dominant monoallelic). Sixteen phenotypes, two genetic entries including the Bolzano founder allele, six treatments, two animal models and one patient-derived megakaryocyte culture each with modeled_mechanisms and readouts, four differential diagnoses, three discussions including the curatable negative that no BSS-causing variant has ever been found in GP5. One EMERGING mechanistic_hypotheses entry for the shear-mechanosensor platelet-clearance route, deliberately not modeled as a node because the link from BSS-causing variants to accelerated clearance in patients has not been demonstrated. Prevalence recorded as CASES_IN_LITERATURE rather than as a population rate. Recombinant factor VIIa deliberately carries no therapeutic_agent binding rather than forcing an NCIT term that is not a reliable member of the therapeutic agent enum. Validated: just validate passed (schema + terms) and just count-verified-snippets reported 76/76 verified against cached references. IMPORTANT SELF-CORRECTION during verification: six reference_title values had been taken from the deep-research report rather than from the cached PubMed record and were wrong; all seventeen title values were then audited programmatically against references_cache and corrected, and the audit now reports zero mismatches. Three snippets were also corrected against the cached text (a missing parenthetical, a unit rendering, and a dropped clause). Seeded cache/mondo and the DiseaseTerm and DiseaseOrSubtypeTerm enum caches for MONDO:0009276, MONDO:1060238, MONDO:1060239, MONDO:1060237, and MONDO:0007930; the three gene-related subtype terms are absent from the local sqlite MONDO build but present in live MONDO, so they were seeded through the configured OLS adapter with conf/oak_config.yaml left unchanged.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

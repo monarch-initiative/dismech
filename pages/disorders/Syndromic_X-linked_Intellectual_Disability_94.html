@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4677,6 +4730,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gria3-pathogenic-variant" data-dismech-node="GRIA3 Pathogenic Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">GRIA3 Pathogenic Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A germline sequence or structural alteration of GRIA3 at Xq25 — missense, canonical splice-site, frameshift, multi-exon deletion or duplication, or a translocation disrupting the locus — is the initiating lesion. GRIA3 encodes GluA3, the sole X-chromosomal member of the GRIA1-GRIA4 family that assembles into AMPA-type ionotropic glutamate receptors, so a single hemizygous allele in a male is sufficient and a heterozygous allele in a female acts against a mosaic wild-type background.</div>
 
 
@@ -4829,6 +4889,13 @@ This pathophysiological event involves GRIA3 (hgnc:4573). hgnc:4573 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glua3-loss-of-function" data-dismech-node="GluA3 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">GluA3 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Loss-of-function alleles reduce or abolish GluA3 activity by disrupting transcription or splicing, truncating the protein, deleting exons, or — for the p.Ala653Thr gate variant — stabilising the assembled channel in a closed, non-conducting conformation. In the functionally screened variant set, loss and gain of function together accounted for 31 of 44 tested alleles, so neither direction can be assumed from variant rarity alone.</div>
 
 
@@ -4880,6 +4947,8 @@ This genetic context concerns GRIA3 (hgnc:4573). hgnc:4573 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense, canonical splice-site, frameshift, and multi-exon deletion alleles</span>
 
 
@@ -4893,6 +4962,9 @@ This genetic context concerns GRIA3 (hgnc:4573). hgnc:4573 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Typically hemizygous in affected males and inherited from a clinically healthy carrier mother, though de novo loss-of-function alleles also occur and heterozygous females can be affected, so zygosity is left unset rather than asserting the modal case. Mechanisms with direct functional support are exon-2 skipping from c.268+1G&gt;C, the p.Glu787Gly allele that produced no measurable current, and the p.Ala653Thr closed-channel allele. A multi-exon deletion is also reported but only in a source with no PubMed record, so it is described here rather than cited. p.Gly630Arg is a segregating familial allele with no electrophysiology and is deliberately not assigned a functional direction.</div>
 
@@ -5099,6 +5171,13 @@ This pathophysiological event involves GluA3-containing AMPA receptor channel ac
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glua3-gain-of-function" data-dismech-node="GluA3 Gain of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">GluA3 Gain of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Gain-of-function alleles prolong receptor activation by slowing desensitisation and deactivation, so each glutamate release event drives a longer-lasting depolarising current. This is a qualitative change in gating kinetics rather than simply more receptor activity, and it produces a clinical picture opposite to loss of function in muscle tone and seizure onset age.</div>
 
 
@@ -5150,6 +5229,8 @@ This genetic context concerns GRIA3 (hgnc:4573). hgnc:4573 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense alleles clustering in and around the channel gate and M3-S2 linker</span>
 
 
@@ -5163,6 +5244,9 @@ This genetic context concerns GRIA3 (hgnc:4573). hgnc:4573 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Zygosity is deliberately left unset because the single-valued slot cannot represent this branch: affected females are heterozygous and affected males hemizygous, and both occur. p.Ala615Val is the only allele here whose gain of function was measured, by patch clamp, in a hemizygous de novo male. The female alleles usually cited alongside it — p.Met661Thr and p.Thr657Ala — were never tested electrophysiologically; their assignment to this branch is inferred from residue position and from the hypertonic phenotype, and both source papers say so explicitly.</div>
 
@@ -5358,6 +5442,13 @@ This pathophysiological event involves GluA3-containing AMPA receptor channel ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-ampa-receptor-mediated-excitatory-current" data-dismech-node="Reduced AMPA Receptor-Mediated Excitatory Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced AMPA Receptor-Mediated Excitatory Current</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of GluA3 conductance reduces the fast excitatory postsynaptic current carried by GluA2/3 heterotetramers, one of the two major hippocampal AMPA receptor populations. Clinically this branch is enriched for low muscle tone, later seizure onset, and severely disorganised sleep-wake architecture.</div>
 
@@ -5646,6 +5737,13 @@ This pathophysiological event involves postsynaptic membrane (GO:0045211). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prolonged-ampa-receptor-mediated-excitatory-current" data-dismech-node="Prolonged AMPA Receptor-Mediated Excitatory Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Prolonged AMPA Receptor-Mediated Excitatory Current</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Slowed desensitisation and deactivation extend the depolarising current carried by mutant GluA3-containing receptors after each glutamate transient, so charge transfer per synaptic event increases. Clinically this branch is enriched for high muscle tone, hyperreflexia, hyperekplexia and very early seizure onset.</div>
 
 
@@ -5897,6 +5995,13 @@ This pathophysiological event involves GluA3-containing AMPA receptor complex, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-excitatory-synaptic-transmission-and-plasticity" data-dismech-node="Disturbed Excitatory Synaptic Transmission and Plasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Excitatory Synaptic Transmission and Plasticity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Both branches converge here. Whether GluA3-mediated current is reduced or prolonged, the postsynaptic response to glutamate is mistimed relative to the activity-dependent rules that govern synaptic strengthening, so experience-dependent plasticity is degraded and the circuits that support learning and memory develop abnormally. The cognitive outcome itself is carried by the downstream HP phenotypes rather than by a GO behaviour term on this node. GluA2/3 receptors cycle constitutively under basal conditions and their auxiliary partners set trafficking and gating, so the lesion is felt at the level of synaptic maintenance as well as of acute transmission.</div>
 
@@ -6269,6 +6374,13 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability" data-dismech-node="Cortical Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Hyperexcitability</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Mistimed excitatory drive in developing cortical and thalamocortical circuits lowers the threshold for synchronous discharge. EEG in affected individuals shows focal spikes that generalise readily, and in one female with a de novo allele the network state escalated to non-convulsive status epilepticus. The step from synaptic dysfunction to network hyperexcitability is inferred from clinical electrophysiology rather than measured directly in patient cortex, so it is recorded as provisional.</div>
 
 
@@ -6449,7 +6561,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of movement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Movement disorders were reported in 14 of 25 patients, the second most frequent domain after developmental impairment, and were more common in the gain-of-function branch.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100022\"}}, {\"id\": \"Aggressive behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Violent tendencies and emotional instability are reported in affected adult males in GRIA3 pedigrees, and increased isolation-induced aggression was measured in Gria3-null mice in a single study.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000718\"}}, {\"id\": \"Antipsychotic Pharmacotherapy for Psychiatric Manifestations\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adult affected males in GRIA3 pedigrees can present with delusions, hallucinations, emotional instability and violent behaviour that dominate the clinical picture. Risperidone and clozapine were reported to be effective, and lorazepam improved sleep, in an X-linked splice-variant family. These are uncontrolled observations from a single pedigree.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"risperidone\", \"clozapine\"]}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A full cerebellar syndrome \\u2014 ataxia, tremor and dysmetria \\u2014 was a cardinal feature in the Italian pedigree, matching the vermian hypoplasia seen on imaging.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic features are recurrent in the older familial descriptions of Wu-type X-linked syndromic intellectual disability, alongside self-injury and aggressive outbursts in adult affected males. The Finnish family D174, in which three affected males aged 35 to 57 carry GRIA3 p.Gly630Arg, is the best-described example.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Carbamazepine for Gain-of-Function Disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one genotype-guided treatment observation in the disorder. In a male with the functionally confirmed gain-of-function allele p.Ala615Val, carbamazepine \\u2014 which reduces presynaptic glutamate release rather than acting on the receptor itself \\u2014 improved both seizures and hypertonia. This is an N-of-1 result and is explicitly not generalisable across the disorder: in a female whose allele was never functionally tested, carbamazepine was ineffective. Because the rationale is to reduce glutamatergic drive onto an over-active receptor, the same drug would not be expected to help, and could plausibly harm, a patient whose receptors are already under-conducting.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"carbamazepine\"]}}, {\"id\": \"Cerebellar vermis hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural cerebellar findings are not universal but were the imaging correlate of a clinical cerebellar syndrome in the p.Glu787Gly proband, whose MRI also showed a focal cortical dysplasia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001320\"}}, {\"id\": \"Cortical Network Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mistimed excitatory drive in developing cortical and thalamocortical circuits lowers the threshold for synchronous discharge. EEG in affected individuals shows focal spikes that generalise readily, and in one female with a de novo allele the network state escalated to non-convulsive status epilepticus. The step from synaptic dysfunction to network hyperexcitability is inferred from clinical electrophysiology rather than measured directly in patient cortex, so it is recorded as provisional.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"regulation of neuronal membrane potential\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive language is disproportionately affected. Reports range from poor speech by one year of age in the most severe cases to isolated expressive language impairment with preserved socialisation in the mildest.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both branches converge here. Whether GluA3-mediated current is reduced or prolonged, the postsynaptic response to glutamate is mistimed relative to the activity-dependent rules that govern synaptic strengthening, so experience-dependent plasticity is degraded and the circuits that support learning and memory develop abnormally. The cognitive outcome itself is carried by the downstream HP phenotypes rather than by a GO behaviour term on this node. GluA2/3 receptors cycle constitutively under basal conditions and their auxiliary partners set trafficking and gating, so the lesion is felt at the level of synaptic maintenance as well as of acute transmission.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"glutamatergic neuron\", \"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\", \"regulation of synaptic plasticity\"], \"locations\": [\"brain\", \"hippocampal formation\", \"cerebral cortex\"], \"animal_models\": [{\"name\": \"Gria3 knockout mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Gria3-/Y germline knockout on C57BL/6J background\", \"background\": \"C57BL/6J\", \"category\": \"Genetically engineered\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The knockout does not reproduce the cognitive impairment that defines the human disorder. Spatial memory was intact on both the Morris water maze and the Y-maze, so the model cannot be used to read out the learning-and-memory limb of this node.\"}]}}, {\"id\": \"Exaggerated startle response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperekplexia, or non-epileptic erratic myoclonus, was the single most prevalent movement feature (8 of 25) and clusters with gain-of-function alleles. It is important diagnostically because it is non-epileptic and can be mistaken for seizure activity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002267\"}}, {\"id\": \"Focal motor seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The commonest single seizure semiology in the reference cohort, reported in 6 of the 12 patients with epilepsy. The frequency band is computed over all 25 patients (6/25, 24%), not over the epilepsy subgroup.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011153\"}}, {\"id\": \"GRIA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GRIA3\"], \"gene_terms\": [{\"label\": \"GRIA3\", \"id\": \"hgnc:4573\"}], \"association\": \"Sole causative gene. GRIA3 maps to Xq25 and encodes GluA3, the only X-chromosomal AMPA receptor subunit. Reported allele classes span missense, canonical splice-site, frameshift, multi-exon deletion and duplication, and translocations disrupting the locus.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 6}}, {\"id\": \"GRIA3 Pathogenic Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A germline sequence or structural alteration of GRIA3 at Xq25 \\u2014 missense, canonical splice-site, frameshift, multi-exon deletion or duplication, or a translocation disrupting the locus \\u2014 is the initiating lesion. GRIA3 encodes GluA3, the sole X-chromosomal member of the GRIA1-GRIA4 family that assembles into AMPA-type ionotropic glutamate receptors, so a single hemizygous allele in a male is sufficient and a heterozygous allele in a female acts against a mosaic wild-type background.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GRIA3\"], \"gene_terms\": [{\"label\": \"GRIA3\", \"id\": \"hgnc:4573\"}]}}, {\"id\": \"Generalized myoclonic seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonic seizures occurred in 5 of 12 patients with epilepsy (5/25, 20% of the whole cohort, which is the denominator the frequency band uses) and were the cardinal feature, escalating to myoclonic status epilepticus, in an Italian pedigree carrying the p.Glu787Gly allele.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002123\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in every functionally characterised patient reported so far and the one feature that does not distinguish the loss-of-function from the gain-of-function branch. Graded VERY_FREQUENT rather than OBLIGATE because the cohort was selected for having both a functionally characterised variant and detailed clinical data, so 25/25 is not a penetrance estimate. Severity is graded moderate in 9 of 25 and severe in 12 of 25, so the modal patient is severely impaired.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"GluA3 Gain of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function alleles prolong receptor activation by slowing desensitisation and deactivation, so each glutamate release event drives a longer-lasting depolarising current. This is a qualitative change in gating kinetics rather than simply more receptor activity, and it produces a clinical picture opposite to loss of function in muscle tone and seizure onset age.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"GluA3-containing AMPA receptor channel activity\"], \"genetic_context\": {\"allele_type\": \"missense alleles clustering in and around the channel gate and M3-S2 linker\", \"variant_origin\": \"DE_NOVO\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Zygosity is deliberately left unset because the single-valued slot cannot represent this branch: affected females are heterozygous and affected males hemizygous, and both occur. p.Ala615Val is the only allele here whose gain of function was measured, by patch clamp, in a hemizygous de novo male. The female alleles usually cited alongside it \\u2014 p.Met661Thr and p.Thr657Ala \\u2014 were never tested electrophysiologically; their assignment to this branch is inferred from residue position and from the hypertonic phenotype, and both source papers say so explicitly.\", \"gene_terms\": [{\"label\": \"GRIA3\", \"id\": \"hgnc:4573\"}]}, \"experimental_models\": [{\"name\": \"Heterologous AMPA receptor expression with patch-clamp electrophysiology\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Measures agonist potency, response time course, desensitisation and deactivation, from which the gain-of-function direction is assigned.\"}], \"animal_models\": [{\"name\": \"Transgenic Drosophila expressing mutant human GluA3\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"transgenic expression of human GluA3 p.Ala615Val combined with the Lurcher leaky-channel alteration\", \"category\": \"Genetically engineered\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"description\": \"Reads out the functional direction of a human allele through a developmental phenotype in a whole organism, complementing the patch-clamp measurement.\"}]}}, {\"id\": \"GluA3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function alleles reduce or abolish GluA3 activity by disrupting transcription or splicing, truncating the protein, deleting exons, or \\u2014 for the p.Ala653Thr gate variant \\u2014 stabilising the assembled channel in a closed, non-conducting conformation. In the functionally screened variant set, loss and gain of function together accounted for 31 of 44 tested alleles, so neither direction can be assumed from variant rarity alone.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"GluA3-containing AMPA receptor channel activity\"], \"genetic_context\": {\"allele_type\": \"missense, canonical splice-site, frameshift, and multi-exon deletion alleles\", \"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Typically hemizygous in affected males and inherited from a clinically healthy carrier mother, though de novo loss-of-function alleles also occur and heterozygous females can be affected, so zygosity is left unset rather than asserting the modal case. Mechanisms with direct functional support are exon-2 skipping from c.268+1G\u003eC, the p.Glu787Gly allele that produced no measurable current, and the p.Ala653Thr closed-channel allele. A multi-exon deletion is also reported but only in a source with no PubMed record, so it is described here rather than cited. p.Gly630Arg is a segregating familial allele with no electrophysiology and is deliberately not assigned a functional direction.\", \"gene_terms\": [{\"label\": \"GRIA3\", \"id\": \"hgnc:4573\"}]}, \"experimental_models\": [{\"name\": \"Heterologous AMPA receptor expression with patch-clamp electrophysiology\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The same assay assigns loss of function, including the closed-channel mechanism that leaves protein expression intact.\"}, {\"name\": \"HEK293T minigene splicing assay\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Demonstrates the RNA-level lesion \\u2014 exon 2 skipping \\u2014 through which a canonical splice-donor variant abolishes normal GluA3 production.\"}], \"animal_models\": [{\"name\": \"Gria3 knockout mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Gria3-/Y germline knockout on C57BL/6J background\", \"background\": \"C57BL/6J\", \"category\": \"Genetically engineered\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"A null allele is the cleanest available model of complete GluA3 loss of function and isolates the consequences of absent GluA3 from any residual mutant-subunit effect.\"}]}}, {\"id\": \"Gria3 A653T knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Allele-specific knock-in of the orthologue of the human closed-channel loss-of-function variant, generated to test whether that allele explains the extreme sleep-wake phenotype in the index sibship. It is the strongest allele-level human-to-mouse concordance in the disorder.\"}, {\"id\": \"Gria3 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive germline null allele in hemizygous males. Reproduces behavioural and monoaminergic consequences of losing GluA3 but not the defining human cognitive phenotype.\"}, {\"id\": \"HEK293T minigene splicing assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Minigene reporter assay used to resolve GRIA3 splice-site variants of uncertain significance, by testing directly whether the candidate allele alters exon inclusion.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:42666715\"}}, {\"id\": \"Heterologous AMPA receptor expression with patch-clamp electrophysiology\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Recombinant expression of wild-type and variant GluA3 in a heterologous cell system, recorded by patch clamp, is the assay that assigns each GRIA3 allele to the loss-of-function, gain-of-function or functionally neutral class. It is the method behind the taxonomy on which this entry\u0027s whole pathograph branches.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:38038360\"}}, {\"id\": \"Hip dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported with scoliosis in the same severely affected, non-ambulatory patient; secondary to abnormal tone and immobility.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002827\"}}, {\"id\": \"Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brisk deep tendon reflexes accompany hypertonia and, with spasticity, point to corticospinal involvement. The only functionally confirmed gain-of-function case in which hyperreflexia was recorded is a male; the females in whom it is reported carry alleles whose functional direction was never measured, so this is not established as a sex-independent gain-of-function feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001347\"}}, {\"id\": \"Hypertonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in 10 of 25 patients and enriched in the gain-of-function branch. It can be congenital: in the p.Met661Thr female it was noted at delivery. In the functionally confirmed p.Ala615Val male it improved on carbamazepine, which makes it the tone phenotype with a demonstrated pharmacological handle.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001276\"}}, {\"id\": \"Hyporeflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressed deep tendon reflexes are the reflex counterpart of the hypotonic, loss-of-function branch and the mirror image of the hyperreflexia seen with prolonged receptor current. Both appear in the disorder for the same reason both tone phenotypes do: the reported patients span two opposite functional classes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001265\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in 13 of 25 patients and enriched in the loss-of-function branch, where it appears together with later seizure onset and disturbed sleep. Hypotonia and hypertonia are both frequent in the disorder as a whole because the cohort mixes the two functional classes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012389\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The developmental delay of infancy resolves into fixed intellectual disability, graded moderate to severe. This is the term the adult pedigrees are described with, where `Global developmental delay` no longer applies: the Finnish family D174 males were 35 to 57 years old at report, and the Italian and Chinese pedigrees describe severe intellectual disability rather than delay.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lorazepam for Sleep Disturbance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sleep disruption is one of the most burdensome features on the loss-of-function side, both for the patient and for caregivers, and no disease-specific sleep intervention has been studied. Lorazepam was reported to improve sleep in the affected members of an X-linked GRIA3 pedigree. This is an uncontrolled observation in one family, reported alongside the antipsychotic response rather than as a separate trial.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"lorazepam\"]}}, {\"id\": \"Multi-Agent Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are frequently drug-resistant at onset but control often improves over time with sequential or combined conventional antiseizure medication. In the p.Met661Thr female, seizures initially resistant to carbamazepine and ethosuximide were gradually brought under control with lamotrigine, clobazam, levetiracetam and lacosamide. In the p.Thr657Ala female, non-convulsive status epilepticus resolved to baseline with levetiracetam and midazolam. There is no evidence that any of these agents is preferred on mechanistic grounds; selection follows general epilepsy practice by seizure type and EEG.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"lamotrigine\", \"clobazam\", \"levetiracetam\", \"lacosamide\", \"midazolam\"]}}, {\"id\": \"Non-convulsive status epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Status epilepticus of either kind has been documented in only a handful of patients. This phenotype is scoped to the non-convulsive form, which was described first in a male and, in 2025, for the first time in a female \\u2014 a seven-year-old with a de novo p.Thr657Ala allele who resolved back to her neurological baseline after treatment. The convulsive myoclonic form, which escalated to myoclonic status epilepticus in the Italian pedigree, is carried by the separate Generalized myoclonic seizure entry.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0031475\"}}, {\"id\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Slowed desensitisation and deactivation extend the depolarising current carried by mutant GluA3-containing receptors after each glutamate transient, so charge transfer per synaptic event increases. Clinically this branch is enriched for high muscle tone, hyperreflexia, hyperekplexia and very early seizure onset.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"glutamatergic neuron\"], \"biological_processes\": [\"AMPA receptor-mediated excitatory postsynaptic current\", \"excitatory chemical synaptic transmission\"]}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychotic symptoms \\u2014 delusions and hallucinations \\u2014 are described in affected members of a GRIA3 splice-variant pedigree and responded to antipsychotic treatment. This is the feature that most distinguishes the adult presentation from a purely developmental phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000709\"}}, {\"id\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of GluA3 conductance reduces the fast excitatory postsynaptic current carried by GluA2/3 heterotetramers, one of the two major hippocampal AMPA receptor populations. Clinically this branch is enriched for low muscle tone, later seizure onset, and severely disorganised sleep-wake architecture.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"glutamatergic neuron\"], \"biological_processes\": [\"AMPA receptor-mediated excitatory postsynaptic current\", \"ionotropic glutamate receptor signaling pathway\"], \"animal_models\": [{\"name\": \"Gria3 A653T knock-in mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Gria3 A653T hemizygous CRISPR-Cas9 knock-in\", \"category\": \"Genetically engineered\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Carries the exact human loss-of-function allele and reproduces the sleep-architecture and light-sensitivity consequences attributed to reduced GluA3 current in the patients.\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orthopaedic complications appear at the severe end of the spectrum and are best understood as secondary to abnormal tone and loss of ambulation rather than as a primary skeletal feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in 12 of 25 patients. Age at onset is the sharpest genotype-phenotype signal in the disorder: median one month for gain-of-function alleles versus 16 months for loss-of-function alleles. The epilepsy syndrome was classified as developmental and epileptic encephalopathy in eight patients and as intellectual disability with epilepsy in four.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Roughly half of reported patients (12/25) sit at the severe end of the developmental spectrum, with limited or absent speech and, in the most affected, loss of independent mobility.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011344\"}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disturbed sleep segregates with loss-of-function alleles. The extreme reported case is a sibship carrying p.Ala653Thr in whom wake periods reached 106 hours and sleep periods 48 hours, a degree of sleep-wake disorganisation that is itself allele-specific and is reproduced in a knock-in mouse.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006979\"}}, {\"id\": \"Spastic gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower-limb spasticity progressing to a paraparetic spastic gait is described in a mildly affected female with a de novo gain-of-function-associated allele.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002064\"}}, {\"id\": \"Supportive and Rehabilitative Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is multidisciplinary and phenotype-directed: early intervention, individualised education, speech and augmentative communication therapy, occupational and physical therapy, tone management, orthopaedic surveillance for scoliosis and hip dislocation, behavioural support and sleep intervention. No disease-modifying or gene-directed therapy exists. This entry records the standard-of-care package rather than a GRIA3-specific intervention, and no GRIA3-specific trial of any of these components has been published.\"}, {\"id\": \"Transgenic Drosophila expressing mutant human GluA3\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Heterologous in vivo assay used to test whether the p.Ala615Val allele behaves as a gain of function. The mutant produced developmental defects only when combined with a leaky-channel alteration, a genetic interaction consistent with excess channel activity.\"}, {\"id\": \"c.1844C\u003eT p.Ala615Val\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo hemizygous missense allele in a male. The functionally best-characterised gain-of-function allele in the disorder: patch clamp showed slowed desensitisation and deactivation, a transgenic fly assay confirmed a gain-of-function genetic interaction, and both seizures and hypertonia responded to carbamazepine.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.1969A\u003eG p.Thr657Ala\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel de novo missense allele in a seven-year-old female presenting with developmental delay, spastic gait and non-convulsive status epilepticus \\u2014 the mildest reported female course despite a severe acute epileptic episode.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.1982T\u003eC p.Met661Thr\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo heterozygous missense allele in a female with developmental and epileptic encephalopathy, sitting in the M3-S2 linker next to the functionally confirmed gain-of-function residue p.Arg660. Absent from EVS, 1000 Genomes, dbSNP, gnomAD and HGVD. Direct electrophysiology was not performed, so its gain-of-function status is inferred from position and from the hypertonic phenotype rather than measured.\", \"meta\": {\"evidence_count\": 2, \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.2360A\u003eG p.Glu787Gly\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Familial missense allele transmitted by a healthy carrier mother in an Italian pedigree whose proband had severe intellectual disability, myoclonic status epilepticus, cerebellar vermis hypoplasia and short stature.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.268+1G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical splice-donor variant reclassified from a variant of uncertain significance to likely pathogenic after co-segregation analysis and a minigene assay showing exon 2 skipping. Segregated in an X-linked pedigree with intellectual disability, prominent psychiatric symptoms and spatial memory deficits.\", \"meta\": {\"evidence_count\": 2, \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"p.Ala653Thr\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele in the transmembrane ion-channel gate that stabilises the receptor in a closed conformation, so it is a loss-of-function allele that acts without reducing protein. Segregated in a sibship with severe developmental delay and the most extreme sleep-wake disorganisation reported in the disorder, and was modelled by CRISPR knock-in in mouse.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"GRIA3 Pathogenic Variant\", \"target\": \"GluA3 Loss of Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splice disruption, protein truncation, exon deletion, or a missense change that stabilises a non-conducting channel removes GluA3-mediated current.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GRIA3 Pathogenic Variant\", \"target\": \"GluA3 Gain of Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset of missense alleles in and around the channel gate instead slows receptor desensitisation and deactivation, prolonging rather than abolishing current.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GluA3 Loss of Function\", \"target\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GluA3 Gain of Function\", \"target\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low muscle tone is the tone phenotype specifically enriched in the loss-of-function branch of the cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Hyporeflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depressed deep tendon reflexes are the reflex counterpart of the low tone on this branch, mirroring the hyperreflexia seen with prolonged current.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Sleep disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep-wake disorganisation segregates with loss of function in the cohort and is reproduced allele-specifically in a knock-in mouse.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Hypertonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased tone is the tone phenotype specifically enriched in the gain-of-function branch, and in the functionally confirmed p.Ala615Val case it responded to a drug that suppresses glutamate release.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Abnormality of movement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Movement disorders as a class are more common on this branch, with hyperekplexia and non-epileptic erratic myoclonus as the dominant expression.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Exaggerated startle response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperekplexia and non-epileptic erratic myoclonus are the most prevalent movement features and cluster with gain of function.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental impairment resolves into fixed intellectual disability in older children and adults, which is the term the adult pedigrees are described with.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Psychiatric manifestations emerge in adulthood in some pedigrees. The step from disturbed excitatory transmission to psychosis is not measured in any patient and is asserted here only as the shared upstream lesion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Aggressive behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aggression is reported in affected adult males and is one of the few human features the Gria3 null mouse reproduces, which is why it is hung on the shared synaptic node rather than on either allele branch.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autistic features recur across the older familial descriptions without segregating by allele class.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Global developmental impairment is the one feature present in every functionally characterised patient, on both branches, which is what makes it the convergent output of this shared node rather than of either allele class.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global developmental delay\", \"target\": \"Delayed speech and language development\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Global developmental delay\", \"target\": \"Severe global developmental delay\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Severe global developmental delay\", \"target\": \"Scoliosis\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Severe global developmental delay\", \"target\": \"Hip dislocation\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Seizure\", \"target\": \"Focal motor seizure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Seizure\", \"target\": \"Generalized myoclonic seizure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Seizure\", \"target\": \"Non-convulsive status epilepticus\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypertonia\", \"target\": \"Hyperreflexia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypertonia\", \"target\": \"Spastic gait\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Cerebellar vermis hypoplasia\", \"target\": \"Ataxia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Carbamazepine for Gain-of-Function Disease\", \"target\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multi-Agent Antiseizure Pharmacotherapy\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multi-Agent Antiseizure Pharmacotherapy\", \"target\": \"Non-convulsive status epilepticus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antipsychotic Pharmacotherapy for Psychiatric Manifestations\", \"target\": \"Psychosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antipsychotic Pharmacotherapy for Psychiatric Manifestations\", \"target\": \"Aggressive behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lorazepam for Sleep Disturbance\", \"target\": \"Sleep disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and Rehabilitative Care\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and Rehabilitative Care\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Heterologous AMPA receptor expression with patch-clamp electrophysiology\", \"target\": \"GluA3 Gain of Function\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Measures agonist potency, response time course, desensitisation and deactivation, from which the gain-of-function direction is assigned.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Recombinant receptors of defined subunit composition lack the auxiliary-subunit environment, developmental context and native heterotetramer stoichiometry of a real synapse, so the measured kinetics predict direction but not magnitude of circuit effect.\"}, {\"source\": \"Heterologous AMPA receptor expression with patch-clamp electrophysiology\", \"target\": \"GluA3 Loss of Function\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The same assay assigns loss of function, including the closed-channel mechanism that leaves protein expression intact.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Cannot distinguish reduced current caused by fewer surface receptors from reduced current per receptor without a separate surface-expression measurement, and gives no information about tissue-specific transcript abundance for splice alleles.\"}, {\"source\": \"HEK293T minigene splicing assay\", \"target\": \"GluA3 Loss of Function\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Demonstrates the RNA-level lesion \\u2014 exon 2 skipping \\u2014 through which a canonical splice-donor variant abolishes normal GluA3 production.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A minigene reports splice-site strength in an artificial construct in a non-neuronal cell line; it validates aberrant splicing but not the transcript abundance or isoform ratio in patient brain.\"}, {\"source\": \"Gria3 knockout mouse\", \"target\": \"GluA3 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"A null allele is the cleanest available model of complete GluA3 loss of function and isolates the consequences of absent GluA3 from any residual mutant-subunit effect.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A complete null is not what most patients carry: human loss-of-function alleles are usually missense or splice changes that still produce a subunit which is incorporated into heterotetramers, so a knockout cannot report dominant-negative or assembly effects. The null is also constitutive and whole-body rather than neuron- or stage-restricted.\"}, {\"source\": \"Gria3 knockout mouse\", \"target\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The knockout does not reproduce the cognitive impairment that defines the human disorder. Spatial memory was intact on both the Morris water maze and the Y-maze, so the model cannot be used to read out the learning-and-memory limb of this node.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Rodent spatial navigation tasks are a narrow and species-specific proxy for human global developmental impairment, so an intact result does not prove the node is unaffected \\u2014 only that this model does not report it. Compensation by GluA1- and GluA2-containing receptors during development is a plausible explanation that the study does not exclude.\"}, {\"source\": \"Gria3 A653T knock-in mouse\", \"target\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Carries the exact human loss-of-function allele and reproduces the sleep-architecture and light-sensitivity consequences attributed to reduced GluA3 current in the patients.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Reproduces the sleep and circadian limb of the phenotype but not the developmental delay, epilepsy or tone abnormalities, so it models one downstream consequence of the reduced current rather than the disorder. Mouse sleep is polyphasic and its architecture is not directly comparable to the multi-day human wake and sleep periods that motivated the model.\"}, {\"source\": \"Transgenic Drosophila expressing mutant human GluA3\", \"target\": \"GluA3 Gain of Function\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Reads out the functional direction of a human allele through a developmental phenotype in a whole organism, complementing the patch-clamp measurement.\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"limitations\": \"Drosophila has no orthologous AMPA receptor heterotetramer and the assay requires co-expression with an artificial leaky-channel allele, so it reports the direction of the effect rather than any disease-relevant circuit consequence.\"}, {\"source\": \"GRIA3\", \"target\": \"GRIA3 Pathogenic Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1844C\u003eT p.Ala615Val\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1982T\u003eC p.Met661Thr\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ala653Thr\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1969A\u003eG p.Thr657Ala\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.268+1G\u003eC\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.2360A\u003eG p.Glu787Gly\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of movement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Movement disorders were reported in 14 of 25 patients, the second most frequent domain after developmental impairment, and were more common in the gain-of-function branch.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100022\"}}, {\"id\": \"Aggressive behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Violent tendencies and emotional instability are reported in affected adult males in GRIA3 pedigrees, and increased isolation-induced aggression was measured in Gria3-null mice in a single study.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000718\"}}, {\"id\": \"Antipsychotic Pharmacotherapy for Psychiatric Manifestations\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adult affected males in GRIA3 pedigrees can present with delusions, hallucinations, emotional instability and violent behaviour that dominate the clinical picture. Risperidone and clozapine were reported to be effective, and lorazepam improved sleep, in an X-linked splice-variant family. These are uncontrolled observations from a single pedigree.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"risperidone\", \"clozapine\"]}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A full cerebellar syndrome \\u2014 ataxia, tremor and dysmetria \\u2014 was a cardinal feature in the Italian pedigree, matching the vermian hypoplasia seen on imaging.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic features are recurrent in the older familial descriptions of Wu-type X-linked syndromic intellectual disability, alongside self-injury and aggressive outbursts in adult affected males. The Finnish family D174, in which three affected males aged 35 to 57 carry GRIA3 p.Gly630Arg, is the best-described example.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Carbamazepine for Gain-of-Function Disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one genotype-guided treatment observation in the disorder. In a male with the functionally confirmed gain-of-function allele p.Ala615Val, carbamazepine \\u2014 which reduces presynaptic glutamate release rather than acting on the receptor itself \\u2014 improved both seizures and hypertonia. This is an N-of-1 result and is explicitly not generalisable across the disorder: in a female whose allele was never functionally tested, carbamazepine was ineffective. Because the rationale is to reduce glutamatergic drive onto an over-active receptor, the same drug would not be expected to help, and could plausibly harm, a patient whose receptors are already under-conducting.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"carbamazepine\"]}}, {\"id\": \"Cerebellar vermis hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural cerebellar findings are not universal but were the imaging correlate of a clinical cerebellar syndrome in the p.Glu787Gly proband, whose MRI also showed a focal cortical dysplasia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001320\"}}, {\"id\": \"Cortical Network Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mistimed excitatory drive in developing cortical and thalamocortical circuits lowers the threshold for synchronous discharge. EEG in affected individuals shows focal spikes that generalise readily, and in one female with a de novo allele the network state escalated to non-convulsive status epilepticus. The step from synaptic dysfunction to network hyperexcitability is inferred from clinical electrophysiology rather than measured directly in patient cortex, so it is recorded as provisional.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"regulation of neuronal membrane potential\"], \"locations\": [\"cerebral cortex\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive language is disproportionately affected. Reports range from poor speech by one year of age in the most severe cases to isolated expressive language impairment with preserved socialisation in the mildest.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both branches converge here. Whether GluA3-mediated current is reduced or prolonged, the postsynaptic response to glutamate is mistimed relative to the activity-dependent rules that govern synaptic strengthening, so experience-dependent plasticity is degraded and the circuits that support learning and memory develop abnormally. The cognitive outcome itself is carried by the downstream HP phenotypes rather than by a GO behaviour term on this node. GluA2/3 receptors cycle constitutively under basal conditions and their auxiliary partners set trafficking and gating, so the lesion is felt at the level of synaptic maintenance as well as of acute transmission.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"glutamatergic neuron\", \"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\", \"regulation of synaptic plasticity\"], \"locations\": [\"brain\", \"hippocampal formation\", \"cerebral cortex\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Gria3 knockout mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Gria3-/Y germline knockout on C57BL/6J background\", \"background\": \"C57BL/6J\", \"category\": \"Genetically engineered\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The knockout does not reproduce the cognitive impairment that defines the human disorder. Spatial memory was intact on both the Morris water maze and the Y-maze, so the model cannot be used to read out the learning-and-memory limb of this node.\"}]}}, {\"id\": \"Exaggerated startle response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperekplexia, or non-epileptic erratic myoclonus, was the single most prevalent movement feature (8 of 25) and clusters with gain-of-function alleles. It is important diagnostically because it is non-epileptic and can be mistaken for seizure activity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002267\"}}, {\"id\": \"Focal motor seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The commonest single seizure semiology in the reference cohort, reported in 6 of the 12 patients with epilepsy. The frequency band is computed over all 25 patients (6/25, 24%), not over the epilepsy subgroup.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011153\"}}, {\"id\": \"GRIA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GRIA3\"], \"gene_terms\": [{\"label\": \"GRIA3\", \"id\": \"hgnc:4573\"}], \"association\": \"Sole causative gene. GRIA3 maps to Xq25 and encodes GluA3, the only X-chromosomal AMPA receptor subunit. Reported allele classes span missense, canonical splice-site, frameshift, multi-exon deletion and duplication, and translocations disrupting the locus.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 6}}, {\"id\": \"GRIA3 Pathogenic Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A germline sequence or structural alteration of GRIA3 at Xq25 \\u2014 missense, canonical splice-site, frameshift, multi-exon deletion or duplication, or a translocation disrupting the locus \\u2014 is the initiating lesion. GRIA3 encodes GluA3, the sole X-chromosomal member of the GRIA1-GRIA4 family that assembles into AMPA-type ionotropic glutamate receptors, so a single hemizygous allele in a male is sufficient and a heterozygous allele in a female acts against a mosaic wild-type background.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GRIA3\"], \"gene_terms\": [{\"label\": \"GRIA3\", \"id\": \"hgnc:4573\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Generalized myoclonic seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonic seizures occurred in 5 of 12 patients with epilepsy (5/25, 20% of the whole cohort, which is the denominator the frequency band uses) and were the cardinal feature, escalating to myoclonic status epilepticus, in an Italian pedigree carrying the p.Glu787Gly allele.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002123\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in every functionally characterised patient reported so far and the one feature that does not distinguish the loss-of-function from the gain-of-function branch. Graded VERY_FREQUENT rather than OBLIGATE because the cohort was selected for having both a functionally characterised variant and detailed clinical data, so 25/25 is not a penetrance estimate. Severity is graded moderate in 9 of 25 and severe in 12 of 25, so the modal patient is severely impaired.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"GluA3 Gain of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function alleles prolong receptor activation by slowing desensitisation and deactivation, so each glutamate release event drives a longer-lasting depolarising current. This is a qualitative change in gating kinetics rather than simply more receptor activity, and it produces a clinical picture opposite to loss of function in muscle tone and seizure onset age.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"GluA3-containing AMPA receptor channel activity\"], \"genetic_context\": {\"allele_type\": \"missense alleles clustering in and around the channel gate and M3-S2 linker\", \"variant_origin\": \"DE_NOVO\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Zygosity is deliberately left unset because the single-valued slot cannot represent this branch: affected females are heterozygous and affected males hemizygous, and both occur. p.Ala615Val is the only allele here whose gain of function was measured, by patch clamp, in a hemizygous de novo male. The female alleles usually cited alongside it \\u2014 p.Met661Thr and p.Thr657Ala \\u2014 were never tested electrophysiologically; their assignment to this branch is inferred from residue position and from the hypertonic phenotype, and both source papers say so explicitly.\", \"gene_terms\": [{\"label\": \"GRIA3\", \"id\": \"hgnc:4573\"}]}, \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Heterologous AMPA receptor expression with patch-clamp electrophysiology\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Measures agonist potency, response time course, desensitisation and deactivation, from which the gain-of-function direction is assigned.\"}], \"animal_models\": [{\"name\": \"Transgenic Drosophila expressing mutant human GluA3\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"transgenic expression of human GluA3 p.Ala615Val combined with the Lurcher leaky-channel alteration\", \"category\": \"Genetically engineered\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"description\": \"Reads out the functional direction of a human allele through a developmental phenotype in a whole organism, complementing the patch-clamp measurement.\"}]}}, {\"id\": \"GluA3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function alleles reduce or abolish GluA3 activity by disrupting transcription or splicing, truncating the protein, deleting exons, or \\u2014 for the p.Ala653Thr gate variant \\u2014 stabilising the assembled channel in a closed, non-conducting conformation. In the functionally screened variant set, loss and gain of function together accounted for 31 of 44 tested alleles, so neither direction can be assumed from variant rarity alone.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"GluA3-containing AMPA receptor channel activity\"], \"genetic_context\": {\"allele_type\": \"missense, canonical splice-site, frameshift, and multi-exon deletion alleles\", \"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Typically hemizygous in affected males and inherited from a clinically healthy carrier mother, though de novo loss-of-function alleles also occur and heterozygous females can be affected, so zygosity is left unset rather than asserting the modal case. Mechanisms with direct functional support are exon-2 skipping from c.268+1G\u003eC, the p.Glu787Gly allele that produced no measurable current, and the p.Ala653Thr closed-channel allele. A multi-exon deletion is also reported but only in a source with no PubMed record, so it is described here rather than cited. p.Gly630Arg is a segregating familial allele with no electrophysiology and is deliberately not assigned a functional direction.\", \"gene_terms\": [{\"label\": \"GRIA3\", \"id\": \"hgnc:4573\"}]}, \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Heterologous AMPA receptor expression with patch-clamp electrophysiology\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The same assay assigns loss of function, including the closed-channel mechanism that leaves protein expression intact.\"}, {\"name\": \"HEK293T minigene splicing assay\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Demonstrates the RNA-level lesion \\u2014 exon 2 skipping \\u2014 through which a canonical splice-donor variant abolishes normal GluA3 production.\"}], \"animal_models\": [{\"name\": \"Gria3 knockout mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Gria3-/Y germline knockout on C57BL/6J background\", \"background\": \"C57BL/6J\", \"category\": \"Genetically engineered\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"A null allele is the cleanest available model of complete GluA3 loss of function and isolates the consequences of absent GluA3 from any residual mutant-subunit effect.\"}]}}, {\"id\": \"Gria3 A653T knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Allele-specific knock-in of the orthologue of the human closed-channel loss-of-function variant, generated to test whether that allele explains the extreme sleep-wake phenotype in the index sibship. It is the strongest allele-level human-to-mouse concordance in the disorder.\"}, {\"id\": \"Gria3 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive germline null allele in hemizygous males. Reproduces behavioural and monoaminergic consequences of losing GluA3 but not the defining human cognitive phenotype.\"}, {\"id\": \"HEK293T minigene splicing assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Minigene reporter assay used to resolve GRIA3 splice-site variants of uncertain significance, by testing directly whether the candidate allele alters exon inclusion.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:42666715\"}}, {\"id\": \"Heterologous AMPA receptor expression with patch-clamp electrophysiology\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Recombinant expression of wild-type and variant GluA3 in a heterologous cell system, recorded by patch clamp, is the assay that assigns each GRIA3 allele to the loss-of-function, gain-of-function or functionally neutral class. It is the method behind the taxonomy on which this entry\u0027s whole pathograph branches.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:38038360\"}}, {\"id\": \"Hip dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported with scoliosis in the same severely affected, non-ambulatory patient; secondary to abnormal tone and immobility.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002827\"}}, {\"id\": \"Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brisk deep tendon reflexes accompany hypertonia and, with spasticity, point to corticospinal involvement. The only functionally confirmed gain-of-function case in which hyperreflexia was recorded is a male; the females in whom it is reported carry alleles whose functional direction was never measured, so this is not established as a sex-independent gain-of-function feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001347\"}}, {\"id\": \"Hypertonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in 10 of 25 patients and enriched in the gain-of-function branch. It can be congenital: in the p.Met661Thr female it was noted at delivery. In the functionally confirmed p.Ala615Val male it improved on carbamazepine, which makes it the tone phenotype with a demonstrated pharmacological handle.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001276\"}}, {\"id\": \"Hyporeflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressed deep tendon reflexes are the reflex counterpart of the hypotonic, loss-of-function branch and the mirror image of the hyperreflexia seen with prolonged receptor current. Both appear in the disorder for the same reason both tone phenotypes do: the reported patients span two opposite functional classes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001265\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in 13 of 25 patients and enriched in the loss-of-function branch, where it appears together with later seizure onset and disturbed sleep. Hypotonia and hypertonia are both frequent in the disorder as a whole because the cohort mixes the two functional classes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012389\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The developmental delay of infancy resolves into fixed intellectual disability, graded moderate to severe. This is the term the adult pedigrees are described with, where `Global developmental delay` no longer applies: the Finnish family D174 males were 35 to 57 years old at report, and the Italian and Chinese pedigrees describe severe intellectual disability rather than delay.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lorazepam for Sleep Disturbance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sleep disruption is one of the most burdensome features on the loss-of-function side, both for the patient and for caregivers, and no disease-specific sleep intervention has been studied. Lorazepam was reported to improve sleep in the affected members of an X-linked GRIA3 pedigree. This is an uncontrolled observation in one family, reported alongside the antipsychotic response rather than as a separate trial.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"lorazepam\"]}}, {\"id\": \"Multi-Agent Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are frequently drug-resistant at onset but control often improves over time with sequential or combined conventional antiseizure medication. In the p.Met661Thr female, seizures initially resistant to carbamazepine and ethosuximide were gradually brought under control with lamotrigine, clobazam, levetiracetam and lacosamide. In the p.Thr657Ala female, non-convulsive status epilepticus resolved to baseline with levetiracetam and midazolam. There is no evidence that any of these agents is preferred on mechanistic grounds; selection follows general epilepsy practice by seizure type and EEG.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"lamotrigine\", \"clobazam\", \"levetiracetam\", \"lacosamide\", \"midazolam\"]}}, {\"id\": \"Non-convulsive status epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Status epilepticus of either kind has been documented in only a handful of patients. This phenotype is scoped to the non-convulsive form, which was described first in a male and, in 2025, for the first time in a female \\u2014 a seven-year-old with a de novo p.Thr657Ala allele who resolved back to her neurological baseline after treatment. The convulsive myoclonic form, which escalated to myoclonic status epilepticus in the Italian pedigree, is carried by the separate Generalized myoclonic seizure entry.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0031475\"}}, {\"id\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Slowed desensitisation and deactivation extend the depolarising current carried by mutant GluA3-containing receptors after each glutamate transient, so charge transfer per synaptic event increases. Clinically this branch is enriched for high muscle tone, hyperreflexia, hyperekplexia and very early seizure onset.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"glutamatergic neuron\"], \"biological_processes\": [\"AMPA receptor-mediated excitatory postsynaptic current\", \"excitatory chemical synaptic transmission\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychotic symptoms \\u2014 delusions and hallucinations \\u2014 are described in affected members of a GRIA3 splice-variant pedigree and responded to antipsychotic treatment. This is the feature that most distinguishes the adult presentation from a purely developmental phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000709\"}}, {\"id\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of GluA3 conductance reduces the fast excitatory postsynaptic current carried by GluA2/3 heterotetramers, one of the two major hippocampal AMPA receptor populations. Clinically this branch is enriched for low muscle tone, later seizure onset, and severely disorganised sleep-wake architecture.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"glutamatergic neuron\"], \"biological_processes\": [\"AMPA receptor-mediated excitatory postsynaptic current\", \"ionotropic glutamate receptor signaling pathway\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Gria3 A653T knock-in mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Gria3 A653T hemizygous CRISPR-Cas9 knock-in\", \"category\": \"Genetically engineered\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Carries the exact human loss-of-function allele and reproduces the sleep-architecture and light-sensitivity consequences attributed to reduced GluA3 current in the patients.\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orthopaedic complications appear at the severe end of the spectrum and are best understood as secondary to abnormal tone and loss of ambulation rather than as a primary skeletal feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in 12 of 25 patients. Age at onset is the sharpest genotype-phenotype signal in the disorder: median one month for gain-of-function alleles versus 16 months for loss-of-function alleles. The epilepsy syndrome was classified as developmental and epileptic encephalopathy in eight patients and as intellectual disability with epilepsy in four.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Roughly half of reported patients (12/25) sit at the severe end of the developmental spectrum, with limited or absent speech and, in the most affected, loss of independent mobility.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011344\"}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disturbed sleep segregates with loss-of-function alleles. The extreme reported case is a sibship carrying p.Ala653Thr in whom wake periods reached 106 hours and sleep periods 48 hours, a degree of sleep-wake disorganisation that is itself allele-specific and is reproduced in a knock-in mouse.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006979\"}}, {\"id\": \"Spastic gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower-limb spasticity progressing to a paraparetic spastic gait is described in a mildly affected female with a de novo gain-of-function-associated allele.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002064\"}}, {\"id\": \"Supportive and Rehabilitative Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is multidisciplinary and phenotype-directed: early intervention, individualised education, speech and augmentative communication therapy, occupational and physical therapy, tone management, orthopaedic surveillance for scoliosis and hip dislocation, behavioural support and sleep intervention. No disease-modifying or gene-directed therapy exists. This entry records the standard-of-care package rather than a GRIA3-specific intervention, and no GRIA3-specific trial of any of these components has been published.\"}, {\"id\": \"Transgenic Drosophila expressing mutant human GluA3\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Heterologous in vivo assay used to test whether the p.Ala615Val allele behaves as a gain of function. The mutant produced developmental defects only when combined with a leaky-channel alteration, a genetic interaction consistent with excess channel activity.\"}, {\"id\": \"c.1844C\u003eT p.Ala615Val\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo hemizygous missense allele in a male. The functionally best-characterised gain-of-function allele in the disorder: patch clamp showed slowed desensitisation and deactivation, a transgenic fly assay confirmed a gain-of-function genetic interaction, and both seizures and hypertonia responded to carbamazepine.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.1969A\u003eG p.Thr657Ala\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel de novo missense allele in a seven-year-old female presenting with developmental delay, spastic gait and non-convulsive status epilepticus \\u2014 the mildest reported female course despite a severe acute epileptic episode.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.1982T\u003eC p.Met661Thr\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo heterozygous missense allele in a female with developmental and epileptic encephalopathy, sitting in the M3-S2 linker next to the functionally confirmed gain-of-function residue p.Arg660. Absent from EVS, 1000 Genomes, dbSNP, gnomAD and HGVD. Direct electrophysiology was not performed, so its gain-of-function status is inferred from position and from the hypertonic phenotype rather than measured.\", \"meta\": {\"evidence_count\": 2, \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.2360A\u003eG p.Glu787Gly\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Familial missense allele transmitted by a healthy carrier mother in an Italian pedigree whose proband had severe intellectual disability, myoclonic status epilepticus, cerebellar vermis hypoplasia and short stature.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.268+1G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical splice-donor variant reclassified from a variant of uncertain significance to likely pathogenic after co-segregation analysis and a minigene assay showing exon 2 skipping. Segregated in an X-linked pedigree with intellectual disability, prominent psychiatric symptoms and spatial memory deficits.\", \"meta\": {\"evidence_count\": 2, \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"p.Ala653Thr\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele in the transmembrane ion-channel gate that stabilises the receptor in a closed conformation, so it is a loss-of-function allele that acts without reducing protein. Segregated in a sibship with severe developmental delay and the most extreme sleep-wake disorganisation reported in the disorder, and was modelled by CRISPR knock-in in mouse.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"GRIA3 Pathogenic Variant\", \"target\": \"GluA3 Loss of Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splice disruption, protein truncation, exon deletion, or a missense change that stabilises a non-conducting channel removes GluA3-mediated current.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GRIA3 Pathogenic Variant\", \"target\": \"GluA3 Gain of Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset of missense alleles in and around the channel gate instead slows receptor desensitisation and deactivation, prolonging rather than abolishing current.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GluA3 Loss of Function\", \"target\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GluA3 Gain of Function\", \"target\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low muscle tone is the tone phenotype specifically enriched in the loss-of-function branch of the cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Hyporeflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depressed deep tendon reflexes are the reflex counterpart of the low tone on this branch, mirroring the hyperreflexia seen with prolonged current.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Sleep disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep-wake disorganisation segregates with loss of function in the cohort and is reproduced allele-specifically in a knock-in mouse.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Hypertonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased tone is the tone phenotype specifically enriched in the gain-of-function branch, and in the functionally confirmed p.Ala615Val case it responded to a drug that suppresses glutamate release.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Abnormality of movement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Movement disorders as a class are more common on this branch, with hyperekplexia and non-epileptic erratic myoclonus as the dominant expression.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"target\": \"Exaggerated startle response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperekplexia and non-epileptic erratic myoclonus are the most prevalent movement features and cluster with gain of function.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental impairment resolves into fixed intellectual disability in older children and adults, which is the term the adult pedigrees are described with.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Psychiatric manifestations emerge in adulthood in some pedigrees. The step from disturbed excitatory transmission to psychosis is not measured in any patient and is asserted here only as the shared upstream lesion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Aggressive behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aggression is reported in affected adult males and is one of the few human features the Gria3 null mouse reproduces, which is why it is hung on the shared synaptic node rather than on either allele branch.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autistic features recur across the older familial descriptions without segregating by allele class.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Global developmental impairment is the one feature present in every functionally characterised patient, on both branches, which is what makes it the convergent output of this shared node rather than of either allele class.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global developmental delay\", \"target\": \"Delayed speech and language development\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Global developmental delay\", \"target\": \"Severe global developmental delay\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Severe global developmental delay\", \"target\": \"Scoliosis\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Severe global developmental delay\", \"target\": \"Hip dislocation\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Seizure\", \"target\": \"Focal motor seizure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Seizure\", \"target\": \"Generalized myoclonic seizure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Seizure\", \"target\": \"Non-convulsive status epilepticus\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypertonia\", \"target\": \"Hyperreflexia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypertonia\", \"target\": \"Spastic gait\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Cerebellar vermis hypoplasia\", \"target\": \"Ataxia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Carbamazepine for Gain-of-Function Disease\", \"target\": \"Prolonged AMPA Receptor-Mediated Excitatory Current\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multi-Agent Antiseizure Pharmacotherapy\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multi-Agent Antiseizure Pharmacotherapy\", \"target\": \"Non-convulsive status epilepticus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antipsychotic Pharmacotherapy for Psychiatric Manifestations\", \"target\": \"Psychosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antipsychotic Pharmacotherapy for Psychiatric Manifestations\", \"target\": \"Aggressive behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lorazepam for Sleep Disturbance\", \"target\": \"Sleep disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and Rehabilitative Care\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and Rehabilitative Care\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Heterologous AMPA receptor expression with patch-clamp electrophysiology\", \"target\": \"GluA3 Gain of Function\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Measures agonist potency, response time course, desensitisation and deactivation, from which the gain-of-function direction is assigned.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Recombinant receptors of defined subunit composition lack the auxiliary-subunit environment, developmental context and native heterotetramer stoichiometry of a real synapse, so the measured kinetics predict direction but not magnitude of circuit effect.\"}, {\"source\": \"Heterologous AMPA receptor expression with patch-clamp electrophysiology\", \"target\": \"GluA3 Loss of Function\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The same assay assigns loss of function, including the closed-channel mechanism that leaves protein expression intact.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Cannot distinguish reduced current caused by fewer surface receptors from reduced current per receptor without a separate surface-expression measurement, and gives no information about tissue-specific transcript abundance for splice alleles.\"}, {\"source\": \"HEK293T minigene splicing assay\", \"target\": \"GluA3 Loss of Function\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Demonstrates the RNA-level lesion \\u2014 exon 2 skipping \\u2014 through which a canonical splice-donor variant abolishes normal GluA3 production.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A minigene reports splice-site strength in an artificial construct in a non-neuronal cell line; it validates aberrant splicing but not the transcript abundance or isoform ratio in patient brain.\"}, {\"source\": \"Gria3 knockout mouse\", \"target\": \"GluA3 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"A null allele is the cleanest available model of complete GluA3 loss of function and isolates the consequences of absent GluA3 from any residual mutant-subunit effect.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A complete null is not what most patients carry: human loss-of-function alleles are usually missense or splice changes that still produce a subunit which is incorporated into heterotetramers, so a knockout cannot report dominant-negative or assembly effects. The null is also constitutive and whole-body rather than neuron- or stage-restricted.\"}, {\"source\": \"Gria3 knockout mouse\", \"target\": \"Disturbed Excitatory Synaptic Transmission and Plasticity\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The knockout does not reproduce the cognitive impairment that defines the human disorder. Spatial memory was intact on both the Morris water maze and the Y-maze, so the model cannot be used to read out the learning-and-memory limb of this node.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Rodent spatial navigation tasks are a narrow and species-specific proxy for human global developmental impairment, so an intact result does not prove the node is unaffected \\u2014 only that this model does not report it. Compensation by GluA1- and GluA2-containing receptors during development is a plausible explanation that the study does not exclude.\"}, {\"source\": \"Gria3 A653T knock-in mouse\", \"target\": \"Reduced AMPA Receptor-Mediated Excitatory Current\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Carries the exact human loss-of-function allele and reproduces the sleep-architecture and light-sensitivity consequences attributed to reduced GluA3 current in the patients.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Reproduces the sleep and circadian limb of the phenotype but not the developmental delay, epilepsy or tone abnormalities, so it models one downstream consequence of the reduced current rather than the disorder. Mouse sleep is polyphasic and its architecture is not directly comparable to the multi-day human wake and sleep periods that motivated the model.\"}, {\"source\": \"Transgenic Drosophila expressing mutant human GluA3\", \"target\": \"GluA3 Gain of Function\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Reads out the functional direction of a human allele through a developmental phenotype in a whole organism, complementing the patch-clamp measurement.\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"limitations\": \"Drosophila has no orthologous AMPA receptor heterotetramer and the assay requires co-expression with an artificial leaky-channel allele, so it reports the direction of the effect rather than any disease-relevant circuit consequence.\"}, {\"source\": \"GRIA3\", \"target\": \"GRIA3 Pathogenic Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1844C\u003eT p.Ala615Val\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1982T\u003eC p.Met661Thr\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ala653Thr\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1969A\u003eG p.Thr657Ala\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.268+1G\u003eC\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.2360A\u003eG p.Glu787Gly\", \"target\": \"GRIA3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6512,6 +6624,9 @@ This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6594,6 +6709,9 @@ This clinical feature is Limb muscular hypotonia, annotated with Appendicular hy
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6690,6 +6808,9 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6800,6 +6921,9 @@ This clinical feature is Spastic paraparetic gait, annotated with Spastic gait (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6866,6 +6990,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6949,6 +7076,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7026,6 +7156,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7127,6 +7260,9 @@ This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7193,6 +7329,9 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7303,6 +7442,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7394,6 +7536,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7506,6 +7651,9 @@ This clinical feature is Focal motor seizure (HP:0011153). HP:0011153 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7572,6 +7720,9 @@ This clinical feature is Generalized myoclonic seizure (HP:0002123). HP:0002123 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7675,6 +7826,9 @@ This clinical feature is Non-convulsive status epilepticus, annotated with Statu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7771,6 +7925,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7842,6 +7999,9 @@ This clinical feature is Movement disorder, annotated with Abnormality of moveme
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7908,6 +8068,9 @@ This clinical feature is Hyperekplexia, annotated with Exaggerated startle respo
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8011,6 +8174,9 @@ This clinical feature is Sleep-wake cycle disturbance (HP:0006979). HP:0006979 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8107,6 +8273,9 @@ This clinical feature is Autistic features, annotated with Autistic behavior (HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8173,6 +8342,9 @@ This clinical feature is Self injury, annotated with Self-injurious behavior (HP
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8249,6 +8421,9 @@ This clinical feature is Aggressive outbursts, annotated with Aggressive behavio
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8320,6 +8495,9 @@ This clinical feature is Delusions and hallucinations, annotated with Psychosis 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8386,6 +8564,9 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8469,6 +8650,9 @@ This clinical feature is Cerebellar syndrome with ataxia, tremor and dysmetria, 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8535,6 +8719,9 @@ This clinical feature is Frontal lobe atrophy, annotated with Cerebral atrophy (
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8636,6 +8823,9 @@ This clinical feature is Ventricular enlargement, annotated with Ventriculomegal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8711,6 +8901,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8833,6 +9026,9 @@ This disease-associated gene is GRIA3 (hgnc:4573). hgnc:4573 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8932,6 +9128,12 @@ This disease-associated gene is GRIA3 (hgnc:4573). hgnc:4573 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">De novo hemizygous missense allele in a male. The functionally best-characterised gain-of-function allele in the disorder: patch clamp showed slowed desensitisation and deactivation, a transgenic fly assay confirmed a gain-of-function genetic interaction, and both seizures and hypertonia responded to carbamazepine.</div>
 
 
@@ -8991,6 +9193,12 @@ This disease-associated gene is GRIA3 (hgnc:4573). hgnc:4573 is a gene from the 
         <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">De novo heterozygous missense allele in a female with developmental and epileptic encephalopathy, sitting in the M3-S2 linker next to the functionally confirmed gain-of-function residue p.Arg660. Absent from EVS, 1000 Genomes, dbSNP, gnomAD and HGVD. Direct electrophysiology was not performed, so its gain-of-function status is inferred from position and from the hypertonic phenotype rather than measured.</div>
@@ -9077,6 +9285,12 @@ This disease-associated gene is GRIA3 (hgnc:4573). hgnc:4573 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Missense allele in the transmembrane ion-channel gate that stabilises the receptor in a closed conformation, so it is a loss-of-function allele that acts without reducing protein. Segregated in a sibship with severe developmental delay and the most extreme sleep-wake disorganisation reported in the disorder, and was modelled by CRISPR knock-in in mouse.</div>
 
 
@@ -9134,6 +9348,12 @@ This disease-associated gene is GRIA3 (hgnc:4573). hgnc:4573 is a gene from the 
         c.1969A&gt;G p.Thr657Ala
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Novel de novo missense allele in a seven-year-old female presenting with developmental delay, spastic gait and non-convulsive status epilepticus — the mildest reported female course despite a severe acute epileptic episode.</div>
@@ -9195,6 +9415,12 @@ This disease-associated gene is GRIA3 (hgnc:4573). hgnc:4573 is a gene from the 
         <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Canonical splice-donor variant reclassified from a variant of uncertain significance to likely pathogenic after co-segregation analysis and a minigene assay showing exon 2 skipping. Segregated in an X-linked pedigree with intellectual disability, prominent psychiatric symptoms and spatial memory deficits.</div>
@@ -9279,6 +9505,12 @@ This disease-associated gene is GRIA3 (hgnc:4573). hgnc:4573 is a gene from the 
         c.2360A&gt;G p.Glu787Gly
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Familial missense allele transmitted by a healthy carrier mother in an Italian pedigree whose proband had severe intellectual disability, myoclonic status epilepticus, cerebellar vermis hypoplasia and short stature.</div>
@@ -9420,6 +9652,9 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9430,6 +9665,9 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -9719,6 +9957,9 @@ This treatment uses midazolam (CHEBI:6931). CHEBI:6931 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9729,6 +9970,9 @@ This treatment uses midazolam (CHEBI:6931). CHEBI:6931 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -9928,6 +10172,9 @@ This treatment uses clozapine (CHEBI:3766). CHEBI:3766 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9938,6 +10185,9 @@ This treatment uses clozapine (CHEBI:3766). CHEBI:3766 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -10095,6 +10345,9 @@ This treatment uses lorazepam (CHEBI:6539). CHEBI:6539 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10105,6 +10358,9 @@ This treatment uses lorazepam (CHEBI:6539). CHEBI:6539 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -10228,6 +10484,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Once a familial GRIA3 allele is identified, cascade testing of at-risk maternal relatives, carrier testing, and prenatal or preimplantation genetic testing become available. A carrier mother has a 50 percent chance of transmitting the allele in each pregnancy, with the expected consequence depending on fetal sex, the variant&#39;s functional direction and, in females, X-chromosome inactivation. A de novo result lowers but does not eliminate recurrence risk, because parental germline mosaicism cannot be excluded.</div>
 
 
@@ -10318,6 +10580,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10328,6 +10593,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -14886,6 +15154,35 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated from the Edison/falcon deep-research report research/Syndromic_X-linked_Intellectual_Disability_94-deep-research-falcon.md. The named-entity preflight against MONDO:0010402 passed (GRIA3 mentioned 24 times, top gene in the report), so the report is genuinely about this disease.
+Corrections made to CURIEs the report proposed, all of which its own Term Validation section reported as clean (47/47 resolved, confabulation_rate 0.0) — that section checks only that a CURIE exists and is named consistently, not that it names the right concept.
+One was a wrong concept: the report offered HP:0002169 as &#34;Hyperekplexia&#34;, but HP:0002169 is Clonus. Hyperekplexia is covered by HP:0002267 Exaggerated startle response, which is what this entry binds.
+Four were stale or paraphrased labels against the canonical HPO label: &#34;Muscular hypotonia&#34; for HP:0001252 (now Hypotonia), &#34;Myoclonic seizure&#34; for HP:0002123 (Generalized myoclonic seizure), &#34;Movement abnormality&#34; for HP:0100022 (Abnormality of movement), and &#34;Abnormal sleep pattern&#34; for HP:0002360 (Sleep disturbance). It also suggested &#34;thalamus (UBERON:0001897)&#34;, whose canonical label is dorsal plus ventral thalamus; that term is not used in this entry.
+Three of the report&#39;s suggestions resolved to a term one level too general, and a more exact HPO term was bound instead: HP:0006979 Sleep-wake cycle disturbance rather than the parent HP:0002360; HP:0031475 Status epilepticus without prominent motor symptoms (exact synonym &#34;Nonconvulsive status epilepticus&#34;) rather than the parent HP:0002133; and HP:0012389 Appendicular hypotonia, defined as muscular hypotonia of one or more limbs, rather than HP:0001252, since the cohort figure being cited is specifically for limb hypotonia.
+All 13 of the report&#39;s citations are DOI-only — it states explicitly that PMIDs were not present in the retrieved metadata. Every DOI was resolved to a PMID before use (11 via the PMC ID converter, one — the Hamanaka carbamazepine paper, PMID:35031858 — by PubMed title search after the converter failed), so no evidence item in this entry sits on a DOI prefix that the gating reference validator skips.
+Two of the report&#39;s sources were deliberately not used. The exon 5-12 deletion prenatal diagnosis case (DOI 10.26717/BJSTR.2023.52.008322) is not indexed in PubMed or PMC and could not be given a PMID; its content — a hemizygous multi-exon deletion segregating through carrier females, detected prenatally in amniotic fluid — is therefore recorded here rather than curated as evidence, and the structural-variant claim in the pathograph is cited to PMID:34731330 instead. The Huang et al. brain-region transcriptomics work (DOI 10.1101/2024.11.15.623468) is an unreviewed bioRxiv preprint modelling a schizophrenia-associated protein-truncating Gria3 allele rather than this disorder, so the downstream regional transcriptional and glial adaptation it describes is not curated as a pathophysiology node.
+ClinicalTrials.gov was queried directly rather than trusting the report. A GRIA3 term search returns one study, NCT03676569, an intrathecal autologous adipose-derived regenerative cell trial in autoimmune refractory epilepsy with no GRIA3 relationship; a condition search for GRIA3-related neurodevelopmental disorder returns nothing. No clinical_trials block is therefore curated.
+Frequencies in the phenotypes section derive from the 25-patient functionally characterised cohort in PMID:38038360 and are cohort proportions, not population frequencies. Hypotonia and hypertonia are both tagged FREQUENT because the cohort mixes the two allele classes; within a branch they are close to mutually exclusive, which is what the pathograph records.
+Two claims from the source report were checked against the cached papers and found to overstate them, and are curated in the weaker form the sources actually support. The report presents the female non-convulsive status epilepticus case as the first report of that manifestation; the paper itself says status epilepticus was already documented in two patients and claims only the first *female* case, so both are recorded. The report also attributes hyperreflexia to the gain-of-function arm of the 25-patient cohort; the string does not occur anywhere in that paper, and hyperreflexia comes only from the single functionally confirmed p.Ala615Val male, so it is not curated as a cohort-level association.
+The strongest published support for treating allele direction as therapeutically decisive is not in the report at all and was found by reading the cached full texts: perampanel, an AMPA receptor antagonist, was tried and proved ineffective, and a later group reads that outcome as what loss of function predicts. It is one reported failure cited by two papers, not two failures, and the loss-of-function characterisation belongs to the citing authors&#39; own same-residue allele rather than to the treated patient — the entry states both limits where it cites the result. It is the mirror image of the carbamazepine-in-gain-of-function observation and is cited in the mechanism_matched_ampar_pharmacology discussion.
+Two identity checks requested in review and run against the authorities. PubMed has no GeneReviews chapter for this gene: both `GRIA3[TI] GeneReviews[TI]` and `GRIA3 AND GeneReviews[Book]` return zero records, so no `references[]` entry carries a GeneReviews tag and none should. The synonym &#34;syndromic X-linked intellectual disability 29&#34; is genuine and belongs to this concept rather than to a neighbouring one: MONDO:0010402 carries it, together with MRXS29 and &#34;mental retardation, X-linked, syndromic 29&#34;, because the Wu-type entity was numbered 29 in the older syndromic X-linked series before being renumbered 94.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Syndromic_X-linked_Intellectual_Disability_94</strong> · 2026-09-04T03:31:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Syndromic_X-linked_Intellectual_Disability_94/2026-09-04T033158Z-claude-code-68d229.yaml">View source</a></p>
+                        <p class="research-review-text">Created the GRIA3 entry for syndromic X-linked intellectual disability 94 (MRXSW, Wu type; MONDO:0010402) from the existing Edison/falcon deep-research report research/Syndromic_X-linked_Intellectual_Disability_94-deep-research-falcon.md. No new deep research was run. just preflight-dr against MONDO:0010402 returned PASS with GRIA3 as the top gene at 24 mentions, confirming the report is about the intended disease. The pathograph branches at the allele rather than merging the two functional classes: GRIA3 Pathogenic Variant splits into GluA3 Loss of Function and GluA3 Gain of Function, each carrying its own genetic_context with the matching functional_impact_category plus a ModifierEnum on the GO:0004971 AMPA glutamate receptor activity term, and the branches drive separate current nodes that produce opposite tone and sleep phenotypes before converging on shared disturbed synaptic transmission and global developmental delay. Curated 7 pathophysiology nodes, 26 phenotypes, 6 variants, 5 treatments, 2 inheritance blocks, 3 animal models, 2 experimental models and 3 discussions. Recorded the genotype-guided carbamazepine response in the functionally confirmed p.Ala615Val gain-of-function case together with a REFUTE evidence item quoting the carbamazepine failure in an untested allele, and a FAILS_TO_RECAPITULATE link for the Gria3 null mouse whose spatial memory is intact. All 13 of the report&#39;s citations were DOI-only; each was resolved to a PMID before use, 11 through the PMC ID converter and one (PMID:35031858, the Hamanaka carbamazepine paper) by PubMed title search after the converter returned no record, so no evidence item sits on the DOI prefix that the gating reference validator skips. Two report sources were deliberately not cited and are recorded in the entry notes instead: the BJSTR exon 5-12 deletion prenatal case has no PubMed or PMC record, and the Huang bioRxiv transcriptomics preprint models a schizophrenia-associated allele rather than this disorder. Corrected five ontology CURIEs the report proposed and its own Term Validation section reported clean at 47/47: HP:0002169 was offered as Hyperekplexia but is Clonus (corrected to HP:0002267 Exaggerated startle response), and four stale labels were fixed against the canonical HPO labels for HP:0001252, HP:0002123, HP:0100022 and HP:0002360. ClinicalTrials.gov was queried directly rather than trusted from the report; the only GRIA3 term hit is the unrelated NCT03676569 and a condition search returns nothing, so no clinical_trials block was curated. Validation: just validate passed, just count-verified-snippets reported 103/103 verified, just validate-terms passed, just check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms and check-enum-values all OK on the file, just validate-disorders passed as the final batched gate, and the whole-KB baselines check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading and check-environmental-evidence added no new defects. Term and enum caches were normalized and pass check-term-cache-integrity and check-cache-order. Deleted the corresponding curation stub.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

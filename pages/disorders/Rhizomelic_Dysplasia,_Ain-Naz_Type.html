@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4786,6 +4839,13 @@ These are reconcilable: five of the six terms are single-individual annotations 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-gnpnat1-missense-variants" data-dismech-node="Biallelic GNPNAT1 Missense Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic GNPNAT1 Missense Variants</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Homozygous missense variants in GNPNAT1 segregate with the disease in all three reported families. Two unrelated families carry the same allele, c.226G&gt;A p.(Glu76Lys), which the second report proposes as a potential mutational hotspot; the third family carries c.77T&gt;G p.(Phe26Cys). Consanguinity is stated for the Pakistani index family and for the Egyptian family, whose parents were also confirmed heterozygous carriers; the report of the second patient does not state parental relationship.</div>
 
 
@@ -4844,6 +4904,8 @@ This pathophysiological event involves GNPNAT1 (hgnc:19980). hgnc:19980 is a gen
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4856,6 +4918,9 @@ This pathophysiological event involves GNPNAT1 (hgnc:19980). hgnc:19980 is a gen
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Both reported alleles are missense. No enzyme-activity measurement has been published for either variant protein, so the functional consequence is recorded as UNKNOWN rather than assumed to be loss of function. The founding report used in-silico prediction and an siRNA knockdown model, neither of which measures what the patient allele does to the enzyme.</div>
 
@@ -4953,6 +5018,13 @@ This pathophysiological event involves GNPNAT1 (hgnc:19980). hgnc:19980 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-glucosamine-6-phosphate-n-acetyltransferase-activity" data-dismech-node="Reduced Glucosamine-6-Phosphate N-Acetyltransferase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Glucosamine-6-Phosphate N-Acetyltransferase Activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">GNPNAT1 encodes glucosamine-6-phosphate N-acetyltransferase (GNA1), which transfers an acetyl group from acetyl-CoA to glucosamine-6-phosphate to give N-acetylglucosamine-6-phosphate. Reduced activity of this step in patients is inferred from the gene-disease relationship and from the enzyme&#39;s known reaction; it has not been measured in patient cells.</div>
 
@@ -5067,6 +5139,13 @@ This pathophysiological event involves decreased glucosamine 6-phosphate N-acety
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diminished-udp-glcnac-supply" data-dismech-node="Diminished UDP-GlcNAc Supply" data-dismech-type="pathophysiology">
                 <div class="item-name">Diminished UDP-GlcNAc Supply</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">GNPNAT1 is one of the enzymes of the hexosamine biosynthetic pathway, whose product UDP-N-acetylglucosamine is the donor sugar for protein N-glycosylation, O-GlcNAcylation, glycosaminoglycan chain extension and the mannose-6-phosphate tagging of lysosomal hydrolases. Reduced supply is the proposed link between the enzyme lesion and the skeleton. No measurement of UDP-GlcNAc, of protein glycosylation or of O-GlcNAcylation has been published in a patient with this disorder, so the node is graded HYPOTHETICAL and no specific downstream glycosylation route is asserted (see discussion rdan_udp_glcnac_route).</div>
 
@@ -5231,6 +5310,13 @@ This pathophysiological event involves decreased UDP-N-acetylglucosamine biosynt
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-growth-plate-chondrocyte-proliferation-and-differentiation" data-dismech-node="Impaired Growth Plate Chondrocyte Proliferation and Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Growth Plate Chondrocyte Proliferation and Differentiation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Chondrocyte proliferation and the expression of differentiation markers fall when Gnpnat1 is knocked down in primary rat chondrocytes. This is the only functional evidence linking the gene to cartilage, and it is in cultured rodent cells; no human growth-plate or human chondrocyte data exist for this disorder.</div>
 
@@ -5477,6 +5563,13 @@ This pathophysiological event occurs in growth plate, annotated with epiphyseal 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disordered-endochondral-ossification" data-dismech-node="Disordered Endochondral Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Disordered Endochondral Ossification</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The skeletal lesion as it presents radiographically: severe shortening and deformation of the proximal long bones, platyspondyly, hip dysplasia, metaphyseal flaring and delayed epiphyseal ossification. The distribution is that of a spondyloepimetaphyseal dysplasia with rhizomelic predominance. The second report assigns the disorder to &#34;rhizomelic SEMD&#34; and defines that category as sparing the craniofacial skeleton. That definitional sparing is carried here as a category definition rather than as a per-patient observation, and it is qualified by the HPO annotation for OMIM:619598, which records frontal bossing, hypertelorism, ptosis, downslanted palpebral fissures and a wide nasal bridge each in one of six individuals, plus Wormian bones. See discussion rdan_craniofacial_tension.</div>
 
 
@@ -5689,7 +5782,7 @@ This pathophysiological event occurs in growth plate, annotated with epiphyseal 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic GNPNAT1 Missense Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous missense variants in GNPNAT1 segregate with the disease in all three reported families. Two unrelated families carry the same allele, c.226G\u003eA p.(Glu76Lys), which the second report proposes as a potential mutational hotspot; the third family carries c.77T\u003eG p.(Phe26Cys). Consanguinity is stated for the Pakistani index family and for the Egyptian family, whose parents were also confirmed heterozygous carriers; the report of the second patient does not state parental relationship.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GNPNAT1\"], \"gene_terms\": [{\"label\": \"GNPNAT1\", \"id\": \"hgnc:19980\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Both reported alleles are missense. No enzyme-activity measurement has been published for either variant protein, so the functional consequence is recorded as UNKNOWN rather than assumed to be loss of function. The founding report used in-silico prediction and an siRNA knockdown model, neither of which measures what the patient allele does to the enzyme.\"}}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits, reported in the third family among the findings that expanded the phenotype beyond the founding description.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001156\"}}, {\"id\": \"Delayed epiphyseal ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed ossification of the epiphyses of the long bones \\u2014 the epi- component of the SEMD pattern. Reported in the third family, alongside an advanced bone age, which is an unusual combination and is not explained in the source.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002663\"}}, {\"id\": \"Diminished UDP-GlcNAc Supply\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GNPNAT1 is one of the enzymes of the hexosamine biosynthetic pathway, whose product UDP-N-acetylglucosamine is the donor sugar for protein N-glycosylation, O-GlcNAcylation, glycosaminoglycan chain extension and the mannose-6-phosphate tagging of lysosomal hydrolases. Reduced supply is the proposed link between the enzyme lesion and the skeleton. No measurement of UDP-GlcNAc, of protein glycosylation or of O-GlcNAcylation has been published in a patient with this disorder, so the node is graded HYPOTHETICAL and no specific downstream glycosylation route is asserted (see discussion rdan_udp_glcnac_route).\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"UDP-N-acetylglucosamine biosynthetic process\"]}}, {\"id\": \"Disordered Endochondral Ossification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The skeletal lesion as it presents radiographically: severe shortening and deformation of the proximal long bones, platyspondyly, hip dysplasia, metaphyseal flaring and delayed epiphyseal ossification. The distribution is that of a spondyloepimetaphyseal dysplasia with rhizomelic predominance. The second report assigns the disorder to \\\"rhizomelic SEMD\\\" and defines that category as sparing the craniofacial skeleton. That definitional sparing is carried here as a category definition rather than as a per-patient observation, and it is qualified by the HPO annotation for OMIM:619598, which records frontal bossing, hypertelorism, ptosis, downslanted palpebral fissures and a wide nasal bridge each in one of six individuals, plus Wormian bones. See discussion rdan_craniofacial_tension.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"growth plate cartilage development\"], \"locations\": [\"growth plate\"]}}, {\"id\": \"GNPNAT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GNPNAT1\"], \"gene_terms\": [{\"label\": \"GNPNAT1\", \"id\": \"hgnc:19980\"}], \"association\": \"Biallelic missense variants cause the disorder.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"GNPNAT1 c.226G\u003eA p.(Glu76Lys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in the consanguineous Pakistani index family and, independently, in an 8-year-old girl reported two years later. The second report proposes it as a potential hotspot.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"GNPNAT1 c.77T\u003eG p.(Phe26Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in exon 3 in an Egyptian patient born to consanguineous parents, both of whom were heterozygous carriers. This is the allele reported alongside immunodeficiency.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Gnpnat1 siRNA knockdown in primary rat chondrocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The only functional model reported for this disorder. Primary chondrocytes isolated from rat were transfected with small interfering RNAs against Gnpnat1, and proliferation and chondrocyte differentiation markers were measured. It is a knockdown model, so it removes the transcript rather than reproducing either patient missense allele, and it is rodent rather than human.\", \"meta\": {\"cell_types\": [\"chondrocyte\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:32591345\"}}, {\"id\": \"Hip dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysplastic hips on radiography in the index family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001385\"}}, {\"id\": \"Impaired Growth Plate Chondrocyte Proliferation and Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chondrocyte proliferation and the expression of differentiation markers fall when Gnpnat1 is knocked down in primary rat chondrocytes. This is the only functional evidence linking the gene to cartilage, and it is in cultured rodent cells; no human growth-plate or human chondrocyte data exist for this disorder.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate chondrocyte\"], \"biological_processes\": [\"chondrocyte proliferation\", \"chondrocyte differentiation\"], \"locations\": [\"growth plate\"], \"experimental_models\": [{\"name\": \"Gnpnat1 siRNA knockdown in primary rat chondrocytes\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Knockdown reproduces the proposed cellular lesion \\u2014 reduced chondrocyte proliferation and reduced expression of differentiation markers \\u2014 and is the sole experimental support for locating this disorder\u0027s mechanism in the chondrocyte.\"}]}}, {\"id\": \"Metaphyseal flaring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide, flared metaphyses \\u2014 the metaphyseal component of the spondyloepimetaphyseal pattern. Reported in the third family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003015\"}}, {\"id\": \"Reduced Glucosamine-6-Phosphate N-Acetyltransferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GNPNAT1 encodes glucosamine-6-phosphate N-acetyltransferase (GNA1), which transfers an acetyl group from acetyl-CoA to glucosamine-6-phosphate to give N-acetylglucosamine-6-phosphate. Reduced activity of this step in patients is inferred from the gene-disease relationship and from the enzyme\u0027s known reaction; it has not been measured in patient cells.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"glucosamine 6-phosphate N-acetyltransferase activity\"]}}, {\"id\": \"Rhizomelic limb shortening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining feature: extreme shortening of the proximal limb segments. It is the one phenotype reported in all three published families, and it is what the disorder is named for.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008905\"}}, {\"id\": \"Severe platyspondyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flattening of the vertebral bodies, reported as severe on the radiographs of the index family and part of the spondylo- component of the SEMD pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004565\"}}, {\"id\": \"Severe short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short stature, described as severe in the third reported family and attributed to the rhizomelic limb shortening.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003510\"}}], \"edges\": [{\"source\": \"Biallelic GNPNAT1 Missense Variants\", \"target\": \"Reduced Glucosamine-6-Phosphate N-Acetyltransferase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The presumed but unmeasured first consequence. No enzyme assay has been performed on either patient allele, so the edge is typed UNKNOWN and carries no evidence rather than borrowing the knockdown result, which removes the transcript instead of testing the missense protein.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced Glucosamine-6-Phosphate N-Acetyltransferase Activity\", \"target\": \"Diminished UDP-GlcNAc Supply\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acetyltransferase step is obligatory for UDP-GlcNAc synthesis, so a reduction in it reduces flux to the nucleotide sugar.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Diminished UDP-GlcNAc Supply\", \"target\": \"Impaired Growth Plate Chondrocyte Proliferation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of Gnpnat1 impairs chondrocyte proliferation and differentiation in culture. Which UDP-GlcNAc-dependent process carries the effect is not established, so the intermediates are recorded as unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Chondrocyte Proliferation and Differentiation\", \"target\": \"Disordered Endochondral Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth plate chondrocyte proliferation and differentiation drive longitudinal bone growth, so their impairment is the proposed route to the radiographic skeletal lesion. The steps between the cultured-cell result and the human radiographs are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Rhizomelic limb shortening\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Severe platyspondyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Hip dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Metaphyseal flaring\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Delayed epiphyseal ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rhizomelic limb shortening\", \"target\": \"Severe short stature\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The short stature is disproportionate and is attributed by the founding report to the proximal limb shortening rather than to a trunk deficit.\"}, {\"source\": \"Gnpnat1 siRNA knockdown in primary rat chondrocytes\", \"target\": \"Impaired Growth Plate Chondrocyte Proliferation and Differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Knockdown reproduces the proposed cellular lesion \\u2014 reduced chondrocyte proliferation and reduced expression of differentiation markers \\u2014 and is the sole experimental support for locating this disorder\u0027s mechanism in the chondrocyte.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Rodent rather than human cells; transient siRNA knockdown of the transcript rather than either homozygous human missense allele, so it models a null and cannot say what the patient proteins do; two-dimensional culture with no growth-plate architecture, no zonal organisation and no endochondral ossification, so the rhizomelic distribution and the platyspondyly of the human disease are outside the model entirely; and no measurement of UDP-GlcNAc, glycosylation or O-GlcNAcylation was made, so the model does not test the metabolic step the disorder is named for.\"}, {\"source\": \"GNPNAT1\", \"target\": \"Biallelic GNPNAT1 Missense Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GNPNAT1 c.226G\u003eA p.(Glu76Lys)\", \"target\": \"GNPNAT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"GNPNAT1 c.77T\u003eG p.(Phe26Cys)\", \"target\": \"GNPNAT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic GNPNAT1 Missense Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous missense variants in GNPNAT1 segregate with the disease in all three reported families. Two unrelated families carry the same allele, c.226G\u003eA p.(Glu76Lys), which the second report proposes as a potential mutational hotspot; the third family carries c.77T\u003eG p.(Phe26Cys). Consanguinity is stated for the Pakistani index family and for the Egyptian family, whose parents were also confirmed heterozygous carriers; the report of the second patient does not state parental relationship.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GNPNAT1\"], \"gene_terms\": [{\"label\": \"GNPNAT1\", \"id\": \"hgnc:19980\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Both reported alleles are missense. No enzyme-activity measurement has been published for either variant protein, so the functional consequence is recorded as UNKNOWN rather than assumed to be loss of function. The founding report used in-silico prediction and an siRNA knockdown model, neither of which measures what the patient allele does to the enzyme.\"}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits, reported in the third family among the findings that expanded the phenotype beyond the founding description.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001156\"}}, {\"id\": \"Delayed epiphyseal ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed ossification of the epiphyses of the long bones \\u2014 the epi- component of the SEMD pattern. Reported in the third family, alongside an advanced bone age, which is an unusual combination and is not explained in the source.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002663\"}}, {\"id\": \"Diminished UDP-GlcNAc Supply\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GNPNAT1 is one of the enzymes of the hexosamine biosynthetic pathway, whose product UDP-N-acetylglucosamine is the donor sugar for protein N-glycosylation, O-GlcNAcylation, glycosaminoglycan chain extension and the mannose-6-phosphate tagging of lysosomal hydrolases. Reduced supply is the proposed link between the enzyme lesion and the skeleton. No measurement of UDP-GlcNAc, of protein glycosylation or of O-GlcNAcylation has been published in a patient with this disorder, so the node is graded HYPOTHETICAL and no specific downstream glycosylation route is asserted (see discussion rdan_udp_glcnac_route).\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"UDP-N-acetylglucosamine biosynthetic process\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Disordered Endochondral Ossification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The skeletal lesion as it presents radiographically: severe shortening and deformation of the proximal long bones, platyspondyly, hip dysplasia, metaphyseal flaring and delayed epiphyseal ossification. The distribution is that of a spondyloepimetaphyseal dysplasia with rhizomelic predominance. The second report assigns the disorder to \\\"rhizomelic SEMD\\\" and defines that category as sparing the craniofacial skeleton. That definitional sparing is carried here as a category definition rather than as a per-patient observation, and it is qualified by the HPO annotation for OMIM:619598, which records frontal bossing, hypertelorism, ptosis, downslanted palpebral fissures and a wide nasal bridge each in one of six individuals, plus Wormian bones. See discussion rdan_craniofacial_tension.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"growth plate cartilage development\"], \"locations\": [\"growth plate\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"GNPNAT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GNPNAT1\"], \"gene_terms\": [{\"label\": \"GNPNAT1\", \"id\": \"hgnc:19980\"}], \"association\": \"Biallelic missense variants cause the disorder.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"GNPNAT1 c.226G\u003eA p.(Glu76Lys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in the consanguineous Pakistani index family and, independently, in an 8-year-old girl reported two years later. The second report proposes it as a potential hotspot.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"GNPNAT1 c.77T\u003eG p.(Phe26Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in exon 3 in an Egyptian patient born to consanguineous parents, both of whom were heterozygous carriers. This is the allele reported alongside immunodeficiency.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Gnpnat1 siRNA knockdown in primary rat chondrocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The only functional model reported for this disorder. Primary chondrocytes isolated from rat were transfected with small interfering RNAs against Gnpnat1, and proliferation and chondrocyte differentiation markers were measured. It is a knockdown model, so it removes the transcript rather than reproducing either patient missense allele, and it is rodent rather than human.\", \"meta\": {\"cell_types\": [\"chondrocyte\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:32591345\"}}, {\"id\": \"Hip dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysplastic hips on radiography in the index family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001385\"}}, {\"id\": \"Impaired Growth Plate Chondrocyte Proliferation and Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chondrocyte proliferation and the expression of differentiation markers fall when Gnpnat1 is knocked down in primary rat chondrocytes. This is the only functional evidence linking the gene to cartilage, and it is in cultured rodent cells; no human growth-plate or human chondrocyte data exist for this disorder.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate chondrocyte\"], \"biological_processes\": [\"chondrocyte proliferation\", \"chondrocyte differentiation\"], \"locations\": [\"growth plate\"], \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"Gnpnat1 siRNA knockdown in primary rat chondrocytes\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Knockdown reproduces the proposed cellular lesion \\u2014 reduced chondrocyte proliferation and reduced expression of differentiation markers \\u2014 and is the sole experimental support for locating this disorder\u0027s mechanism in the chondrocyte.\"}]}}, {\"id\": \"Metaphyseal flaring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide, flared metaphyses \\u2014 the metaphyseal component of the spondyloepimetaphyseal pattern. Reported in the third family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003015\"}}, {\"id\": \"Reduced Glucosamine-6-Phosphate N-Acetyltransferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GNPNAT1 encodes glucosamine-6-phosphate N-acetyltransferase (GNA1), which transfers an acetyl group from acetyl-CoA to glucosamine-6-phosphate to give N-acetylglucosamine-6-phosphate. Reduced activity of this step in patients is inferred from the gene-disease relationship and from the enzyme\u0027s known reaction; it has not been measured in patient cells.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"glucosamine 6-phosphate N-acetyltransferase activity\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Rhizomelic limb shortening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining feature: extreme shortening of the proximal limb segments. It is the one phenotype reported in all three published families, and it is what the disorder is named for.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008905\"}}, {\"id\": \"Severe platyspondyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flattening of the vertebral bodies, reported as severe on the radiographs of the index family and part of the spondylo- component of the SEMD pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004565\"}}, {\"id\": \"Severe short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short stature, described as severe in the third reported family and attributed to the rhizomelic limb shortening.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003510\"}}], \"edges\": [{\"source\": \"Biallelic GNPNAT1 Missense Variants\", \"target\": \"Reduced Glucosamine-6-Phosphate N-Acetyltransferase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The presumed but unmeasured first consequence. No enzyme assay has been performed on either patient allele, so the edge is typed UNKNOWN and carries no evidence rather than borrowing the knockdown result, which removes the transcript instead of testing the missense protein.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced Glucosamine-6-Phosphate N-Acetyltransferase Activity\", \"target\": \"Diminished UDP-GlcNAc Supply\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acetyltransferase step is obligatory for UDP-GlcNAc synthesis, so a reduction in it reduces flux to the nucleotide sugar.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Diminished UDP-GlcNAc Supply\", \"target\": \"Impaired Growth Plate Chondrocyte Proliferation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of Gnpnat1 impairs chondrocyte proliferation and differentiation in culture. Which UDP-GlcNAc-dependent process carries the effect is not established, so the intermediates are recorded as unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Chondrocyte Proliferation and Differentiation\", \"target\": \"Disordered Endochondral Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth plate chondrocyte proliferation and differentiation drive longitudinal bone growth, so their impairment is the proposed route to the radiographic skeletal lesion. The steps between the cultured-cell result and the human radiographs are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Rhizomelic limb shortening\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Severe platyspondyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Hip dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Metaphyseal flaring\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Delayed epiphyseal ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Endochondral Ossification\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rhizomelic limb shortening\", \"target\": \"Severe short stature\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The short stature is disproportionate and is attributed by the founding report to the proximal limb shortening rather than to a trunk deficit.\"}, {\"source\": \"Gnpnat1 siRNA knockdown in primary rat chondrocytes\", \"target\": \"Impaired Growth Plate Chondrocyte Proliferation and Differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Knockdown reproduces the proposed cellular lesion \\u2014 reduced chondrocyte proliferation and reduced expression of differentiation markers \\u2014 and is the sole experimental support for locating this disorder\u0027s mechanism in the chondrocyte.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Rodent rather than human cells; transient siRNA knockdown of the transcript rather than either homozygous human missense allele, so it models a null and cannot say what the patient proteins do; two-dimensional culture with no growth-plate architecture, no zonal organisation and no endochondral ossification, so the rhizomelic distribution and the platyspondyly of the human disease are outside the model entirely; and no measurement of UDP-GlcNAc, glycosylation or O-GlcNAcylation was made, so the model does not test the metabolic step the disorder is named for.\"}, {\"source\": \"GNPNAT1\", \"target\": \"Biallelic GNPNAT1 Missense Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GNPNAT1 c.226G\u003eA p.(Glu76Lys)\", \"target\": \"GNPNAT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"GNPNAT1 c.77T\u003eG p.(Phe26Cys)\", \"target\": \"GNPNAT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5756,6 +5849,9 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 1/1. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
 
 
@@ -5799,6 +5895,9 @@ This clinical feature is Immunodeficiency (HP:0002721). HP:0002721 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5884,6 +5983,9 @@ This clinical feature is Flared metaphysis (HP:0003015). HP:0003015 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5948,6 +6050,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6021,6 +6126,9 @@ This clinical feature is Large hands (HP:0001176). HP:0001176 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 5/5. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
 
 
@@ -6059,6 +6167,9 @@ This clinical feature is Long foot (HP:0001833). HP:0001833 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 5/5. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
 
 
@@ -6093,6 +6204,9 @@ This clinical feature is Short femur (HP:0003097). HP:0003097 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 2/2. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
@@ -6131,6 +6245,9 @@ This clinical feature is Short humerus (HP:0005792). HP:0005792 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 2/2. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
 
 
@@ -6167,6 +6284,9 @@ This clinical feature is Short femoral neck (HP:0100864). HP:0100864 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 3/3. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
 
 
@@ -6201,6 +6321,9 @@ This clinical feature is Flat acetabular roof (HP:0003180). HP:0003180 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 1/1. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
@@ -6246,6 +6369,9 @@ This clinical feature is Severe platyspondyly (HP:0004565). HP:0004565 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6320,6 +6446,9 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6389,6 +6518,9 @@ This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:000266
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6453,6 +6585,9 @@ This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:000561
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6529,6 +6664,9 @@ This clinical feature is Short broad long bones, annotated with Short long bone 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6597,6 +6735,9 @@ This clinical feature is Enlarged joints (HP:0003037). HP:0003037 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 6/6. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
 
 
@@ -6635,6 +6776,9 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
                     </div>
 
 
+
+
+
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 6/6. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
 
 
@@ -6671,6 +6815,9 @@ This clinical feature is Squared iliac bones (HP:0003177). HP:0003177 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 1/1. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
 
 
@@ -6705,6 +6852,9 @@ This clinical feature is Posterior scalloping of vertebral bodies (HP:0005121). 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 1/1. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
@@ -6754,6 +6904,9 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Source: the HPO Consortium disease annotation for OMIM:619598, retrieved from the JAX ontology API (ontology.jax.org/api/network/annotation/OMIM:619598) on 2026-09-07, where it is annotated 6/6. That annotation derives from the OMIM clinical synopsis and the primary reports&#39; full text, neither of which was readable for this curation, so no exact-quote evidence item is attached. See discussion rdan_hpoa_provenance.</div>
 
 
@@ -6801,6 +6954,9 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Annotated 6/6 in the HPO Consortium disease annotation for OMIM:619598 (retrieved from the JAX ontology API on 2026-09-07), which is the basis for the frequency band. See discussion rdan_hpoa_provenance.</div>
@@ -6906,6 +7062,9 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Annotated 6/6 in the HPO Consortium disease annotation for OMIM:619598 (retrieved from the JAX ontology API on 2026-09-07), which is the basis for the frequency band. See discussion rdan_hpoa_provenance.</div>
@@ -7030,6 +7189,9 @@ This disease-associated gene is GNPNAT1 (hgnc:19980). hgnc:19980 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7102,6 +7264,12 @@ This disease-associated gene is GNPNAT1 (hgnc:19980). hgnc:19980 is a gene from 
         GNPNAT1 c.226G&gt;A p.(Glu76Lys)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense allele in the consanguineous Pakistani index family and, independently, in an 8-year-old girl reported two years later. The second report proposes it as a potential hotspot.</div>
@@ -7186,6 +7354,12 @@ This disease-associated gene is GNPNAT1 (hgnc:19980). hgnc:19980 is a gene from 
         GNPNAT1 c.77T&gt;G p.(Phe26Cys)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense allele in exon 3 in an Egyptian patient born to consanguineous parents, both of whom were heterozygous carriers. This is the allele reported alongside immunodeficiency.</div>
@@ -7296,6 +7470,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10002,6 +10182,52 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope: this entry covers OMIM:619598 / MONDO:0859203 only. The similarly named &#34;dysostosis multiplex, Ain-Naz type&#34; (OMIM:619345, MONDO:0859156) is a different disorder with a different gene (LYSET/TMEM251) and a different skeletal pattern (dysostosis multiplex with coarse facies, resembling mucopolysaccharidosis). The shared eponym reflects only that Ain NU and Naz S are the first and last authors of both founding reports. MONDO:0859156 is carried here as a differential diagnosis. No claim is made about how, or whether, that disorder is curated elsewhere in this knowledge base: when this entry was written it existed only as an uncurated stub, and prose asserting the state of another file goes stale the moment that file changes.
+Do not confuse GNPNAT1 with GNPAT. Rhizomelic chondrodysplasia punctata (RCDP) is a peroxisomal plasmalogen-biosynthesis group caused by PEX7, GNPAT, AGPS and FAR1, is already curated in dismech under its own entries, and has nothing to do with the hexosamine biosynthetic pathway. GNPAT becomes GNPNAT1 by inserting one N and appending a 1, and the disease names both begin &#34;rhizomelic&#34;; that is the entire resemblance.
+GNPNAT1 (also GNA1) has a large cancer-metabolism literature — hexosamine pathway flux, O-GlcNAcylation and tumour proliferation. None of it concerns this disease and none of it is cited here. The one enzymology reference used (PMID:26935656) is cited solely for the reaction the enzyme catalyses.
+No GeneReviews chapter exists for GNPNAT1 or for this disorder. PubMed was searched on 2026-09-07 for &#34;GNPNAT1 GeneReviews[All Fields]&#34; (0 hits) and &#34;rhizomelic dysplasia GeneReviews[All Fields]&#34; (1 hit, the Achondroplasia chapter, unrelated), so there is no GeneReviews phenotype baseline for this entry.
+Three classification slots were deliberately left empty. isds_skeletal_category may only be assigned to disorders the ISDS Nosology of Genetic Skeletal Disorders itself lists, and it could not be confirmed that this 2021-described disorder appears in the 2023 revision (Unger et al., PMID:36779427); icimd_category is left empty for the same reason relative to the 2021 ICIMD, which predates the gene-disease association; mechanistic_category has no value that fits a nucleotide-sugar supply defect. None of the three omissions is a claim that the disorder falls outside those nosologies.
+No conforms_to was declared. The nearest candidate module, congenital_disorder_of_glycosylation, scopes itself to defects of the N-glycosylation machinery converging on demonstrated protein hypoglycosylation; GNPNAT1 sits upstream of that machinery in nucleotide-sugar supply, and no hypoglycosylation has been measured in any reported patient. Declaring conformance would assert the mechanism this entry records as open (see discussion rdan_udp_glcnac_route).
+OMIM was not consulted directly: omim.org returned HTTP 403 to the fetch attempted for this curation, so the clinical synopsis was not read. The OMIM identifiers used here were still not taken on trust — OMIM:619598 was confirmed as an xref of MONDO:0859203, and OMIM:619345 as an xref of MONDO:0859156, by querying the OLS MONDO record for each. Phenotypes come from two sources, kept distinguishable: nine are exact quotes from PubMed-cached primary reports, and twelve are from the HPO Consortium disease annotation for OMIM:619598, which carries no quotable body and is recorded per-phenotype in notes with its fraction and retrieval date (discussion rdan_hpoa_provenance).
+Deep research: the committed report is a **claude_code** report (research/Rhizomelic_Dysplasia_Ain-Naz_Type-deep-research-claude_code.md), not a falcon one. The provider chain attempted was falcon (HTTP 402, Edison account out of credits) then openscientist by --fallback (cancelled at about 20 minutes after sibling runs in this batch were reported timing out server-side at 3600 s) then claude_code, which completed in 319 s. Its reference validation is 4/4 resolved with 1/1 quote valid and nothing off topic; its term validation is 57/62 resolved with needs_review true, two obsolete GO terms and three mislabelled terms — of which two matter: UBERON:0002520 is submandibular lymph node, not &#34;epiphyseal cartilage&#34;, and UBERON:0002544 is digit, not &#34;growth plate cartilage&#34;. Neither was bound; this entry uses UBERON:0002516 (epiphyseal plate). The report also missed PMID:35427807 entirely and so counted two families rather than three, and it listed intellectual disability as a phenotype when the HPO annotation records it as an explicit 0/6 exclusion. Both errors are recorded rather than carried.
+Sections absent by fact rather than by omission. There is no progression, clinical_burden, stages or histopathology block because no natural-history, disability or tissue data have been published: the three reports give presentation and radiographs, and one age (8 years). There is no biochemical block because no biochemical measurement has been reported in any patient — which is itself the substance of discussion rdan_udp_glcnac_route, and is why that gap is recorded rather than filled. There are no clinical_trials, animal_models or computational_models. There is no datasets block: a dataset search for this disorder can only be run on the gene, and GNPNAT1 gene search returns hexosamine-pathway and cancer-metabolism experiments that are not about this disease, which is Named Entity Confusion reached through dataset search rather than a dataset for the entry.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Rhizomelic_Dysplasia_Ain-Naz_Type</strong> · 2026-09-07T22:21:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Rhizomelic_Dysplasia_Ain-Naz_Type/2026-09-07T222133Z-claude-code-e7775a.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for rhizomelic dysplasia, Ain-Naz type (MONDO:0859203, OMIM:619598), the GNPNAT1 disorder.
+
+LUMP/SPLIT. Curated as entry_type DISEASE. The stub carried one MONDO parent (MONDO:0018230 skeletal dysplasia) and no MONDO descendants — the leaf signature — and the literature supports a single entity: three families, two homozygous missense alleles in one gene, one skeletal pattern. No subtypes were created; the third family&#39;s expanded phenotype is recorded as phenotypes plus two open discussions, not as a subtype.
+
+GENE AND SCOPE, VERIFIED INDEPENDENTLY. GNPNAT1 was confirmed from the cached abstract of PMID:32591345, which states &#39;WGS data analyses identified a homozygous missense variant c.226G&gt;A; p.(Glu76Lys) in GNPNAT1, segregating with the disease&#39; — not taken from the task prompt. The distinction from MONDO:0859156 (dysostosis multiplex, Ain-Naz type) was verified the same way: PMID:33252156 identifies TMEM251 (LYSET) and describes a dysostosis multiplex-like phenotype with coarse facies, a different gene and a different skeletal pattern. OMIM identifiers were not taken on trust either: OMIM:619598 was confirmed as an xref of MONDO:0859203 and OMIM:619345 as an xref of MONDO:0859156 by querying the OLS MONDO records, since omim.org returned HTTP 403. The GNPAT/GNPNAT1 confusion risk (rhizomelic chondrodysplasia punctata, a peroxisomal group) is recorded both in notes and as an explicit differential-diagnosis record with no evidence item, flagged as a curation guardrail rather than a clinical claim.
+
+THIRD FAMILY FOUND BY PUBMED SEARCH, NOT BY THE REPORT. A PubMed query for &#39;GNPNAT1 AND (skeletal OR dysplasia OR chondrocyte OR bone OR stature)&#39; surfaced PMID:35427807 (a second individual with the same c.226G&gt;A p.(Glu76Lys) allele) and PMID:36097642 (an Egyptian patient with a second allele, c.77T&gt;G p.(Phe26Cys), plus immunodeficiency). The deep-research report missed PMID:35427807 and counted two families; this entry curates three, six affected individuals.
+
+MECHANISM: A GAP, NOT AN ASSERTION. The pathophysiology is a five-node chain from the biallelic missense variants through reduced glucosamine-6-phosphate N-acetyltransferase activity and diminished UDP-GlcNAc supply to impaired growth-plate chondrocyte proliferation/differentiation and disordered endochondral ossification. Which UDP-GlcNAc-dependent process carries the phenotype — mannose-6-phosphate tagging, O-GlcNAcylation, N-glycosylation or glycosaminoglycan synthesis — is deliberately NOT asserted; it is discussion rdan_udp_glcnac_route, a KNOWLEDGE_GAP, with the M6P route named as tempting and unmeasured. The two mid-chain nodes are graded mechanism_confidence HYPOTHETICAL, the two downstream ones PROVISIONAL, and genetic_context.functional_impact_category is UNKNOWN because neither missense allele has been assayed (discussion rdan_variant_function_unmeasured). No conforms_to was declared: congenital_disorder_of_glycosylation scopes itself to the N-glycosylation machinery converging on demonstrated hypoglycosylation, and no hypoglycosylation has been measured in any patient, so declaring conformance would assert the route the entry records as open.
+
+PHENOTYPES FROM TWO SOURCES, KEPT DISTINGUISHABLE. Nine phenotypes carry exact quotes from cached PubMed abstracts. Twelve more come from the HPO Consortium disease annotation for OMIM:619598, retrieved and verified independently from ontology.jax.org on 2026-09-07 (41 terms with per-term fractions). Those twelve carry no evidence item — HPOA has no cached quotable body in this repository — and instead record the endpoint, retrieval date and exact fraction in per-phenotype notes, with discussion rdan_hpoa_provenance explaining the choice and recommending an HPOA reference source as the general fix. Three VERY_FREQUENT frequency bands are the 6/6 and 5/5 annotations and nothing else. Two HPOA annotations are exclusions and were NOT curated as features: intellectual disability HP:0001249 is 0/6 and abnormality of alkaline phosphatase level HP:0004379 is 0/1. The deep-research report listed intellectual disability as a phenotype; that error is recorded in discussion rdan_phenotype_breadth rather than carried. The HPO craniofacial annotations conflict with the second report&#39;s definition of rhizomelic SEMD as sparing the cranio-facial sphere; that tension is discussion rdan_craniofacial_tension (CONTROVERSY) and only Wormian bones was curated from that group.
+
+DEEP RESEARCH. The committed report is a claude_code report, not a falcon one. Provider chain attempted: falcon (HTTP 402, Edison account out of credits), then openscientist via --fallback (cancelled at about 20 minutes after sibling runs in this batch were reported timing out server-side at 3600 s), then claude_code, which completed in 319 s over 18 web searches and 34 turns. Report validation: references 4/4 resolved, 0 unresolved, 1/1 quote valid, 0 off topic; terms 57/62 resolved, 0 unresolved, 2 obsolete, 3 mislabelled, needs_review true. Nothing under unresolved_references or unresolved_terms was cited or bound. Two mislabelled terms mattered and were avoided: UBERON:0002520 is submandibular lymph node, not epiphyseal cartilage, and UBERON:0002544 is digit, not growth plate cartilage; this entry binds UBERON:0002516 (epiphyseal plate). just preflight-dr returned SKIP because MONDO records no causal gene for MONDO:0859203, so the manual preflight was done instead: the report&#39;s dominant gene is GNPNAT1 (30 mentions) against PGM3 (9, the pathway comparator) and TMEM251 (4, an explicit exclusion), and its OMIM set includes 619598.
+
+DIAGNOSIS AND DIFFERENTIALS. Three diagnosis records: radiographic skeletal survey (NCIT:C17369), whole genome sequencing (NCIT:C101294) and whole exome sequencing with Sanger confirmation and parental carrier testing (NCIT:C101295). Three differentials: the LYSET Ain-Naz disorder, PGM3 deficiency / immunodeficiency 23 (MONDO:0014353, the enzyme immediately downstream of GNPNAT1, cited from PMID:24931394 and PMID:33534079), and rhizomelic chondrodysplasia punctata as an explicit exclusion.
+
+MODEL. The siRNA Gnpnat1 knockdown in primary rat chondrocytes is curated as an experimental_models PRIMARY_CELL_CULTURE record with modeled_mechanisms (PARTIALLY_RECAPITULATES, fidelity LOW, model_scale CELLULAR, two readouts) and three typed divergences: CAUSE_UNREPRESENTED (INVALIDATING — knockdown models a null, not either missense allele), SPECIES_MISMATCH and BOUNDARY_OMISSION.
+
+WHAT WAS DELIBERATELY LEFT EMPTY. isds_skeletal_category and icimd_category (could not confirm the disorder appears in the 2023 ISDS revision or the 2021 ICIMD, and both may only be assigned to listed disorders); mechanistic_category (no value fits a nucleotide-sugar supply defect); progression, clinical_burden, stages, histopathology, biochemical, datasets, clinical_trials, animal_models and computational_models (no published data — the biochemical absence is itself the substance of rdan_udp_glcnac_route); therapeutic_modality on the supportive-care treatment. No GeneReviews chapter exists (PubMed searched 2026-09-07: &#39;GNPNAT1 GeneReviews[All Fields]&#39; 0 hits; &#39;rhizomelic dysplasia GeneReviews[All Fields]&#39; 1 hit, the Achondroplasia chapter). GNPNAT1 is absent from the ClinGen Gene-Disease Validity table downloaded 2026-09-07. No Orphanet record was found by name and OMIM query against the Orphanet API, recorded as not-found rather than as absent. No clinical trials: ClinicalTrials.gov queries for GNPNAT1 and for rhizomelic dysplasia returned zero studies.
+
+VALIDATION RUN TO COMPLETION. just validate-disorders passed with 47/47 snippets verified. just validate, just validate-terms, check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values, check-title-snippets, check-snippet-length, check-snippet-grading, check-reference-titles, check-folded-hyphens, check-environmental-evidence, check-not4curation, check-term-cache-integrity and check-cache-order all pass. just qc as a whole was not run: it exceeds the available command timeout, so the individual gates were run instead. model-scale-audit --strict reports no scale gap for this entry&#39;s single model link. The cache diff is additive only (17 rows across 10 files), and only the eight references_cache files this entry cites are staged; two DOI caches written by the report&#39;s own validation step are left unstaged.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

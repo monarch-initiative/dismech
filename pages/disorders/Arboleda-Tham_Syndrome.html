@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5234,6 +5287,13 @@ This experiment is of type Patient-cell proteomics plus isogenic iPSC allelic se
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-kat6a-pathogenic-variation" data-dismech-node="Heterozygous KAT6A Pathogenic Variation" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous KAT6A Pathogenic Variation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a heterozygous, usually de novo, pathogenic KAT6A variant. Most established alleles are protein-truncating (nonsense or frameshift), with recurrent hotspots in the arginine-rich acidic domain, and are distributed across the gene with a bias toward the last two exons.</div>
 
 
@@ -5347,6 +5407,8 @@ This genetic context concerns KAT6A (hgnc:13013). hgnc:13013 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -5359,6 +5421,9 @@ This genetic context concerns KAT6A (hgnc:13013). hgnc:13013 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">De novo heterozygous protein-truncating KAT6A alleles. Recorded as UNKNOWN because the mechanism depends on truncation position and neither branch has been demonstrated at the protein level: early truncations (exons 1-15) are expected to trigger nonsense-mediated decay and act by haploinsufficiency (mechanistic_hypotheses#early_truncating_nmd_haploinsufficiency), while late truncations (exons 16-17) escape decay and may act through a dysfunctional, possibly gain-of-function or dominant-negative, protein (mechanistic_hypotheses#late_truncating_nmd_escape). Once demonstrated, the two branches warrant separate contexts rather than one category.</div>
 
@@ -5464,6 +5529,13 @@ This genetic context concerns KAT6A (hgnc:13013). hgnc:13013 is a gene from the 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nmd-mediated-kat6a-haploinsufficiency" data-dismech-node="NMD-Mediated KAT6A Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">NMD-Mediated KAT6A Haploinsufficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Early-truncating variants (exons 1-15) are predicted to trigger nonsense-mediated decay of the mutant transcript, reducing functional KAT6A dosage (haploinsufficiency). This is the canonical route and is associated with milder disease.</div>
 
 
@@ -5525,6 +5597,13 @@ This genetic context concerns KAT6A (hgnc:13013). hgnc:13013 is a gene from the 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nmd-escaping-dysfunctional-kat6a-protein" data-dismech-node="NMD-Escaping Dysfunctional KAT6A Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">NMD-Escaping Dysfunctional KAT6A Protein</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Late-truncating variants (exons 16-17) escape nonsense-mediated decay and are predicted to produce a translated but dysfunctional protein that may act by gain-of-function or dominant-negative mechanisms. This is the alternative route and is associated with more severe disease. Direct demonstration of mutant protein and its mode of action in patient tissue remains an evidence gap.</div>
 
 
@@ -5585,6 +5664,13 @@ This genetic context concerns KAT6A (hgnc:13013). hgnc:13013 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-histone-h3-acetylation" data-dismech-node="Dysregulated Histone H3 Acetylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Histone H3 Acetylation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">KAT6A (MOZ/MYST3) is a MYST-family histone acetyltransferase that, within a complex containing BRPF1/2/3, ING5, and hEAF6, acetylates lysine residues on histone H3 tails (notably H3K9 and H3K18). Pathogenic variants dysregulate H3K9 and H3K18 acetylation, altering the chromatin state that governs developmental gene expression. (GO lacks a current, non-obsolete histone-H3-specific acetylation biological-process term; the H3 specificity is carried by the H3K9 and H3K18 molecular-function annotations.)</div>
 
@@ -5868,6 +5954,13 @@ This pathophysiological event involves dysregulated histone H3K18 acetyltransfer
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-posterior-hoxc-cluster-overexpression" data-dismech-node="Posterior HOXC Cluster Overexpression" data-dismech-type="pathophysiology">
                 <div class="item-name">Posterior HOXC Cluster Overexpression</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Multi-omic profiling of eight patient-derived dermal fibroblast lines found increased chromatin accessibility, H3K23 acetylation, gene-body DNA methylation, and overexpression across a posterior HOXC gene cluster. This is a reproducible human-cell molecular readout; fibroblasts do not establish which developmental tissues carry the same signature or whether HOXC overexpression causes particular clinical features.</div>
 
 
@@ -5966,6 +6059,13 @@ This pathophysiological event involves increased gene expression (GO:0010467). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-progenitor-proliferation-and-differentiation" data-dismech-node="Impaired Neural Progenitor Proliferation and Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neural Progenitor Proliferation and Differentiation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In mouse neural stem and progenitor cells, loss of one or both Kat6a alleles disrupts H3K23 acetylation and MLL1 recruitment at developmental genes, impairing normal proliferation and neuronal differentiation. The result strengthens the developmental-neurobiology bridge but has not yet been demonstrated in patient-derived neural progenitors or human brain tissue.</div>
 
@@ -6147,6 +6247,13 @@ This pathophysiological event involves decreased neuron differentiation (GO:0030
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-p53-signaling" data-dismech-node="Altered p53 Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered p53 Signaling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Beyond its direct catalytic effect on histone H3, KAT6A dysfunction perturbs p53-associated transcriptional programs. Patient-derived fibroblasts show altered expression of p53-associated genes, a downstream transcriptional consequence distinct from the direct loss of histone acetylation. The specific disease-level consequences downstream of altered p53 signaling in KAT6A syndrome are not established, so this node is intentionally left as a terminal molecular readout.</div>
 
 
@@ -6245,6 +6352,13 @@ This pathophysiological event involves abnormal signal transduction by p53 class
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-developmental-transcriptional-programs" data-dismech-node="Altered Developmental Transcriptional Programs" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Developmental Transcriptional Programs</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Disrupted KAT6A-dependent histone acetylation alters the transcriptional programs that pattern the developing brain, craniofacial skeleton, heart, and other organs, producing the multisystem congenital and neurodevelopmental phenotype. The intervening steps from chromatin dysregulation to each organ-level endpoint are not individually resolved in humans.</div>
 
@@ -6608,6 +6722,13 @@ This pathophysiological event involves abnormal nervous system development (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kat6a-rspo2-wnt-hippocampal-signaling-deficit" data-dismech-node="KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">In a mouse model, KAT6A deficiency lowers transcription of the CA3-enriched Wnt activator R-spondin 2 (RSPO2), impairing canonical Wnt signaling and synaptic structure and plasticity in hippocampal CA3 pyramidal neurons and producing memory deficits. Restoring RSPO2 in CA3 neurons rescues Wnt signaling and learning behaviors, nominating this axis as a candidate therapeutic target. This mechanism is currently established only in mice; its fidelity to human KAT6A-syndrome cognition is unproven.</div>
 
 
@@ -6844,6 +6965,13 @@ This pathophysiological event involves abnormal learning or memory (GO:0007611).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-and-bioenergetic-dysfunction" data-dismech-node="Mitochondrial and Bioenergetic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial and Bioenergetic Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Patient-derived fibroblasts carrying KAT6A mutations show impaired cellular bioenergetics alongside the histone-acetylation defect. This cellular bioenergetic deficit is the mechanistic rationale for the experimental pantothenate and L-carnitine intervention, which corrects it in vitro. The finding is from patient fibroblast models; its contribution to the clinical phenotype in vivo is not established.</div>
 
 
@@ -6904,6 +7032,13 @@ This pathophysiological event involves abnormal learning or memory (GO:0007611).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hematopoietic-stem-cell-function" data-dismech-node="Impaired Hematopoietic Stem Cell Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hematopoietic Stem Cell Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">KAT6A (MOZ) was originally characterized as a master regulator of hematopoiesis: complete-knockout mice die in embryogenesis from a failure of hematopoiesis, and tissue-specific knockouts show KAT6A-dependent transcriptional programs in blood lineages. In heterozygous patients an emerging hematologic spectrum (transient neonatal neutropenia through severe aplastic anemia) is consistent with impaired hematopoietic stem cell function, but the causal bridge from heterozygous KAT6A variation to human cytopenias and marrow failure has not been directly demonstrated, so this node and its outgoing edges are provisional.</div>
 
@@ -7106,7 +7241,7 @@ This pathophysiological event involves abnormal hemopoiesis (GO:0030097). GO:003
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acetyl-L-Carnitine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An experimental mouse intervention, not an established treatment for people with Arboleda-Tham syndrome. Acetyl-L-carnitine restored H3K23 acetylation and improved selected behavioral measures in Kat6a-haploinsufficient mice; efficacy, safety, dose, developmental timing, and variant dependence remain untested clinically.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"acetyl-L-carnitine\"]}}, {\"id\": \"Altered Developmental Transcriptional Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted KAT6A-dependent histone acetylation alters the transcriptional programs that pattern the developing brain, craniofacial skeleton, heart, and other organs, producing the multisystem congenital and neurodevelopmental phenotype. The intervening steps from chromatin dysregulation to each organ-level endpoint are not individually resolved in humans.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"nervous system development\"]}}, {\"id\": \"Altered p53 Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond its direct catalytic effect on histone H3, KAT6A dysfunction perturbs p53-associated transcriptional programs. Patient-derived fibroblasts show altered expression of p53-associated genes, a downstream transcriptional consequence distinct from the direct loss of histone acetylation. The specific disease-level consequences downstream of altered p53 signaling in KAT6A syndrome are not established, so this node is intentionally left as a terminal molecular readout.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"signal transduction by p53 class mediator\"]}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Amblyopia is reported in several patients, and is more likely when strabismus is unrecognized and untreated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000646\"}}, {\"id\": \"Aplastic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe aplastic anemia requiring hematopoietic stem cell transplantation was reported within the emerging hematologic spectrum in a 2026 retrospective cohort. The combined hematologic denominator was 3 of 11, but the phenotype-specific frequency and surveillance implications require replication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001915\"}}, {\"id\": \"Atrial Septal Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial septal defect is the most frequent cardiac lesion in KAT6A syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001631\"}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism and autistic features, particularly restricted interests and repetitive behaviors, are reported in roughly a quarter of newly reported cases, often juxtaposed with a relatively strong social drive.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Broad Nasal Tip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A broad nasal tip, which may become more obvious with age, is one of the two most consistent facial features of KAT6A syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000455\"}}, {\"id\": \"Cardiac Surgical or Catheter Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A substantial proportion of patients with cardiac malformations require intervention by open-heart surgery or cardiac catheterization.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congenital Cardiac Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac malformations, most often septal defects, are present in about half of patients; atrial septal defects are the most frequent, followed by ventricular septal defects and persistence of fetal anatomy (patent foramen ovale, patent ductus arteriosus). Many require intervention.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation affects over half of patients, many requiring long-term laxatives, and is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recognizable craniofacial dysmorphism is a core feature, most consistently a broad nasal tip and a thin, tented upper lip, with additional features including bitemporal narrowing, prominent nasal bridge, and a short, flat philtrum. A 2026 cohort enriched for late-truncating variants (13 of 14) nevertheless documented dysmorphism in 79%, supporting a frequent rather than very-frequent syndrome-wide band.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Craniosynostosis is an uncommon feature, reported in a small number of patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001363\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are reported in a small number of male patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Dental Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Teeth abnormalities are common, including previously reported abnormal peg-shaped teeth.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000164\"}}, {\"id\": \"Dysregulated Histone H3 Acetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KAT6A (MOZ/MYST3) is a MYST-family histone acetyltransferase that, within a complex containing BRPF1/2/3, ING5, and hEAF6, acetylates lysine residues on histone H3 tails (notably H3K9 and H3K18). Pathogenic variants dysregulate H3K9 and H3K18 acetylation, altering the chromatin state that governs developmental gene expression. (GO lacks a current, non-obsolete histone-H3-specific acetylation biological-process term; the H3 specificity is carried by the H3K9 and H3K18 molecular-function annotations.)\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"chromatin organization\"], \"molecular_functions\": [\"histone acetyltransferase activity\", \"histone H3K9 acetyltransferase activity\", \"histone H3K18 acetyltransferase activity\"]}}, {\"id\": \"Expressive Speech Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked expressive speech delay is very frequent. Many affected people are minimally verbal into adulthood, and verbal participants may have both phonological impairment and speech apraxia; receptive and expressive language are variably but substantially affected.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are common, frequently with oromotor dysfunction and difficulty establishing feeding at birth; nasogastric feeding is often required and some patients need gastrostomy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is a significant and prevalent issue, suggestive of dysfunctional intestinal motility, and some patients require fundoplication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is a defining early-life feature in clinically ascertained cohorts, affecting motor, language, and adaptive development. Rare inherited-variant relatives may have normal standardized development, so the association is very frequent rather than obligate.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital hearing defects occur in KAT6A syndrome and are one of the features significantly enriched in patients with late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heterozygous KAT6A Pathogenic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous, usually de novo, pathogenic KAT6A variant. Most established alleles are protein-truncating (nonsense or frameshift), with recurrent hotspots in the arginine-rich acidic domain, and are distributed across the gene with a bias toward the last two exons.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"KAT6A\"], \"gene_terms\": [{\"label\": \"KAT6A\", \"id\": \"hgnc:13013\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"De novo heterozygous protein-truncating KAT6A alleles. Recorded as UNKNOWN because the mechanism depends on truncation position and neither branch has been demonstrated at the protein level: early truncations (exons 1-15) are expected to trigger nonsense-mediated decay and act by haploinsufficiency (mechanistic_hypotheses#early_truncating_nmd_haploinsufficiency), while late truncations (exons 16-17) escape decay and may act through a dysfunctional, possibly gain-of-function or dominant-negative, protein (mechanistic_hypotheses#late_truncating_nmd_escape). Once demonstrated, the two branches warrant separate contexts rather than one category.\", \"gene_terms\": [{\"label\": \"KAT6A\", \"id\": \"hgnc:13013\"}]}}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is common, frequently with neonatal onset, and contributes to motor delay; truncal hypotonia is often combined with limb hypertonia in the neonatal period. Neonatal hypotonia is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Hematopoietic Stem Cell Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KAT6A (MOZ) was originally characterized as a master regulator of hematopoiesis: complete-knockout mice die in embryogenesis from a failure of hematopoiesis, and tissue-specific knockouts show KAT6A-dependent transcriptional programs in blood lineages. In heterozygous patients an emerging hematologic spectrum (transient neonatal neutropenia through severe aplastic anemia) is consistent with impaired hematopoietic stem cell function, but the causal bridge from heterozygous KAT6A variation to human cytopenias and marrow failure has not been directly demonstrated, so this node and its outgoing edges are provisional.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"hemopoiesis\"]}}, {\"id\": \"Impaired Neural Progenitor Proliferation and Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In mouse neural stem and progenitor cells, loss of one or both Kat6a alleles disrupts H3K23 acetylation and MLL1 recruitment at developmental genes, impairing normal proliferation and neuronal differentiation. The result strengthens the developmental-neurobiology bridge but has not yet been demonstrated in patient-derived neural progenitors or human brain tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\"], \"biological_processes\": [\"neural precursor cell proliferation\", \"neuron differentiation\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is very common and ranges from mild to severe, with greater group-level severity among late-truncating variants. It is not universal: normally assessed cognition has now been reported in rare inherited-variant cases.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An increased risk of gastrointestinal obstruction is a novel association; several patients had bowel obstruction, in some cases from malrotation or a duodenal web, requiring surgery.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005214\"}}, {\"id\": \"KAT6A Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KAT6A\"], \"gene_terms\": [{\"label\": \"KAT6A\", \"id\": \"hgnc:13013\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a mouse model, KAT6A deficiency lowers transcription of the CA3-enriched Wnt activator R-spondin 2 (RSPO2), impairing canonical Wnt signaling and synaptic structure and plasticity in hippocampal CA3 pyramidal neurons and producing memory deficits. Restoring RSPO2 in CA3 neurons rescues Wnt signaling and learning behaviors, nominating this axis as a candidate therapeutic target. This mechanism is currently established only in mice; its fidelity to human KAT6A-syndrome cognition is unproven.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hippocampal CA3 pyramidal neuron\"], \"biological_processes\": [\"canonical Wnt signaling pathway\", \"regulation of synaptic plasticity\", \"learning or memory\"]}}, {\"id\": \"Low-Set, Posteriorly Rotated Ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-set and posteriorly rotated ears, occasionally folded, are present in a significant minority, alongside epicanthic folds.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000377\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is present in roughly a quarter of patients and is not always present at birth; earlier smaller series reported a higher rate. Microcephaly is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Mitochondrial and Bioenergetic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived fibroblasts carrying KAT6A mutations show impaired cellular bioenergetics alongside the histone-acetylation defect. This cellular bioenergetic deficit is the mechanistic rationale for the experimental pantothenate and L-carnitine intervention, which corrects it in vitro. The finding is from patient fibroblast models; its contribution to the clinical phenotype in vivo is not established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Multidisciplinary Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is symptomatic and individualized, coordinating developmental, nutritional, gastrointestinal, cardiac, ophthalmologic, and infectious-disease care. Early cardiology assessment with echocardiography is recommended given the high prevalence of cardiac lesions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Late-truncating variants (exons 16-17) escape nonsense-mediated decay and are predicted to produce a translated but dysfunctional protein that may act by gain-of-function or dominant-negative mechanisms. This is the alternative route and is associated with more severe disease. Direct demonstration of mutant protein and its mode of action in patient tissue remains an evidence gap.\"}, {\"id\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early-truncating variants (exons 1-15) are predicted to trigger nonsense-mediated decay of the mutant transcript, reducing functional KAT6A dosage (haploinsufficiency). This is the canonical route and is associated with milder disease.\"}, {\"id\": \"Neutropenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient neonatal and isolated moderate-to-severe neutropenia have been reported across independent cohorts. The 2026 retrospective cohort grouped neutropenia with other hematologic abnormalities in 3 of 11 assessed patients, so phenotype-specific prevalence, natural history, and surveillance thresholds remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001875\"}}, {\"id\": \"Pantothenate and L-Carnitine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An experimental, preclinical intervention. In patient-derived fibroblast models of KAT6A syndrome, pantothenate plus L-carnitine increased histone acetylation, partially corrected protein and transcriptomic expression patterns, and improved cell bioenergetics. This is in vitro evidence only and has not been evaluated as a clinical therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pantothenate\", \"L-carnitine\"]}}, {\"id\": \"Patent Ductus Arteriosus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patent ductus arteriosus, together with patent foramen ovale, constitutes the \\\"persistence of fetal anatomy\\\" cardiac category reported in 19% of the cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001643\"}}, {\"id\": \"Patent Foramen Ovale\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patent foramen ovale, together with patent ductus arteriosus, constitutes the \\\"persistence of fetal anatomy\\\" cardiac category reported in 19% of the cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001655\"}}, {\"id\": \"Posterior HOXC Cluster Overexpression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multi-omic profiling of eight patient-derived dermal fibroblast lines found increased chromatin accessibility, H3K23 acetylation, gene-body DNA methylation, and overexpression across a posterior HOXC gene cluster. This is a reproducible human-cell molecular readout; fibroblasts do not establish which developmental tissues carry the same signature or whether HOXC overexpression causes particular clinical features.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"gene expression\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are uncommon and reported in only a few patients, with no consistent seizure type.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Over 30% of patients report sleep disturbance, including difficulty initiating and maintaining sleep, and some have central or obstructive sleep apnea.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language therapy, augmented by sign language and communication aids, addresses the very frequent expressive speech delay and speech-motor impairment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is a common ophthalmologic finding, can be intermittent, and may lead to amblyopia if unrecognized and untreated.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Thin, Tented Upper Lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin, tented upper lip is one of the two most consistent facial features of KAT6A syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000219\"}}, {\"id\": \"Ventricular Septal Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular septal defect occurs in a minority of patients with cardiac involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"Mitochondrial and Bioenergetic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"early_truncating_nmd_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"late_truncating_nmd_escape\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"target\": \"Dysregulated Histone H3 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"early_truncating_nmd_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"target\": \"Dysregulated Histone H3 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"late_truncating_nmd_escape\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Altered p53 Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Altered Developmental Transcriptional Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Posterior HOXC Cluster Overexpression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Impaired Neural Progenitor Proliferation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Progenitor Proliferation and Differentiation\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Expressive Speech Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Congenital Cardiac Defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"kat6a_rspo2_wnt_hippocampal\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Atrial Septal Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Specific cardiac lesion within the congenital cardiac phenotype already attributed to disrupted developmental transcription; the intervening cardiogenic steps are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Ventricular Septal Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Specific cardiac lesion within the congenital cardiac phenotype already attributed to disrupted developmental transcription; the intervening cardiogenic steps are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Patent Ductus Arteriosus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistence of fetal cardiovascular anatomy within the congenital cardiac phenotype attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Patent Foramen Ovale\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistence of fetal cardiovascular anatomy within the congenital cardiac phenotype attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Broad Nasal Tip\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Specific facial feature within the craniofacial dysmorphism already attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Thin, Tented Upper Lip\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Specific facial feature within the craniofacial dysmorphism already attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Low-Set, Posteriorly Rotated Ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Specific facial feature within the craniofacial dysmorphism already attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull development anomaly within the craniofacial spectrum attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Dental Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dentition anomalies within the craniofacial spectrum attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital hearing defects are a developmental anomaly within the multisystem congenital phenotype; the otologic developmental bridge is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular anomaly within the multisystem congenital and neurodevelopmental phenotype; whether the defect is primarily oculomotor-neural or muscular is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital genitourinary anomaly within the multisystem congenital phenotype; the developmental bridge is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural gastrointestinal malformations (malrotation, duodenal web) underlie several obstruction cases, indicating a developmental origin; dysmotility may contribute in others.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurobehavioral manifestation of the neurodevelopmental phenotype, at the same epistemic level as the wired intellectual-disability and developmental-delay edges.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurobehavioral manifestation of the neurodevelopmental phenotype; no sleep-specific mechanism has been studied.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncommon neurologic manifestation of abnormal brain development; no consistent seizure type or epileptogenic mechanism has been identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Impaired Hematopoietic Stem Cell Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"kat6a_rspo2_wnt_hippocampal\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Hematopoietic Stem Cell Function\", \"target\": \"Neutropenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Hematopoietic Stem Cell Function\", \"target\": \"Aplastic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Strabismus\", \"target\": \"Amblyopia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multidisciplinary Supportive Care\", \"target\": \"Congenital Cardiac Defects\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Expressive Speech Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Surgical or Catheter Intervention\", \"target\": \"Atrial Septal Defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pantothenate and L-Carnitine Supplementation\", \"target\": \"Mitochondrial and Bioenergetic Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acetyl-L-Carnitine\", \"target\": \"Dysregulated Histone H3 Acetylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"KAT6A Pathogenic Variants\", \"target\": \"Heterozygous KAT6A Pathogenic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acetyl-L-Carnitine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An experimental mouse intervention, not an established treatment for people with Arboleda-Tham syndrome. Acetyl-L-carnitine restored H3K23 acetylation and improved selected behavioral measures in Kat6a-haploinsufficient mice; efficacy, safety, dose, developmental timing, and variant dependence remain untested clinically.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"acetyl-L-carnitine\"]}}, {\"id\": \"Altered Developmental Transcriptional Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted KAT6A-dependent histone acetylation alters the transcriptional programs that pattern the developing brain, craniofacial skeleton, heart, and other organs, producing the multisystem congenital and neurodevelopmental phenotype. The intervening steps from chromatin dysregulation to each organ-level endpoint are not individually resolved in humans.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"nervous system development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Altered p53 Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond its direct catalytic effect on histone H3, KAT6A dysfunction perturbs p53-associated transcriptional programs. Patient-derived fibroblasts show altered expression of p53-associated genes, a downstream transcriptional consequence distinct from the direct loss of histone acetylation. The specific disease-level consequences downstream of altered p53 signaling in KAT6A syndrome are not established, so this node is intentionally left as a terminal molecular readout.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"signal transduction by p53 class mediator\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Amblyopia is reported in several patients, and is more likely when strabismus is unrecognized and untreated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000646\"}}, {\"id\": \"Aplastic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe aplastic anemia requiring hematopoietic stem cell transplantation was reported within the emerging hematologic spectrum in a 2026 retrospective cohort. The combined hematologic denominator was 3 of 11, but the phenotype-specific frequency and surveillance implications require replication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001915\"}}, {\"id\": \"Atrial Septal Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial septal defect is the most frequent cardiac lesion in KAT6A syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001631\"}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism and autistic features, particularly restricted interests and repetitive behaviors, are reported in roughly a quarter of newly reported cases, often juxtaposed with a relatively strong social drive.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Broad Nasal Tip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A broad nasal tip, which may become more obvious with age, is one of the two most consistent facial features of KAT6A syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000455\"}}, {\"id\": \"Cardiac Surgical or Catheter Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A substantial proportion of patients with cardiac malformations require intervention by open-heart surgery or cardiac catheterization.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congenital Cardiac Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac malformations, most often septal defects, are present in about half of patients; atrial septal defects are the most frequent, followed by ventricular septal defects and persistence of fetal anatomy (patent foramen ovale, patent ductus arteriosus). Many require intervention.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation affects over half of patients, many requiring long-term laxatives, and is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recognizable craniofacial dysmorphism is a core feature, most consistently a broad nasal tip and a thin, tented upper lip, with additional features including bitemporal narrowing, prominent nasal bridge, and a short, flat philtrum. A 2026 cohort enriched for late-truncating variants (13 of 14) nevertheless documented dysmorphism in 79%, supporting a frequent rather than very-frequent syndrome-wide band.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Craniosynostosis is an uncommon feature, reported in a small number of patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001363\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are reported in a small number of male patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Dental Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Teeth abnormalities are common, including previously reported abnormal peg-shaped teeth.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000164\"}}, {\"id\": \"Dysregulated Histone H3 Acetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KAT6A (MOZ/MYST3) is a MYST-family histone acetyltransferase that, within a complex containing BRPF1/2/3, ING5, and hEAF6, acetylates lysine residues on histone H3 tails (notably H3K9 and H3K18). Pathogenic variants dysregulate H3K9 and H3K18 acetylation, altering the chromatin state that governs developmental gene expression. (GO lacks a current, non-obsolete histone-H3-specific acetylation biological-process term; the H3 specificity is carried by the H3K9 and H3K18 molecular-function annotations.)\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"chromatin organization\"], \"molecular_functions\": [\"histone acetyltransferase activity\", \"histone H3K9 acetyltransferase activity\", \"histone H3K18 acetyltransferase activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Expressive Speech Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked expressive speech delay is very frequent. Many affected people are minimally verbal into adulthood, and verbal participants may have both phonological impairment and speech apraxia; receptive and expressive language are variably but substantially affected.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are common, frequently with oromotor dysfunction and difficulty establishing feeding at birth; nasogastric feeding is often required and some patients need gastrostomy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is a significant and prevalent issue, suggestive of dysfunctional intestinal motility, and some patients require fundoplication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is a defining early-life feature in clinically ascertained cohorts, affecting motor, language, and adaptive development. Rare inherited-variant relatives may have normal standardized development, so the association is very frequent rather than obligate.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital hearing defects occur in KAT6A syndrome and are one of the features significantly enriched in patients with late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heterozygous KAT6A Pathogenic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous, usually de novo, pathogenic KAT6A variant. Most established alleles are protein-truncating (nonsense or frameshift), with recurrent hotspots in the arginine-rich acidic domain, and are distributed across the gene with a bias toward the last two exons.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"KAT6A\"], \"gene_terms\": [{\"label\": \"KAT6A\", \"id\": \"hgnc:13013\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"De novo heterozygous protein-truncating KAT6A alleles. Recorded as UNKNOWN because the mechanism depends on truncation position and neither branch has been demonstrated at the protein level: early truncations (exons 1-15) are expected to trigger nonsense-mediated decay and act by haploinsufficiency (mechanistic_hypotheses#early_truncating_nmd_haploinsufficiency), while late truncations (exons 16-17) escape decay and may act through a dysfunctional, possibly gain-of-function or dominant-negative, protein (mechanistic_hypotheses#late_truncating_nmd_escape). Once demonstrated, the two branches warrant separate contexts rather than one category.\", \"gene_terms\": [{\"label\": \"KAT6A\", \"id\": \"hgnc:13013\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is common, frequently with neonatal onset, and contributes to motor delay; truncal hypotonia is often combined with limb hypertonia in the neonatal period. Neonatal hypotonia is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Hematopoietic Stem Cell Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KAT6A (MOZ) was originally characterized as a master regulator of hematopoiesis: complete-knockout mice die in embryogenesis from a failure of hematopoiesis, and tissue-specific knockouts show KAT6A-dependent transcriptional programs in blood lineages. In heterozygous patients an emerging hematologic spectrum (transient neonatal neutropenia through severe aplastic anemia) is consistent with impaired hematopoietic stem cell function, but the causal bridge from heterozygous KAT6A variation to human cytopenias and marrow failure has not been directly demonstrated, so this node and its outgoing edges are provisional.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"hemopoiesis\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Neural Progenitor Proliferation and Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In mouse neural stem and progenitor cells, loss of one or both Kat6a alleles disrupts H3K23 acetylation and MLL1 recruitment at developmental genes, impairing normal proliferation and neuronal differentiation. The result strengthens the developmental-neurobiology bridge but has not yet been demonstrated in patient-derived neural progenitors or human brain tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\"], \"biological_processes\": [\"neural precursor cell proliferation\", \"neuron differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is very common and ranges from mild to severe, with greater group-level severity among late-truncating variants. It is not universal: normally assessed cognition has now been reported in rare inherited-variant cases.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An increased risk of gastrointestinal obstruction is a novel association; several patients had bowel obstruction, in some cases from malrotation or a duodenal web, requiring surgery.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005214\"}}, {\"id\": \"KAT6A Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KAT6A\"], \"gene_terms\": [{\"label\": \"KAT6A\", \"id\": \"hgnc:13013\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a mouse model, KAT6A deficiency lowers transcription of the CA3-enriched Wnt activator R-spondin 2 (RSPO2), impairing canonical Wnt signaling and synaptic structure and plasticity in hippocampal CA3 pyramidal neurons and producing memory deficits. Restoring RSPO2 in CA3 neurons rescues Wnt signaling and learning behaviors, nominating this axis as a candidate therapeutic target. This mechanism is currently established only in mice; its fidelity to human KAT6A-syndrome cognition is unproven.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hippocampal CA3 pyramidal neuron\"], \"biological_processes\": [\"canonical Wnt signaling pathway\", \"regulation of synaptic plasticity\", \"learning or memory\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Low-Set, Posteriorly Rotated Ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-set and posteriorly rotated ears, occasionally folded, are present in a significant minority, alongside epicanthic folds.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000377\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is present in roughly a quarter of patients and is not always present at birth; earlier smaller series reported a higher rate. Microcephaly is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Mitochondrial and Bioenergetic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived fibroblasts carrying KAT6A mutations show impaired cellular bioenergetics alongside the histone-acetylation defect. This cellular bioenergetic deficit is the mechanistic rationale for the experimental pantothenate and L-carnitine intervention, which corrects it in vitro. The finding is from patient fibroblast models; its contribution to the clinical phenotype in vivo is not established.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Multidisciplinary Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is symptomatic and individualized, coordinating developmental, nutritional, gastrointestinal, cardiac, ophthalmologic, and infectious-disease care. Early cardiology assessment with echocardiography is recommended given the high prevalence of cardiac lesions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Late-truncating variants (exons 16-17) escape nonsense-mediated decay and are predicted to produce a translated but dysfunctional protein that may act by gain-of-function or dominant-negative mechanisms. This is the alternative route and is associated with more severe disease. Direct demonstration of mutant protein and its mode of action in patient tissue remains an evidence gap.\", \"meta\": {\"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early-truncating variants (exons 1-15) are predicted to trigger nonsense-mediated decay of the mutant transcript, reducing functional KAT6A dosage (haploinsufficiency). This is the canonical route and is associated with milder disease.\", \"meta\": {\"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Neutropenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient neonatal and isolated moderate-to-severe neutropenia have been reported across independent cohorts. The 2026 retrospective cohort grouped neutropenia with other hematologic abnormalities in 3 of 11 assessed patients, so phenotype-specific prevalence, natural history, and surveillance thresholds remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001875\"}}, {\"id\": \"Pantothenate and L-Carnitine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An experimental, preclinical intervention. In patient-derived fibroblast models of KAT6A syndrome, pantothenate plus L-carnitine increased histone acetylation, partially corrected protein and transcriptomic expression patterns, and improved cell bioenergetics. This is in vitro evidence only and has not been evaluated as a clinical therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pantothenate\", \"L-carnitine\"]}}, {\"id\": \"Patent Ductus Arteriosus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patent ductus arteriosus, together with patent foramen ovale, constitutes the \\\"persistence of fetal anatomy\\\" cardiac category reported in 19% of the cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001643\"}}, {\"id\": \"Patent Foramen Ovale\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patent foramen ovale, together with patent ductus arteriosus, constitutes the \\\"persistence of fetal anatomy\\\" cardiac category reported in 19% of the cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001655\"}}, {\"id\": \"Posterior HOXC Cluster Overexpression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multi-omic profiling of eight patient-derived dermal fibroblast lines found increased chromatin accessibility, H3K23 acetylation, gene-body DNA methylation, and overexpression across a posterior HOXC gene cluster. This is a reproducible human-cell molecular readout; fibroblasts do not establish which developmental tissues carry the same signature or whether HOXC overexpression causes particular clinical features.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"gene expression\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are uncommon and reported in only a few patients, with no consistent seizure type.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Over 30% of patients report sleep disturbance, including difficulty initiating and maintaining sleep, and some have central or obstructive sleep apnea.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language therapy, augmented by sign language and communication aids, addresses the very frequent expressive speech delay and speech-motor impairment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is a common ophthalmologic finding, can be intermittent, and may lead to amblyopia if unrecognized and untreated.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Thin, Tented Upper Lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin, tented upper lip is one of the two most consistent facial features of KAT6A syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000219\"}}, {\"id\": \"Ventricular Septal Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular septal defect occurs in a minority of patients with cardiac involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"Mitochondrial and Bioenergetic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"early_truncating_nmd_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"late_truncating_nmd_escape\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"target\": \"Dysregulated Histone H3 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"early_truncating_nmd_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"target\": \"Dysregulated Histone H3 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"late_truncating_nmd_escape\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Altered p53 Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Altered Developmental Transcriptional Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Posterior HOXC Cluster Overexpression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Impaired Neural Progenitor Proliferation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Progenitor Proliferation and Differentiation\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Expressive Speech Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Congenital Cardiac Defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"kat6a_rspo2_wnt_hippocampal\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Atrial Septal Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Specific cardiac lesion within the congenital cardiac phenotype already attributed to disrupted developmental transcription; the intervening cardiogenic steps are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Ventricular Septal Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Specific cardiac lesion within the congenital cardiac phenotype already attributed to disrupted developmental transcription; the intervening cardiogenic steps are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Patent Ductus Arteriosus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistence of fetal cardiovascular anatomy within the congenital cardiac phenotype attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Patent Foramen Ovale\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistence of fetal cardiovascular anatomy within the congenital cardiac phenotype attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Broad Nasal Tip\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Specific facial feature within the craniofacial dysmorphism already attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Thin, Tented Upper Lip\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Specific facial feature within the craniofacial dysmorphism already attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Low-Set, Posteriorly Rotated Ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Specific facial feature within the craniofacial dysmorphism already attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull development anomaly within the craniofacial spectrum attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Dental Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dentition anomalies within the craniofacial spectrum attributed to disrupted developmental transcription.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital hearing defects are a developmental anomaly within the multisystem congenital phenotype; the otologic developmental bridge is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular anomaly within the multisystem congenital and neurodevelopmental phenotype; whether the defect is primarily oculomotor-neural or muscular is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital genitourinary anomaly within the multisystem congenital phenotype; the developmental bridge is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural gastrointestinal malformations (malrotation, duodenal web) underlie several obstruction cases, indicating a developmental origin; dysmotility may contribute in others.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurobehavioral manifestation of the neurodevelopmental phenotype, at the same epistemic level as the wired intellectual-disability and developmental-delay edges.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurobehavioral manifestation of the neurodevelopmental phenotype; no sleep-specific mechanism has been studied.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncommon neurologic manifestation of abnormal brain development; no consistent seizure type or epileptogenic mechanism has been identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Impaired Hematopoietic Stem Cell Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"kat6a_rspo2_wnt_hippocampal\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Hematopoietic Stem Cell Function\", \"target\": \"Neutropenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Hematopoietic Stem Cell Function\", \"target\": \"Aplastic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Strabismus\", \"target\": \"Amblyopia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multidisciplinary Supportive Care\", \"target\": \"Congenital Cardiac Defects\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Expressive Speech Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Surgical or Catheter Intervention\", \"target\": \"Atrial Septal Defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pantothenate and L-Carnitine Supplementation\", \"target\": \"Mitochondrial and Bioenergetic Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acetyl-L-Carnitine\", \"target\": \"Dysregulated Histone H3 Acetylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"KAT6A Pathogenic Variants\", \"target\": \"Heterozygous KAT6A Pathogenic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7183,6 +7318,9 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7284,6 +7422,9 @@ This clinical feature is Aplastic anemia (HP:0001915). HP:0001915 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7366,6 +7507,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7432,6 +7576,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7508,6 +7655,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7577,6 +7727,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7641,6 +7794,9 @@ This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7726,6 +7882,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7792,6 +7951,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7868,6 +8030,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7934,6 +8099,9 @@ This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8046,6 +8214,9 @@ This clinical feature is Low-set, posteriorly rotated ears, annotated with Abnor
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8110,6 +8281,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8193,6 +8367,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -8266,6 +8443,9 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8349,6 +8529,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8426,6 +8609,9 @@ This clinical feature is Craniofacial dysmorphism, annotated with Abnormal facia
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8527,6 +8713,9 @@ This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8595,6 +8784,9 @@ This clinical feature is Thin, tented upper lip vermilion, annotated with Thin u
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8671,6 +8863,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8737,6 +8932,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8815,6 +9013,9 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8888,6 +9089,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8973,6 +9177,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9048,6 +9255,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9174,6 +9384,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9267,6 +9480,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9368,6 +9584,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9434,6 +9653,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9530,6 +9752,9 @@ This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9633,6 +9858,9 @@ This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9699,6 +9927,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9817,6 +10048,9 @@ This disease-associated gene is KAT6A (hgnc:13013). hgnc:13013 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -9955,6 +10189,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9965,6 +10202,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10084,6 +10324,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10094,6 +10337,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -10213,6 +10459,9 @@ This treatment is septal defect repair (NCIT:C148075). NCIT:C148075 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10223,6 +10472,9 @@ This treatment is septal defect repair (NCIT:C148075). NCIT:C148075 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -10381,6 +10633,9 @@ This treatment uses L-carnitine, annotated with (R)-carnitine (CHEBI:16347). CHE
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10391,6 +10646,9 @@ This treatment uses L-carnitine, annotated with (R)-carnitine (CHEBI:16347). CHE
 
 
     </div>
+
+
+
 
 
 
@@ -10562,6 +10820,9 @@ This treatment uses acetyl-L-carnitine, annotated with O-acetyl-L-carnitine (CHE
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10572,6 +10833,9 @@ This treatment uses acetyl-L-carnitine, annotated with O-acetyl-L-carnitine (CHE
 
 
     </div>
+
+
+
 
 
 
@@ -14121,6 +14385,31 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Edit: Arboleda-Tham Syndrome - promote assessed provider findings</strong> · 2026-09-07T18:57:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Arboleda-Tham_Syndrome/2026-09-07T185730Z-claude-code-c78fbf.yaml">View source</a></p>
+                        <p class="research-review-text">Screened the entry&#39;s contested-mechanism hypothesis with the OpenScientist hypothesis deep-research runner, assessed the report into kb/hypotheses/&lt;disease&gt;/&lt;hypothesis_id&gt;/assessments/, and promoted only claims that survived that review. Bohring-Opitz gained three references: direct protein-level detection of truncated ASXL1 and sufficiency of a truncated fragment for neural-crest defects on the dominant/gain side, and constitutive Asxl1 deletion reproducing BOS-like malformations on the loss side, with the controversy rationale widened accordingly. Arboleda-Tham gained no new evidence; its late-truncating hypothesis was reframed as a severity modifier layered on a haploinsufficiency baseline rather than a competing primary mechanism. ADNP gained two items from one paper, mutant mRNA detected in patient blood supporting the branch premise and a systematic failure to detect mutant protein in patient material recorded as REFUTE, with the hypothesis description amended so it no longer implies the question is merely unexamined. The variant functional_impact_category stays UNKNOWN in all three: no run performed the comparison that would settle it, and nothing from any provider computational analysis was promoted because every bundle omitted the manifest and code it claimed. Validated with linkml-validate, the reference snippet audit, term validation, and the snippet-grading, enum, duplicate-key, entity-ref, title-snippet and reference-title checks.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Enhance Arboleda-Tham Syndrome from falcon and red-team review</strong> · 2026-07-31T00:03:13Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Arboleda-Tham_Syndrome/2026-07-31T000313Z-claude-code-d3c85f.yaml">View source</a></p>
+                        <p class="research-review-text">Same-session enhancement after falcon (Edison) deep-research completed and a red-team pre-PR review. Falcon corroborated the primary-literature entry and added two verified leads: the KAT6A-RSPO2-Wnt hippocampal-CA3 cognitive mechanism (PMID:38758792 Liu 2024, mouse, added as an EMERGING mechanistic hypothesis plus a MODEL_ORGANISM pathophysiology node) and pantothenate + L-carnitine supplementation correcting cellular abnormalities in patient fibroblasts (PMID:36553567 Munuera-Cabeza 2022, added as an experimental IN_VITRO treatment). Red-team review fixes: replaced the Recurrent Infections evidence snippet with one that actually supports recurrent infections (kept neutropenia as PARTIAL secondary evidence); recalibrated Seizures and Craniosynostosis frequency from VERY_RARE to OCCASIONAL to match ~9 and ~8 percent of the 76-patient cohort. All new snippets verified as exact substrings of freshly fetched cached abstracts; DOIs resolved to real PMIDs via PubMed. just validate passes; compliance 99.2 percent.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create Arboleda-Tham Syndrome (KAT6A)</strong> · 2026-07-30T23:53:39Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Arboleda-Tham_Syndrome/2026-07-30T235339Z-claude-code-1cdb17.yaml">View source</a></p>
+                        <p class="research-review-text">New KB entry for Arboleda-Tham syndrome / KAT6A syndrome (MONDO:0014558, gene KAT6A hgnc:13013). NEC preflight confirmed MONDO:0014558 maps to KAT6A/Arboleda-Tham (OMIM:616268), not CDK13. Deep research via falcon (Edison). Primary-literature baseline: the two founding AJHG 2015 papers (PMID:25728775 Arboleda, PMID:25728777 Tham), the 76-patient genotype-phenotype cohort (PMID:30245513 Kennedy 2019), and the KAT6A neuropsychological profile (PMID:38741077 Ng 2024). No dedicated KAT6A GeneReviews chapter exists. Curated a four-node pathophysiology chain (heterozygous KAT6A variant -&gt; allele-dependent NMD -&gt; dysregulated H3K9/H3K18 acetylation and altered p53 signaling -&gt; altered developmental transcriptional programs) with early/late-truncating NMD hypothesis groups; 18 phenotypes with frequency bands and exact-quote evidence; KAT6A causative genetic block; supportive-care, speech-therapy, and cardiac-intervention treatments. All snippets verified as exact substrings of cached abstracts. Validated with just validate (schema+terms+references pass); compliance 99.1%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4569,6 +4622,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-cad-loss-of-function" data-dismech-node="Biallelic CAD Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CAD Loss of Function</div>
 
+
                 <div class="item-desc">CAD is a single 2,225-residue polypeptide that assembles into a roughly 1.5 MDa hexameric particle carrying four catalytic domains in one chain: glutamine amidotransferase, carbamoyl phosphate synthetase II, aspartate transcarbamoylase and dihydroorotase. The covalent fusion of these activities into one particle is unique to animals. Biallelic variants reduce or abolish activity; missense alleles predominate and can act by disrupting oligomerization of a domain rather than by destroying a catalytic site — the feline variant below is a worked example of that route. A hypomorphic allelic class retaining partial activity produces a milder, primarily haematological phenotype.</div>
 
 
@@ -4881,6 +4935,7 @@ This pathophysiological event involves decreased dihydroorotase activity (GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-de-novo-pyrimidine-biosynthesis" data-dismech-node="Impaired De Novo Pyrimidine Biosynthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired De Novo Pyrimidine Biosynthesis</div>
 
+
                 <div class="item-desc">With CAD inactive, flux through de novo pyrimidine synthesis fails. Metabolic flux studies in patient fibroblasts show impaired incorporation of aspartate into RNA and DNA by this route. This is the rate-limiting lesion of the disease, and its position matters therapeutically: it lies upstream of the point at which the de novo and salvage routes converge, which is what leaves the disease bypassable.</div>
 
 
@@ -5062,6 +5117,7 @@ This pathophysiological event involves decreased &#39;de novo&#39; pyrimidine nu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pyrimidine-nucleotide-and-udp-sugar-pool-depletion" data-dismech-node="Pyrimidine Nucleotide and UDP-Sugar Pool Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Pyrimidine Nucleotide and UDP-Sugar Pool Depletion</div>
+
 
                 <div class="item-desc">The consequence is not only a nucleic-acid precursor shortage. CTP and UTP fall, and so do nearly all UDP-activated sugars, which are the donor substrates for glycosylation. The original report of the disease framed it as a glycosylation disorder for exactly this reason. Cells that rely on de novo synthesis rather than salvage — proliferating cells such as erythroid precursors, and neurons during development — are the ones that feel it.</div>
 
@@ -5266,6 +5322,7 @@ This pathophysiological event involves decreased &#39;de novo&#39; UMP biosynthe
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dyserythropoiesis" data-dismech-node="Dyserythropoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Dyserythropoiesis</div>
 
+
                 <div class="item-desc">The haematological arm is a dyserythropoietic anaemia with a strikingly abnormal blood film — anisopoikilocytosis, with target cells and poikilocytes described. It is one of the few features that can point at the diagnosis before sequencing, and it resolves on uridine. In the hypomorphic allelic class it can be the presenting and near-only feature.</div>
 
 
@@ -5385,6 +5442,7 @@ This pathophysiological event involves Erythroid lineage cell (CL:0000764). CL:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-neuronal-injury-and-brain-atrophy" data-dismech-node="Progressive Neuronal Injury and Brain Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Neuronal Injury and Brain Atrophy</div>
+
 
                 <div class="item-desc">Neuroimaging shows brain atrophy in most of the patients who have an abnormal MRI, involving the whole brain or the cerebellum, with delayed myelination and hydrocephalus reported less often. The atrophy is progressive if untreated, and at least one sibling pair showed that uridine can arrest it. This entry does not declare conformance to cerebellar_purkinje_degeneration: cerebellar atrophy is an imaging finding here, and no Purkinje-cell-specific lesion has been demonstrated in CAD deficiency.</div>
 
@@ -5521,6 +5579,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epileptic-encephalopathy" data-dismech-node="Epileptic Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Epileptic Encephalopathy</div>
 
+
                 <div class="item-desc">The clinical endpoint is an early-onset, drug-refractory epileptic encephalopathy with recurrent status epilepticus and loss of acquired skills, on a background of developmental delay. Most patients need multiple antiseizure medicines and remain refractory on them. This entry does not declare conformance to epilepsy_excitation_inhibition_imbalance: no excitation-inhibition measurement exists in CAD deficiency, and asserting that module&#39;s mechanism would substitute a plausible route for an evidenced one.</div>
 
 
@@ -5606,6 +5665,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intact-uridine-salvage-pathway" data-dismech-node="Intact Uridine Salvage Pathway" data-dismech-type="pathophysiology">
                 <div class="item-name">Intact Uridine Salvage Pathway</div>
+
 
                 <div class="item-desc">This node is what the disease is bypassable through, not a lesion. Pyrimidines can be recycled from uridine by a route that does not use CAD and enters the pathway downstream of the block, so supplying uridine restores the depleted pools without repairing the enzyme. It is curated as a node so the treatment below can point at it. The contrast with DTYMK deficiency is instructive and is drawn out in that entry: DTYMK sits downstream of where de novo and salvage converge, so the same trick does not work there.</div>
 
@@ -5821,6 +5881,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5885,6 +5948,9 @@ This clinical feature is Anisopoikilocytosis (HP:0004823). HP:0004823 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5984,6 +6050,9 @@ This clinical feature is Macrocytic anemia (HP:0001972). HP:0001972 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6048,6 +6117,9 @@ This clinical feature is Increased HbA2 hemoglobin (HP:0045048). HP:0045048 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6133,6 +6205,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6208,6 +6283,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6293,6 +6371,9 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6373,6 +6454,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6448,6 +6532,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6540,6 +6627,9 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6606,6 +6696,9 @@ This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6723,6 +6816,9 @@ This clinical feature is Status epilepticus (HP:0002133), qualified as temporali
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6814,6 +6910,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6913,6 +7012,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7000,6 +7102,9 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7082,6 +7187,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course pr
 
 
                     </div>
+
+
+
 
 
 
@@ -7176,6 +7284,9 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7292,6 +7403,9 @@ This disease-associated gene is CAD (hgnc:1424). hgnc:1424 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -7487,6 +7601,9 @@ This treatment uses uridine triacetate (CHEBI:90914). CHEBI:90914 is a therapeut
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7497,6 +7614,9 @@ This treatment uses uridine triacetate (CHEBI:90914). CHEBI:90914 is a therapeut
 
 
     </div>
+
+
+
 
 
 
@@ -10731,6 +10851,128 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Deliberate non-conformances. This entry does not declare conformance to epilepsy_excitation_inhibition_imbalance: that module runs through a measured excitation-inhibition imbalance, and no such measurement exists in CAD deficiency, so conforming would substitute a plausible route for an evidenced one. It likewise does not conform to cerebellar_purkinje_degeneration — cerebellar atrophy here is an imaging finding in 4 of 24 imaged patients, with no Purkinje-cell-specific lesion demonstrated. Both decisions are recorded so a later curator with new evidence knows what would need to change.
+Frequency bands are taken only from the 2024 pooled review, which reports each figure against an explicit denominator of 42 patients (or 19 and 24 for the extrapyramidal and imaging subsets). Phenotypes described only in single case reports carry no band.
+A note on this entry&#39;s deep-research report. Its own reference validation set `needs_review: true` with 4 of 9 quoted claims unsupported, despite a confabulation rate of 0.0 — the identifiers all resolved, the quotes did not match. No snippet in this entry was taken from that report; every one was read out of the cached reference. Five of the report&#39;s suggested ontology terms were also wrong, among them GO:0004087, which is the ammonia-dependent carbamoyl-phosphate synthetase of the urea cycle rather than CAD&#39;s glutamine-hydrolyzing CPS-II — a substitution that would have asserted the wrong enzyme. The bound term is GO:0004088.
+Review round on PR #9391. Three of the reviewer&#39;s six optional suggestions were applied: strabismus (7%) was added as a phenotype from the same denominator-bearing sentence already quoted elsewhere; uridine triacetate was added as a second `therapeutic_agent`; and an NCIT binding was added to the exome-sequencing diagnosis entry. Three were declined, with reasons. (An earlier draft of this paragraph said &#34;both diagnosis entries&#34;; only one was bound, for the reason given below.)
+The suggestion to curate uridine triacetate&#39;s reported four-to-six-fold bioavailability advantage was declined because no quotable source for it exists here. The review attributed the figure to &#34;Frederick et al. 2021, already cited as PMID:33497533&#34;, but PMID:33497533 is McGraw et al., &#34;A Tale of Two Siblings&#34;, and its cached record contains no bioavailability statement. The agent is therefore curated by identity (CHEBI:90914) without the pharmacokinetic claim.
+The review also relayed the deep-research report&#39;s suggestion of NCIT:C17004 for whole exome sequencing. That term is Genetic Polymorphism. The binding used is NCIT:C101295, verified against OLS4 — the third instance in this entry of a suggested term being wrong, and the reason every term here was checked individually rather than accepted. The peripheral blood film was left unbound: NCIT:C79903 Blood Smear is not reachable from NCIT:C25218 (Clinical Intervention or Procedure), so it fails the TreatmentActionTerm enum, and no reachable term names the assay. Leaving it unbound is preferred to binding a broader procedure term that would not mean &#34;blood film&#34;.
+`evidence_source: OTHER` was retained on the two PMID:34288185 items. The suggestion to consider IN_VITRO is reasonable, but that reference is a review article and the statements cited from it are descriptive summaries of protein architecture rather than experiments it performed, which is what OTHER is for.
+No `datasets:` block: the mechanistic work on this disorder is targeted nucleotide and UDP-sugar quantification in patient fibroblasts rather than deposited omics, and no disease-specific dataset was identified.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Bind drug-resistant epilepsy to HP:0020174 (PR #9391 re-review)</strong> · 2026-08-24T17:21:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Developmental_And_Epileptic_Encephalopathy_50/2026-08-24T172133Z-claude-code-35eb74.yaml">View source</a></p>
+                        <p class="research-review-text">Correcting a factual error in the previous round. The Epileptic encephalopathy phenotype description asserted that no HP term for drug-resistant epilepsy exists, and recorded refractoriness in prose on that basis. The assertion was wrong: HP:0020174 Refractory drug response exists, is a valid phenotypeterm enum member, and is already bound by eight sibling entries in this knowledge base via preferred_term post-composition. The error came from rejecting the deep-research report&#39;s suggestion of HP:0011451 (which really is Primary microcephaly) and then drawing the wrong conclusion from that rejection rather than searching HPO independently.
+
+Added a Drug-Resistant Epilepsy phenotype bound to HP:0020174, following the pattern used by the CYFIP2 entry, and reusing the PMID:38454370 snippet already present in the file (mean 3.72 antiseizure medicines, twenty drug-refractory cases in the pooled 42-patient review) - no new reference or research was needed. Removed the incorrect sentence from the Epileptic encephalopathy description and pointed it at the new phenotype instead.
+
+No frequency band is assigned, and the description says why: twenty of forty-two is 48 percent, which would fall in FREQUENT, but the proper denominator for refractoriness is the 73 percent who have epilepsy at all, and the source does not state it that way.
+
+Also corrected a claim in this entry&#39;s own notes, which said NCIT bindings were added to both diagnosis entries in the previous round. Only the exome-sequencing entry was bound; the peripheral blood film was left unbound because NCIT:C79903 Blood Smear is not reachable from NCIT:C25218 and fails the TreatmentActionTerm enum. The paragraph explained that correctly a few lines further down while summarising it wrongly at the top; the summary now matches.
+
+Validation: just validate (75/75 snippets verified, up from 74), just validate-terms, just validate-disorders, pytest -k Epileptic_Encephalopathy_50 (16 passed), all six ungated CI gates plus check-snippet-boundaries and check-not4curation - clean. No cache changes: HP:0020174 was already cached. Global compliance 94.9 percent.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Developmental and Epileptic Encephalopathy 50 (CAD deficiency)</strong> · 2026-08-24T16:13:09Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Developmental_And_Epileptic_Encephalopathy_50/2026-08-24T161309Z-claude-code-54329f.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo creation of the DEE50 / CAD deficiency entry, MONDO:0014647, claimed via issue #9387.
+
+Deep research: `just research-disorder claude_code`. NEC preflight PASS (CAD
+dominant, 76 mentions; report OMIM 616457 matches the MONDO xref).
+
+IMPORTANT provenance note on that report. Its own reference validation set
+`needs_review: true`: 9/9 identifiers resolved and confabulation_rate was 0.0,
+but only 5 of 9 quoted claims were supported, with 4 unsupported quotes
+attributed to PMC:PMC10921618 and PMC:PMC7951104. This is exactly the case the
+curation SOP warns about - a 0.0 confabulation rate is not an all-clear,
+because it measures identifier resolution only. Consequently NO snippet in this
+entry was taken from the report; every snippet was read directly out of the
+cached reference and verified.
+
+The report&#39;s suggested ontology terms were likewise checked individually
+against OLS4 rather than trusted, and five were wrong: HP:0011273 was offered as
+&#34;Anisopoikilocytosis&#34; but is Anisocytosis (the real term is HP:0004823);
+HP:0011344 was offered as &#34;Progressive developmental regression&#34; but is Severe
+global developmental delay; HP:0011451 was offered as &#34;Drug-resistant epilepsy&#34;
+but is Primary microcephaly; HP:0012156 was offered for dyserythropoiesis but is
+Hemophagocytosis; and HP:0003132 (offered for orotic aciduria) does not exist.
+Most consequentially the report suggested GO:0004087 for CAD&#39;s carbamoyl
+phosphate synthetase activity - that is the ammonia-dependent CPS1 of the urea
+cycle, a different enzyme in a different compartment. The entry binds GO:0004088
+(glutamine-hydrolyzing), which is CAD&#39;s CPS-II.
+
+Content: 8-node pathograph from biallelic CAD loss of function through impaired
+de novo pyrimidine biosynthesis and pyrimidine/UDP-sugar pool depletion to the
+dyserythropoietic and neuronal arms and an epileptic-encephalopathy endpoint,
+plus an `Intact Uridine Salvage Pathway` modifier node that exists so the
+treatment can point at it. Oral uridine uses target_mechanisms with ACTIVATES on
+the salvage node and BYPASSES on the depletion node - the BYPASSES semantics is
+what distinguishes this disorder from an untreatable enzymopathy. 16 phenotypes,
+genetic, prevalence, 4-phase progression, 2 diagnosis entries, 1 treatment, the
+naturally occurring CAD-deficient Bengal cat animal model, 2 experimental models
+(the CRISPR CAD-knockout complementation line, which is simultaneously model and
+diagnostic assay, and patient fibroblasts), a DTYMK differential, and 2
+KNOWLEDGE_GAP discussions.
+
+Deliberate non-conformances, recorded in notes: NOT
+epilepsy_excitation_inhibition_imbalance (no excitation-inhibition measurement
+exists in CAD deficiency, so conforming would substitute a plausible route for
+an evidenced one) and NOT cerebellar_purkinje_degeneration (cerebellar atrophy
+here is an imaging finding with no Purkinje-specific lesion demonstrated).
+
+Curation corrections made during the run: two reference_title values were wrong
+against the cache and were corrected from it (PMID:25678555 and PMID:38454370);
+an evidence item quoting PMID:39447673&#39;s title was removed entirely, because
+that cached record carries no abstract and a title is not a finding - the
+oligomerization claim it supported is now carried by the feline variant paper,
+which states the mechanism as a result; and four snippets taken from the 2024
+review&#39;s summary table extracted as run-together mid-word fragments
+(&#34;Hydrocephalus2/248Delayed myelination2/248&#34;) and were replaced with the
+paper&#39;s own prose sentence on imaging, which covers all three imaging
+phenotypes and their age dependence.
+
+Frequency bands come only from the 2024 pooled review, which states each figure
+against an explicit 42-patient denominator. Phenotypes whose counts exist only
+in the non-extractable table carry no band.
+
+Validation run and read: `just validate` (schema, terms, 73/73 snippets
+verified); the six ungated CI gates all clean; `just check-snippet-boundaries`
+and `just check-not4curation` clean; `just validate-disorders` run over the
+changed file.
+
+Review round on PR #9391 (approved, no CRITICAL or IMPORTANT findings, six
+optional suggestions). Three applied: strabismus (7%) added as a phenotype
+from the denominator-bearing sentence already quoted elsewhere; uridine
+triacetate added as a second therapeutic_agent (CHEBI:90914); NCIT:C101295
+bound to the exome-sequencing diagnosis entry. Three declined with reasons
+recorded in the entry notes: the reviewer&#39;s uridine-triacetate
+bioavailability figure was attributed to &#34;Frederick et al. 2021, already
+cited as PMID:33497533&#34;, but that PMID is McGraw et al. &#34;A Tale of Two
+Siblings&#34; and its cached record contains no bioavailability statement, so
+the agent is curated by identity without the pharmacokinetic claim; the
+reviewer relayed the deep-research report&#39;s NCIT:C17004 for whole exome
+sequencing, which is actually Genetic Polymorphism (the correct term,
+NCIT:C101295, was verified against OLS4); and evidence_source OTHER was
+retained on the two PMID:34288185 items because that reference is a review
+and the cited statements summarise protein architecture rather than
+experiments it performed. The peripheral blood film was left unbound because
+NCIT:C79903 Blood Smear is not reachable from NCIT:C25218 and so fails the
+TreatmentActionTerm enum. Post-review: 74/74 snippets verified, all gates
+clean, weighted compliance 95.3%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

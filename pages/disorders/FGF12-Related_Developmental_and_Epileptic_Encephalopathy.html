@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4522,6 +4575,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgf12-gain-of-function-missense-variant" data-dismech-node="FGF12 Gain-of-Function Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">FGF12 Gain-of-Function Missense Variant</div>
 
+
                 <div class="item-desc">The dominant lesion, most often p.Arg52His in the FHF1B isoform (equivalently p.Arg114His in FHF1A). Whole-gene duplication is an alternative dominant route acting through increased dosage rather than altered protein. FHFs were candidate epilepsy genes precisely because they bind Nav channels, which is how the gene was found.</div>
 
 
@@ -4622,6 +4676,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-weakened-fhf1-binding-to-the-nav-cytoplasmic-tail" data-dismech-node="Weakened FHF1 Binding to the Nav Cytoplasmic Tail" data-dismech-type="pathophysiology">
                 <div class="item-name">Weakened FHF1 Binding to the Nav Cytoplasmic Tail</div>
+
 
                 <div class="item-desc">The counterintuitive step, and the reason it is curated as its own node. The gain-of-function effect is predicted to arise from a *weaker* interaction between mutant FHF1 and the sodium channel cytoplasmic tail - a loss of binding producing a gain of channel function. Collapsing this into the downstream channel node would hide the fact that the direction of the binding change is opposite to the direction of the functional change.</div>
 
@@ -4736,6 +4791,7 @@ This pathophysiological event involves abnormal sodium channel regulator activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depolarizing-shift-in-nav1-6-fast-inactivation" data-dismech-node="Depolarizing Shift in Nav1.6 Fast Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Depolarizing Shift in Nav1.6 Fast Inactivation</div>
+
 
                 <div class="item-desc">The channel-level readout: mutant FHF1 enhances the depolarizing shift in the voltage-dependence of Nav1.6 fast inactivation, so channels remain available at potentials where they would normally be inactivated.</div>
 
@@ -4889,6 +4945,7 @@ This pathophysiological event involves increased voltage-gated sodium channel ac
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-intrinsic-neuronal-excitability" data-dismech-node="Increased Intrinsic Neuronal Excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Intrinsic Neuronal Excitability</div>
 
+
                 <div class="item-desc">Neurons carrying the variant are expected to fire more readily. Kept separate from the channel biophysics node because excitability is a cell-level property rather than a channel property. The status of this node is weaker than the nodes on either side of it: the founding study measured channel gating in Neuro2A cells and *predicted* increased excitability rather than recording it, so this is curated as a predicted step. No cell type is bound, because the supporting measurement was made in a neuroblastoma line rather than in an identified neuronal population.</div>
 
 
@@ -4964,6 +5021,7 @@ This pathophysiological event involves increased voltage-gated sodium channel ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epileptiform-network-activity" data-dismech-node="Epileptiform Network Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Epileptiform Network Activity</div>
+
 
                 <div class="item-desc">Spontaneous epileptiform discharge at the network level, demonstrated by cortical EEG in the genotype-matched knock-in mouse.</div>
 
@@ -5068,6 +5126,7 @@ This pathophysiological event involves increased voltage-gated sodium channel ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-cardiac-sodium-channel-function" data-dismech-node="Altered Cardiac Sodium Channel Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Cardiac Sodium Channel Function</div>
+
 
                 <div class="item-desc">FHF1 binds Nav1.5 in cardiomyocytes by the same mechanism it uses on neuronal channels, so the variant has a direct cardiac substrate independent of seizures. This node is drawn from the variant rather than from the neuronal chain, because the two organs are affected in parallel by one molecular lesion.</div>
 
@@ -5217,6 +5276,7 @@ This pathophysiological event involves abnormal voltage-gated sodium channel act
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-arrhythmia" data-dismech-node="Cardiac Arrhythmia" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Arrhythmia</div>
 
+
                 <div class="item-desc">Arrhythmia and bradycardia in the knock-in mouse, contributing to sudden death. The cardiac arm is what distinguishes this disorder&#39;s risk profile from most other developmental and epileptic encephalopathies, because the same lesion acts on the heart and the brain.</div>
 
 
@@ -5323,6 +5383,7 @@ This pathophysiological event involves abnormal voltage-gated sodium channel act
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-onset-refractory-seizures" data-dismech-node="Early-Onset Refractory Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Early-Onset Refractory Seizures</div>
 
+
                 <div class="item-desc">Seizures beginning in the neonatal or early infantile period. In the severe DEE47 phenotype they are refractory and accompanied by developmental impairment; at the milder end of the spectrum they respond to medication.</div>
 
 
@@ -5383,6 +5444,7 @@ This pathophysiological event involves abnormal voltage-gated sodium channel act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-fgf12-loss-of-function" data-dismech-node="Biallelic FGF12 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic FGF12 Loss of Function</div>
+
 
                 <div class="item-desc">A separate, recessive route to the same clinical syndrome. Biallelic intragenic structural variants, and a biallelic single-nucleotide variant, reduce or remove FHF1 function - the opposite direction of effect to the dominant missense variants. Curated as its own trigger node rather than folded into the gain-of-function chain, because both increased and decreased FHF1-mediated channel modulation destabilise network excitability and the entry should not imply they act through the same intermediate states.</div>
 
@@ -5569,6 +5631,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5672,6 +5737,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5768,6 +5836,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5839,6 +5910,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5903,6 +5977,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6069,6 +6146,9 @@ This disease-associated gene is FGF12 (hgnc:3668). hgnc:3668 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -6246,6 +6326,9 @@ This treatment uses oxcarbazepine (CHEBI:7824). CHEBI:7824 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6256,6 +6339,9 @@ This treatment uses oxcarbazepine (CHEBI:7824). CHEBI:7824 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -7810,6 +7896,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: FGF12-Related DEE (DEE47)</strong> · 2026-08-20T04:34:03Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/FGF12-Related_Developmental_and_Epileptic_Encephalopathy/2026-08-20T043403Z-claude-code-2cdc17.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for DEE47 (MONDO:0014949, OMIM 617166, FGF12/FHF1 hgnc:3668), curated from a claude_code deep-research run. NEC preflight PASS: FGF12 at 65 mentions with SCN2A and SCN8A appearing as channel partners rather than rival entities, and OMIM 617166 matching the MONDO xref exactly. The report&#39;s validator set needs_review true for three unsupported quotes. All three cited PMIDs were checked and are real, on-topic papers, including two 2026 papers whose unusually high PMIDs initially looked suspect. The most consequential flag was a quote about amenability to precision treatment with sodium channel blockers, attributed to two papers; inspection showed one of those papers explicitly reports the opposite, stating it found no clear correlation between sodium channel blocker treatment, its timing, and neurodevelopmental outcome. That disagreement is now curated as the entry&#39;s central CONTROVERSY, with the supporting cohort as SUPPORT and the null cohort as REFUTE on the same treatment. Three ontology bindings proposed by the report were wrong and corrected against OAK: GO:1902480 is protein localization to mitotic spindle rather than sodium channel regulation, so GO:0017080 sodium channel regulator activity and GO:1902305 regulation of sodium ion transmembrane transport were used; CL:0001031 is cerebellar granule cell rather than Purkinje cell, so that cell type was not curated; and GO:0086010 lacks the cardiac qualifier the report gave it, so GO:0086006 was used for the cardiac channel node. GeneReviews: the only chapter returned by an FGF12 search is the Brugada Syndrome chapter, in which FGF12 is a mentioned minor gene rather than the subject, so it is not the baseline for this disorder and was deliberately not tagged; this is recorded in the entry notes because tagging it would have been a category error. A title-quoting snippet was replaced with an abstract sentence stating the same finding. Five references cited, four with full text. Validation: just validate passed with 27 of 27 snippets verified; validate-terms, check-duplicate-keys, check_folded_hyphens, check_environmental_evidence, check-title-snippets and check_snippet_length all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

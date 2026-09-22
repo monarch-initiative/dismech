@@ -38,6 +38,8 @@ that does.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 # The real committed ancestries for two CURIEs, lifted verbatim out of
@@ -145,3 +147,19 @@ def stub_oak_hierarchy(request, monkeypatch):
     yield
 
     clear_caches()
+
+
+@pytest.fixture(scope="module")
+def preserve_kb_cache_environment():
+    """Restore the cache setting after tests call CLI entry points in-process.
+
+    CLI main() functions can call default_off(), which writes os.environ
+    directly. Module scope restores the original value after all function-level
+    monkeypatch fixtures have finished, including when the setting was absent.
+    """
+    before = os.environ.get("DISMECH_KB_CACHE")
+    yield
+    if before is None:
+        os.environ.pop("DISMECH_KB_CACHE", None)
+    else:
+        os.environ["DISMECH_KB_CACHE"] = before

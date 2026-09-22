@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5380,6 +5433,7 @@ This subtype is caused by variation in SPOP (hgnc:11254). hgnc:11254 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-spop-variation" data-dismech-node="Heterozygous SPOP Variation" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous SPOP Variation</div>
 
+
                 <div class="item-desc">Heterozygous SPOP variants alter the CUL3 ubiquitin-ligase substrate adaptor. The discovery cohort carried de novo missense alleles in or near the MATH domain; a later BACK-domain truncation produced a mixed presentation. Functional class cannot be assigned to every subsequent variant solely from clinical resemblance.</div>
 
 
@@ -5611,6 +5665,7 @@ This pathophysiological event involves CUL3-RING ubiquitin ligase complex (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-cul3-spop-substrate-degradation" data-dismech-node="Increased CUL3-SPOP Substrate Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased CUL3-SPOP Substrate Degradation</div>
 
+
                 <div class="item-desc">Gain-of-function variants (NSDVS type 1) enhance SPOP-mediated ubiquitination, accelerating proteasomal degradation of SPOP substrates.</div>
 
 
@@ -5639,6 +5694,8 @@ This pathophysiological event involves CUL3-RING ubiquitin ligase complex (GO:00
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -5651,6 +5708,9 @@ This pathophysiological event involves CUL3-RING ubiquitin ligase complex (GO:00
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Experimentally tested type 1 alleles p.Arg121Gln and p.Asp144Asn. A similar effect was proposed, not functionally demonstrated, for p.Arg121Trp and p.Met117Ile.</div>
 
@@ -5771,6 +5831,7 @@ This pathophysiological event involves increased proteasome-mediated degradation
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cul3-spop-substrate-degradation" data-dismech-node="Impaired CUL3-SPOP Substrate Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CUL3-SPOP Substrate Degradation</div>
 
+
                 <div class="item-desc">Dominant-negative variants (NSDVS type 2) interfere with residual wild-type SPOP, repressing ubiquitination and proteasomal degradation of SPOP substrates.</div>
 
 
@@ -5799,6 +5860,8 @@ This pathophysiological event involves increased proteasome-mediated degradation
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -5811,6 +5874,9 @@ This pathophysiological event involves increased proteasome-mediated degradation
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Type 2 variants p.Thr25Ala, p.Tyr83Cys, p.Gly132Val, and p.Arg138Cys.</div>
 
@@ -5950,6 +6016,7 @@ This pathophysiological event involves decreased proteasome-mediated degradation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-bet-protein-abundance" data-dismech-node="Reduced BET Protein Abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced BET Protein Abundance</div>
+
 
                 <div class="item-desc">Enhanced SPOP activity depletes BET family proteins (BRD2, BRD3, BRD4), chromatin readers broadly required for transcriptional regulation. In the defining study, type 1 patient variants reduced BET protein amounts in endometrial cancer cells and patient-derived cell lines.</div>
 
@@ -6169,6 +6236,7 @@ This pathophysiological event involves BRD4 (hgnc:13575). hgnc:13575 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bet-protein-accumulation" data-dismech-node="BET Protein Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">BET Protein Accumulation</div>
+
 
                 <div class="item-desc">Dominant-negative SPOP variants stabilize BET family proteins (BRD2, BRD3, BRD4) by repressing their ubiquitin-dependent degradation, the opposite cellular state to the type 1 class.</div>
 
@@ -6408,6 +6476,7 @@ This pathophysiological event involves BRD4 (hgnc:13575). hgnc:13575 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-differentiation" data-dismech-node="Impaired Neuronal Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Differentiation</div>
 
+
                 <div class="item-desc">Proposed reduction in neuronal differentiation after BET depletion in the gain-of-function class. This hypothesis was advanced to explain microcephaly using prior neuroepithelial models; it is not a demonstrated mediator of every cognitive or language finding.</div>
 
 
@@ -6609,6 +6678,9 @@ This clinical feature is Congenital heart disease, annotated with Abnormal heart
                     </div>
 
 
+
+
+
                     <div class="item-desc">The p.Met117Ile case was a premature twin born at 35 weeks; variant pathogenicity was argued from in silico and clinical evidence without segregation or functional confirmation. Its neonatal PDA/PFO cannot alone establish a specific SPOP cardiac mechanism.</div>
 
 
@@ -6680,6 +6752,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
                     </div>
 
 
+
+
+
                     <div class="item-desc">The p.Met117Ile case was a premature twin born at 35 weeks; variant pathogenicity was argued from in silico and clinical evidence without segregation or functional confirmation. Its neonatal PDA/PFO cannot alone establish a specific SPOP cardiac mechanism.</div>
 
 
@@ -6749,6 +6824,9 @@ This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The p.Met117Ile case was a premature twin born at 35 weeks; variant pathogenicity was argued from in silico and clinical evidence without segregation or functional confirmation. Its neonatal PDA/PFO cannot alone establish a specific SPOP cardiac mechanism.</div>
@@ -6849,6 +6927,9 @@ This clinical feature is Cardiovascular anomalies, annotated with Abnormality of
                     </div>
 
 
+
+
+
                     <div class="item-desc">The selected discovery cohort reported 4/4 for cardiovascular anomalies. Denominators vary by assessment; no standard frequency band is inferred.</div>
 
 
@@ -6918,6 +6999,9 @@ This clinical feature is Tricuspid regurgitation (HP:0005180). HP:0005180 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6996,6 +7080,9 @@ This clinical feature is Chronic constipation (HP:0012450). HP:0012450 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7078,6 +7165,9 @@ This clinical feature is Oral-pharyngeal dysphagia (HP:0200136). HP:0200136 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7169,6 +7259,9 @@ This clinical feature is Hearing loss, annotated with Hearing impairment (HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7268,6 +7361,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7335,6 +7431,9 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7415,6 +7514,9 @@ This clinical feature is Endocrinological anomalies, annotated with Abnormality 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The selected discovery cohort reported 3/4 for endocrine anomalies. Denominators vary by assessment; no standard frequency band is inferred.</div>
@@ -7500,6 +7602,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7569,6 +7674,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7633,6 +7741,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7732,6 +7843,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7801,6 +7915,9 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7865,6 +7982,9 @@ This clinical feature is Reduced contrast sensitivity (HP:0032036). HP:0032036 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7941,6 +8061,9 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8005,6 +8128,9 @@ This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8084,6 +8210,9 @@ This clinical feature is Astigmatism (HP:0000483). HP:0000483 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8153,6 +8282,9 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8232,6 +8364,9 @@ This clinical feature is Esotropia (HP:0000565). HP:0000565 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8297,6 +8432,9 @@ This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8385,6 +8523,9 @@ This clinical feature is Enuresis (HP:0000805). HP:0000805 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8464,6 +8605,9 @@ This clinical feature is Congenital microcephaly, annotated with Primary microce
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Congenital microcephaly describes the original type 1 cases. In the p.Arg121Trp longitudinal report, birth head circumference was at the third percentile and microcephaly became more marked postnatally; congenital onset should not be generalized to every type 1 individual.</div>
@@ -8565,6 +8709,9 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8658,6 +8805,9 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
                     </div>
 
 
+
+
+
                     <div class="item-desc">All seven discovery-cohort individuals were reported with this feature after ascertainment for unexplained developmental disability; the cohort does not estimate penetrance.</div>
 
 
@@ -8732,6 +8882,9 @@ This clinical feature is Blepharophimosis (HP:0000581). HP:0000581 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8796,6 +8949,9 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8870,6 +9026,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8934,6 +9093,9 @@ This clinical feature is Narrow forehead (HP:0000341). HP:0000341 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9008,6 +9170,9 @@ This clinical feature is Highly arched eyebrow (HP:0002553). HP:0002553 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9072,6 +9237,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9146,6 +9314,9 @@ This clinical feature is Pointed chin (HP:0000307). HP:0000307 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9210,6 +9381,9 @@ This clinical feature is Smooth philtrum (HP:0000319). HP:0000319 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9284,6 +9458,9 @@ This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9348,6 +9525,9 @@ This clinical feature is High forehead (HP:0000348). HP:0000348 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9422,6 +9602,9 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9486,6 +9669,9 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9562,6 +9748,9 @@ This clinical feature is Bulbous nose (HP:0000414). HP:0000414 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9628,6 +9817,9 @@ This clinical feature is Carious teeth (HP:0000670). HP:0000670 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9702,6 +9894,9 @@ This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9782,6 +9977,9 @@ This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9851,6 +10049,9 @@ This clinical feature is Long eyelashes (HP:0000527). HP:0000527 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9915,6 +10116,9 @@ This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10000,6 +10204,9 @@ This clinical feature is Limb hypertonia (HP:0002509). HP:0002509 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10073,6 +10280,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">All seven discovery-cohort individuals were reported with this feature after ascertainment for unexplained developmental disability; the cohort does not estimate penetrance.</div>
@@ -10171,6 +10381,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </div>
 
 
+
+
+
                     <div class="item-desc">All seven discovery-cohort individuals were reported with this feature after ascertainment for unexplained developmental disability; the cohort does not estimate penetrance.</div>
 
 
@@ -10247,6 +10460,9 @@ This clinical feature is Behavioral abnormalities, annotated with Atypical behav
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10313,6 +10529,9 @@ This clinical feature is Language disorder, annotated with Delayed speech and la
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10411,6 +10630,9 @@ This clinical feature is Epilepsy, annotated with Seizure (HP:0001250). HP:00012
                     </div>
 
 
+
+
+
                     <div class="item-desc">The selected discovery cohort reported 2/4 for epilepsy. Denominators vary by assessment; no standard frequency band is inferred.</div>
 
 
@@ -10482,6 +10704,9 @@ This clinical feature is Sleep disorders, annotated with Sleep disturbance (HP:0
                     </div>
 
 
+
+
+
                     <div class="item-desc">The selected discovery cohort reported 4/5 for sleep disturbance. Denominators vary by assessment; no standard frequency band is inferred.</div>
 
 
@@ -10551,6 +10776,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10659,6 +10887,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10723,6 +10954,9 @@ This clinical feature is Persistent head lag (HP:0032988). HP:0032988 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10797,6 +11031,9 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10864,6 +11101,9 @@ This clinical feature is Bruxism (HP:0003763). HP:0003763 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10942,6 +11182,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11014,6 +11257,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11081,6 +11327,9 @@ This clinical feature is Choking episodes (HP:0030842). HP:0030842 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11167,6 +11416,9 @@ This clinical feature is Nocturnal hypoventilation (HP:0002877). HP:0002877 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11244,6 +11496,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The selected discovery cohort reported 2/5 for the combined phrase failure to thrive and short stature. Denominators vary by assessment; no standard frequency band is inferred.</div>
@@ -11340,6 +11595,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The selected discovery cohort reported 2/5 for the combined phrase failure to thrive and short stature. Denominators vary by assessment; no standard frequency band is inferred.</div>
@@ -11492,6 +11750,9 @@ This disease-associated gene is SPOP (hgnc:11254). hgnc:11254 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11539,6 +11800,12 @@ This disease-associated gene is SPOP (hgnc:11254). hgnc:11254 is a gene from the
         SPOP p.Arg121Gln (c.362G&gt;A)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Gain-of-function variant; NSDVS type 1 (congenital microcephaly). Also a recurrent endometrial cancer somatic mutation.</div>
@@ -11600,6 +11867,12 @@ This disease-associated gene is SPOP (hgnc:11254). hgnc:11254 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Gain-of-function variant; NSDVS type 1.</div>
 
 
@@ -11657,6 +11930,12 @@ This disease-associated gene is SPOP (hgnc:11254). hgnc:11254 is a gene from the
         SPOP p.Thr25Ala (c.73A&gt;G)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Dominant-negative variant; NSDVS type 2.</div>
@@ -11718,6 +11997,12 @@ This disease-associated gene is SPOP (hgnc:11254). hgnc:11254 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Dominant-negative variant; NSDVS type 2.</div>
 
 
@@ -11775,6 +12060,12 @@ This disease-associated gene is SPOP (hgnc:11254). hgnc:11254 is a gene from the
         SPOP p.Gly132Val (c.395G&gt;T)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Dominant-negative variant; NSDVS type 2.</div>
@@ -11836,6 +12127,12 @@ This disease-associated gene is SPOP (hgnc:11254). hgnc:11254 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Dominant-negative variant; NSDVS type 2.</div>
 
 
@@ -11895,6 +12192,12 @@ This disease-associated gene is SPOP (hgnc:11254). hgnc:11254 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Confirmed de novo missense at Arg121, classified clinically as type 1. Gain of function was proposed by analogy with p.Arg121Gln, not demonstrated by a disease-allele functional assay.</div>
 
 
@@ -11952,6 +12255,12 @@ This disease-associated gene is SPOP (hgnc:11254). hgnc:11254 is a gene from the
         SPOP p.Met117Ile (c.351G&gt;T)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Variant reported in a premature girl clinically classified as type 1. The authors argued likely pathogenicity using computational and clinical criteria; segregation and a functional gain-of-function assay were unavailable.</div>
@@ -12038,6 +12347,12 @@ This disease-associated gene is SPOP (hgnc:11254). hgnc:11254 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">De novo nonsense variant truncating the BACK domain, reported with mixed type 1 and type 2 features; proposed to act by attenuating SPOP higher-order oligomerization.</div>
 
 
@@ -12095,6 +12410,12 @@ This disease-associated gene is SPOP (hgnc:11254). hgnc:11254 is a gene from the
         SPOP p.Cys23Arg (c.67T&gt;C)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Confirmed de novo missense in an infant classified as type 2, with relative head enlargement. Reduced mutant mRNA and protein abundance was measured in transfected cells; a dominant-negative BET degradation effect was not directly tested.</div>
@@ -12238,6 +12559,9 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12248,6 +12572,9 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -12348,6 +12675,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for families follows molecular confirmation; because all reported variants are de novo, recurrence risk for parents is low.</div>
 
 
@@ -12429,6 +12762,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -15902,6 +16241,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: SPOP-Related Neurodevelopmental Disorder</strong> · 2026-09-02T13:42:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SPOP-Related_Neurodevelopmental_Disorder/2026-09-02T134226Z-claude-code-8ae9d8.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of SPOP-related NDD (Nabais Sa-de Vries syndrome, MONDO:0032942 / OMIM:618828, with NSDVS type 2 MONDO:0032943 / OMIM:618829 carried as a subtype). Anchored on the defining cohort study PMID:32109420 (Nabais Sa et al. 2020 AJHG): de novo SPOP missense variants split into a gain-of-function class (p.Arg121Gln, p.Asp144Asn; increased substrate degradation; congenital microcephaly, type 1) and a dominant-negative class (p.Thr25Ala, p.Tyr83Cys, p.Gly132Val, p.Arg138Cys; impaired degradation; relative macrocephaly and hypertelorism, type 2). Pathophysiology modeled as a branching chain from the variant through the two opposite CUL3-SPOP substrate-degradation states to BET protein depletion/accumulation (PMID:28805821) and aberrant neurodevelopment, with genetic_context functional_impact_category on each class node and a bet_bidirectional_dysregulation EMERGING hypothesis group; the substrate-to-brain step is marked INDIRECT_UNKNOWN_INTERMEDIATES and recorded as a KNOWLEDGE_GAP discussion (functional assays were in Ishikawa endometrial cancer cells, not neural systems). Deep research: falcon (Edison) report research/SPOP-Related_Neurodevelopmental_Disorder-deep-research-falcon.md, reference_validation 8/8 verified, term_validation 23/23 verified, preflight-dr PASS against MONDO:0032942. The report surfaced the mouse Spop-null GLI3/Hedgehog branch (PMID:27930311, PMID:28412462), curated as an animal model with a PERTURBS link plus a HUMAN_MODEL_MISMATCH discussion. Case-report phenotypes and variants from PMID:35892095, PMID:36063898, PMID:36259278, PMID:39918173, PMID:42147571; SPOP structural role from PMID:19818708. GeneReviews: searched PubMed, no article exists for this disease. Validated with just validate, just validate-terms, just count-verified-snippets (62/62 verified), check-duplicate-keys, check-entity-refs, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-reference-titles, and the batched just validate-disorders gate.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

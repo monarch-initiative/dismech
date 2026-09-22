@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4322,6 +4375,7 @@ There is also a malformation the hypothesis does not reach at all. A third patie
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-actb-p-arg183trp-substitution" data-dismech-node="ACTB p.Arg183Trp Substitution" data-dismech-type="pathophysiology">
                 <div class="item-name">ACTB p.Arg183Trp Substitution</div>
 
+
                 <div class="item-desc">A recurrent heterozygous missense change at a residue adjacent to the nucleotide-binding pocket of cytoplasmic beta-actin. It is the same variant in essentially every reported patient, which is unusual enough to be worth stating: this is not an allelic series, it is one substitution.</div>
 
 
@@ -4332,6 +4386,8 @@ There is also a malformation the hypothesis does not reach at all. A third patie
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4351,6 +4407,9 @@ There is also a malformation the hypothesis does not reach at all. A third patie
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4444,6 +4503,7 @@ There is also a malformation the hypothesis does not reach at all. A third patie
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trapped-closed-state-actin-monomer" data-dismech-node="Trapped Closed-State Actin Monomer" data-dismech-type="pathophysiology">
                 <div class="item-name">Trapped Closed-State Actin Monomer</div>
+
 
                 <div class="item-desc">The tryptophan stacks against Tyr69. That interaction perturbs nucleotide release from the monomer and biases it towards a closed conformation, which is what changes its polymerization behaviour. Recombinant protein work and molecular dynamics simulation agree on the mechanism.
 The modifier is ABNORMAL rather than DECREASED, and the reason is about export rather than about the biology. A closed nucleotide cleft retains its nucleotide, so what falls is exchange, not binding - but the bound term is GO:0000166 nucleotide binding, and kgx_export drops preferred_term and emits only the term id plus a direction qualifier. DECREASED here would put &#34;beta-actin nucleotide binding is decreased&#34; into the knowledge graph, which is the inverse of what the source reports. GO has no term for the exchange step itself, so the honest pairing is the binding term with a non-directional modifier.</div>
@@ -4557,6 +4617,7 @@ This pathophysiological event involves abnormal actin nucleotide exchange, annot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-actin-filament-depolymerization-dynamics" data-dismech-node="Altered Actin Filament Depolymerization Dynamics" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Actin Filament Depolymerization Dynamics</div>
+
 
                 <div class="item-desc">The cellular readout, and the finding the disease was named from. Patient lymphoblastoid cells show a morphologically abnormal actin cytoskeleton and altered depolymerization kinetics when challenged with latrunculin A, a monomer-sequestering drug; the resistance is reproduced in fibroblasts expressing the mutant actin, so it is a property of the protein rather than of the patient&#39;s cells. The modifiers are DYSREGULATED and ABNORMAL rather than DECREASED because that is as far as the source goes: it reports &#34;altered&#34; depolymerization dynamics and &#34;morphological abnormalities&#34; of the cytoskeleton. Latrunculin resistance does suggest disassembly is harder to induce, but that reading is an inference, and the node is named for the alteration rather than for a direction.</div>
 
@@ -4743,6 +4804,7 @@ This pathophysiological event involves abnormal actin cytoskeleton organization 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stereocilia-maintenance-failure" data-dismech-node="Stereocilia Maintenance Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Stereocilia Maintenance Failure</div>
 
+
                 <div class="item-desc">The stereociliary core is an actin bundle. The mouse experiment that makes this branch credible is a negative one as much as a positive one: conditional deletion of Actb in hair cells leaves stereocilia development and young-animal hearing intact, and only produces progressive hearing loss with age. A maintenance defect rather than a developmental one is exactly what infant-onset progressive deafness from a constitutive variant needs.</div>
 
 
@@ -4917,6 +4979,7 @@ This pathophysiological event involves stereocilium (GO:0032420). GO:0032420 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-striatal-actin-turnover-failure" data-dismech-node="Striatal Actin Turnover Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Striatal Actin Turnover Failure</div>
 
+
                 <div class="item-desc">Dendritic spines are actin structures and their turnover is continuous, so a subtly abnormal actin is a chronic burden on striatal projection neurons rather than an acute one. That is the proposed reason the dystonia waits for adolescence.</div>
 
 
@@ -5065,6 +5128,7 @@ This pathophysiological event involves abnormal dendritic spine organization (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-striatal-dopaminergic-and-metabolic-deficit" data-dismech-node="Striatal Dopaminergic and Metabolic Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Striatal Dopaminergic and Metabolic Deficit</div>
 
+
                 <div class="item-desc">Measured, not inferred. Epidepride-SPECT shows reduced D2-receptor binding and FDG-PET reduced glucose uptake, both bilaterally and worst in the putamen, while the presynaptic dopamine-transporter scan is only slightly abnormal. The pattern is a postsynaptic and metabolic striatal deficit rather than nigrostriatal denervation, which is why this entry does not conform the node to the parkinsonism module.</div>
 
 
@@ -5159,6 +5223,7 @@ This pathophysiological event occurs in putamen (UBERON:0001874). UBERON:0001874
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-crest-migration-disturbance" data-dismech-node="Neural Crest Migration Disturbance" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Crest Migration Disturbance</div>
+
 
                 <div class="item-desc">Actin-driven lamellipodial motility carries neural crest cells to the face. This is the weakest of the three branches - it is a mechanism proposed to explain the craniofacial findings, with no migration assay reported for this variant - and it is recorded at that strength.</div>
 
@@ -5398,6 +5463,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5464,6 +5532,9 @@ This clinical feature is Achalasia (HP:0002571). HP:0002571 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5578,6 +5649,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5653,6 +5727,9 @@ This clinical feature is mild craniofacial dysmorphism, annotated with Abnormal 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5783,6 +5860,9 @@ This clinical feature is Cleft lip (HP:0410030), qualified as congenital onset. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5878,6 +5958,9 @@ This clinical feature is Cleft palate (HP:0000175), qualified as congenital onse
 
 
                     </div>
+
+
+
 
 
 
@@ -5994,6 +6077,9 @@ This clinical feature is Generalized dystonia (HP:0007325), qualified as course 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6087,6 +6173,9 @@ This clinical feature is Absent septum pellucidum (HP:0001331). HP:0001331 is a 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately left with no upstream pathophysiology node. The only published mechanism for the malformations in this disease is disturbed neural crest migration, and the neural crest does not form the septum pellucidum, so attaching this phenotype to that node would assert a developmental claim no source makes. The gap is recorded in the temporal_vulnerability_model_untested discussion instead.</div>
 
 
@@ -6158,6 +6247,9 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">PMID:36183459 names parkinsonism in its title and is the report that expanded the phenotype, but its cache is abstract_only and the abstract body does not mention parkinsonism at all - so there is nothing propositional to quote from it, and a title is not a finding. The evidence here comes from PMID:29788902 instead. The mechanistic question sits in the dystonia_progression_to_parkinsonism discussion; this record is the observation, which the discussion is not a substitute for.</div>
@@ -6238,6 +6330,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6304,6 +6399,9 @@ This clinical feature is caudate and putaminal T2 hyperintensity, annotated with
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6422,6 +6520,9 @@ This disease-associated gene is ACTB (hgnc:132). hgnc:132 is a gene from the HUG
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6552,6 +6653,9 @@ This treatment is bilateral pallidal deep brain stimulation, annotated with Deep
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6562,6 +6666,9 @@ This treatment is bilateral pallidal deep brain stimulation, annotated with Deep
 
 
     </div>
+
+
+
 
 
 
@@ -6722,6 +6829,9 @@ This treatment is bilateral subthalamic nucleus deep brain stimulation, annotate
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6732,6 +6842,9 @@ This treatment is bilateral subthalamic nucleus deep brain stimulation, annotate
 
 
     </div>
+
+
+
 
 
 
@@ -6891,6 +7004,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6901,6 +7017,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7047,6 +7166,9 @@ This treatment is motor cortex deep brain stimulation, annotated with Deep Brain
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7057,6 +7179,9 @@ This treatment is motor cortex deep brain stimulation, annotated with Deep Brain
 
 
     </div>
+
+
+
 
 
 
@@ -7201,6 +7326,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7211,6 +7339,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
     </div>
+
+
+
 
 
 
@@ -8692,6 +8823,56 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Self-review: consume PMID:36339314 — STN-DBS, drug failure, cleft lip, absent septum pellucidum</strong> · 2026-09-11T14:14:42Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Developmental_Malformations-Deafness-Dystonia_Syndrome/2026-09-11T141442Z-claude-code-ababd6.yaml">View source</a></p>
+                        <p class="research-review-text">Self-review round run while claude-review was unavailable (shared Claude account usage limit, resets 2026-09-12T20:00Z). I applied to this entry the finding shape the automated reviewer had raised on the other PRs in this batch - a deep-research source present in the report and absent from the YAML - and found three such sources.
+
+Two of the three are not usable: PMID:31970217 and PMID:35005077 are both Movement Disorders Clinical Practice case reports with no abstract in PubMed and no open full text, so their fetched caches are empty and nothing in them is quotable. They were fetched, inspected, and the empty cache files deleted rather than committed.
+
+The third, PMID:36339314, is substantial and produced four additions:
+
+- Bilateral subthalamic deep brain stimulation, curated as a treatment separate from the existing pallidal entry. The target is different - STN, not GPi - and the outcome is quantified (Burke-Fahn-Marsden motor score 44 to 20 at twelve months, with arm and leg improving far more than neck and trunk). Kept separate rather than merged into a generic DBS record because each target rests on one or two patients and merging would make the combined evidence look stronger than either.
+- Oral antidystonic pharmacotherapy, graded REFUTE against the claim that these agents control the dystonia: three years of unstable response to trihexyphenidyl and limited effect from clonazepam, baclofen and pramipexole. Added because the entry previously read as though stimulation were the only thing tried.
+- Cleft lip (HP:0410030), curated separately from the general Abnormal facial shape record because a cleft is a discrete fusion failure rather than a description of facial shape.
+- Absent septum pellucidum (HP:0001331), deliberately left with no upstream pathophysiology node. The only published mechanism for the malformations here is disturbed neural crest migration, and the septum pellucidum is a midline forebrain derivative rather than a neural crest derivative, so attaching it would assert a developmental claim no source makes. The temporal_vulnerability_model_untested discussion now records this explicitly: the hypothesis explains the face and not the midline CNS, which matters for a disease whose name begins with developmental malformations.
+
+One tooling note, recorded in the evidence explanation itself. The headline outcome sentence contains the source&#39;s own bracketed abbreviation of the rating scale. The reference validator strips bracketed spans from the query side and keeps literal only spans matching ^[A-Z]{2,}$, which a hyphenated abbreviation cannot match, so the verbatim quote failed. The snippet uses an ellipsis eliding exactly that bracket and nothing else, and says so. The config pattern was not widened, since CLAUDE.md asks for a whole-KB replay before changing it.
+
+Validation: just validate-disorders (schema, terms, 34/34 snippets); check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values, check-snippet-grading, check-title-snippets, check-snippet-length, check-reference-titles, check-environmental-evidence, check-folded-hyphens all clean; bulk OLS id/label comparison over 26 pairs, 0 mismatches. Cache diff is two lines.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Developmental_Malformations-Deafness-Dystonia_Syndrome</strong> · 2026-09-11T13:05:27Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Developmental_Malformations-Deafness-Dystonia_Syndrome/2026-09-11T130527Z-claude-code-1e298c.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of developmental malformations-deafness-dystonia syndrome (MONDO:0011823, ACTB p.Arg183Trp).
+
+DEEP-RESEARCH PROVIDER: the brief asked for perplexity; the account quota was exhausted mid-run (HTTP 401 insufficient_quota). The run was re-issued with just dr_fallback=&#39;--fallback&#39; rather than substituting a provider by hand, and the handover is recorded in the report frontmatter (requested_provider perplexity, fell_back true, provider_attempts perplexity/falcon/claude_code). Report: research/Developmental_Malformations-Deafness-Dystonia_Syndrome-deep-research-claude_code.md, 24 citations.
+
+The report earned its place: PMID:16685646, the 2006 paper that first identified the variant and did the latrunculin A work, and PMID:20976199, the conditional Actb hair-cell deletion study, were both absent from my relevance-sorted PubMed searches and are now the backbone of the molecular and auditory arms respectively.
+
+Report validation read before use. reference_validation: 13/13 resolved but quotes_valid 1 of 5, with unsupported quotes attributed to PMID:28487785 and PMC:PMC5405358. No quoted material was taken from the report; every snippet here was copied from references_cache and verified. term_validation: 2 of 12 labels mismatched (HP:0025230 offered as &#39;Dystonic tremor&#39; when HPO calls it Tendonitis; NCIT:C1364 as &#39;Botulinum Toxin&#39; when NCIT calls it Didemnin B). No CURIE was taken from the report; all bindings were looked up in the same step they were written and then re-checked in bulk with a per-file id/label comparison against OLS before validation.
+
+LUMP/SPLIT DECISION. Curated as a separate Disease rather than a has_subtypes entry on Baraitser-Winter_Cerebrofrontofacial_Syndrome, which already carries a BRWS1 subtype for ACTB. Grounds: the variant is recurrent and specific rather than one of an allelic series; the phenotype is dominated by two features Baraitser-Winter does not have; the later reports describe it as distinct and overlapping rather than nested; MONDO assigns a separate term. Recorded as an open discussion rather than presented as settled, with the alternative remedy named, because it is a judgement a reviewer may reasonably take the other way.
+
+All three branch edges from the cellular node are marked INDIRECT_UNKNOWN_INTERMEDIATES. They rest on one temporal-vulnerability hypothesis stated in one paper, and the entry says so rather than asserting stage-specific mechanisms as demonstrated. The auditory branch has independent mouse support for the development-versus-maintenance split but not for this variant.
+
+One evidence item is graded REFUTE: PMID:28487785 against the claim that craniofacial dysmorphism is constant in this disease, since that paper reports the identical variant WITHOUT midline malformation. The explanation states explicitly that it refutes the constancy of the phenotype and not the disease.
+
+No conforms_to. sensorineural_hair_cell_loss and parkinsonism_dopaminergic_degeneration were both read and rejected, with the reasons written into the entry description rather than left as omissions.
+
+One validation failure: &#39;located_in&#39; is a Descriptor slot and is not available on Pathophysiology; the correct slot is &#39;locations&#39;.
+
+Validated with just validate (schema, terms, 29/29 snippets), check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values, check-snippet-grading.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

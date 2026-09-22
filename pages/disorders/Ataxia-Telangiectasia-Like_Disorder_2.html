@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5054,6 +5107,7 @@ No source cited here reports methylation in ATLD2 patient cells, so this is an u
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-hypomorphic-pcna-variant" data-dismech-node="Biallelic Hypomorphic PCNA Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Hypomorphic PCNA Variant</div>
 
+
                 <div class="item-desc">A homozygous missense substitution in PCNA that reduces but does not abolish function. The hypomorphic requirement is structural to the disease rather than incidental: PCNA is essential, so the alleles that can produce a living affected person are only those that leave enough function to support replication.</div>
 
 
@@ -5124,6 +5178,8 @@ This genetic context concerns PCNA (hgnc:8729). hgnc:8729 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5136,6 +5192,9 @@ This genetic context concerns PCNA (hgnc:8729). hgnc:8729 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Two alleles are described: p.Ser228Ile, a founder allele in an Ohio Amish pedigree, and p.Cys148Ser. Both are homozygous in affected individuals. They differ in molecular consequence, which is why this entry carries two mechanistic hypotheses rather than one chain.</div>
 
@@ -5315,6 +5374,7 @@ This pathophysiological event involves PCNA complex (GO:0043626). GO:0043626 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pcna-client-protein-binding" data-dismech-node="Impaired PCNA Client Protein Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired PCNA Client Protein Binding</div>
+
 
                 <div class="item-desc">PIP-box client proteins bind the altered PCNA pocket less well. The impairment is broad rather than selective, and includes Cdt1 and DNMT1 as well as the Okazaki-fragment enzymes. It is notably not universal: p21 still binds, which is what makes the defect a change in the pocket&#39;s preferences rather than its abolition.</div>
 
@@ -5501,6 +5561,7 @@ This pathophysiological event involves decreased PCNA client protein binding.</s
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-pcna-thermostability" data-dismech-node="Reduced PCNA Thermostability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced PCNA Thermostability</div>
+
 
                 <div class="item-desc">The mutant trimer is less thermostable than wild type. In cells this presents as less PCNA loaded on chromatin and as phenotypes that vary with temperature, which is an unusual and clean signature: a disease whose cellular readout moves when you change the incubator.</div>
 
@@ -5696,6 +5757,7 @@ This pathophysiological event involves decreased PCNA protein stability.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-dna-damage-response" data-dismech-node="Defective DNA Damage Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective DNA Damage Response</div>
+
 
                 <div class="item-desc">Patient cells survive UV irradiation poorly and fail to recover RNA synthesis after it. The RNA-synthesis-recovery deficit is the signature of impaired transcription-coupled nucleotide excision repair, and it is what puts this disorder among the NER-related diseases despite its ataxia-telangiectasia name. Basal DNA replication is unaffected, so this is a damage-response defect specifically rather than a general replication defect.</div>
 
@@ -6014,6 +6076,9 @@ This clinical feature is Telangiectasia (HP:0001009). HP:0001009 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6080,6 +6145,9 @@ This clinical feature is Conjunctival telangiectasia (HP:0000524). HP:0000524 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6165,6 +6233,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6245,6 +6316,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6313,6 +6387,9 @@ This clinical feature is Abnormal inner ear morphology (HP:0011390). HP:0011390 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6398,6 +6475,9 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6478,6 +6558,9 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6551,6 +6634,9 @@ This clinical feature is Prematurely aged appearance (HP:0007495). HP:0007495 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6619,6 +6705,9 @@ This clinical feature is Neoplasm of the skin (HP:0008069). HP:0008069 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6706,6 +6795,9 @@ This clinical feature is Abnormal foot morphology (HP:0001760). HP:0001760 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6781,6 +6873,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6866,6 +6961,9 @@ This clinical feature is Neurodegeneration (HP:0002180). HP:0002180 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6932,6 +7030,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7028,6 +7129,9 @@ This clinical feature is Cognitive impairment (HP:0100543), qualified as course 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7119,6 +7223,9 @@ This clinical feature is Gait ataxia (HP:0002066), qualified as course progressi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7185,6 +7292,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7265,6 +7375,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7383,6 +7496,9 @@ This disease-associated gene is PCNA (hgnc:8729). hgnc:8729 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9842,6 +9958,72 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Lump/split decision: DISEASE. MONDO:0014399 names one entity with one conserved pathograph - biallelic hypomorphic PCNA, a damage-response defect, and a progeroid-neurodegenerative-photosensitive syndrome - and the stub is retired accordingly. Neither MONDO parent (ataxia-telangiectasia-like disorder MONDO:0011457, DNA repair disease MONDO:0021190) is curated, so nothing here duplicates an existing entry. ATLD1 (MRE11) is a separate disease and is carried here only as a differential.
+The two alleles are curated as one disease with two mechanistic hypotheses rather than as two diseases or as one chain. That is a deliberate call. They are clinically the same syndrome and both are called PARD in the literature, so splitting would be wrong; but the published molecular accounts of them are incompatible in a way that a single chain would have to paper over, so lumping them into one mechanism would also be wrong. The hypothesis groups and the allele_specific_mechanism knowledge gap are how the entry says both things at once.
+A limitation of the curation worth naming, because it affects how every evidence item here should be read: dismech&#39;s EvidenceItem has no slot for which allele an experiment was performed on. In a disease where the two causal alleles demonstrably differ in molecular consequence, that matters, and the only place this entry can record it is in free-text explanation fields. Where an evidence item is allele-specific, its explanation says so explicitly.
+Sample sizes are similarly carried in prose rather than in structure. The entire clinically described population of the founding report is four individuals from one pedigree, and cerebellar atrophy rests on imaging in one of them. Where a snippet could be chosen either with or without its denominator, this entry chose the one that carries it.
+No treatments section. No disease-modifying or symptomatic treatment specific to this disorder is reported in the cited literature, and inventing a supportive-care row would assert clinical content that does not exist. Sun protection follows from the photosensitivity by the same logic as in the other NER disorders but is not stated for this disease in any source cited here, so it is not curated as a treatment.
+No animal or experimental models. None is reported for this disorder. This is a real gap rather than an unsearched one and is recorded in the second knowledge gap.
+The deep-research report generated for this entry is committed alongside it under research/. Reference selection and every snippet were taken from the fetched reference cache rather than from the report. It passes just preflight-dr against MONDO:0014399 - PCNA is named 72 times, and the OMIM number in the report matches MONDO&#39;s - which is worth stating because the sibling KIDAR entry curated in the same run had to discard its report entirely for naming the wrong disease.
+On the report&#39;s references. It cites fourteen; thirteen are cited here, and the two that are not are deliberate. PMID:38814467 reviews the bacterial beta-clamp - useful background on sliding clamps as a protein family, and not evidence about a human disease. PMID:23622410 is a general review of progressive cerebellar atrophy in childhood that mentions ATLD in a list; citing it would add a reference and no claim. Neither cache file is committed, since this entry does not cite them. The disease-specific weight is carried by PMID:24911150, PMID:28073635 and PMID:36990216, which are cited throughout.
+Three of the report&#39;s references describe MRE11-related ATLD1 rather than this disease. They are cited here only in the ATLD1 differential row, and the explanations on those items say so. The two disorders share a name and a numbering and nothing mechanistic, so quoting an ATLD1 cohort anywhere else in this entry would be exactly the wrong-entity error the KIDAR entry in this run documents - reached by shared name rather than by shared gene.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: add the missing cardinal phenotype, mine the founding report harder, link UV</strong> · 2026-09-10T19:38:02Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Ataxia-Telangiectasia-Like_Disorder_2/2026-09-10T193802Z-claude-code-2c58b8.yaml">View source</a></p>
+                        <p class="research-review-text">Round 1 of review on PR #11641. Both blocking items and all four suggestions, in one push. Snippets 48 to 62; phenotypes 7 to 18.
+
+BLOCKING 1, premature aging. The reviewer is right and the miss is embarrassing in a specific way: the entry quotes the six-cardinal-features sentence six times, curates five of the six, declares Progeroid Syndrome among its parents, and asserts in a differential row that premature aging is cardinal here. Every signal pointed at the gap except the phenotypes list itself.
+
+One correction to the finding. Both the deep-research report and the review propose binding either HP:0007495 or HP:0001025. HP:0001025 is Urticaria. Binding it would have asserted an unrelated dermatological finding in a progeroid disorder, and it would have validated cleanly, because term validation checks that a label matches its CURIE and not that the concept matches the claim. Bound to HP:0007495 Prematurely aged appearance, with the reasoning recorded in the phenotype description so the next reader does not repeat the suggestion. This is the CLAUDE.md rule about a report&#39;s CURIE being a lead rather than an answer, and it survived one review round before being caught.
+
+BLOCKING 2, references. PMID:23436002 and PMID:24733832 were cited in the ATLD1 differential but absent from the top-level references block. Added with titles copied from the cache frontmatter.
+
+SUGGESTIONS, all taken. Nine further phenotypes from the founding report, which is the only clinical source this disorder has and was already committed here: cognitive decline, progressive gait instability, muscle weakness, dysphagia, dysarthria, foot deformity, photophobia, predisposition to sun-induced skin malignancy, and labyrinthine dysplasia. Three curation notes worth recording. Dysphagia and dysarthria are split from the source&#39;s single speech-and-swallowing clause because they are different functions with different consequences. Dysarthria is graded INDIRECT since the source says difficulties with speech without specifying a motor-speech deficit. The malignancy row asserts a predisposition rather than a rate, keeping the authors&#39; evidence of qualifier, because four affected individuals cannot support a frequency.
+
+The unevidenced distinguishing feature is now evidenced. The ATM row asserted no immunodeficiency or raised alpha-fetoprotein with only a nosology review cited, which does not carry it. The founding report does, in two places: the absence sentence, and the methods-level list confirming AFP and immunoglobulins were measured and normal. The second matters because it turns an absence into a finding rather than an untested assumption. The same sentence supplied a discriminator the row had not named, oculomotor apraxia, now added.
+
+UV is curated as an environmental entry with influences_mechanisms to the repair node, environmental_effect EXACERBATES rather than TRIGGERS. The disease is the repair defect; UV is what makes it visible. The entry says so explicitly and notes the interaction is demonstrated in patient fibroblasts under controlled irradiation, with no dose-response reported in patients.
+
+Validation: schema clean, terms clean, 62 of 62 snippets verified, and entity refs, duplicate keys, causal targets, enum values and qualifier terms all clean.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Consume the deep-research references before opening the PR</strong> · 2026-09-10T18:52:05Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Ataxia-Telangiectasia-Like_Disorder_2/2026-09-10T185205Z-claude-code-d44d73.yaml">View source</a></p>
+                        <p class="research-review-text">Pre-PR pass over the deep-research report, done before opening the PR rather than after review.
+
+The first draft cited 3 of the 14 references the report offers. That is the same under-consumption pattern the reviewers flagged on all four sibling PRs in this claim run (#11619, #11621, #11622, #11630), so it was worth fixing here before a reviewer had to. Eleven are now cited and verified snippets went 33 to 48. Reading the rest changed content rather than padding it.
+
+PMID:26688547 was the keystone omission: the crystal structure of the S228I variant. It shows the client-binding pocket itself is remodelled by a large conformational change, which makes the interaction defect a property of the clamp rather than of any one partner. It independently confirms the p21 exception the entry had already recorded from a different group and method, and it explains why the defect is selective rather than uniform - the remodelled pocket can still flex to accommodate some ligands.
+
+PMID:37511614 is a second laboratory reaching the C148S result by FRET, intrinsic tryptophan fluorescence, DSF and AF4: no partner-affinity effect, impaired stability, and a mechanism the founding report did not name, increased aggregation. That takes the EMERGING reduced_functional_clamp_pool hypothesis from one group&#39;s assay to two, and the aggregation finding bears on how the thermostability node should be read - a clamp that aggregates leaves the functional pool as surely as one that unfolds.
+
+PMID:25972089 supplies a candidate reason p21 in particular survives the pocket remodelling: it is an atypical PIP-box with the highest known PCNA affinity, tethered by a tyrosine that most partners do not carry. Graded INDIRECT because the work is on wild-type PCNA and does not test the variant. PMID:33984330 sets the scale the selectivity must be read against - native PIP-box affinities already span four orders of magnitude, so a pocket change will not affect all partners equally even before any structural accommodation.
+
+Two knowledge gaps added, both acting on report findings the first draft had left alone.
+
+why_the_phenotype_is_neurological asks the question the pathograph does not answer: PCNA is required in every dividing cell, so why is this a cerebellar disease. PMID:17236820 supplies a testable candidate, that global-genome NER and PCNA recruitment to UV-damage sites are both constitutively lower in neurons and astrocytes than in fibroblasts, so neural cells may already sit near the lower limit of what the pathway delivers. It is rat primary culture on wild-type cells, so it is graded INDIRECT and MODEL_ORGANISM and recorded as a hypothesis about general biology rather than an observation about this disease. The gap names the two measurements that would move it.
+
+untested_epigenetic_branch records that DNMT1 is among the impaired clients and that nobody has looked for a methylation defect in patient cells. PMID:23535145 establishes the PCNA-dependent loading route and PMID:17994007 the parallel UHRF1/Np95 route; the second matters because a PCNA-side defect need not abolish maintenance methylation, so the branch could be real and still hard to detect. Recorded rather than modelled - putting a methylation node in the pathograph would assert a claim no source makes.
+
+Three of the report&#39;s references describe MRE11-related ATLD1, a different gene and a different repair pathway sharing only the clinical name and the numbering. They are cited only in the ATLD1 differential row, their explanations say so, and notes records why quoting them anywhere else would be the same wrong-entity error the sibling KIDAR entry documents, reached through a shared name rather than a shared gene. Three further references are deliberately uncited and notes says which and why: a bacterial beta-clamp review, which is not evidence about a human disease, and a general cerebellar-atrophy review that mentions ATLD in a list and would add a citation without a claim.
+
+Also: the links.issues field on the CREATE record was empty and is now filled with issue 11610, read back from the API. Three of the four sibling PRs in this run had a wrong issue number in a history record because the numbers were written from working memory of a contiguous block; that is why this one was looked up.
+
+Validation: schema clean, terms clean, 48 of 48 snippets verified, and entity refs, duplicate keys, causal targets, enum values and qualifier terms all clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3955,7 +4008,19 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
+
+            <a class="stat-link" href="#mappings">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔗</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Mappings</div>
+            </div>
+            </a>
 
 
 
@@ -4147,6 +4212,103 @@
 
         <!-- Mappings -->
 
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0011864" target="_blank" class="missing-ontology-link">MONDO:0011864</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">immunodeficiency, common variable, 1</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0011864 (CVID1) is a direct MONDO subclass of MONDO:0015517 for the ICOS-caused form; ICOS deficiency is modeled in this entry&#39;s `genetic:` section as a CAUSATIVE gene. narrowMatch because MONDO models the gene-specific numbered subtype as a child of the general CVID class rather than as an equivalent term.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0014697" target="_blank" class="missing-ontology-link">MONDO:0014697</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">immunodeficiency, common variable, 12</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0014697 (CVID12) is a direct MONDO subclass of MONDO:0015517 for the NFKB1-caused form; NFKB1 haploinsufficiency is modeled in this entry&#39;s `genetic:` section as a CAUSATIVE gene. narrowMatch for the same reason as CVID1 above.</div>
+
+                </div>
+
+            </div>
+
+
+
+
+
+        </div>
+
 
         <!-- Definitions -->
 
@@ -4177,6 +4339,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-b-cell-differentiation-and-class-switch-recombination" data-dismech-node="Defective B Cell Differentiation and Class-Switch Recombination" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective B Cell Differentiation and Class-Switch Recombination</div>
+
 
                 <div class="item-desc">The hallmark of CVID is a failure of B cells to differentiate into immunoglobulin-secreting plasma cells. Defective class-switch recombination leads to impaired production of IgG, IgA, and often IgM. Most patients show reduced switched memory B cells (CD27+IgD-IgM-). Defects in B cell receptor signaling, BAFF/APRIL axis, and NF-kB signaling all converge on impaired germinal center output.</div>
 
@@ -4469,6 +4632,7 @@ This pathophysiological event involves B Cell Activation (GO:0042113). GO:004211
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-t-cell-dysregulation" data-dismech-node="T Cell Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">T Cell Dysregulation</div>
 
+
                 <div class="item-desc">Many CVID patients exhibit T cell abnormalities including reduced naive CD4+ T cells, expanded CD21low B cells, impaired T cell proliferation, and skewed T helper cell responses. T follicular helper cell dysfunction contributes to impaired germinal center reactions and defective B cell help. ICOS deficiency specifically impairs T cell help for late B cell differentiation and memory B cell generation.</div>
 
 
@@ -4622,6 +4786,7 @@ This pathophysiological event involves T Cell Activation (GO:0042110). GO:004211
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-dysregulation-and-autoimmunity" data-dismech-node="Immune Dysregulation and Autoimmunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Dysregulation and Autoimmunity</div>
+
 
                 <div class="item-desc">Approximately 25-50% of CVID patients develop autoimmune complications, most commonly autoimmune cytopenias (immune thrombocytopenia and autoimmune hemolytic anemia). This reflects a breakdown of peripheral tolerance and defective regulatory T cell function, particularly through the CTLA-4/LRBA checkpoint axis. Expansion of autoreactive CD21low B cells contributes to antibody-mediated autoimmunity.</div>
 
@@ -4782,6 +4947,7 @@ This pathophysiological event involves Immune Response (GO:0006955). GO:0006955 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulomatous-disease-and-glild" data-dismech-node="Granulomatous Disease and GLILD" data-dismech-type="pathophysiology">
                 <div class="item-name">Granulomatous Disease and GLILD</div>
+
 
                 <div class="item-desc">CVID-associated granulomatous and lymphocytic interstitial lung disease (GLILD) involves poorly organized granulomas with abundant T and B cells. Key features include Th1 polarization with elevated IFN-gamma and sIL-2R, B cell abnormalities with elevated BAFF and CD21low B cells, and innate immune alterations including M2 macrophage skewing and neutrophil dysregulation.</div>
 
@@ -5059,6 +5225,9 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5127,6 +5296,9 @@ This clinical feature is Decreased Circulating IgG, annotated with Decreased cir
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5205,6 +5377,9 @@ This clinical feature is Decreased Circulating IgA, annotated with Decreased cir
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5274,6 +5449,9 @@ This clinical feature is Autoimmune Hemolytic Anemia (HP:0001890). HP:0001890 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5338,6 +5516,9 @@ This clinical feature is Autoimmune Thrombocytopenia (HP:0001973). HP:0001973 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5436,6 +5617,9 @@ This clinical feature is Granulomatous Disease, annotated with Granulomatosis (H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5557,6 +5741,9 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5690,6 +5877,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5754,6 +5944,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5864,6 +6057,9 @@ This clinical feature is CVID enteropathy, annotated with Chronic diarrhea (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5939,6 +6135,9 @@ This clinical feature is Recurrent Infections (HP:0002719). HP:0002719 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6049,6 +6248,9 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6140,6 +6342,9 @@ This clinical feature is granulomatous-lymphocytic interstitial lung disease, an
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6260,6 +6465,9 @@ This disease-associated gene is TNFRSF13B (hgnc:18153). hgnc:18153 is a gene fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6330,6 +6538,9 @@ This disease-associated gene is ICOS (hgnc:5351). hgnc:5351 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -6433,6 +6644,9 @@ This disease-associated gene is NFKB1 (hgnc:7794). hgnc:7794 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6532,6 +6746,9 @@ This disease-associated gene is CTLA4 (hgnc:2505). hgnc:2505 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6606,6 +6823,9 @@ This disease-associated gene is LRBA (hgnc:1742). hgnc:1742 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6676,6 +6896,9 @@ This disease-associated gene is TNFRSF13C (hgnc:17755). hgnc:17755 is a gene fro
 
 
                 </div>
+
+
+
 
 
 
@@ -6779,6 +7002,9 @@ This disease-associated gene is CTNNBL1 (hgnc:15879). hgnc:15879 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6853,6 +7079,9 @@ This disease-associated gene is TNFSF12 (hgnc:11927). hgnc:11927 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6923,6 +7152,9 @@ This disease-associated gene is TNFSF13 (hgnc:11928). hgnc:11928 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -7028,6 +7260,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7038,6 +7273,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
     </div>
+
+
+
 
 
 
@@ -7176,6 +7414,9 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7186,6 +7427,9 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7238,6 +7482,12 @@ This treatment is immunosuppressive therapy, annotated with Pharmacotherapy (NCI
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7355,6 +7605,12 @@ This treatment uses abatacept (NCIT:C28898). NCIT:C28898 is a therapeutic agent 
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -8549,6 +8805,29 @@ disease_term:
   term:
     id: MONDO:0015517
     label: common variable immunodeficiency
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0011864
+      label: immunodeficiency, common variable, 1
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0011864 (CVID1) is a direct MONDO subclass of MONDO:0015517 for
+      the ICOS-caused form; ICOS deficiency is modeled in this entry&#39;s
+      `genetic:` section as a CAUSATIVE gene. narrowMatch because MONDO models
+      the gene-specific numbered subtype as a child of the general CVID class
+      rather than as an equivalent term.
+  - term:
+      id: MONDO:0014697
+      label: immunodeficiency, common variable, 12
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0014697 (CVID12) is a direct MONDO subclass of MONDO:0015517 for
+      the NFKB1-caused form; NFKB1 haploinsufficiency is modeled in this
+      entry&#39;s `genetic:` section as a CAUSATIVE gene. narrowMatch for the same
+      reason as CVID1 above.
 classifications:
   iuis_category:
     classification_value: predominantly antibody deficiency
@@ -9915,6 +10194,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10360,7 +10641,7 @@ This supports real-world adoption of NGS/WES/WGS in antibody deficiency evaluati
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Common Variable Immunodeficiency", "mondoId": "MONDO:0015517", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Common_Variable_Immunodeficiency", "yamlRevision": "01142d7fec32"};
+        const OS_CONFIG = {"diseaseName": "Common Variable Immunodeficiency", "mondoId": "MONDO:0015517", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Common_Variable_Immunodeficiency", "yamlRevision": "042e8179c4f1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

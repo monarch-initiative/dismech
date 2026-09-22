@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4362,6 +4415,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sar1b-loss-of-function" data-dismech-node="SAR1B Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">SAR1B Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic SAR1B variants remove or cripple the small Ras-superfamily GTPase that begins COPII coat assembly. Reported alleles include nonsense and frameshift changes and a whole-exon-2 deletion, all of which truncate the protein, and missense substitutions clustered around the guanine-nucleotide recognition and SEC23-interaction surfaces. The paralogue SAR1A, which differs at only twenty of 198 residues, is upregulated in patient duodenum but does not restore chylomicron export.
 </div>
 
@@ -4588,6 +4642,7 @@ This pathophysiological event involves SAR1B GTPase activity, annotated with GTP
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-copii-coat-assembly-at-endoplasmic-reticulum-exit-sites" data-dismech-node="Defective COPII Coat Assembly at Endoplasmic Reticulum Exit Sites" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective COPII Coat Assembly at Endoplasmic Reticulum Exit Sites</div>
 
+
                 <div class="item-desc">At an ER exit site the transmembrane guanine-nucleotide exchange factor SEC12 loads SAR1B with GTP; SAR1B-GTP inserts an amphipathic helix into the ER membrane and recruits the SEC23-SEC24 inner coat, followed by the SEC13-SEC31 outer coat. SEC23 is also the GTPase-activating protein that triggers hydrolysis and coat turnover. A variant that blocks nucleotide exchange, hydrolysis, membrane insertion or SEC23 binding therefore disables coat assembly or coat cycling at this one step.
 </div>
 
@@ -4773,6 +4828,7 @@ This pathophysiological event involves COPII vesicle coat (GO:0030127). GO:00301
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-pre-chylomicron-transport-vesicle-export-from-the-endoplasmic-reticulum" data-dismech-node="Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum</div>
+
 
                 <div class="item-desc">Newly assembled pre-chylomicrons are far larger than a conventional 60-90 nm COPII vesicle, so their export depends on COPII machinery being recruited to generate an enlarged carrier. In CRD that carrier is not produced, and the pre-chylomicron transport vesicle never reaches the Golgi. This is a trafficking failure and not an assembly failure: apoB-48 lipidation and chylomicron formation themselves are intact, which is what distinguishes CRD from abetalipoproteinemia at the cell-biological level.
 </div>
@@ -5011,6 +5067,7 @@ This pathophysiological event occurs in duodenum (UBERON:0002114). UBERON:000211
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enterocyte-chylomicron-retention" data-dismech-node="Enterocyte Chylomicron Retention" data-dismech-type="pathophysiology">
                 <div class="item-name">Enterocyte Chylomicron Retention</div>
 
+
                 <div class="item-desc">Assembled chylomicrons and their triglyceride cargo accumulate inside the absorptive enterocyte, as free cytoplasmic lipid droplets and as membrane-bound lipoprotein-sized particles. This is the lesion the disease is named for and the finding a duodenal biopsy demonstrates. Villus architecture is preserved, so the malabsorption is a secretion defect and not mucosal destruction.
 </div>
 
@@ -5234,6 +5291,7 @@ This pathophysiological event involves decreased intestinal lipid transport into
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-postprandial-chylomicronemia" data-dismech-node="Absent Postprandial Chylomicronemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Postprandial Chylomicronemia</div>
 
+
                 <div class="item-desc">After an oral fat load there is no rise in plasma chylomicrons or apoB-48. Because chylomicrons are also the vehicle by which dietary cholesterol, essential fatty acids and the fat-soluble vitamins reach the circulation, this single transport failure accounts for the whole downstream biochemical phenotype. Hepatic VLDL and apoB-100 secretion continue, which is why LDL remains detectable and fasting triglycerides stay normal.
 </div>
 
@@ -5359,6 +5417,7 @@ This pathophysiological event involves decreased intestinal lipid transport into
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-fat-malabsorption" data-dismech-node="Intestinal Fat Malabsorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Intestinal Fat Malabsorption</div>
+
 
                 <div class="item-desc">Dietary long-chain fat that cannot be exported from the enterocyte is passed into the stool, producing steatorrhoea whose severity tracks the fat content of the diet, with the osmotic and secretory consequences of unabsorbed fat in the lumen. This is the arm of the mechanism that responds to dietary fat restriction.
 </div>
@@ -5491,6 +5550,7 @@ This pathophysiological event involves decreased intestinal lipid transport into
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fat-soluble-vitamin-deficiency" data-dismech-node="Fat-Soluble Vitamin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Fat-Soluble Vitamin Deficiency</div>
+
 
                 <div class="item-desc">Vitamins A, D, E and K are all low. Vitamin E is the most severely and most persistently affected: plasma alpha-tocopherol stays chronically low even on high-dose oral replacement, because absorption of any lipophilic molecule depends on the chylomicron pathway that is blocked. Vitamin D deficiency drives the skeletal phenotype and vitamin K deficiency the coagulopathy.
 </div>
@@ -5673,6 +5733,7 @@ This pathophysiological event involves decreased intestinal transport of fat-sol
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-essential-fatty-acid-deficiency" data-dismech-node="Essential Fatty Acid Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Essential Fatty Acid Deficiency</div>
 
+
                 <div class="item-desc">Linoleate and alpha-linolenate delivery fails with the chylomicron pathway. The deficiency is most severe in the first months of life and is aggravated by over-strict dietary fat restriction, which is why treatment has to balance symptom control against essential fatty acid and calorie intake.
 </div>
 
@@ -5799,6 +5860,7 @@ This pathophysiological event involves decreased intestinal transport of fat-sol
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vitamin-e-dependent-neuroaxonal-and-retinal-injury" data-dismech-node="Vitamin E-Dependent Neuroaxonal and Retinal Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Vitamin E-Dependent Neuroaxonal and Retinal Injury</div>
+
 
                 <div class="item-desc">Chronic alpha-tocopherol deficiency causes the neuromuscular and retinal complications of CRD: loss of deep tendon reflexes, ataxia, myopathy with raised creatine kinase, and subtle ophthalmological abnormalities including micronystagmus, delayed dark adaptation and abnormal scotopic electroretinograms. These are milder in CRD than in abetalipoproteinemia, and they are largely preventable by early high-dose oral vitamin E.
 </div>
@@ -5977,6 +6039,7 @@ This pathophysiological event occurs in nervous system involvement in vitamin E 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-intestinal-hdl-biogenesis-and-cholesterol-efflux" data-dismech-node="Impaired Intestinal HDL Biogenesis and Cholesterol Efflux" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Intestinal HDL Biogenesis and Cholesterol Efflux</div>
+
 
                 <div class="item-desc">A branch of the mechanism that does not run through chylomicron retention. Loss of SAR1B in enterocyte-like cells reduces ABCA1 expression and cholesterol efflux to apolipoprotein A-I, limiting nascent HDL production by the intestine. This is the current explanation for the low HDL cholesterol and low apolipoprotein A-I of CRD, which are otherwise hard to derive from a pure chylomicron-export defect.
 </div>
@@ -6187,6 +6250,13 @@ This pathophysiological event involves decreased intestinal high-density lipopro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatic-apob-lipoprotein-secretion" data-dismech-node="Impaired Hepatic ApoB Lipoprotein Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hepatic ApoB Lipoprotein Secretion</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">SAR1B is not intestine-specific. It also promotes hepatic apoB lipoprotein secretion and modulates expression of cholesterol-biosynthetic genes, which is the proposed reason a disorder of intestinal fat export nonetheless produces hepatic steatosis and cholesterol levels lower than intestinal malabsorption alone would predict. The hepatic arm is less firmly characterised in patients than the enterocyte lesion.
 </div>
 
@@ -6347,6 +6417,13 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enterocyte-lipid-peroxidation-and-endoplasmic-reticulum-stress" data-dismech-node="Enterocyte Lipid Peroxidation and Endoplasmic Reticulum Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Enterocyte Lipid Peroxidation and Endoplasmic Reticulum Stress</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A proposed downstream consequence of intracellular lipid retention: increased lipid peroxidation, endoplasmic reticulum stress and inflammatory signalling. The evidence is from SAR1B-disrupted cell lines and engineered mice; no study has shown that this branch drives any human complication, so it is recorded as provisional rather than as part of the established chain.
 </div>
@@ -6654,7 +6731,7 @@ This pathophysiological event involves increased response to endoplasmic reticul
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal distention\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003270\"}}, {\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal scotopic electroretinograms and delayed dark adaptation are the typical ophthalmological abnormalities. They are usually mild and are detected on surveillance rather than presenting symptomatically.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000512\"}}, {\"id\": \"Absent Postprandial Chylomicronemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After an oral fat load there is no rise in plasma chylomicrons or apoB-48. Because chylomicrons are also the vehicle by which dietary cholesterol, essential fatty acids and the fat-soluble vitamins reach the circulation, this single transport failure accounts for the whole downstream biochemical phenotype. Hepatic VLDL and apoB-100 secretion continue, which is why LDL remains detectable and fasting triglycerides stay normal.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of deep tendon reflexes is the classic neurological sign of chronic vitamin E deficiency. It is uncommon in treated CRD cohorts and much less frequent than in abetalipoproteinemia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001284\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported as a late complication of untreated vitamin E deficiency and listed among the manifestations for which standard symptomatic treatment is recommended.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"CRISPR SAR1B knockout Caco-2/TC7 cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A second, independent enterocyte knockout model built specifically to study fat-soluble vitamin handling. It reproduces impaired lipid droplet formation and reduced triglyceride, cholesterol and alpha-tocopherol secretion, including with the pharmaceutical vitamin E forms used in patients, and shows a milder phenotype for SAR1B than for MTTP loss, which matches the clinical comparison between CRD and abetalipoproteinemia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:36771214\"}}, {\"id\": \"Chronic diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-specific malabsorptive diarrhoea beginning in the first six months is the most constant presenting feature. It remits on a low-long-chain-fat diet and recurs when fat is reintroduced.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002028\"}}, {\"id\": \"Decreased HDL cholesterol concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"HDL cholesterol and apolipoprotein A-I are both low, attributed to reduced intestinal HDL biogenesis rather than to the chylomicron block itself.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003233\"}}, {\"id\": \"Decreased circulating apolipoprotein B concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Plasma apolipoprotein B is low, and apoB-48 is absent from the postprandial circulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034075\"}}, {\"id\": \"Defective COPII Coat Assembly at Endoplasmic Reticulum Exit Sites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At an ER exit site the transmembrane guanine-nucleotide exchange factor SEC12 loads SAR1B with GTP; SAR1B-GTP inserts an amphipathic helix into the ER membrane and recruits the SEC23-SEC24 inner coat, followed by the SEC13-SEC31 outer coat. SEC23 is also the GTPase-activating protein that triggers hydrolysis and coat turnover. A variant that blocks nucleotide exchange, hydrolysis, membrane insertion or SEC23 binding therefore disables coat assembly or coat cycling at this one step.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"COPII coat assembly and vesicle budding at ER exit sites\"]}}, {\"id\": \"Delayed skeletal maturation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002750\"}}, {\"id\": \"Elevated circulating creatine kinase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Creatine kinase is commonly raised, typically several-fold, and is the earliest laboratory sign of the muscular involvement.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003236\"}}, {\"id\": \"Enterocyte Chylomicron Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Assembled chylomicrons and their triglyceride cargo accumulate inside the absorptive enterocyte, as free cytoplasmic lipid droplets and as membrane-bound lipoprotein-sized particles. This is the lesion the disease is named for and the finding a duodenal biopsy demonstrates. Villus architecture is preserved, so the malabsorption is a secretion defect and not mucosal destruction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"absorptive small-intestinal enterocyte\"], \"biological_processes\": [\"intestinal lipid transport into lymph\"], \"animal_models\": [{\"name\": \"Sar1b CRISPR deletion and p.D137N knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Sar1b exon 2 deletion or Sar1b p.D137N knock-in, heterozygous (homozygotes are lethal)\", \"background\": \"C57BL/6N\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Homozygous embryos accumulate lipid in the intestine and heterozygotes fail to secrete chylomicrons after a lipid gavage.\"}, {\"name\": \"Sar1b morpholino knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"sar1b 5\u0027UTR translation-blocking morpholino knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Larvae form enterocyte lipid droplets after feeding and then fail to clear them during fasting, which is the retention phenotype in a live animal.\"}]}}, {\"id\": \"Enterocyte Lipid Peroxidation and Endoplasmic Reticulum Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A proposed downstream consequence of intracellular lipid retention: increased lipid peroxidation, endoplasmic reticulum stress and inflammatory signalling. The evidence is from SAR1B-disrupted cell lines and engineered mice; no study has shown that this branch drives any human complication, so it is recorded as provisional rather than as part of the established chain.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to endoplasmic reticulum stress\"]}}, {\"id\": \"Essential Fatty Acid Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Linoleate and alpha-linolenate delivery fails with the chylomicron pathway. The deficiency is most severe in the first months of life and is aggravated by over-strict dietary fat restriction, which is why treatment has to balance symptom control against essential fatty acid and calorie intake.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Newly assembled pre-chylomicrons are far larger than a conventional 60-90 nm COPII vesicle, so their export depends on COPII machinery being recruited to generate an enlarged carrier. In CRD that carrier is not produced, and the pre-chylomicron transport vesicle never reaches the Golgi. This is a trafficking failure and not an assembly failure: apoB-48 lipidation and chylomicron formation themselves are intact, which is what distinguishes CRD from abetalipoproteinemia at the cell-biological level.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"absorptive small-intestinal enterocyte\"], \"biological_processes\": [\"endoplasmic reticulum to Golgi transport of pre-chylomicron vesicles\"], \"locations\": [\"duodenum\"], \"experimental_models\": [{\"name\": \"SAR1B knockout Caco-2/15 enterocyte model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Targeted SAR1B deletion in a differentiated enterocyte-like monolayer reduces chylomicron and apoB-48 output.\"}]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Faltering weight and length in infancy, one of the most common initial findings. Growth potential can be permanently compromised if diagnosis is delayed.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fat-Soluble Vitamin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vitamins A, D, E and K are all low. Vitamin E is the most severely and most persistently affected: plasma alpha-tocopherol stays chronically low even on high-dose oral replacement, because absorption of any lipophilic molecule depends on the chylomicron pathway that is blocked. Vitamin D deficiency drives the skeletal phenotype and vitamin K deficiency the coagulopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"intestinal transport of fat-soluble vitamins\"], \"experimental_models\": [{\"name\": \"CRISPR SAR1B knockout Caco-2/TC7 cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Explains why plasma vitamin E stays low on treatment: even tocofersolan and tocopheryl acetate cannot be secreted normally by a SAR1B-null enterocyte.\"}]}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A moderate macrovesicular steatosis is described, often with mild transaminase elevation. Progression to steatohepatitis or cirrhosis has not been reported, which is why this entry does not conform to the hepatic steatosis lipotoxicity module.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001397\", \"histopathology_terms\": [{\"name\": \"Macrovesicular hepatic steatosis\", \"preferred_term\": \"Macrovesicular steatosis\", \"term_id\": \"NCIT:C82990\", \"term_label\": \"Macrovesicular Steatosis\"}]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"High-dose oral vitamin E supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Large oral doses of vitamin E, around 50 IU/kg/day, given lifelong. The important and slightly counter-intuitive point is that the oral route works for preventing neurological complications even though plasma tocopherol never normalises: the aim is tissue protection, not a normal blood level. Tocofersolan, a water-soluble tocopherol derivative, is better absorbed than tocopheryl acetate in CRD, though a four-month crossover study found no significant difference in plasma tocopherol between the two formulations.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"alpha-tocopherol\"]}}, {\"id\": \"Hypocholesterolemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Total cholesterol is roughly halved relative to controls. Together with a normal fasting triglyceride, this is the biochemical pattern that should prompt SAR1B testing in an infant with chronic diarrhoea.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003146\"}}, {\"id\": \"Impaired Hepatic ApoB Lipoprotein Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SAR1B is not intestine-specific. It also promotes hepatic apoB lipoprotein secretion and modulates expression of cholesterol-biosynthetic genes, which is the proposed reason a disorder of intestinal fat export nonetheless produces hepatic steatosis and cholesterol levels lower than intestinal malabsorption alone would predict. The hepatic arm is less firmly characterised in patients than the enterocyte lesion.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Impaired Intestinal HDL Biogenesis and Cholesterol Efflux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A branch of the mechanism that does not run through chylomicron retention. Loss of SAR1B in enterocyte-like cells reduces ABCA1 expression and cholesterol efflux to apolipoprotein A-I, limiting nascent HDL production by the intestine. This is the current explanation for the low HDL cholesterol and low apolipoprotein A-I of CRD, which are otherwise hard to derive from a pure chylomicron-export defect.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cholesterol efflux to apolipoprotein A-I\", \"intestinal high-density lipoprotein particle assembly\"], \"experimental_models\": [{\"name\": \"SAR1B knockout Caco-2/15 enterocyte model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The same knockout reduces cholesterol movement to basolateral apoA-I and lowers ABCA1 expression.\"}], \"animal_models\": [{\"name\": \"Sar1b CRISPR deletion and p.D137N knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Sar1b exon 2 deletion or Sar1b p.D137N knock-in, heterozygous (homozygotes are lethal)\", \"background\": \"C57BL/6N\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous animals are hypoalphalipoproteinaemic, matching the low HDL of patients, though the mouse study measured the plasma outcome rather than intestinal ABCA1-dependent efflux itself.\"}]}}, {\"id\": \"Intestinal Fat Malabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dietary long-chain fat that cannot be exported from the enterocyte is passed into the stool, producing steatorrhoea whose severity tracks the fat content of the diet, with the osmotic and secretory consequences of unabsorbed fat in the lumen. This is the arm of the mechanism that responds to dietary fat restriction.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Low-long-chain-fat diet with adequate calories and essential fatty acids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The core of management. Long-chain fat is restricted enough to control diarrhoea, vomiting and abdominal distension, while total calories and essential fatty acid intake are kept sufficient for growth; medium-chain triglycerides may be used because they reach the portal circulation without chylomicron packaging. Over-restriction is a real hazard, because essential fatty acid deficiency is already severe early in life. The treatment controls the consequences of the trafficking defect and does not correct it, so symptoms recur when fat is reintroduced.\", \"meta\": {\"evidence_count\": 3, \"dietary_modifications\": []}}, {\"id\": \"Missense SAR1B variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitutions clustered around the guanine-nucleotide recognition site and the coat-interaction surfaces, including p.Asp137Asn, p.Ser179Arg and p.Gly185Val. Computational and structural analysis predicts non-functional protein rather than absent protein; the p.Asp137Asn allele has been modelled in mouse.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"SAR1B\"], \"gene_terms\": [{\"label\": \"SAR1B\", \"id\": \"hgnc:10535\"}], \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscular manifestations accompany the raised creatine kinase. They were not observed in the two-centre paediatric cohort, and are described in the literature as an adult finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003198\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micronystagmus is described among the mild ophthalmological findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000639\"}}, {\"id\": \"Prolonged prothrombin time\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged INR from vitamin K deficiency. It is monitored as the functional readout of vitamin K status rather than measured directly in most centres.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008151\"}}, {\"id\": \"Reduced bone mineral density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor bone mineralisation attributed to vitamin D deficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004349\"}}, {\"id\": \"SAR1B Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SAR1B variants remove or cripple the small Ras-superfamily GTPase that begins COPII coat assembly. Reported alleles include nonsense and frameshift changes and a whole-exon-2 deletion, all of which truncate the protein, and missense substitutions clustered around the guanine-nucleotide recognition and SEC23-interaction surfaces. The paralogue SAR1A, which differs at only twenty of 198 residues, is upregulated in patient duodenum but does not restore chylomicron export.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"SAR1B GTPase activity\"], \"genes\": [\"SAR1B\"], \"gene_terms\": [{\"label\": \"SAR1B\", \"id\": \"hgnc:10535\"}]}}, {\"id\": \"SAR1B biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SAR1B\"], \"gene_terms\": [{\"label\": \"SAR1B\", \"id\": \"hgnc:10535\"}], \"association\": \"Biallelic loss-of-function or function-disrupting germline variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"SAR1B knockout Caco-2/15 enterocyte model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Zinc-finger-nuclease deletion of SAR1B in Caco-2/15 cells, and a SAR1A/SAR1B double knockout. The single knockout reduces triglyceride, apoB-48 and chylomicron secretion by roughly a third to a half; only the double knockout abolishes output, which is how the residual export was traced to the SAR1A paralogue. The same system showed reduced HDL biogenesis and cholesterol efflux with impaired ABCA1 expression, which is the best available explanation for the low HDL of CRD.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:28982670\"}}, {\"id\": \"Sar1b CRISPR deletion and p.D137N knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only mammalian model of human SAR1B defects. Homozygous deletion or mutation is embryonic or perinatally lethal, so metabolic work has been done in heterozygotes even though human heterozygous carriers are asymptomatic. That genotype mismatch is the model\u0027s principal limitation. Heterozygotes nonetheless reproduce the gastrointestinal and lipid phenotype, and the homozygous embryos show intestinal lipid accumulation.\"}, {\"id\": \"Sar1b morpholino knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A developmental model. Sar1b-deficient larvae take dietary lipid into enterocytes normally but cannot clear it, reproducing the retention lesion, and they additionally show craniofacial cartilage, exocrine pancreas, liver and hindbrain deficits that are not part of the recognised human phenotype. Those extra phenotypes are the model\u0027s main caveat, and probably reflect global knockdown of a broadly expressed COPII component during development.\"}, {\"id\": \"Steatorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatty stool whose severity tracks dietary fat content. It persists on long-term follow-up rather than adapting.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002570\"}}, {\"id\": \"Truncating SAR1B variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense, frameshift and whole-exon deletion alleles predicted to produce an absent or severely truncated Sar1b protein. Reported examples include the exon 6 nonsense change p.Glu122X, the frameshifts p.Leu28ArgfsX7 and p.Asp48ThrfsX17, and a whole deletion of exon 2 that removes the translation initiation codon.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"SAR1B\"], \"gene_terms\": [{\"label\": \"SAR1B\", \"id\": \"hgnc:10535\"}], \"variant_type\": \"loss_of_function_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Vitamin A, D and K supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vitamin A around 15,000 IU/day, vitamin D 800-1200 IU/day and vitamin K 15 mg/week, adjusted against plasma concentrations, INR and toxicity risk. Unlike vitamin E, these three can usually be brought into the normal range by supplementation. Vitamin A dosing needs a specific pregnancy caveat.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"vitamin A\", \"vitamin D\", \"phylloquinone\"]}}, {\"id\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic alpha-tocopherol deficiency causes the neuromuscular and retinal complications of CRD: loss of deep tendon reflexes, ataxia, myopathy with raised creatine kinase, and subtle ophthalmological abnormalities including micronystagmus, delayed dark adaptation and abnormal scotopic electroretinograms. These are milder in CRD than in abetalipoproteinemia, and they are largely preventable by early high-dose oral vitamin E.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"nervous system involvement in vitamin E deficiency\"]}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"SAR1B Loss of Function\", \"target\": \"Defective COPII Coat Assembly at Endoplasmic Reticulum Exit Sites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SAR1B-GTP is the first coat component recruited to an ER exit site and is what brings SEC23-SEC24 to the membrane, so losing it disables coat nucleation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SAR1B Loss of Function\", \"target\": \"Impaired Intestinal HDL Biogenesis and Cholesterol Efflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A branch that does not run through chylomicron retention. SAR1B loss in enterocyte-like cells reduces cholesterol efflux and nascent HDL formation via reduced ABCA1 expression, which is the most likely explanation for the low HDL cholesterol seen in patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SAR1B Loss of Function\", \"target\": \"Impaired Hepatic ApoB Lipoprotein Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A second extra-intestinal branch. Sar1B also promotes hepatic apoB lipoprotein secretion, which is the proposed explanation for the hepatic steatosis and the severity of the hypocholesterolaemia in a disease whose primary lesion is intestinal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective COPII Coat Assembly at Endoplasmic Reticulum Exit Sites\", \"target\": \"Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without a functional coat, the carrier that would move pre-chylomicrons out of the ER is never formed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum\", \"target\": \"Enterocyte Chylomicron Retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cargo that cannot leave the endoplasmic reticulum compartment stays in the cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enterocyte Chylomicron Retention\", \"target\": \"Absent Postprandial Chylomicronemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid retained in the enterocyte is lipid that never enters intestinal lymph, so there is no chylomicron or apoB-48 rise after a fat meal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enterocyte Chylomicron Retention\", \"target\": \"Intestinal Fat Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dietary long-chain fat that the enterocyte cannot pass on is lost in the stool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enterocyte Chylomicron Retention\", \"target\": \"Enterocyte Lipid Peroxidation and Endoplasmic Reticulum Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A proposed but not clinically validated branch: retained lipid is associated with oxidative and ER stress in cell and animal systems.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Absent Postprandial Chylomicronemia\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vitamins A, D, E and K are absorbed with dietary fat and delivered in chylomicrons; with no chylomicron output their delivery fails.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Postprandial Chylomicronemia\", \"target\": \"Essential Fatty Acid Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Linoleic and alpha-linolenic acid are long-chain fatty acids that also depend on chylomicron delivery.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Postprandial Chylomicronemia\", \"target\": \"Hypocholesterolemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the intestinal contribution to circulating cholesterol, together with the reduced HDL branch, produces the profound hypocholesterolaemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Postprandial Chylomicronemia\", \"target\": \"Decreased circulating apolipoprotein B concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The apoB-48 pool never reaches plasma, and total apolipoprotein B is correspondingly low.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Chronic diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Steatorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Abdominal distention\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy and nutrient loss in an infant with a high growth demand is the proximate cause of the growth failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fat-Soluble Vitamin Deficiency\", \"target\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic tocopherol deficiency is the accepted cause of the neuromuscular and ophthalmological complications, and adequacy of vitamin E replacement is what determines whether they occur.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fat-Soluble Vitamin Deficiency\", \"target\": \"Reduced bone mineral density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mediated by vitamin D deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fat-Soluble Vitamin Deficiency\", \"target\": \"Delayed skeletal maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mediated by vitamin D deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fat-Soluble Vitamin Deficiency\", \"target\": \"Prolonged prothrombin time\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mediated by vitamin K deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Essential Fatty Acid Deficiency\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Through impaired growth substrate supply and malnutrition.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Elevated circulating creatine kinase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Through the muscular involvement of vitamin E deficiency.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Intestinal HDL Biogenesis and Cholesterol Efflux\", \"target\": \"Decreased HDL cholesterol concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hepatic ApoB Lipoprotein Secretion\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Hepatic ApoB Lipoprotein Secretion\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Low-long-chain-fat diet with adequate calories and essential fatty acids\", \"target\": \"Intestinal Fat Malabsorption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High-dose oral vitamin E supplementation\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High-dose oral vitamin E supplementation\", \"target\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin A, D and K supplementation\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SAR1B knockout Caco-2/15 enterocyte model\", \"target\": \"Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Targeted SAR1B deletion in a differentiated enterocyte-like monolayer reduces chylomicron and apoB-48 output.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Caco-2/15 is a transformed colonic adenocarcinoma line differentiated into an enterocyte-like phenotype, and the assay measures secretion into medium rather than into lymph, so it cannot report the systemic consequences.\"}, {\"source\": \"SAR1B knockout Caco-2/15 enterocyte model\", \"target\": \"Impaired Intestinal HDL Biogenesis and Cholesterol Efflux\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The same knockout reduces cholesterol movement to basolateral apoA-I and lowers ABCA1 expression.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Shown in a transformed cell line; no patient tissue measurement of intestinal ABCA1 or nascent HDL output has been reported.\"}, {\"source\": \"CRISPR SAR1B knockout Caco-2/TC7 cells\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Explains why plasma vitamin E stays low on treatment: even tocofersolan and tocopheryl acetate cannot be secreted normally by a SAR1B-null enterocyte.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A transformed cell monolayer measuring secretion into medium; it cannot model hepatic tocopherol handling or tissue delivery, and it does not speak to the clinical observation that oral vitamin E still prevents neurological disease.\"}, {\"source\": \"Sar1b CRISPR deletion and p.D137N knock-in mouse\", \"target\": \"Enterocyte Chylomicron Retention\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Homozygous embryos accumulate lipid in the intestine and heterozygotes fail to secrete chylomicrons after a lipid gavage.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Homozygosity, the genotype that corresponds to human disease, is lethal in this model, so the surviving animals used for metabolic phenotyping are heterozygous, a state that is clinically silent in humans.\"}, {\"source\": \"Sar1b CRISPR deletion and p.D137N knock-in mouse\", \"target\": \"Impaired Intestinal HDL Biogenesis and Cholesterol Efflux\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Heterozygous animals are hypoalphalipoproteinaemic, matching the low HDL of patients, though the mouse study measured the plasma outcome rather than intestinal ABCA1-dependent efflux itself.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The low plasma HDL is an outcome measure; the model was not used to show the enterocyte efflux step, which comes from the Caco-2 system.\"}, {\"source\": \"Sar1b morpholino knockdown zebrafish\", \"target\": \"Enterocyte Chylomicron Retention\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Larvae form enterocyte lipid droplets after feeding and then fail to clear them during fasting, which is the retention phenotype in a live animal.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Global morpholino knockdown during development produces craniofacial, pancreatic, hepatic and neuronal deficits that are not features of human CRD, so the model over-reports the developmental consequences of SAR1B loss. Zebrafish lipoprotein physiology also differs from the human.\"}, {\"source\": \"SAR1B biallelic pathogenic variants\", \"target\": \"SAR1B Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Truncating SAR1B variants\", \"target\": \"SAR1B biallelic pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Missense SAR1B variants\", \"target\": \"SAR1B biallelic pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal distention\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003270\"}}, {\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal scotopic electroretinograms and delayed dark adaptation are the typical ophthalmological abnormalities. They are usually mild and are detected on surveillance rather than presenting symptomatically.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000512\"}}, {\"id\": \"Absent Postprandial Chylomicronemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After an oral fat load there is no rise in plasma chylomicrons or apoB-48. Because chylomicrons are also the vehicle by which dietary cholesterol, essential fatty acids and the fat-soluble vitamins reach the circulation, this single transport failure accounts for the whole downstream biochemical phenotype. Hepatic VLDL and apoB-100 secretion continue, which is why LDL remains detectable and fasting triglycerides stay normal.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of deep tendon reflexes is the classic neurological sign of chronic vitamin E deficiency. It is uncommon in treated CRD cohorts and much less frequent than in abetalipoproteinemia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001284\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported as a late complication of untreated vitamin E deficiency and listed among the manifestations for which standard symptomatic treatment is recommended.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"CRISPR SAR1B knockout Caco-2/TC7 cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A second, independent enterocyte knockout model built specifically to study fat-soluble vitamin handling. It reproduces impaired lipid droplet formation and reduced triglyceride, cholesterol and alpha-tocopherol secretion, including with the pharmaceutical vitamin E forms used in patients, and shows a milder phenotype for SAR1B than for MTTP loss, which matches the clinical comparison between CRD and abetalipoproteinemia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:36771214\"}}, {\"id\": \"Chronic diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-specific malabsorptive diarrhoea beginning in the first six months is the most constant presenting feature. It remits on a low-long-chain-fat diet and recurs when fat is reintroduced.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002028\"}}, {\"id\": \"Decreased HDL cholesterol concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"HDL cholesterol and apolipoprotein A-I are both low, attributed to reduced intestinal HDL biogenesis rather than to the chylomicron block itself.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003233\"}}, {\"id\": \"Decreased circulating apolipoprotein B concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Plasma apolipoprotein B is low, and apoB-48 is absent from the postprandial circulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034075\"}}, {\"id\": \"Defective COPII Coat Assembly at Endoplasmic Reticulum Exit Sites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At an ER exit site the transmembrane guanine-nucleotide exchange factor SEC12 loads SAR1B with GTP; SAR1B-GTP inserts an amphipathic helix into the ER membrane and recruits the SEC23-SEC24 inner coat, followed by the SEC13-SEC31 outer coat. SEC23 is also the GTPase-activating protein that triggers hydrolysis and coat turnover. A variant that blocks nucleotide exchange, hydrolysis, membrane insertion or SEC23 binding therefore disables coat assembly or coat cycling at this one step.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"COPII coat assembly and vesicle budding at ER exit sites\"]}}, {\"id\": \"Delayed skeletal maturation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002750\"}}, {\"id\": \"Elevated circulating creatine kinase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Creatine kinase is commonly raised, typically several-fold, and is the earliest laboratory sign of the muscular involvement.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003236\"}}, {\"id\": \"Enterocyte Chylomicron Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Assembled chylomicrons and their triglyceride cargo accumulate inside the absorptive enterocyte, as free cytoplasmic lipid droplets and as membrane-bound lipoprotein-sized particles. This is the lesion the disease is named for and the finding a duodenal biopsy demonstrates. Villus architecture is preserved, so the malabsorption is a secretion defect and not mucosal destruction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"absorptive small-intestinal enterocyte\"], \"biological_processes\": [\"intestinal lipid transport into lymph\"], \"animal_models\": [{\"name\": \"Sar1b CRISPR deletion and p.D137N knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Sar1b exon 2 deletion or Sar1b p.D137N knock-in, heterozygous (homozygotes are lethal)\", \"background\": \"C57BL/6N\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Homozygous embryos accumulate lipid in the intestine and heterozygotes fail to secrete chylomicrons after a lipid gavage.\"}, {\"name\": \"Sar1b morpholino knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"sar1b 5\u0027UTR translation-blocking morpholino knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Larvae form enterocyte lipid droplets after feeding and then fail to clear them during fasting, which is the retention phenotype in a live animal.\"}]}}, {\"id\": \"Enterocyte Lipid Peroxidation and Endoplasmic Reticulum Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A proposed downstream consequence of intracellular lipid retention: increased lipid peroxidation, endoplasmic reticulum stress and inflammatory signalling. The evidence is from SAR1B-disrupted cell lines and engineered mice; no study has shown that this branch drives any human complication, so it is recorded as provisional rather than as part of the established chain.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to endoplasmic reticulum stress\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Essential Fatty Acid Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Linoleate and alpha-linolenate delivery fails with the chylomicron pathway. The deficiency is most severe in the first months of life and is aggravated by over-strict dietary fat restriction, which is why treatment has to balance symptom control against essential fatty acid and calorie intake.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Newly assembled pre-chylomicrons are far larger than a conventional 60-90 nm COPII vesicle, so their export depends on COPII machinery being recruited to generate an enlarged carrier. In CRD that carrier is not produced, and the pre-chylomicron transport vesicle never reaches the Golgi. This is a trafficking failure and not an assembly failure: apoB-48 lipidation and chylomicron formation themselves are intact, which is what distinguishes CRD from abetalipoproteinemia at the cell-biological level.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"absorptive small-intestinal enterocyte\"], \"biological_processes\": [\"endoplasmic reticulum to Golgi transport of pre-chylomicron vesicles\"], \"locations\": [\"duodenum\"], \"experimental_models\": [{\"name\": \"SAR1B knockout Caco-2/15 enterocyte model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Targeted SAR1B deletion in a differentiated enterocyte-like monolayer reduces chylomicron and apoB-48 output.\"}]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Faltering weight and length in infancy, one of the most common initial findings. Growth potential can be permanently compromised if diagnosis is delayed.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fat-Soluble Vitamin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vitamins A, D, E and K are all low. Vitamin E is the most severely and most persistently affected: plasma alpha-tocopherol stays chronically low even on high-dose oral replacement, because absorption of any lipophilic molecule depends on the chylomicron pathway that is blocked. Vitamin D deficiency drives the skeletal phenotype and vitamin K deficiency the coagulopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"intestinal transport of fat-soluble vitamins\"], \"experimental_models\": [{\"name\": \"CRISPR SAR1B knockout Caco-2/TC7 cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Explains why plasma vitamin E stays low on treatment: even tocofersolan and tocopheryl acetate cannot be secreted normally by a SAR1B-null enterocyte.\"}]}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A moderate macrovesicular steatosis is described, often with mild transaminase elevation. Progression to steatohepatitis or cirrhosis has not been reported, which is why this entry does not conform to the hepatic steatosis lipotoxicity module.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001397\", \"histopathology_terms\": [{\"name\": \"Macrovesicular hepatic steatosis\", \"preferred_term\": \"Macrovesicular steatosis\", \"term_id\": \"NCIT:C82990\", \"term_label\": \"Macrovesicular Steatosis\"}]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"High-dose oral vitamin E supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Large oral doses of vitamin E, around 50 IU/kg/day, given lifelong. The important and slightly counter-intuitive point is that the oral route works for preventing neurological complications even though plasma tocopherol never normalises: the aim is tissue protection, not a normal blood level. Tocofersolan, a water-soluble tocopherol derivative, is better absorbed than tocopheryl acetate in CRD, though a four-month crossover study found no significant difference in plasma tocopherol between the two formulations.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"alpha-tocopherol\"]}}, {\"id\": \"Hypocholesterolemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Total cholesterol is roughly halved relative to controls. Together with a normal fasting triglyceride, this is the biochemical pattern that should prompt SAR1B testing in an infant with chronic diarrhoea.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003146\"}}, {\"id\": \"Impaired Hepatic ApoB Lipoprotein Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SAR1B is not intestine-specific. It also promotes hepatic apoB lipoprotein secretion and modulates expression of cholesterol-biosynthetic genes, which is the proposed reason a disorder of intestinal fat export nonetheless produces hepatic steatosis and cholesterol levels lower than intestinal malabsorption alone would predict. The hepatic arm is less firmly characterised in patients than the enterocyte lesion.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Intestinal HDL Biogenesis and Cholesterol Efflux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A branch of the mechanism that does not run through chylomicron retention. Loss of SAR1B in enterocyte-like cells reduces ABCA1 expression and cholesterol efflux to apolipoprotein A-I, limiting nascent HDL production by the intestine. This is the current explanation for the low HDL cholesterol and low apolipoprotein A-I of CRD, which are otherwise hard to derive from a pure chylomicron-export defect.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cholesterol efflux to apolipoprotein A-I\", \"intestinal high-density lipoprotein particle assembly\"], \"experimental_models\": [{\"name\": \"SAR1B knockout Caco-2/15 enterocyte model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The same knockout reduces cholesterol movement to basolateral apoA-I and lowers ABCA1 expression.\"}], \"animal_models\": [{\"name\": \"Sar1b CRISPR deletion and p.D137N knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Sar1b exon 2 deletion or Sar1b p.D137N knock-in, heterozygous (homozygotes are lethal)\", \"background\": \"C57BL/6N\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous animals are hypoalphalipoproteinaemic, matching the low HDL of patients, though the mouse study measured the plasma outcome rather than intestinal ABCA1-dependent efflux itself.\"}]}}, {\"id\": \"Intestinal Fat Malabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dietary long-chain fat that cannot be exported from the enterocyte is passed into the stool, producing steatorrhoea whose severity tracks the fat content of the diet, with the osmotic and secretory consequences of unabsorbed fat in the lumen. This is the arm of the mechanism that responds to dietary fat restriction.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Low-long-chain-fat diet with adequate calories and essential fatty acids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The core of management. Long-chain fat is restricted enough to control diarrhoea, vomiting and abdominal distension, while total calories and essential fatty acid intake are kept sufficient for growth; medium-chain triglycerides may be used because they reach the portal circulation without chylomicron packaging. Over-restriction is a real hazard, because essential fatty acid deficiency is already severe early in life. The treatment controls the consequences of the trafficking defect and does not correct it, so symptoms recur when fat is reintroduced.\", \"meta\": {\"evidence_count\": 3, \"dietary_modifications\": []}}, {\"id\": \"Missense SAR1B variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitutions clustered around the guanine-nucleotide recognition site and the coat-interaction surfaces, including p.Asp137Asn, p.Ser179Arg and p.Gly185Val. Computational and structural analysis predicts non-functional protein rather than absent protein; the p.Asp137Asn allele has been modelled in mouse.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"SAR1B\"], \"gene_terms\": [{\"label\": \"SAR1B\", \"id\": \"hgnc:10535\"}], \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscular manifestations accompany the raised creatine kinase. They were not observed in the two-centre paediatric cohort, and are described in the literature as an adult finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003198\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micronystagmus is described among the mild ophthalmological findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000639\"}}, {\"id\": \"Prolonged prothrombin time\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged INR from vitamin K deficiency. It is monitored as the functional readout of vitamin K status rather than measured directly in most centres.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008151\"}}, {\"id\": \"Reduced bone mineral density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor bone mineralisation attributed to vitamin D deficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004349\"}}, {\"id\": \"SAR1B Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SAR1B variants remove or cripple the small Ras-superfamily GTPase that begins COPII coat assembly. Reported alleles include nonsense and frameshift changes and a whole-exon-2 deletion, all of which truncate the protein, and missense substitutions clustered around the guanine-nucleotide recognition and SEC23-interaction surfaces. The paralogue SAR1A, which differs at only twenty of 198 residues, is upregulated in patient duodenum but does not restore chylomicron export.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"SAR1B GTPase activity\"], \"genes\": [\"SAR1B\"], \"gene_terms\": [{\"label\": \"SAR1B\", \"id\": \"hgnc:10535\"}]}}, {\"id\": \"SAR1B biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SAR1B\"], \"gene_terms\": [{\"label\": \"SAR1B\", \"id\": \"hgnc:10535\"}], \"association\": \"Biallelic loss-of-function or function-disrupting germline variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"SAR1B knockout Caco-2/15 enterocyte model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Zinc-finger-nuclease deletion of SAR1B in Caco-2/15 cells, and a SAR1A/SAR1B double knockout. The single knockout reduces triglyceride, apoB-48 and chylomicron secretion by roughly a third to a half; only the double knockout abolishes output, which is how the residual export was traced to the SAR1A paralogue. The same system showed reduced HDL biogenesis and cholesterol efflux with impaired ABCA1 expression, which is the best available explanation for the low HDL of CRD.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:28982670\"}}, {\"id\": \"Sar1b CRISPR deletion and p.D137N knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only mammalian model of human SAR1B defects. Homozygous deletion or mutation is embryonic or perinatally lethal, so metabolic work has been done in heterozygotes even though human heterozygous carriers are asymptomatic. That genotype mismatch is the model\u0027s principal limitation. Heterozygotes nonetheless reproduce the gastrointestinal and lipid phenotype, and the homozygous embryos show intestinal lipid accumulation.\"}, {\"id\": \"Sar1b morpholino knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A developmental model. Sar1b-deficient larvae take dietary lipid into enterocytes normally but cannot clear it, reproducing the retention lesion, and they additionally show craniofacial cartilage, exocrine pancreas, liver and hindbrain deficits that are not part of the recognised human phenotype. Those extra phenotypes are the model\u0027s main caveat, and probably reflect global knockdown of a broadly expressed COPII component during development.\"}, {\"id\": \"Steatorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatty stool whose severity tracks dietary fat content. It persists on long-term follow-up rather than adapting.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002570\"}}, {\"id\": \"Truncating SAR1B variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense, frameshift and whole-exon deletion alleles predicted to produce an absent or severely truncated Sar1b protein. Reported examples include the exon 6 nonsense change p.Glu122X, the frameshifts p.Leu28ArgfsX7 and p.Asp48ThrfsX17, and a whole deletion of exon 2 that removes the translation initiation codon.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"SAR1B\"], \"gene_terms\": [{\"label\": \"SAR1B\", \"id\": \"hgnc:10535\"}], \"variant_type\": \"loss_of_function_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Vitamin A, D and K supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vitamin A around 15,000 IU/day, vitamin D 800-1200 IU/day and vitamin K 15 mg/week, adjusted against plasma concentrations, INR and toxicity risk. Unlike vitamin E, these three can usually be brought into the normal range by supplementation. Vitamin A dosing needs a specific pregnancy caveat.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"vitamin A\", \"vitamin D\", \"phylloquinone\"]}}, {\"id\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic alpha-tocopherol deficiency causes the neuromuscular and retinal complications of CRD: loss of deep tendon reflexes, ataxia, myopathy with raised creatine kinase, and subtle ophthalmological abnormalities including micronystagmus, delayed dark adaptation and abnormal scotopic electroretinograms. These are milder in CRD than in abetalipoproteinemia, and they are largely preventable by early high-dose oral vitamin E.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"nervous system involvement in vitamin E deficiency\"]}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"SAR1B Loss of Function\", \"target\": \"Defective COPII Coat Assembly at Endoplasmic Reticulum Exit Sites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SAR1B-GTP is the first coat component recruited to an ER exit site and is what brings SEC23-SEC24 to the membrane, so losing it disables coat nucleation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SAR1B Loss of Function\", \"target\": \"Impaired Intestinal HDL Biogenesis and Cholesterol Efflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A branch that does not run through chylomicron retention. SAR1B loss in enterocyte-like cells reduces cholesterol efflux and nascent HDL formation via reduced ABCA1 expression, which is the most likely explanation for the low HDL cholesterol seen in patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SAR1B Loss of Function\", \"target\": \"Impaired Hepatic ApoB Lipoprotein Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A second extra-intestinal branch. Sar1B also promotes hepatic apoB lipoprotein secretion, which is the proposed explanation for the hepatic steatosis and the severity of the hypocholesterolaemia in a disease whose primary lesion is intestinal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective COPII Coat Assembly at Endoplasmic Reticulum Exit Sites\", \"target\": \"Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without a functional coat, the carrier that would move pre-chylomicrons out of the ER is never formed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum\", \"target\": \"Enterocyte Chylomicron Retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cargo that cannot leave the endoplasmic reticulum compartment stays in the cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enterocyte Chylomicron Retention\", \"target\": \"Absent Postprandial Chylomicronemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid retained in the enterocyte is lipid that never enters intestinal lymph, so there is no chylomicron or apoB-48 rise after a fat meal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enterocyte Chylomicron Retention\", \"target\": \"Intestinal Fat Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dietary long-chain fat that the enterocyte cannot pass on is lost in the stool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enterocyte Chylomicron Retention\", \"target\": \"Enterocyte Lipid Peroxidation and Endoplasmic Reticulum Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A proposed but not clinically validated branch: retained lipid is associated with oxidative and ER stress in cell and animal systems.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Absent Postprandial Chylomicronemia\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vitamins A, D, E and K are absorbed with dietary fat and delivered in chylomicrons; with no chylomicron output their delivery fails.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Postprandial Chylomicronemia\", \"target\": \"Essential Fatty Acid Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Linoleic and alpha-linolenic acid are long-chain fatty acids that also depend on chylomicron delivery.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Postprandial Chylomicronemia\", \"target\": \"Hypocholesterolemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the intestinal contribution to circulating cholesterol, together with the reduced HDL branch, produces the profound hypocholesterolaemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Postprandial Chylomicronemia\", \"target\": \"Decreased circulating apolipoprotein B concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The apoB-48 pool never reaches plasma, and total apolipoprotein B is correspondingly low.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Chronic diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Steatorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Abdominal distention\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy and nutrient loss in an infant with a high growth demand is the proximate cause of the growth failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Fat Malabsorption\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fat-Soluble Vitamin Deficiency\", \"target\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic tocopherol deficiency is the accepted cause of the neuromuscular and ophthalmological complications, and adequacy of vitamin E replacement is what determines whether they occur.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fat-Soluble Vitamin Deficiency\", \"target\": \"Reduced bone mineral density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mediated by vitamin D deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fat-Soluble Vitamin Deficiency\", \"target\": \"Delayed skeletal maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mediated by vitamin D deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fat-Soluble Vitamin Deficiency\", \"target\": \"Prolonged prothrombin time\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mediated by vitamin K deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Essential Fatty Acid Deficiency\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Through impaired growth substrate supply and malnutrition.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Elevated circulating creatine kinase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Through the muscular involvement of vitamin E deficiency.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Intestinal HDL Biogenesis and Cholesterol Efflux\", \"target\": \"Decreased HDL cholesterol concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hepatic ApoB Lipoprotein Secretion\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Hepatic ApoB Lipoprotein Secretion\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Low-long-chain-fat diet with adequate calories and essential fatty acids\", \"target\": \"Intestinal Fat Malabsorption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High-dose oral vitamin E supplementation\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High-dose oral vitamin E supplementation\", \"target\": \"Vitamin E-Dependent Neuroaxonal and Retinal Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin A, D and K supplementation\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SAR1B knockout Caco-2/15 enterocyte model\", \"target\": \"Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Targeted SAR1B deletion in a differentiated enterocyte-like monolayer reduces chylomicron and apoB-48 output.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Caco-2/15 is a transformed colonic adenocarcinoma line differentiated into an enterocyte-like phenotype, and the assay measures secretion into medium rather than into lymph, so it cannot report the systemic consequences.\"}, {\"source\": \"SAR1B knockout Caco-2/15 enterocyte model\", \"target\": \"Impaired Intestinal HDL Biogenesis and Cholesterol Efflux\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The same knockout reduces cholesterol movement to basolateral apoA-I and lowers ABCA1 expression.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Shown in a transformed cell line; no patient tissue measurement of intestinal ABCA1 or nascent HDL output has been reported.\"}, {\"source\": \"CRISPR SAR1B knockout Caco-2/TC7 cells\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Explains why plasma vitamin E stays low on treatment: even tocofersolan and tocopheryl acetate cannot be secreted normally by a SAR1B-null enterocyte.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A transformed cell monolayer measuring secretion into medium; it cannot model hepatic tocopherol handling or tissue delivery, and it does not speak to the clinical observation that oral vitamin E still prevents neurological disease.\"}, {\"source\": \"Sar1b CRISPR deletion and p.D137N knock-in mouse\", \"target\": \"Enterocyte Chylomicron Retention\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Homozygous embryos accumulate lipid in the intestine and heterozygotes fail to secrete chylomicrons after a lipid gavage.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Homozygosity, the genotype that corresponds to human disease, is lethal in this model, so the surviving animals used for metabolic phenotyping are heterozygous, a state that is clinically silent in humans.\"}, {\"source\": \"Sar1b CRISPR deletion and p.D137N knock-in mouse\", \"target\": \"Impaired Intestinal HDL Biogenesis and Cholesterol Efflux\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Heterozygous animals are hypoalphalipoproteinaemic, matching the low HDL of patients, though the mouse study measured the plasma outcome rather than intestinal ABCA1-dependent efflux itself.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The low plasma HDL is an outcome measure; the model was not used to show the enterocyte efflux step, which comes from the Caco-2 system.\"}, {\"source\": \"Sar1b morpholino knockdown zebrafish\", \"target\": \"Enterocyte Chylomicron Retention\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Larvae form enterocyte lipid droplets after feeding and then fail to clear them during fasting, which is the retention phenotype in a live animal.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Global morpholino knockdown during development produces craniofacial, pancreatic, hepatic and neuronal deficits that are not features of human CRD, so the model over-reports the developmental consequences of SAR1B loss. Zebrafish lipoprotein physiology also differs from the human.\"}, {\"source\": \"SAR1B biallelic pathogenic variants\", \"target\": \"SAR1B Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Truncating SAR1B variants\", \"target\": \"SAR1B biallelic pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Missense SAR1B variants\", \"target\": \"SAR1B biallelic pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6723,6 +6800,9 @@ This clinical feature is Prolonged international normalized ratio from vitamin K
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6803,6 +6883,9 @@ This clinical feature is Cardiomyopathy with decreased ejection fraction, annota
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6933,6 +7016,9 @@ This clinical feature is Chronic malabsorptive diarrhea of infancy, annotated wi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7024,6 +7110,9 @@ This clinical feature is Steatorrhea (HP:0002570). HP:0002570 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7123,6 +7212,9 @@ This clinical feature is Intestinal fat malabsorption, annotated with Fat malabs
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7189,6 +7281,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7265,6 +7360,9 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7331,6 +7429,9 @@ This clinical feature is Macrovesicular hepatic steatosis, annotated with Hepati
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7427,6 +7528,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7535,6 +7639,9 @@ This clinical feature is Abnormal scotopic electroretinogram, annotated with Abn
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7599,6 +7706,9 @@ This clinical feature is Micronystagmus, annotated with Nystagmus (HP:0000639). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7679,6 +7789,9 @@ This clinical feature is Hypocholesterolemia (HP:0003146). HP:0003146 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7780,6 +7893,9 @@ This clinical feature is Decreased LDL cholesterol concentration (HP:0003563). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7846,6 +7962,9 @@ This clinical feature is Decreased HDL cholesterol concentration (HP:0003233). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7920,6 +8039,9 @@ This clinical feature is Decreased circulating apolipoprotein B concentration (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7986,6 +8108,9 @@ This clinical feature is Decreased circulating vitamin E concentration (HP:01005
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8087,6 +8212,9 @@ This clinical feature is Reduced circulating vitamin A concentration (HP:0004905
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8158,6 +8286,9 @@ This clinical feature is Decreased circulating vitamin D concentration (HP:01005
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8212,6 +8343,8 @@ This clinical feature is Decreased circulating vitamin D concentration (HP:01005
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
+
 
 
 
@@ -8220,10 +8353,13 @@ This clinical feature is Decreased circulating vitamin D concentration (HP:01005
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8332,6 +8468,9 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8396,6 +8535,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8495,6 +8637,9 @@ This clinical feature is Delayed bone maturation, annotated with Delayed skeleta
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8570,6 +8715,9 @@ This clinical feature is Hyporeflexia or areflexia, annotated with Areflexia (HP
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8669,6 +8817,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8746,6 +8897,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8891,6 +9045,9 @@ This disease-associated gene is SAR1B (hgnc:10535). hgnc:10535 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -8999,6 +9156,7 @@ This disease-associated gene is SAR1B (hgnc:10535). hgnc:10535 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9018,11 +9176,17 @@ This variant is in SAR1B (hgnc:10535). hgnc:10535 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss of function variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense, frameshift and whole-exon deletion alleles predicted to produce an absent or severely truncated Sar1b protein. Reported examples include the exon 6 nonsense change p.Glu122X, the frameshifts p.Leu28ArgfsX7 and p.Asp48ThrfsX17, and a whole deletion of exon 2 that removes the translation initiation codon.
@@ -9162,6 +9326,7 @@ This variant is in SAR1B (hgnc:10535). hgnc:10535 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9181,11 +9346,17 @@ This variant is in SAR1B (hgnc:10535). hgnc:10535 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitutions clustered around the guanine-nucleotide recognition site and the coat-interaction surfaces, including p.Asp137Asn, p.Ser179Arg and p.Gly185Val. Computational and structural analysis predicts non-functional protein rather than absent protein; the p.Asp137Asn allele has been modelled in mouse.
@@ -9356,6 +9527,9 @@ This disease-associated gene is SAR1A (hgnc:10534). hgnc:10534 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9509,6 +9683,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9519,6 +9696,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -9750,6 +9930,9 @@ This treatment uses alpha-tocopherol (CHEBI:22470). CHEBI:22470 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9760,6 +9943,9 @@ This treatment uses alpha-tocopherol (CHEBI:22470). CHEBI:22470 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -10064,6 +10250,9 @@ This treatment uses phylloquinone (CHEBI:18067). CHEBI:18067 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10074,6 +10263,9 @@ This treatment uses phylloquinone (CHEBI:18067). CHEBI:18067 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -10274,6 +10466,9 @@ This treatment is clinical evaluation (NCIT:C124351). NCIT:C124351 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10284,6 +10479,9 @@ This treatment is clinical evaluation (NCIT:C124351). NCIT:C124351 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -10406,6 +10604,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10416,6 +10617,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -14885,10 +15089,10 @@ phenotypes:
     Creatine kinase is commonly raised, typically several-fold, and is the
     earliest laboratory sign of the muscular involvement.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:20920215
     reference_title: Guidelines for the diagnosis and management of chylomicron retention disease based on a review of the literature and the experience of two centers.
@@ -16698,6 +16902,62 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record review notes</strong></p>
+                        <p class="research-review-text">Created September 2026 from the GeneReviews chapter (PMID:35344313), the 2010 two-centre diagnosis and management guideline (PMID:20920215), the two-cohort natural-history study (PMID:19285442) and the SAR1B molecular and model literature, with an Edison/falcon deep-research report as the survey layer (preflight PASS, 11/11 citations resolved). An Asta run was also performed but returned mostly off-topic papers and failed the Named Entity Confusion preflight (SAR1B mentioned twice, APOBEC1 six times); only its two genuinely on-topic Levy reviews were used, and no claim rests on Asta alone.
+Three modelling decisions a reviewer should check. First, no `conforms_to` was declared: the closest candidate modules each contradict a defining feature of CRD (see `notes`), and a COPII / ER-export trafficking module does not exist yet. Second, the hepatic and the oxidative/ER-stress branches are marked `mechanism_confidence: PROVISIONAL` because their human relevance is asserted by review and cell/animal work rather than demonstrated in patients. Third, the cortical-neuron knockdown study (PMID:33002559) is recorded as an animal model with no `modeled_mechanisms` link, deliberately: linking it would assert a cell-autonomous neural mechanism in human CRD that no patient study supports, alongside the well-evidenced vitamin E pathway.
+A caution for anyone quoting Table 1 of PMID:20920215. The table&#39;s &#34;Retinopathy&#34; row reads &#34;Adult permanent 100% +++&#34;, putting 100% in the &#34;Prevalence in childhood&#34; column against an adult age at onset. The same paper&#39;s Table 2 states &#34;there is no retinopathy&#34; in childhood, and every other adult-onset row in that column reads 0%. So the 100% is not a childhood prevalence. This is an inconsistency the authors published, not a defect in our cached copy: the cached table is faithful, each row carrying its five cells in header order, and the rows whose age cell wraps across two lines do not displace their neighbours. No phenotype in this entry is banded from that row. Every snippet taken from this reference verifies as an exact substring of the cached text, so no gate catches a row read against the wrong header; check a quoted figure against the paper&#39;s prose before banding a phenotype on it.
+Known gaps. There is no population prevalence estimate, only a published case count, so the prevalence record uses CASES_IN_LITERATURE with a qualitative ULTRA_RARE band. Orphanet could not be cited because the Orphadata bulk XML is not present in this checkout and downloading it was out of scope. No interventional clinical trial specific to CRD was identified, so `clinical_trials` is empty. No CRD-specific dataset accession was identified, so `datasets` is empty. Genotype-phenotype correlation is explicitly absent in the largest series, which is why no allele-based subtypes were created.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Chylomicron Retention Disease</strong> · 2026-09-05T18:40:31Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Chylomicron_Retention_Disease/2026-09-05T184031Z-claude-code-1c3a91.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Chylomicron_Retention_Disease.yaml (SAR1B, MONDO:0009528) from scratch. 2551+ lines, 194 evidence snippets, all verified against references_cache. Closes the claim on issue #11088; stubs/Chylomicron_Retention_Disease.yaml deleted.
+
+DEEP RESEARCH THAT ACTUALLY RAN. Two providers. Edison/falcon (`just research-disorder falcon Chylomicron_Retention_Disease`, 641 s) produced research/Chylomicron_Retention_Disease-deep-research-falcon.md plus one artifact; its own reference validation resolved 11/11 citations with 0 unresolved and 1/1 quoted claims found, and `just preflight-dr ... MONDO:0009528` returned PASS (SAR1B mentioned 44 times, OMIM 246700 matching MONDO). Its term_validation reports needs_review: true, but the single &#34;mislabelled&#34; term is MONDO:0009528 being called &#34;if available&#34; -- that is the template&#39;s own &#34;MONDO ID: MONDO:0009528 (if available)&#34; placeholder being scraped, not a wrong binding. Asta also ran (3.6 s) and produced research/Chylomicron_Retention_Disease-deep-research-asta.md; it is retrieval-only and returned mostly off-topic papers (goat pregnancy toxaemia, diabetic nephropathy, renal cell carcinoma). `just preflight-dr` on it returned WARN: SAR1B mentioned twice against APOBEC1 six times. I used exactly two papers from it -- the Levy 2024 review (PMID:39062121) and Levy 2021 (PMID:33584351, read but ultimately not cited) -- and no claim in the entry rests on Asta alone. Neither report&#39;s suggested identifiers were cited without independently fetching the record.
+
+GENEREVIEWS BASELINE. A chapter exists: PMID:35344313 &#34;Chylomicron Retention Disease&#34; (Burnett, Hooper, Hegele), fetched, cached, and tagged `GeneReviews` in the top-level references block. Every Clinical Characteristics item in its abstract is represented in the entry: failure to thrive, diarrhoea, vomiting, abdominal distention, fat malabsorption, steatorrhoea, hepatomegaly, vitamin-E-secondary neuromuscular abnormalities, poor bone mineralisation and delayed bone maturation, prolonged INR, the ophthalmological cluster (micronystagmus, delayed dark adaptation, abnormal scotopic ERG), adult cardiomyopathy with decreased ejection fraction, marked hypocholesterolaemia, low apoB, normal-to-low triglycerides, low fat-soluble vitamins, and the gelee blanche duodenal mucosa. Abnormal visual evoked potentials were the one listed finding not given its own phenotype row; the quoted sentence naming them is carried on the Abnormal electroretinogram and Nystagmus rows instead. The Agents/Circumstances to Avoid section (fatty foods rich in long-chain fatty acids) and the pregnancy caveat (halve vitamin A) are both curated onto the relevant treatments with the GeneReviews quote.
+
+MECHANISM MODEL. The pathophysiology is a connected chain of 11 nodes, all biological_scale tagged, with bare-name downstream targets. Spine: SAR1B Loss of Function (MOLECULAR) -&gt; Defective COPII Coat Assembly at Endoplasmic Reticulum Exit Sites (MOLECULAR) -&gt; Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum (CELLULAR) -&gt; Enterocyte Chylomicron Retention (CELLULAR) -&gt; {Absent Postprandial Chylomicronemia, Intestinal Fat Malabsorption} (both ORGANISM) -&gt; {Fat-Soluble Vitamin Deficiency, Essential Fatty Acid Deficiency} -&gt; Vitamin E-Dependent Neuroaxonal and Retinal Injury (TISSUE) -&gt; the neurological and ophthalmological phenotypes. Two branches leave the spine at the top: Impaired Intestinal HDL Biogenesis and Cholesterol Efflux (the ABCA1 route to the low HDL, which cannot be derived from a pure chylomicron-export block) and Impaired Hepatic ApoB Lipoprotein Secretion (the proposed route to hepatic steatosis in a disease whose primary lesion is intestinal). A third branch, Enterocyte Lipid Peroxidation and Endoplasmic Reticulum Stress, hangs off the retention node.
+
+MODELLING JUDGEMENT CALLS A REVIEWER SHOULD CHECK.
+(1) No conforms_to. I read the three plausible modules. enterocyte_polarity_trafficking_failure scopes itself explicitly to the CODE class in which villus architecture is lost and diarrhoea does not remit on dietary elimination; CRD has normal villi and diet-responsive diarrhoea, so conforming would assert the opposite of the evidence. hepatic_steatosis_lipotoxicity asserts progression through steatohepatitis to fibrosis, and the CRD guideline review states no cases of steatohepatitis cirrhosis. diet_induced_osmotic_diarrhea is about a lost brush-border digestive/transport step, not a secretion step. A COPII / ER-export trafficking module would be the natural target and does not exist; I did not create one, since that is a separate piece of work. Recorded in the entry&#39;s notes.
+(2) Two nodes carry mechanism_confidence: PROVISIONAL -- the hepatic branch and the oxidative/ER-stress branch. Both are supported by review and cell/animal work and neither has been shown to drive a human complication. The edge into the stress node is typed INDIRECT_UNKNOWN_INTERMEDIATES for the same reason.
+(3) PMID:33002559 (Sar1b knockdown impairs cortical neuron migration; the paper states the action is &#34;unrelated to lipid absorption from the gut&#34;) is recorded as an animal model with NO modeled_mechanisms link, deliberately. Linking it would assert a cell-autonomous neural mechanism in human CRD that no patient study supports, competing with the well-evidenced vitamin E pathway. The reasoning is in that model&#39;s notes.
+(4) Cardiomyopathy is banded VERY_RARE on the GeneReviews &#34;small proportion of adults&#34; wording, not on the Peretti cohort figure, which is 0% -- the cohort is paediatric. Both quotes are curated so the tension is visible.
+(5) One causal edge is deliberately left uncited: Essential Fatty Acid Deficiency -&gt; Failure to thrive. No source makes that specific causal claim; the sources make the disease-level claim. It is the only item costing compliance points and I preferred an honest gap to a stretched citation.
+(6) No allele-based has_subtypes, because the largest series states the absence of phenotype-genotype correlation.
+(7) SAR1A is curated in the genetic block with relationship_type MODIFIER and an explicit note that it is not a disease gene. It is there because the failure of paralogue compensation is what explains both the patient biopsy data and why only a SAR1A/SAR1B double knockout abolishes chylomicron output in Caco-2 cells.
+
+SIBLING DIFFERENTIATION. Cross-referenced but not merged with kb/disorders/Abetalipoproteinemia.yaml and kb/disorders/Hypobetalipoproteinemia.yaml, both as differential_diagnoses entries with distinguishing_features and as prose in the top-level notes. The discriminator carried throughout is the normal fasting triglyceride plus detectable LDL/apoB-100 (hepatic secretion preserved), against the very low triglyceride of MTTP- and biallelic-APOB-related disease; absence of acanthocytosis is curated as a biochemical finding with the cohort figure. Abetalipoproteinemia already carries CRD as a differential, so the pair is now reciprocal.
+
+REFERENCES REJECTED OR NOT USED. PMID:39332967 (An Pediatr, &#34;Chylomicron retention disease: A condition to keep in mind&#34;) and PMID:22959141 (Dig Liver Dis) both cache with an empty abstract, so no snippet could be taken; neither is cited. PMID:33584351 (Levy 2021) and PMID:31970693 (Lu &amp; Kim, COPII mutations in vertebrates) were read and are on topic but every claim they support was better served by a more specific source, so neither is cited. Orphanet could not be used at all: `just fetch-reference ORPHA:71` has no fetcher and `just structured-rebuild-orphanet` needs data/orphadata/en_product1.xml, which is gitignored and absent from this checkout; downloading it was out of scope on a shared disk-constrained machine. That is why the prevalence record cites PubMed sources rather than an ORPHA epidemiology row.
+
+FULL-TEXT SNIPPETS. A number of frequency and lipid-panel snippets are quoted from the cached full text of PMID:20920215 (the two-centre cohort&#39;s Table 1) rather than from its abstract, and one prevalence snippet from the cached full text of PMID:21235735. I tested this deliberately before relying on it: the reference validator matches against the whole cached record, and `just validate` (which runs the same validator as `validate-disorders` minus --no-full-text) verifies all 194. Whitespace is normalised across the PDF&#39;s line wraps, so I avoided every span that crosses a hyphenated line break.
+
+VALIDATION ACTUALLY RUN, ALL TO COMPLETION.
+- `flock /tmp/dismech-cache.lock just validate kb/disorders/Chylomicron_Retention_Disease.yaml` -&gt; schema &#34;No issues found&#34;; terms &#34;Validation passed&#34;; references &#34;All validations passed&#34;, &#34;Snippets checked: 194/194 verified against cached references&#34;; &#34;Caches unchanged since validation started&#34;.
+- `just count-verified-snippets` -&gt; 194/194.
+- `just check-entity-refs` -&gt; OK.
+- `just check-causal-targets` -&gt; OK, no new broken targets; `just list-causal-targets` on this file reports prefixed 0, dangling 0, self 0.
+- `just check-duplicate-keys` -&gt; OK.
+- `just check-enum-values` -&gt; OK.
+- `just check-qualifier-terms` -&gt; OK; `just check-qualifier-terms-online` -&gt; 1 uncached CURIE resolved and matching (the only qualifier is RO:0000057, which has no adapter and no tooling can validate).
+- `just check-folded-hyphens`, `just check-title-snippets`, `just check-snippet-grading`, `just check-reference-titles` -&gt; OK, no new violations. `just check-snippet-length` initially flagged two 4-word snippets in this file (&#34;This leads to steatorrhea&#34;); both were lengthened to the full GeneReviews clause and it now reports no violation from this file.
+- `just compliance kb/disorders/Chylomicron_Retention_Disease.yaml` -&gt; Weighted Compliance 99.7%.
+`just validate-disorders` and `just qc` were NOT run: this session shares a checkout with six other curation agents and both would have swept files I do not own. Everything they would check for this file was run individually above.
+
+LEFT UNDONE. clinical_trials and datasets are empty: no CRD-specific interventional trial and no CRD-specific dataset accession were identified (the falcon report&#39;s only trial lead, NCT05208879, is an observational carotenoid study whose CRD enrolment it could not establish). No ORPHA citation, as above. No COPII/ER-export mechanism module was created. Nothing was committed; git is the orchestrator&#39;s job.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -17706,7 +17966,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chylomicron Retention Disease", "mondoId": "MONDO:0009528", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chylomicron_Retention_Disease", "yamlRevision": "a9027ce5a0dd"};
+        const OS_CONFIG = {"diseaseName": "Chylomicron Retention Disease", "mondoId": "MONDO:0009528", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chylomicron_Retention_Disease", "yamlRevision": "550acaa7adc4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

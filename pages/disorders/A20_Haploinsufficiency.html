@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4287,6 +4340,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tnfaip3-loss-of-function" data-dismech-node="TNFAIP3 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">TNFAIP3 Loss of Function</div>
 
+
                 <div class="item-desc">The initiating lesion. A heterozygous loss-of-function variant in TNFAIP3 halves functional A20. Nonsense, missense and whole-gene deletion alleles have all been reported, including a 236 kb deletion at 6q23.3, which is consistent with true haploinsufficiency rather than a dominant negative effect.</div>
 
 
@@ -4455,6 +4509,7 @@ This pathophysiological event involves TNFAIP3 (hgnc:11896). hgnc:11896 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-a20-mediated-deubiquitination" data-dismech-node="Failure of A20-Mediated Deubiquitination" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of A20-Mediated Deubiquitination</div>
+
 
                 <div class="item-desc">A20 terminates NF-kappa-B signalling by editing ubiquitin chains on upstream components. Its loss removes a brake rather than adding an accelerator, which is why the resulting phenotype is broad and variable rather than stereotyped.</div>
 
@@ -4628,6 +4683,7 @@ This pathophysiological event involves decreased negative regulation of canonica
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-nf-kappa-b-pathway-activation" data-dismech-node="Constitutive NF-kappa-B Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive NF-kappa-B Pathway Activation</div>
+
 
                 <div class="item-desc">Persistent canonical NF-kappa-B signalling in immune cells, demonstrated functionally in patient-derived mononuclear cells and in cell lines expressing the mutant protein.</div>
 
@@ -4810,6 +4866,13 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammasome-derepression" data-dismech-node="Inflammasome Derepression" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammasome Derepression</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">A second regulatory arm. A20 negatively regulates the NLRP3 inflammasome, and losing it in mouse myeloid cells produces an erosive arthritis that does not depend on TNF receptor 1. Graded HYPOTHETICAL for this disease because the evidence is a myeloid-specific complete knockout in mice rather than heterozygous loss in humans.</div>
 
 
@@ -4978,6 +5041,7 @@ This pathophysiological event involves decreased negative regulation of NLRP3 in
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-autoinflammation" data-dismech-node="Systemic Autoinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Autoinflammation</div>
 
+
                 <div class="item-desc">The clinical disease, and unusually broad for a monogenic condition. Mucosal ulceration dominates, but the phenotype spans fever, skin, gut, joints, eye and liver, and includes autoimmune as well as autoinflammatory features in the same patient. That breadth follows from losing a general brake on NF-kappa-B rather than from a lesion in one effector pathway.</div>
 
 
@@ -5116,7 +5180,7 @@ This pathophysiological event involves decreased negative regulation of NLRP3 in
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"A20 myeloid-specific knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A conditional knockout deleting A20 in the myeloid lineage. It is the source of the inflammasome arm modelled in this entry, and it is a poor genetic match for the human disease, which is why that arm is graded HYPOTHETICAL.\"}, {\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal involvement, from dull pain due to serositis or bowel inflammation through to severe inflammation carrying a risk of perforation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Relapsing, remitting, typically nonerosive inflammatory polyarthritis with synovitis. Erosive disease resembling rheumatoid or psoriatic arthritis is rare.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Constitutive NF-kappa-B Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent canonical NF-kappa-B signalling in immune cells, demonstrated functionally in patient-derived mononuclear cells and in cell lines expressing the mutant protein.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\"], \"biological_processes\": [\"canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Failure of A20-Mediated Deubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A20 terminates NF-kappa-B signalling by editing ubiquitin chains on upstream components. Its loss removes a brake rather than adding an accelerator, which is why the resulting phenotype is broad and variable rather than stereotyped.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein deubiquitination\", \"negative regulation of canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Genital Ulcers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent genital ulceration accompanying the oral ulcers, which together produce the Behcet-like presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003249\"}}, {\"id\": \"Inflammasome Derepression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second regulatory arm. A20 negatively regulates the NLRP3 inflammasome, and losing it in mouse myeloid cells produces an erosive arthritis that does not depend on TNF receptor 1. Graded HYPOTHETICAL for this disease because the evidence is a myeloid-specific complete knockout in mice rather than heterozygous loss in humans.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"negative regulation of NLRP3 inflammasome complex assembly\"], \"animal_models\": [{\"name\": \"A20 myeloid-specific knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Tnfaip3 fl/fl LysM-Cre (A20 myel-KO)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Demonstrates that losing A20 derepresses the NLRP3 inflammasome and produces spontaneous arthritis that does not require TNF receptor 1, which is the evidence for a second arm beyond NF-kappa-B.\"}]}}, {\"id\": \"Interleukin-1 Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A second-line option for patients not controlled by TNF blockade, which is a substantial group given the roughly forty per cent non-response rate. Anakinra is a recombinant IL-1 receptor antagonist; canakinumab and rilonacept are biologics against IL-1 beta. Described as effective in many individuals, which is not a rate.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anakinra\", \"canakinumab\"]}}, {\"id\": \"JAK Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The other second-line option, and a small-molecule class unlike IL-1 blockade. Contraindicated in pregnancy, which matters in a disease presenting in childhood and continuing through reproductive life.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Oral Ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent painful oral ulceration during flares, the commonest manifestation and usually the presenting one.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000155\"}}, {\"id\": \"Pustular Rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One form of the heterogeneous skin involvement, which also includes folliculitis, vasculitic purpura, urticaria and lupus-like macular rashes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033605\"}}, {\"id\": \"Recurrent Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever attacks of three to seven days, present in about half of patients. Their presence is one of the features that distinguishes this disease from Behcet disease, where recurrent fever is not characteristic.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001954\"}}, {\"id\": \"Systemic Autoinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical disease, and unusually broad for a monogenic condition. Mucosal ulceration dominates, but the phenotype spans fever, skin, gut, joints, eye and liver, and includes autoimmune as well as autoinflammatory features in the same patient. That breadth follows from losing a general brake on NF-kappa-B rather than from a lesion in one effector pathway.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TNFAIP3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TNFAIP3\"], \"gene_terms\": [{\"label\": \"TNFAIP3\", \"id\": \"hgnc:11896\"}], \"association\": \"Heterozygous Loss of Function\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"TNFAIP3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. A heterozygous loss-of-function variant in TNFAIP3 halves functional A20. Nonsense, missense and whole-gene deletion alleles have all been reported, including a 236 kb deletion at 6q23.3, which is consistent with true haploinsufficiency rather than a dominant negative effect.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"TNFAIP3\"], \"gene_terms\": [{\"label\": \"TNFAIP3\", \"id\": \"hgnc:11896\"}]}}, {\"id\": \"Tumour Necrosis Factor Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The most effective single class in the largest treatment series. In a Japanese national survey, molecular targeted drugs were given to 44.4% of patients and anti-TNF agents were effective in 59.5% of those treated. Note what that means: roughly forty per cent did not respond, so this is the best available option rather than a reliable one, and eleven patients failed to achieve control on their initial agent.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"infliximab\", \"adalimumab\", \"etanercept\"]}}], \"edges\": [{\"source\": \"TNFAIP3 Loss of Function\", \"target\": \"Failure of A20-Mediated Deubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced A20 protein means reduced deubiquitinase activity at the NF-kappa-B signalling nodes A20 normally acts on.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of A20-Mediated Deubiquitination\", \"target\": \"Constitutive NF-kappa-B Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without adequate termination, canonical NF-kappa-B signalling persists.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive NF-kappa-B Pathway Activation\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unterminated NF-kappa-B drives the proinflammatory transcriptional programme that produces the clinical disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive NF-kappa-B Pathway Activation\", \"target\": \"Inflammasome Derepression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A20 also restrains the NLRP3 inflammasome, a second arm shown in mouse myeloid cells. Whether it contributes in human A20 haploinsufficiency is not established in these sources.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Derepression\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"If operative in humans, inflammasome derepression would add IL-1 driven inflammation to the NF-kappa-B arm.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Oral Ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent painful oral ulceration during flares, the commonest manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Genital Ulcers\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent genital ulceration, occurring with the oral ulcers and together forming the Behcet-like picture.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Recurrent Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fever attacks lasting three to seven days, and one of the features that separates this from Behcet disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Pustular Rash\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skin involvement, which is heterogeneous and includes pustular rash, folliculitis, vasculitic purpura and lupus-like macular rashes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal disease ranging from dull pain to severe inflammation with risk of perforation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Relapsing and remitting nonerosive inflammatory polyarthritis with synovitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tumour Necrosis Factor Blockade\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Interleukin-1 Blockade\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"JAK Inhibition\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"A20 myeloid-specific knockout mouse\", \"target\": \"Inflammasome Derepression\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Demonstrates that losing A20 derepresses the NLRP3 inflammasome and produces spontaneous arthritis that does not require TNF receptor 1, which is the evidence for a second arm beyond NF-kappa-B.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Three mismatches against the human disease, and they run in the same direction. The mouse is a complete knockout, not haploinsufficiency. It is restricted to the myeloid lineage rather than germline. And the arthritis it produces is erosive, whereas the arthritis in this disease is typically nonerosive. The model therefore supports the existence of the pathway rather than its operation in patients.\"}, {\"source\": \"TNFAIP3\", \"target\": \"TNFAIP3 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"A20 myeloid-specific knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A conditional knockout deleting A20 in the myeloid lineage. It is the source of the inflammasome arm modelled in this entry, and it is a poor genetic match for the human disease, which is why that arm is graded HYPOTHETICAL.\"}, {\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal involvement, from dull pain due to serositis or bowel inflammation through to severe inflammation carrying a risk of perforation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Relapsing, remitting, typically nonerosive inflammatory polyarthritis with synovitis. Erosive disease resembling rheumatoid or psoriatic arthritis is rare.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Constitutive NF-kappa-B Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent canonical NF-kappa-B signalling in immune cells, demonstrated functionally in patient-derived mononuclear cells and in cell lines expressing the mutant protein.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\"], \"biological_processes\": [\"canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Failure of A20-Mediated Deubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A20 terminates NF-kappa-B signalling by editing ubiquitin chains on upstream components. Its loss removes a brake rather than adding an accelerator, which is why the resulting phenotype is broad and variable rather than stereotyped.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein deubiquitination\", \"negative regulation of canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Genital Ulcers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent genital ulceration accompanying the oral ulcers, which together produce the Behcet-like presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003249\"}}, {\"id\": \"Inflammasome Derepression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second regulatory arm. A20 negatively regulates the NLRP3 inflammasome, and losing it in mouse myeloid cells produces an erosive arthritis that does not depend on TNF receptor 1. Graded HYPOTHETICAL for this disease because the evidence is a myeloid-specific complete knockout in mice rather than heterozygous loss in humans.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"negative regulation of NLRP3 inflammasome complex assembly\"], \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"A20 myeloid-specific knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Tnfaip3 fl/fl LysM-Cre (A20 myel-KO)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Demonstrates that losing A20 derepresses the NLRP3 inflammasome and produces spontaneous arthritis that does not require TNF receptor 1, which is the evidence for a second arm beyond NF-kappa-B.\"}]}}, {\"id\": \"Interleukin-1 Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A second-line option for patients not controlled by TNF blockade, which is a substantial group given the roughly forty per cent non-response rate. Anakinra is a recombinant IL-1 receptor antagonist; canakinumab and rilonacept are biologics against IL-1 beta. Described as effective in many individuals, which is not a rate.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anakinra\", \"canakinumab\"]}}, {\"id\": \"JAK Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The other second-line option, and a small-molecule class unlike IL-1 blockade. Contraindicated in pregnancy, which matters in a disease presenting in childhood and continuing through reproductive life.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Oral Ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent painful oral ulceration during flares, the commonest manifestation and usually the presenting one.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000155\"}}, {\"id\": \"Pustular Rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One form of the heterogeneous skin involvement, which also includes folliculitis, vasculitic purpura, urticaria and lupus-like macular rashes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033605\"}}, {\"id\": \"Recurrent Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever attacks of three to seven days, present in about half of patients. Their presence is one of the features that distinguishes this disease from Behcet disease, where recurrent fever is not characteristic.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001954\"}}, {\"id\": \"Systemic Autoinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical disease, and unusually broad for a monogenic condition. Mucosal ulceration dominates, but the phenotype spans fever, skin, gut, joints, eye and liver, and includes autoimmune as well as autoinflammatory features in the same patient. That breadth follows from losing a general brake on NF-kappa-B rather than from a lesion in one effector pathway.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TNFAIP3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TNFAIP3\"], \"gene_terms\": [{\"label\": \"TNFAIP3\", \"id\": \"hgnc:11896\"}], \"association\": \"Heterozygous Loss of Function\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"TNFAIP3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. A heterozygous loss-of-function variant in TNFAIP3 halves functional A20. Nonsense, missense and whole-gene deletion alleles have all been reported, including a 236 kb deletion at 6q23.3, which is consistent with true haploinsufficiency rather than a dominant negative effect.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"TNFAIP3\"], \"gene_terms\": [{\"label\": \"TNFAIP3\", \"id\": \"hgnc:11896\"}]}}, {\"id\": \"Tumour Necrosis Factor Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The most effective single class in the largest treatment series. In a Japanese national survey, molecular targeted drugs were given to 44.4% of patients and anti-TNF agents were effective in 59.5% of those treated. Note what that means: roughly forty per cent did not respond, so this is the best available option rather than a reliable one, and eleven patients failed to achieve control on their initial agent.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"infliximab\", \"adalimumab\", \"etanercept\"]}}], \"edges\": [{\"source\": \"TNFAIP3 Loss of Function\", \"target\": \"Failure of A20-Mediated Deubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced A20 protein means reduced deubiquitinase activity at the NF-kappa-B signalling nodes A20 normally acts on.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of A20-Mediated Deubiquitination\", \"target\": \"Constitutive NF-kappa-B Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without adequate termination, canonical NF-kappa-B signalling persists.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive NF-kappa-B Pathway Activation\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unterminated NF-kappa-B drives the proinflammatory transcriptional programme that produces the clinical disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive NF-kappa-B Pathway Activation\", \"target\": \"Inflammasome Derepression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A20 also restrains the NLRP3 inflammasome, a second arm shown in mouse myeloid cells. Whether it contributes in human A20 haploinsufficiency is not established in these sources.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Derepression\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"If operative in humans, inflammasome derepression would add IL-1 driven inflammation to the NF-kappa-B arm.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Oral Ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent painful oral ulceration during flares, the commonest manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Genital Ulcers\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent genital ulceration, occurring with the oral ulcers and together forming the Behcet-like picture.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Recurrent Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fever attacks lasting three to seven days, and one of the features that separates this from Behcet disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Pustular Rash\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skin involvement, which is heterogeneous and includes pustular rash, folliculitis, vasculitic purpura and lupus-like macular rashes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal disease ranging from dull pain to severe inflammation with risk of perforation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Relapsing and remitting nonerosive inflammatory polyarthritis with synovitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tumour Necrosis Factor Blockade\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Interleukin-1 Blockade\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"JAK Inhibition\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"A20 myeloid-specific knockout mouse\", \"target\": \"Inflammasome Derepression\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Demonstrates that losing A20 derepresses the NLRP3 inflammasome and produces spontaneous arthritis that does not require TNF receptor 1, which is the evidence for a second arm beyond NF-kappa-B.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Three mismatches against the human disease, and they run in the same direction. The mouse is a complete knockout, not haploinsufficiency. It is restricted to the myeloid lineage rather than germline. And the arthritis it produces is erosive, whereas the arthritis in this disease is typically nonerosive. The model therefore supports the existence of the pathway rather than its operation in patients.\"}, {\"source\": \"TNFAIP3\", \"target\": \"TNFAIP3 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5201,6 +5265,9 @@ This clinical feature is Genital ulcers (HP:0003249), qualified as temporality r
 
 
                     </div>
+
+
+
 
 
 
@@ -5317,6 +5384,9 @@ This clinical feature is Oral ulcer (HP:0000155), qualified as temporality recur
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5392,6 +5462,9 @@ This clinical feature is Pustular rash (HP:0033605). HP:0033605 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5508,6 +5581,9 @@ This clinical feature is Recurrent fever (HP:0001954), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5606,6 +5682,9 @@ This clinical feature is Arthritis (HP:0001369), qualified as temporality recurr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5681,6 +5760,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5799,6 +5881,9 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6010,6 +6095,9 @@ This treatment uses etanercept (NCIT:C2381). NCIT:C2381 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6020,6 +6108,9 @@ This treatment uses etanercept (NCIT:C2381). NCIT:C2381 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -6257,6 +6348,9 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6267,6 +6361,9 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -6415,6 +6512,9 @@ This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6425,6 +6525,9 @@ This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6573,6 +6676,9 @@ This treatment is allogeneic stem cell transplantation (NCIT:C201466). NCIT:C201
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6583,6 +6689,9 @@ This treatment is allogeneic stem cell transplantation (NCIT:C201466). NCIT:C201
 
 
     </div>
+
+
+
 
 
 
@@ -8489,6 +8598,67 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Why this entry is largely about a differential diagnosis. Roughly half of all reported cases had been diagnosed as Behcet disease before the genetic cause was found, and patients are treated as Behcet for years. The disease is separable, but only on features a clinician has to be looking for. A direct comparison of 54 patients against 520 Behcet patients identified early onset, familial occurrence and recurrent fever as the discriminators. None of them is a laboratory finding. The diagnosis section is therefore written around that comparison rather than around a test.
+Loss of a brake, not gain of a signal. A20 terminates canonical NF-kappa-B signalling, so halving it removes negative regulation rather than adding drive. That is the most likely explanation for the phenotype&#39;s breadth: patients show autoinflammatory and autoimmune features together, across mucosa, skin, gut, joints, eye and liver, which is unusual for a monogenic disease and is what one would expect from de-restraining a pathway used by many stimuli rather than from a defect in one effector.
+Evidence for haploinsufficiency specifically, from two directions. The observational argument is that a nonsense variant and a 236 kb deletion removing the whole gene produce the same disease, and a deletion cannot act as a dominant negative. The experimental argument is stronger and comes from the original 2016 description: truncated A20 proteins were tested for a dominant-negative effect in overexpression and did not show one. The disease is therefore about gene dosage, and both arguments are recorded rather than only the allele list.
+A correction to the draft. The first version of this entry did not cite the paper that described the disease. The 2016 report in six unrelated families is the source for the dominant-negative exclusion experiment, for the molecular detail that A20 acts through its deubiquitinase activity, and for the measurements in patient cells showing increased IkappaB-alpha degradation, p65 nuclear translocation and cytokine output. All of that was reachable from the searches run, and its absence was a gap in my reading rather than in the literature. The deep-research job surfaced it.
+The inflammasome arm is graded HYPOTHETICAL and should stay that way until human evidence exists. A20 negatively regulates the NLRP3 inflammasome, and myeloid-specific A20 deletion in mice causes an erosive arthritis that persists without TNF receptor 1, which argues for a second pathway. But that is a complete knockout restricted to one lineage, not heterozygous loss in a whole organism, and the human arthritis in this disease is usually nonerosive. The mismatch is stated in the evidence explanation rather than left for a reader to notice.
+Frequency bands and how they were assigned. All five frequency values come from a single quoted sentence, reproduced in full under epidemiology so it can be checked directly. Where a reported percentage covers a category rather than the specific phenotype - skin involvement at 40% rather than pustular rash at 40% - the phenotype is banded one level lower and the reason is stated in its evidence explanation.
+On the treatment figure. Anti-TNF is the best available option and is not a reliable one. In the largest series, molecular targeted drugs were used in 44.4% of patients and anti-TNF was effective in 59.5% of those, so roughly forty per cent of treated patients did not respond and eleven failed their initial agent. The same survey states there are no established treatment guidelines, and that statement is carried as REFUTE evidence against reading the efficacy figure as a standard of care.
+A correction, review round 1. This section previously stated that IL-1, IL-6 and JAK-directed therapy and haematopoietic cell transplantation had no quotable outcome data in the cached references. That was false, and the contradicting sentences were in a file added by the same commit. The GeneReviews chapter states that IL-1 targeted therapy and JAK inhibitors are effective in many individuals and that transplantation may be considered in severe or refractory disease. Both are now modelled as treatments. The cause was that the chapter was mined only for its Clinical Characteristics section; its Diagnosis, Management and Genetic Counseling sections were not read, and they supplied the diagnostic yield split, the treatment options and the transmission risk that this entry now carries. Recorded rather than silently corrected, because prose describing what the repository contains is a factual claim and this one was wrong.
+Known extension points: uveitis and other ocular involvement; hepatic involvement including severe hepatitis progressing to cirrhosis; central nervous system vasculitis and the other neurologic manifestations; lymphoproliferation; the type I interferon signature described as a biomarker of disease activity; and the reported subset meeting criteria for systemic lupus erythematosus, which would make this a monogenic lupus as well as an autoinflammatory disease.
+Provenance. Curated from PubMed with a five-iteration OpenScientist deep-research job as a cross-check. Three of the ten cached references are full text rather than abstracts, and content_type was checked before writing.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: mine the three unread GeneReviews sections, correct a false notes claim, tag, narrow GO terms, fix evidence grading, add onset</strong> · 2026-09-09T15:13:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/A20_Haploinsufficiency/2026-09-09T151317Z-claude-code-8949ea.yaml">View source</a></p>
+                        <p class="research-review-text">Response to review round 1 on PR #11525. All six items, none of which required fetching anything new.
+
+The sharpest finding is that a claim in notes was false, and the file contradicting it was added by the same commit. The section stated that IL-1, IL-6 and JAK-directed therapy and haematopoietic cell transplantation had no quotable outcome data in the cached references. The GeneReviews chapter says verbatim that IL-1 targeted therapy and JAK inhibitors are effective in many individuals and that transplantation may be considered in severe or refractory disease. Both are now modelled as treatments.
+
+The root cause is more useful than the individual error. The GeneReviews chapter has four sections and I mined one of them. Clinical Characteristics was read thoroughly, and every frequency band in the entry came from it. Diagnosis, Management and Genetic Counseling were not read at all, and between them they supplied the diagnostic yield split of roughly 95 percent sequence variants against under 5 percent 6q23 deletions, the treatment options above, and the 50 percent transmission risk with de novo occurrence. The de novo point matters specifically because familial occurrence is one of this entry&#39;s discriminators against Behcet disease and a de novo case will not show it.
+
+This is the fourth instance in this series of asserting that something was unavailable when it was present in a committed cache file. The previous three concerned full-text papers mined only at abstract level. This one is different in kind and worth distinguishing: the file was an abstract-only cache, but the abstract itself is sectioned, and I stopped at the first section. Checking content_type does not catch this. The check that would is reading a structured abstract to its end.
+
+Other items. The GeneReviews reference now carries tags GeneReviews, matching the convention used by other entries. Two GO bindings were narrowed from regulation to negative regulation, since the claim is specifically that a negative regulator is lost. An evidence item quoting a case-report sentence was regraded from IN_VITRO to HUMAN_CLINICAL, and the genuinely in-vitro sentence from the same paper was split into its own item so the grading matches the sentence rather than the publication. Structured onset was added to the two phenotypes that carry the Behcet discrimination argument, since early onset is the entry&#39;s central discriminator and had appeared only in prose.
+
+The reviewer also confirmed independently that the deep-research report&#39;s NCIT identifiers are wrong, with NCIT:C2707 resolving to DHEA Mustard rather than an IL-1 antagonist and NCIT:C142883 not resolving at all. None were used here, because identifiers in this entry are resolved against the local ontology databases rather than copied from the report.
+
+Validation: 45/45 snippets verified, term validation passes, qualifier terms pass, weighted compliance 100.0 percent, no mid-word truncations, no value/prose contradictions, one root, no orphan phenotypes, no dangling targets.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: A20 Haploinsufficiency MONDO:0100222</strong> · 2026-09-09T13:32:56Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/A20_Haploinsufficiency/2026-09-09T133256Z-claude-code-7186f4.yaml">View source</a></p>
+                        <p class="research-review-text">Created from PubMed literature with a five-iteration OpenScientist deep-research job as a cross-check, launched before writing so it ran in parallel.
+
+The entry is organised around a differential diagnosis rather than a mechanism, because that is where the clinical harm is. Roughly half of all reported cases had been diagnosed and treated as Behcet disease before the genetic cause was found. A direct comparison of 54 patients against 520 Japanese Behcet patients gives the discriminators: early onset, familial occurrence, recurrent fever attacks, gastrointestinal involvement, and infrequent ocular involvement. The last is a negative discriminator, since ocular involvement is characteristic of Behcet disease, and its absence is part of what separates them. None of these is a laboratory finding, so the diagnosis section is written around that comparison rather than around a test.
+
+The mechanism is loss of a brake rather than gain of a signal. A20 terminates canonical NF-kappa-B signalling through its deubiquitinase activity, so halving it de-restrains a pathway that many stimuli use. That is the most plausible account of the phenotype&#39;s unusual breadth for a monogenic disease, spanning mucosa, skin, gut, joints and liver with autoinflammatory and autoimmune features in the same patient.
+
+Haploinsufficiency is supported from two directions and both are now recorded. The observational argument is that a nonsense variant and a 236 kb whole-gene deletion produce the same disease, and a deletion cannot act as a dominant negative. The experimental argument is stronger: the 2016 description tested truncated A20 proteins for a dominant-negative effect in overexpression and did not find one.
+
+A gap in the draft, corrected before submission and recorded in notes. The first version did not cite the paper that described the disease. The 2016 report in six unrelated families is the source for the dominant-negative exclusion experiment, for the identification of deubiquitinase activity as the operative function, and for the measurements in patient cells showing increased IkappaB-alpha degradation, p65 nuclear translocation and raised cytokine expression. It was reachable from the searches I ran, so its absence was a gap in my reading rather than in the literature. The deep-research job surfaced it.
+
+The inflammasome arm is graded HYPOTHETICAL and should stay that way. It rests on a myeloid-specific complete knockout in mice producing an erosive arthritis independent of TNF receptor 1, which is a different genetic situation from heterozygous loss in humans, and the human arthritis in this disease is usually nonerosive. That mismatch is stated in the evidence explanation rather than left to be noticed.
+
+Treatment is recorded with its limits. Anti-TNF is the most effective single class at 59.5 percent efficacy among the 44.4 percent of patients given molecular targeted drugs, which means roughly forty percent of treated patients did not respond and eleven failed their initial agent. The same national survey states there are no established treatment guidelines, and that statement is carried as REFUTE evidence against reading the efficacy figure as a standard of care.
+
+Two checks were improved during this entry. The value-versus-prose check produced a false positive on the phrase &#34;checked against it directly&#34;, the second such false positive from the word &#34;against&#34; used non-argumentatively; the prose was reworded, and a check that cries wolf is one people stop reading. More substantially, the truncation check was rewritten. The old version flagged any snippet not ending in terminal punctuation, which over-triggers on legitimate quotes of numbered sub-clauses from enumerated lists - eight false positives in this entry alone. The new version locates the snippet in the cached source and flags it only when the following character is a letter, which is an actual mid-word cut. It was verified against a synthetic case, firing on the truncated form and passing the complete one, and it found three genuine truncations here that the old heuristic had buried among the false positives.
+
+Validation: 38/38 snippets verified, term validation passes, qualifier terms pass, weighted compliance 100.0 percent, no mid-word truncations, no value/prose contradictions, one root, no orphan phenotypes, no dangling targets. Content_type was checked on all caches before writing.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

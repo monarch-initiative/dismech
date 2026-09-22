@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4527,6 +4580,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-variable-breakpoint-dependent-2q37-deletion" data-dismech-node="Variable breakpoint-dependent 2q37 deletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Variable breakpoint-dependent 2q37 deletion</div>
 
+
                 <div class="item-desc">Terminal and interstitial 2q37 deletions remove variable gene content and produce a contiguous-gene dosage disorder. Clinical expressivity is incomplete and depends on the specific chromosome anomaly; the available evidence does not support a simple rule that larger deletions always cause more severe disease.</div>
 
 
@@ -4651,6 +4705,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-partial-contribution-of-hdac4-haploinsufficiency" data-dismech-node="Partial contribution of HDAC4 haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Partial contribution of HDAC4 haploinsufficiency</div>
+
 
                 <div class="item-desc">HDAC4 loss of function is associated particularly with type E brachydactyly; its contribution to neurobehavioral findings remains uncertain. Human data show incomplete penetrance, normal intelligence in some individuals with HDAC4 haploinsufficiency, and skeletal or cognitive findings in some 2q37 deletions that do not include HDAC4. HDAC4 is therefore modeled as a partial contributor, not the sole initiating mechanism for the deletion syndrome.</div>
 
@@ -4821,6 +4876,7 @@ This pathophysiological event involves HDAC4 (hgnc:14063). hgnc:14063 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-developmental-dysregulation" data-dismech-node="Skeletal developmental dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal developmental dysregulation</div>
 
+
                 <div class="item-desc">Altered skeletal development is associated with type E brachydactyly and short stature. Hdac4-null mouse evidence suggests premature ossification, but a homozygous-null animal is not a dosage-equivalent model of the human heterozygous deletion.</div>
 
 
@@ -4904,6 +4960,7 @@ This pathophysiological event involves HDAC4 (hgnc:14063). hgnc:14063 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-variable-neurodevelopmental-and-congenital-effects" data-dismech-node="Variable neurodevelopmental and congenital effects" data-dismech-type="pathophysiology">
                 <div class="item-name">Variable neurodevelopmental and congenital effects</div>
+
 
                 <div class="item-desc">Breakpoint-dependent multigene dosage loss is associated with variable developmental delay, intellectual disability, autistic or other behavioral features, hypotonia, seizures, growth differences, and congenital organ anomalies. Specific gene-to-phenotype routes remain unresolved.</div>
 
@@ -5094,6 +5151,7 @@ This pathophysiological event involves HDAC4 (hgnc:14063). hgnc:14063 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-inter-chromosomal-architecture" data-dismech-node="Altered inter-chromosomal architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered inter-chromosomal architecture</div>
 
+
                 <div class="item-desc">Mesenchymal stem cells and derived cells from members of one family with an inherited 2q37 deletion showed altered positions and interactions of chromosome territories. This is a patient-derived cellular observation; its contribution to particular clinical features is unknown.</div>
 
 
@@ -5154,6 +5212,7 @@ This pathophysiological event involves HDAC4 (hgnc:14063). hgnc:14063 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-candidate-2q37-1-wilms-tumor-susceptibility" data-dismech-node="Candidate 2q37.1 Wilms tumor susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Candidate 2q37.1 Wilms tumor susceptibility</div>
+
 
                 <div class="item-desc">A small number of constitutional 2q37 deletion and Wilms-tumor co-occurrences, together with tumor loss-of-heterozygosity data, suggest a possible susceptibility locus in 2q37.1. The magnitude of constitutional risk and the value of surveillance are not established.</div>
 
@@ -5329,6 +5388,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5404,6 +5466,15 @@ This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024).
                     </span>
 
                     </div>
+
+
+
+    <div class="item-meta">
+
+        <span class="tag tag-classification" title="Bound at organ-system level deliberately: the cited source characterizes the finding no further, so a narrower term would assert more than the evidence.">Coarse binding: source unspecified</span>
+
+    </div>
+
 
 
 
@@ -5487,6 +5558,15 @@ This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a
 
 
 
+    <div class="item-meta">
+
+        <span class="tag tag-classification" title="Bound at organ-system level deliberately: the cited source characterizes the finding no further, so a narrower term would assert more than the evidence.">Coarse binding: source unspecified</span>
+
+    </div>
+
+
+
+
 
 
     <details class="evidence-details">
@@ -5553,6 +5633,9 @@ This clinical feature is Nephroblastoma (HP:0002667). HP:0002667 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5638,6 +5721,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5713,6 +5799,9 @@ This clinical feature is Type E brachydactyly (HP:0005863). HP:0005863 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5796,6 +5885,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5865,6 +5957,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5929,6 +6024,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6014,6 +6112,9 @@ This clinical feature is Abnormality of mental function (HP:0011446). HP:0011446
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6083,6 +6184,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6147,6 +6251,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6246,6 +6353,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6310,6 +6420,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6381,6 +6494,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6466,6 +6582,9 @@ This clinical feature is Increased body weight (HP:0004324). HP:0004324 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6530,6 +6649,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6622,6 +6744,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal chromosomal deletion)</span>
 
                 </div>
+
+
+
 
 
 
@@ -6719,6 +6844,9 @@ This disease-associated gene is HDAC4 (hgnc:14063). hgnc:14063 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -6853,6 +6981,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Management is feature-directed and coordinated across developmental, neurologic, cardiac, gastrointestinal, nutritional, vision, hearing, and genetics services according to the individual&#39;s findings. The cited syndrome-specific management source is retired and is retained as historical guidance rather than current evidence for fixed protocols.</div>
 
 
@@ -6934,6 +7068,12 @@ This treatment is early intervention services, annotated with Early Intervention
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7040,6 +7180,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling integrates the proband&#39;s deletion boundaries and parental chromosome results when estimating recurrence risk.</div>
 
 
@@ -7121,6 +7267,12 @@ This treatment is cancer screening (NCIT:C15406). NCIT:C15406 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7240,6 +7392,12 @@ This treatment is supportive dental care, annotated with Supportive Care (NCIT:C
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8484,6 +8642,7 @@ phenotypes:
     term:
       id: HP:0000077
       label: Abnormality of the kidney
+    coarse_binding_basis: SOURCE_UNSPECIFIED
   evidence:
   - reference: PMID:20301337
     reference_title: &#34;2q37 Microdeletion Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY.&#34;
@@ -8499,6 +8658,7 @@ phenotypes:
     term:
       id: HP:0011024
       label: Abnormality of the gastrointestinal tract
+    coarse_binding_basis: SOURCE_UNSPECIFIED
   evidence:
   - reference: PMID:20301337
     reference_title: &#34;2q37 Microdeletion Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY.&#34;
@@ -9175,6 +9335,59 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: 2q37 Microdeletion Syndrome (Changes required)</strong> · 2026-05-30T05:06:39Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/2q37_Microdeletion_Syndrome/2026-05-30T050639Z-github-review-3479.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3479
+Issue state: OPEN
+Issue created: 2026-05-30T05:06:39Z
+Issue updated: 2026-05-30T05:11:17Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: curation, medium_effort, review
+
+## Completed curation review
+
+- Disease: **2q37 Microdeletion Syndrome**
+- Entry: `kb/disorders/2q37_Microdeletion_Syndrome.yaml`
+- Selection basis: #87 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **GeneReviews exists and is already referenced but needs fuller consumption.** 2q37 microdeletion syndrome GeneReviews should drive phenotype and management completeness. Source: https://www.ncbi.nlm.nih.gov/books/NBK1158/
+2. **Management is too narrow.** Supportive care, speech therapy, and PT are present. Add behavioral/autism supports, obesity/metabolic monitoring, orthopedic/spine/joint care, seizure management if present, cardiac/renal screening when indicated, and genetic counseling.
+3. **Diagnosis should include deletion testing and HDAC4 sequencing distinction.** Chromosome analysis, molecular testing, and HDAC4 sequencing are present; add chromosomal microarray/FISH/karyotype context, deletion size interpretation, parental testing, and HDAC4 single-gene differential.
+4. **Phenotype coverage is broad but should include congenital anomalies and behavior detail.** Developmental delay, ID, brachydactyly, obesity, autism, hypotonia, joint hypermobility, scoliosis, and behavioral abnormality are present; check seizures, cardiac/renal/genital anomalies, facial gestalt, and sleep/feeding details.
+5. **Pathophysiology should not reduce the syndrome entirely to HDAC4.** HDAC4 is central to brachydactyly/ID, but larger deletions can include additional genes and phenotypes.
+
+## Research-artifact cross-check
+
+Matching artifacts: `research/2q37_Microdeletion_Syndrome-deep-research-asta.md` and `.citations.md`. The YAML already includes GeneReviews PMID but under-consumes management and deletion-size nuance.
+
+## Content-completeness summary
+
+- **Phenotypes:** broad; compare against GeneReviews.
+- **Subtype/lumping:** distinguish deletion syndrome versus HDAC4-only variants.
+- **Pathophysiology:** add deletion-size/multigene nuance.
+- **Management/diagnosis:** expand surveillance/support.
+
+## Sources used
+
+- GeneReviews, 2q37 Microdeletion Syndrome: https://www.ncbi.nlm.nih.gov/books/NBK1158/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10095,7 +10308,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "2q37 Microdeletion Syndrome", "mondoId": "MONDO:0010886", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "2q37_Microdeletion_Syndrome", "yamlRevision": "15e0978caee6"};
+        const OS_CONFIG = {"diseaseName": "2q37 Microdeletion Syndrome", "mondoId": "MONDO:0010886", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "2q37_Microdeletion_Syndrome", "yamlRevision": "9adc26df1c9e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4927,6 +4980,13 @@ This is recorded rather than resolved because the honest reading of the current 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ctsc-loss-of-function" data-dismech-node="Biallelic CTSC Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CTSC Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion. CTSC on chromosome 11q14 encodes cathepsin C (dipeptidyl peptidase I), a lysosomal cysteine exopeptidase. Disease alleles span nonsense, frameshift, splice and missense classes; more than seventy have been reported. The 1999 homozygosity-mapping study that identified the gene narrowed the interval to 1.2 cM and found mutations in all eight families examined.
 Missense alleles are not a milder class here. The p.H405N substitution, the first described in the enzyme&#39;s active site, abolishes activity as completely as a truncation does, and so does the p.Y168C substitution characterised later. That is why this node is curated as loss of function across the whole allelic spectrum rather than being subdivided by variant class.</div>
 
@@ -4988,6 +5048,8 @@ This pathophysiological event involves CTSC (hgnc:2528). hgnc:2528 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4998,6 +5060,9 @@ This pathophysiological event involves CTSC (hgnc:2528). hgnc:2528 is a gene fro
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Loss of function established biochemically rather than inferred from allele class: cathepsin C activity is essentially absent in patient polymorphonuclear leukocytes, including for active-site missense alleles. Zygosity is left unset at disease level because reported patients are variously homozygous (typically consanguineous) and compound heterozygous.</div>
 
@@ -5099,6 +5164,13 @@ This pathophysiological event involves CTSC (hgnc:2528). hgnc:2528 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-neutrophil-serine-protease-zymogen-activation" data-dismech-node="Failure of Neutrophil Serine Protease Zymogen Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Neutrophil Serine Protease Zymogen Activation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The step that defines the disease. Elastase, cathepsin G and proteinase 3 are synthesised as zymogens and are activated during the promyelocyte stage by cathepsin C removing an N-terminal dipeptide. In PLS neutrophils none of the three has measurable activity.</div>
 
@@ -5329,6 +5401,13 @@ This pathophysiological event involves cathepsin C dipeptidyl-peptidase activity
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-neutrophil-serine-proteases-from-azurophil-granules" data-dismech-node="Loss of Neutrophil Serine Proteases from Azurophil Granules" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Neutrophil Serine Proteases from Azurophil Granules</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A distinct claim from the one above, and the more surprising of the two: in PLS the proteases are not present-but-inactive, they are gone. Proteome analysis of patient neutrophil granules found elastase, cathepsin G and proteinase 3 absent. Bone-marrow work in the same patient localised where this happens - synthesis, initial processing and sorting are normal in immature myeloid cells, and the proteins disappear only in mature neutrophils. Cathepsin C therefore has a second, chaperone-like role protecting these proteases from degradation, separate from activating them.
 This is curated as its own node because it changes what a therapy would have to do. Restoring the activating cleavage alone would not help if the substrate has already been degraded.</div>
 
@@ -5534,6 +5613,13 @@ So cathepsin C&#39;s second, chaperone-like role - protecting these proteases fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granzyme-activation-in-cytotoxic-lymphocytes" data-dismech-node="Granzyme Activation in Cytotoxic Lymphocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Granzyme Activation in Cytotoxic Lymphocytes</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">The second protease arm cathepsin C serves, and - unlike the neutrophil arm - a contested one in humans. Curated as a node so the disagreement is visible rather than resolved in one direction.
 The premise is not in doubt: cathepsin C activates granzymes A and B in the lytic granules of cytotoxic lymphocytes and NK cells by the same N-terminal dipeptide removal it performs on the neutrophil serine proteases. In DPPI-null mice the consequence is exactly what that predicts - granzymes A and B are present in normal amounts but retain their prodipeptide domains and are inactive, and cytotoxic assays show severe defects in target-cell apoptosis comparable to perforin-null or granzyme A/B double-null effectors.
 Humans with PLS do not follow. Direct measurement in patients found retained significant granzyme activity in the lymphokine-activated killer compartment and normal LAK-mediated cytotoxicity against K562 targets - a result the authors offered as the molecular explanation for the absence of a generalised T cell immunodeficiency phenotype in PLS. Against that, clinical reviews describe impaired NK cytotoxic function as the first consistent immune dysfunction reported in these patients, and propose it as a contributor to the periodontitis.
@@ -5737,6 +5823,13 @@ This pathophysiological event involves natural killer cell mediated cytotoxicity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-oxygen-independent-antimicrobial-defence" data-dismech-node="Failure of Oxygen-Independent Antimicrobial Defence" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Oxygen-Independent Antimicrobial Defence</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The mechanism that best explains why the periodontal pocket, of all sites, is where PLS neutrophils fail. Two protease-dependent, oxygen-independent functions are lost together. First, the proteases convert the neutrophil precursor hCAP-18 into the antimicrobial peptide LL-37, which is active against Aggregatibacter (formerly Actinobacillus) actinomycetemcomitans; PLS neutrophils release less LL-37 and cannot process hCAP-18 on ionomycin stimulation. Second, cathepsin G and elastase normally degrade the pore-forming leukotoxin that A. actinomycetemcomitans uses against phagocytes, and PLS neutrophils cannot, so they take more damage from it.
 The periodontal pocket has low oxygen tension, so defence there leans on exactly the oxygen-independent machinery that is missing. Graded PROVISIONAL rather than ESTABLISHED: the individual biochemical steps are demonstrated in patient cells, but the inference that this is *the* reason for the site selectivity is the authors&#39; hypothesis, not a tested one.</div>
@@ -5944,6 +6037,13 @@ This pathophysiological event involves decreased defense response to bacterium (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neutrophil-extracellular-trap-formation" data-dismech-node="Impaired Neutrophil Extracellular Trap Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neutrophil Extracellular Trap Formation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">NET formation requires the serine proteases, and it fails in PLS. How completely it fails is where the reports differ, and the difference is worth keeping rather than averaging away: two studies describe patient neutrophils as incapable of producing NETs, while a third, examining a different CTSC allele, found NET formation severely depressed and delayed but not abolished. Both are curated, because a residual-NET phenotype is the kind of observation that would distinguish allele-specific severity if anyone assembled enough patients to test it.</div>
 
 
@@ -6114,6 +6214,13 @@ This pathophysiological event involves decreased neutrophil extracellular trap f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperinflammatory-neutrophil-phenotype" data-dismech-node="Hyperinflammatory Neutrophil Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperinflammatory Neutrophil Phenotype</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The other half of the periodontal story, and the one that explains why the tissue is destroyed rather than merely infected. PLS neutrophils are not quiescent: they release more proinflammatory cytokine both unstimulated and stimulated, generate more reactive oxygen species, and the chemoattractants MIP-1-alpha and CXCL8 are elevated in them and in plasma. Combined with impaired directional chemotaxis - cells that move but not accurately, so spend longer in transit through the tissue - this gives continuous recruitment of hyperreactive neutrophils into a site they cannot sterilise.
 Graded PROVISIONAL: the cellular measurements are from a single five-patient cohort, and the destructive-cycle model built on them is the authors&#39; proposal.</div>
@@ -6321,6 +6428,13 @@ This pathophysiological event involves decreased neutrophil chemotaxis (GO:00305
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysbiotic-subgingival-colonisation" data-dismech-node="Dysbiotic Subgingival Colonisation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysbiotic Subgingival Colonisation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Subgingival plaque in PLS is dominated by Aggregatibacter actinomycetemcomitans, the organism whose leukotoxin PLS neutrophils cannot degrade and whose killing depends on the LL-37 they cannot generate. Other recognised periodontal pathogens - Porphyromonas gingivalis, Fusobacterium nucleatum, Treponema denticola, Prevotella intermedia - are also implicated.
 The direction of causation here is the standard periodontal one and is worth stating rather than assuming: the protease defect is what permits the colonisation, and the colonisation is what drives the inflammation. What is not established is whether A. actinomycetemcomitans is required - PLS-like periodontitis has not been shown to resolve when it is eradicated.</div>
 
@@ -6450,6 +6564,13 @@ This pathophysiological event occurs in gingiva (UBERON:0001828). UBERON:0001828
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-destructive-periodontal-inflammation-and-alveolar-bone-resorption" data-dismech-node="Destructive Periodontal Inflammation and Alveolar Bone Resorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Destructive Periodontal Inflammation and Alveolar Bone Resorption</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The convergence point. Persistent inflammation in the periodontium destroys the collagenous attachment apparatus and resorbs alveolar bone, and it does so fast enough that patients lose the deciduous dentition as it erupts and then repeat the sequence on the permanent teeth. Many are edentulous in their teens; implant restoration is not reliably protective, since peri-implantitis recurs on the same substrate.</div>
 
@@ -6664,6 +6785,13 @@ This pathophysiological event occurs in periodontal ligament (UBERON:0008266). U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-permeabilisation-and-autophagic-flux-failure" data-dismech-node="Lysosomal Permeabilisation and Autophagic Flux Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Permeabilisation and Autophagic Flux Failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A second, non-neutrophil consequence of cathepsin C loss, and currently the only mechanistic proposal that could reach the skin. In fibroblasts cultured from PLS patients, autophagic flux is blocked with autophagosomes accumulating, oxidative status and oxygen consumption are altered, lysosomes become permeable, cathepsin B is released into the cytosol and the NLRP3 inflammasome is activated. Recombinant cathepsin C added to the mutant fibroblasts improved growth and autophagic flux and partially restored lysosomal integrity, which is the rescue that makes the causal direction credible.
 Graded PROVISIONAL: this is a single study in cultured skin fibroblasts, not keratinocytes, and no one has shown that it is what produces the hyperkeratosis. It is included because it is the best available candidate and because the rescue experiment gives it a therapeutic reading.</div>
 
@@ -6869,6 +6997,13 @@ This pathophysiological event involves increased pyroptotic inflammatory respons
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-palmoplantar-epidermal-hyperkeratosis" data-dismech-node="Palmoplantar Epidermal Hyperkeratosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Palmoplantar Epidermal Hyperkeratosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The keratoderma itself, curated as a node with an honest confidence grade because the mechanism is not known. Cathepsin C is expressed in palmoplantar and gingival keratinocytes, and the standard proposal is that its loss impairs proteolytic turnover of corneodesmosomes so corneocytes are retained and the stratum corneum thickens. That proposal has not been demonstrated - no cathepsin C substrate in the epidermal desquamation pathway has been identified.
 Two observations argue against simply treating the keratoderma as a downstream consequence of the periodontal or immune phenotype. Skin and periodontal severity are uncorrelated in the largest cohort; and the skin changes appear in the first three years of life, before the deciduous dentition is destroyed.</div>
@@ -7106,7 +7241,7 @@ This pathophysiological event occurs in skin of palm and sole, annotated with sk
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acitretin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The systemic retinoid with the most PLS-specific evidence. In a reported 11-year-old treated with intermittent low-dose acitretin after methotrexate failed, both components improved: keratoderma by more than 75 percent during active therapy, and - the more surprising result - periodontitis, with an increase in alveolar bone height and periodontal attachment that was stable at one year.\\nThe evidence base is single cases and small series, not trials, and the skin response is dependent on continued treatment: keratoderma worsened whenever the drug was stopped and improved when it was restarted. Acitretin is teratogenic with a long washout, which constrains its use in women of childbearing potential.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"acitretin\"]}}, {\"id\": \"Antibiotic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic antibiotics, usually amoxicillin with metronidazole, given alongside mechanical debridement to suppress Aggregatibacter actinomycetemcomitans - the organism PLS neutrophils are specifically unable to handle, because they can neither generate LL-37 against it nor degrade its leukotoxin. Antibiotics are also what treats the pyogenic liver abscess when it occurs.\\nCurated as adjunctive rather than disease-modifying: no trial has tested an antibiotic regimen against a PLS endpoint, and the evidence here is the mechanistic rationale plus case-series practice.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic CTSC Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. CTSC on chromosome 11q14 encodes cathepsin C (dipeptidyl peptidase I), a lysosomal cysteine exopeptidase. Disease alleles span nonsense, frameshift, splice and missense classes; more than seventy have been reported. The 1999 homozygosity-mapping study that identified the gene narrowed the interval to 1.2 cM and found mutations in all eight families examined.\\nMissense alleles are not a milder class here. The p.H405N substitution, the first described in the enzyme\u0027s active site, abolishes activity as completely as a truncation does, and so does the p.Y168C substitution characterised later. That is why this node is curated as loss of function across the whole allelic spectrum rather than being subdivided by variant class.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"CTSC\"], \"gene_terms\": [{\"label\": \"CTSC\", \"id\": \"hgnc:2528\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Loss of function established biochemically rather than inferred from allele class: cathepsin C activity is essentially absent in patient polymorphonuclear leukocytes, including for active-site missense alleles. Zygosity is left unset at disease level because reported patients are variously homozygous (typically consanguineous) and compound heterozygous.\"}, \"role\": \"trigger\"}}, {\"id\": \"CTSC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CTSC\"], \"gene_terms\": [{\"label\": \"CTSC\", \"id\": \"hgnc:2528\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"DPPI-null (Ctsc-/-) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model behind most of what is assumed about cathepsin C\u0027s role in immune effector function, and - on the granzyme arm - the model human patients do not match.\\nIn DPPI-null cytotoxic lymphocytes, granzymes A and B are present in normal amounts but retain their prodipeptide domains and are inactive, and target cell apoptosis is severely defective at both early and late time points, to a degree comparable with perforin-null or granzyme A/B double-null effectors. That is a clean, strong result and it is what the biochemistry predicts.\\nHumans with the same enzyme loss retain significant granzyme activity in the lymphokine-activated killer compartment and have normal LAK-mediated cytotoxicity. So this model is faithful to the activation chemistry and not to the human cellular outcome.\"}, {\"id\": \"Destructive Periodontal Inflammation and Alveolar Bone Resorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point. Persistent inflammation in the periodontium destroys the collagenous attachment apparatus and resorbs alveolar bone, and it does so fast enough that patients lose the deciduous dentition as it erupts and then repeat the sequence on the permanent teeth. Many are edentulous in their teens; implant restoration is not reliably protective, since peri-implantitis recurs on the same substrate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"bone resorption\", \"chronic inflammatory response\"], \"role\": \"consequence\", \"locations\": [\"periodontal ligament\"]}}, {\"id\": \"Dysbiotic Subgingival Colonisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Subgingival plaque in PLS is dominated by Aggregatibacter actinomycetemcomitans, the organism whose leukotoxin PLS neutrophils cannot degrade and whose killing depends on the LL-37 they cannot generate. Other recognised periodontal pathogens - Porphyromonas gingivalis, Fusobacterium nucleatum, Treponema denticola, Prevotella intermedia - are also implicated.\\nThe direction of causation here is the standard periodontal one and is worth stating rather than assuming: the protease defect is what permits the colonisation, and the colonisation is what drives the inflammation. What is not established is whether A. actinomycetemcomitans is required - PLS-like periodontitis has not been shown to resolve when it is eradicated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"role\": \"effector\", \"locations\": [\"gingiva\"]}}, {\"id\": \"Failure of Neutrophil Serine Protease Zymogen Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that defines the disease. Elastase, cathepsin G and proteinase 3 are synthesised as zymogens and are activated during the promyelocyte stage by cathepsin C removing an N-terminal dipeptide. In PLS neutrophils none of the three has measurable activity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"zymogen activation\"], \"molecular_functions\": [\"cathepsin C dipeptidyl-peptidase activity\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"DPPI-null (Ctsc-/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"DPPI-/- (cathepsin C / dipeptidyl peptidase I null)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The neutrophil arm, measured directly in this model rather than inferred from the granzyme work. The DPPI-null mouse was made to test the role of the neutrophil serine proteases in inflammation, and it established that DPPI is required for the full activation of cathepsin G, neutrophil elastase and proteinase 3 - the same three enzymes, in the same compartment, as the human node.\"}]}}, {\"id\": \"Failure of Oxygen-Independent Antimicrobial Defence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mechanism that best explains why the periodontal pocket, of all sites, is where PLS neutrophils fail. Two protease-dependent, oxygen-independent functions are lost together. First, the proteases convert the neutrophil precursor hCAP-18 into the antimicrobial peptide LL-37, which is active against Aggregatibacter (formerly Actinobacillus) actinomycetemcomitans; PLS neutrophils release less LL-37 and cannot process hCAP-18 on ionomycin stimulation. Second, cathepsin G and elastase normally degrade the pore-forming leukotoxin that A. actinomycetemcomitans uses against phagocytes, and PLS neutrophils cannot, so they take more damage from it.\\nThe periodontal pocket has low oxygen tension, so defence there leans on exactly the oxygen-independent machinery that is missing. Graded PROVISIONAL rather than ESTABLISHED: the individual biochemical steps are demonstrated in patient cells, but the inference that this is *the* reason for the site selectivity is the authors\u0027 hypothesis, not a tested one.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"antibacterial peptide production\", \"defense response to bacterium\"], \"role\": \"effector\"}}, {\"id\": \"Granzyme Activation in Cytotoxic Lymphocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second protease arm cathepsin C serves, and - unlike the neutrophil arm - a contested one in humans. Curated as a node so the disagreement is visible rather than resolved in one direction.\\nThe premise is not in doubt: cathepsin C activates granzymes A and B in the lytic granules of cytotoxic lymphocytes and NK cells by the same N-terminal dipeptide removal it performs on the neutrophil serine proteases. In DPPI-null mice the consequence is exactly what that predicts - granzymes A and B are present in normal amounts but retain their prodipeptide domains and are inactive, and cytotoxic assays show severe defects in target-cell apoptosis comparable to perforin-null or granzyme A/B double-null effectors.\\nHumans with PLS do not follow. Direct measurement in patients found retained significant granzyme activity in the lymphokine-activated killer compartment and normal LAK-mediated cytotoxicity against K562 targets - a result the authors offered as the molecular explanation for the absence of a generalised T cell immunodeficiency phenotype in PLS. Against that, clinical reviews describe impaired NK cytotoxic function as the first consistent immune dysfunction reported in these patients, and propose it as a contributor to the periodontitis.\\nGraded HYPOTHETICAL, and carrying no directional modifier, because a direct measurement in patients outranks a narrative review\u0027s summary of prior reports, and the measurement points the other way. What is well supported is that this is a real disagreement worth resolving, not that the arm fails.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"natural killer cell mediated cytotoxicity\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"DPPI-null (Ctsc-/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"DPPI-/- (cathepsin C / dipeptidyl peptidase I null)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The mouse has a severe cytotoxic defect; human patients do not. This is the specific place where model and disease diverge, and it is why the human node it points at is graded HYPOTHETICAL.\"}]}}, {\"id\": \"Hyperinflammatory Neutrophil Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The other half of the periodontal story, and the one that explains why the tissue is destroyed rather than merely infected. PLS neutrophils are not quiescent: they release more proinflammatory cytokine both unstimulated and stimulated, generate more reactive oxygen species, and the chemoattractants MIP-1-alpha and CXCL8 are elevated in them and in plasma. Combined with impaired directional chemotaxis - cells that move but not accurately, so spend longer in transit through the tissue - this gives continuous recruitment of hyperreactive neutrophils into a site they cannot sterilise.\\nGraded PROVISIONAL: the cellular measurements are from a single five-patient cohort, and the destructive-cycle model built on them is the authors\u0027 proposal.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"cytokine production involved in inflammatory response\", \"neutrophil chemotaxis\"], \"role\": \"effector\"}}, {\"id\": \"Impaired Neutrophil Extracellular Trap Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NET formation requires the serine proteases, and it fails in PLS. How completely it fails is where the reports differ, and the difference is worth keeping rather than averaging away: two studies describe patient neutrophils as incapable of producing NETs, while a third, examining a different CTSC allele, found NET formation severely depressed and delayed but not abolished. Both are curated, because a residual-NET phenotype is the kind of observation that would distinguish allele-specific severity if anyone assembled enough patients to test it.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil extracellular trap formation\"], \"role\": \"effector\"}}, {\"id\": \"Intensive Periodontal Therapy and Oral Hygiene\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanical debridement, rigorous plaque control and close recall, usually combined with antibiotics targeting Aggregatibacter actinomycetemcomitans. This is the standard of care and it is a delaying strategy rather than a curative one: the underlying neutrophil defect is unchanged, and the disease recurs on implants placed after the natural dentition is lost.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct claim from the one above, and the more surprising of the two: in PLS the proteases are not present-but-inactive, they are gone. Proteome analysis of patient neutrophil granules found elastase, cathepsin G and proteinase 3 absent. Bone-marrow work in the same patient localised where this happens - synthesis, initial processing and sorting are normal in immature myeloid cells, and the proteins disappear only in mature neutrophils. Cathepsin C therefore has a second, chaperone-like role protecting these proteases from degradation, separate from activating them.\\nThis is curated as its own node because it changes what a therapy would have to do. Restoring the activating cleavage alone would not help if the substrate has already been degraded.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mature neutrophil\"], \"biological_processes\": [\"proteolysis\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"DPPI-null (Ctsc-/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"DPPI-/- (cathepsin C / dipeptidyl peptidase I null)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The divergence on the neutrophil arm, and arguably the more interesting one than the granzyme divergence. In the mouse the proteases are present and unprocessed - that is what \\\"not fully activated\\\" means, and it is what the granzyme work in the same model showed explicitly for granzymes A and B. In human PLS neutrophils they are not present at all: proteomic analysis found elastase, cathepsin G and proteinase 3 absent from azurophil granules, and bone-marrow work localised the loss to degradation in mature cells after normal synthesis and sorting.\\nSo cathepsin C\u0027s second, chaperone-like role - protecting these proteases from degradation, separate from activating them - is a human finding that this model does not show. A therapy that restored the activating cleavage would be sufficient in the mouse and insufficient in the patient.\"}]}}, {\"id\": \"Lysosomal Permeabilisation and Autophagic Flux Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, non-neutrophil consequence of cathepsin C loss, and currently the only mechanistic proposal that could reach the skin. In fibroblasts cultured from PLS patients, autophagic flux is blocked with autophagosomes accumulating, oxidative status and oxygen consumption are altered, lysosomes become permeable, cathepsin B is released into the cytosol and the NLRP3 inflammasome is activated. Recombinant cathepsin C added to the mutant fibroblasts improved growth and autophagic flux and partially restored lysosomal integrity, which is the rescue that makes the causal direction credible.\\nGraded PROVISIONAL: this is a single study in cultured skin fibroblasts, not keratinocytes, and no one has shown that it is what produces the hyperkeratosis. It is included because it is the best available candidate and because the rescue experiment gives it a therapeutic reading.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dermal fibroblast\"], \"biological_processes\": [\"autophagosome maturation\", \"pyroptotic inflammatory response\"], \"role\": \"effector\"}}, {\"id\": \"Palmoplantar Epidermal Hyperkeratosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The keratoderma itself, curated as a node with an honest confidence grade because the mechanism is not known. Cathepsin C is expressed in palmoplantar and gingival keratinocytes, and the standard proposal is that its loss impairs proteolytic turnover of corneodesmosomes so corneocytes are retained and the stratum corneum thickens. That proposal has not been demonstrated - no cathepsin C substrate in the epidermal desquamation pathway has been identified.\\nTwo observations argue against simply treating the keratoderma as a downstream consequence of the periodontal or immune phenotype. Skin and periodontal severity are uncorrelated in the largest cohort; and the skin changes appear in the first three years of life, before the deciduous dentition is destroyed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cornification\", \"keratinocyte differentiation\"], \"role\": \"consequence\", \"locations\": [\"skin of palm and sole\"]}}], \"edges\": [{\"source\": \"Biallelic CTSC Loss of Function\", \"target\": \"Failure of Neutrophil Serine Protease Zymogen Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic CTSC Loss of Function\", \"target\": \"Lysosomal Permeabilisation and Autophagic Flux Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Neutrophil Serine Protease Zymogen Activation\", \"target\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"target\": \"Failure of Oxygen-Independent Antimicrobial Defence\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"target\": \"Impaired Neutrophil Extracellular Trap Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"target\": \"Granzyme Activation in Cytotoxic Lymphocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Oxygen-Independent Antimicrobial Defence\", \"target\": \"Dysbiotic Subgingival Colonisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neutrophil Extracellular Trap Formation\", \"target\": \"Dysbiotic Subgingival Colonisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperinflammatory Neutrophil Phenotype\", \"target\": \"Destructive Periodontal Inflammation and Alveolar Bone Resorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysbiotic Subgingival Colonisation\", \"target\": \"Destructive Periodontal Inflammation and Alveolar Bone Resorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Permeabilisation and Autophagic Flux Failure\", \"target\": \"Palmoplantar Epidermal Hyperkeratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Acitretin\", \"target\": \"Palmoplantar Epidermal Hyperkeratosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensive Periodontal Therapy and Oral Hygiene\", \"target\": \"Dysbiotic Subgingival Colonisation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antibiotic Therapy\", \"target\": \"Dysbiotic Subgingival Colonisation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"DPPI-null (Ctsc-/-) mouse\", \"target\": \"Failure of Neutrophil Serine Protease Zymogen Activation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The neutrophil arm, measured directly in this model rather than inferred from the granzyme work. The DPPI-null mouse was made to test the role of the neutrophil serine proteases in inflammation, and it established that DPPI is required for the full activation of cathepsin G, neutrophil elastase and proteinase 3 - the same three enzymes, in the same compartment, as the human node.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"\\\"Full activation\\\" is the paper\u0027s own wording, and it leaves open whether residual activity remains in the mouse where human patients have none measurable. The functional consequences the model shows are inflammatory rather than infective - protection from antibody-induced arthritis, reduced response to zymosan and immune complexes - so it speaks to the proteases\u0027 role in driving inflammation rather than to host defence.\"}, {\"source\": \"DPPI-null (Ctsc-/-) mouse\", \"target\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The divergence on the neutrophil arm, and arguably the more interesting one than the granzyme divergence. In the mouse the proteases are present and unprocessed - that is what \\\"not fully activated\\\" means, and it is what the granzyme work in the same model showed explicitly for granzymes A and B. In human PLS neutrophils they are not present at all: proteomic analysis found elastase, cathepsin G and proteinase 3 absent from azurophil granules, and bone-marrow work localised the loss to degradation in mature cells after normal synthesis and sorting.\\nSo cathepsin C\u0027s second, chaperone-like role - protecting these proteases from degradation, separate from activating them - is a human finding that this model does not show. A therapy that restored the activating cleavage would be sufficient in the mouse and insufficient in the patient.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The divergence is inferred from a comparison across two studies rather than measured head to head: no cached reference reports protease abundance in DPPI-null mouse neutrophils. What the mouse work establishes is unprocessed granzymes at normal abundance in cytotoxic lymphocytes; the neutrophil compartment is assumed to behave the same way. Graded LOW fidelity for that reason as much as for the divergence itself.\"}, {\"source\": \"DPPI-null (Ctsc-/-) mouse\", \"target\": \"Granzyme Activation in Cytotoxic Lymphocytes\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The mouse has a severe cytotoxic defect; human patients do not. This is the specific place where model and disease diverge, and it is why the human node it points at is graded HYPOTHETICAL.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The divergence is in the functional outcome rather than in the enzymology. Mouse cytotoxic lymphocytes lose granzyme activity and target-cell killing; PLS patients retain both in the lymphokine-activated killer compartment. Any inference from this model to human cytotoxic function is therefore unsupported - including inferences about the safety of cathepsin C inhibition, which cut in the opposite direction to the mouse.\"}, {\"source\": \"CTSC\", \"target\": \"Biallelic CTSC Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acitretin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The systemic retinoid with the most PLS-specific evidence. In a reported 11-year-old treated with intermittent low-dose acitretin after methotrexate failed, both components improved: keratoderma by more than 75 percent during active therapy, and - the more surprising result - periodontitis, with an increase in alveolar bone height and periodontal attachment that was stable at one year.\\nThe evidence base is single cases and small series, not trials, and the skin response is dependent on continued treatment: keratoderma worsened whenever the drug was stopped and improved when it was restarted. Acitretin is teratogenic with a long washout, which constrains its use in women of childbearing potential.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"acitretin\"]}}, {\"id\": \"Antibiotic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic antibiotics, usually amoxicillin with metronidazole, given alongside mechanical debridement to suppress Aggregatibacter actinomycetemcomitans - the organism PLS neutrophils are specifically unable to handle, because they can neither generate LL-37 against it nor degrade its leukotoxin. Antibiotics are also what treats the pyogenic liver abscess when it occurs.\\nCurated as adjunctive rather than disease-modifying: no trial has tested an antibiotic regimen against a PLS endpoint, and the evidence here is the mechanistic rationale plus case-series practice.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic CTSC Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. CTSC on chromosome 11q14 encodes cathepsin C (dipeptidyl peptidase I), a lysosomal cysteine exopeptidase. Disease alleles span nonsense, frameshift, splice and missense classes; more than seventy have been reported. The 1999 homozygosity-mapping study that identified the gene narrowed the interval to 1.2 cM and found mutations in all eight families examined.\\nMissense alleles are not a milder class here. The p.H405N substitution, the first described in the enzyme\u0027s active site, abolishes activity as completely as a truncation does, and so does the p.Y168C substitution characterised later. That is why this node is curated as loss of function across the whole allelic spectrum rather than being subdivided by variant class.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"CTSC\"], \"gene_terms\": [{\"label\": \"CTSC\", \"id\": \"hgnc:2528\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Loss of function established biochemically rather than inferred from allele class: cathepsin C activity is essentially absent in patient polymorphonuclear leukocytes, including for active-site missense alleles. Zygosity is left unset at disease level because reported patients are variously homozygous (typically consanguineous) and compound heterozygous.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"CTSC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CTSC\"], \"gene_terms\": [{\"label\": \"CTSC\", \"id\": \"hgnc:2528\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"DPPI-null (Ctsc-/-) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model behind most of what is assumed about cathepsin C\u0027s role in immune effector function, and - on the granzyme arm - the model human patients do not match.\\nIn DPPI-null cytotoxic lymphocytes, granzymes A and B are present in normal amounts but retain their prodipeptide domains and are inactive, and target cell apoptosis is severely defective at both early and late time points, to a degree comparable with perforin-null or granzyme A/B double-null effectors. That is a clean, strong result and it is what the biochemistry predicts.\\nHumans with the same enzyme loss retain significant granzyme activity in the lymphokine-activated killer compartment and have normal LAK-mediated cytotoxicity. So this model is faithful to the activation chemistry and not to the human cellular outcome.\"}, {\"id\": \"Destructive Periodontal Inflammation and Alveolar Bone Resorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point. Persistent inflammation in the periodontium destroys the collagenous attachment apparatus and resorbs alveolar bone, and it does so fast enough that patients lose the deciduous dentition as it erupts and then repeat the sequence on the permanent teeth. Many are edentulous in their teens; implant restoration is not reliably protective, since peri-implantitis recurs on the same substrate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"bone resorption\", \"chronic inflammatory response\"], \"role\": \"consequence\", \"locations\": [\"periodontal ligament\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Dysbiotic Subgingival Colonisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Subgingival plaque in PLS is dominated by Aggregatibacter actinomycetemcomitans, the organism whose leukotoxin PLS neutrophils cannot degrade and whose killing depends on the LL-37 they cannot generate. Other recognised periodontal pathogens - Porphyromonas gingivalis, Fusobacterium nucleatum, Treponema denticola, Prevotella intermedia - are also implicated.\\nThe direction of causation here is the standard periodontal one and is worth stating rather than assuming: the protease defect is what permits the colonisation, and the colonisation is what drives the inflammation. What is not established is whether A. actinomycetemcomitans is required - PLS-like periodontitis has not been shown to resolve when it is eradicated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"role\": \"effector\", \"locations\": [\"gingiva\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Failure of Neutrophil Serine Protease Zymogen Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that defines the disease. Elastase, cathepsin G and proteinase 3 are synthesised as zymogens and are activated during the promyelocyte stage by cathepsin C removing an N-terminal dipeptide. In PLS neutrophils none of the three has measurable activity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"zymogen activation\"], \"molecular_functions\": [\"cathepsin C dipeptidyl-peptidase activity\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"DPPI-null (Ctsc-/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"DPPI-/- (cathepsin C / dipeptidyl peptidase I null)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The neutrophil arm, measured directly in this model rather than inferred from the granzyme work. The DPPI-null mouse was made to test the role of the neutrophil serine proteases in inflammation, and it established that DPPI is required for the full activation of cathepsin G, neutrophil elastase and proteinase 3 - the same three enzymes, in the same compartment, as the human node.\"}]}}, {\"id\": \"Failure of Oxygen-Independent Antimicrobial Defence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mechanism that best explains why the periodontal pocket, of all sites, is where PLS neutrophils fail. Two protease-dependent, oxygen-independent functions are lost together. First, the proteases convert the neutrophil precursor hCAP-18 into the antimicrobial peptide LL-37, which is active against Aggregatibacter (formerly Actinobacillus) actinomycetemcomitans; PLS neutrophils release less LL-37 and cannot process hCAP-18 on ionomycin stimulation. Second, cathepsin G and elastase normally degrade the pore-forming leukotoxin that A. actinomycetemcomitans uses against phagocytes, and PLS neutrophils cannot, so they take more damage from it.\\nThe periodontal pocket has low oxygen tension, so defence there leans on exactly the oxygen-independent machinery that is missing. Graded PROVISIONAL rather than ESTABLISHED: the individual biochemical steps are demonstrated in patient cells, but the inference that this is *the* reason for the site selectivity is the authors\u0027 hypothesis, not a tested one.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"antibacterial peptide production\", \"defense response to bacterium\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Granzyme Activation in Cytotoxic Lymphocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second protease arm cathepsin C serves, and - unlike the neutrophil arm - a contested one in humans. Curated as a node so the disagreement is visible rather than resolved in one direction.\\nThe premise is not in doubt: cathepsin C activates granzymes A and B in the lytic granules of cytotoxic lymphocytes and NK cells by the same N-terminal dipeptide removal it performs on the neutrophil serine proteases. In DPPI-null mice the consequence is exactly what that predicts - granzymes A and B are present in normal amounts but retain their prodipeptide domains and are inactive, and cytotoxic assays show severe defects in target-cell apoptosis comparable to perforin-null or granzyme A/B double-null effectors.\\nHumans with PLS do not follow. Direct measurement in patients found retained significant granzyme activity in the lymphokine-activated killer compartment and normal LAK-mediated cytotoxicity against K562 targets - a result the authors offered as the molecular explanation for the absence of a generalised T cell immunodeficiency phenotype in PLS. Against that, clinical reviews describe impaired NK cytotoxic function as the first consistent immune dysfunction reported in these patients, and propose it as a contributor to the periodontitis.\\nGraded HYPOTHETICAL, and carrying no directional modifier, because a direct measurement in patients outranks a narrative review\u0027s summary of prior reports, and the measurement points the other way. What is well supported is that this is a real disagreement worth resolving, not that the arm fails.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"natural killer cell mediated cytotoxicity\"], \"role\": \"effector\", \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"DPPI-null (Ctsc-/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"DPPI-/- (cathepsin C / dipeptidyl peptidase I null)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The mouse has a severe cytotoxic defect; human patients do not. This is the specific place where model and disease diverge, and it is why the human node it points at is graded HYPOTHETICAL.\"}]}}, {\"id\": \"Hyperinflammatory Neutrophil Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The other half of the periodontal story, and the one that explains why the tissue is destroyed rather than merely infected. PLS neutrophils are not quiescent: they release more proinflammatory cytokine both unstimulated and stimulated, generate more reactive oxygen species, and the chemoattractants MIP-1-alpha and CXCL8 are elevated in them and in plasma. Combined with impaired directional chemotaxis - cells that move but not accurately, so spend longer in transit through the tissue - this gives continuous recruitment of hyperreactive neutrophils into a site they cannot sterilise.\\nGraded PROVISIONAL: the cellular measurements are from a single five-patient cohort, and the destructive-cycle model built on them is the authors\u0027 proposal.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"cytokine production involved in inflammatory response\", \"neutrophil chemotaxis\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Neutrophil Extracellular Trap Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NET formation requires the serine proteases, and it fails in PLS. How completely it fails is where the reports differ, and the difference is worth keeping rather than averaging away: two studies describe patient neutrophils as incapable of producing NETs, while a third, examining a different CTSC allele, found NET formation severely depressed and delayed but not abolished. Both are curated, because a residual-NET phenotype is the kind of observation that would distinguish allele-specific severity if anyone assembled enough patients to test it.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil extracellular trap formation\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Intensive Periodontal Therapy and Oral Hygiene\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanical debridement, rigorous plaque control and close recall, usually combined with antibiotics targeting Aggregatibacter actinomycetemcomitans. This is the standard of care and it is a delaying strategy rather than a curative one: the underlying neutrophil defect is unchanged, and the disease recurs on implants placed after the natural dentition is lost.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct claim from the one above, and the more surprising of the two: in PLS the proteases are not present-but-inactive, they are gone. Proteome analysis of patient neutrophil granules found elastase, cathepsin G and proteinase 3 absent. Bone-marrow work in the same patient localised where this happens - synthesis, initial processing and sorting are normal in immature myeloid cells, and the proteins disappear only in mature neutrophils. Cathepsin C therefore has a second, chaperone-like role protecting these proteases from degradation, separate from activating them.\\nThis is curated as its own node because it changes what a therapy would have to do. Restoring the activating cleavage alone would not help if the substrate has already been degraded.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mature neutrophil\"], \"biological_processes\": [\"proteolysis\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"DPPI-null (Ctsc-/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"DPPI-/- (cathepsin C / dipeptidyl peptidase I null)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The divergence on the neutrophil arm, and arguably the more interesting one than the granzyme divergence. In the mouse the proteases are present and unprocessed - that is what \\\"not fully activated\\\" means, and it is what the granzyme work in the same model showed explicitly for granzymes A and B. In human PLS neutrophils they are not present at all: proteomic analysis found elastase, cathepsin G and proteinase 3 absent from azurophil granules, and bone-marrow work localised the loss to degradation in mature cells after normal synthesis and sorting.\\nSo cathepsin C\u0027s second, chaperone-like role - protecting these proteases from degradation, separate from activating them - is a human finding that this model does not show. A therapy that restored the activating cleavage would be sufficient in the mouse and insufficient in the patient.\"}]}}, {\"id\": \"Lysosomal Permeabilisation and Autophagic Flux Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, non-neutrophil consequence of cathepsin C loss, and currently the only mechanistic proposal that could reach the skin. In fibroblasts cultured from PLS patients, autophagic flux is blocked with autophagosomes accumulating, oxidative status and oxygen consumption are altered, lysosomes become permeable, cathepsin B is released into the cytosol and the NLRP3 inflammasome is activated. Recombinant cathepsin C added to the mutant fibroblasts improved growth and autophagic flux and partially restored lysosomal integrity, which is the rescue that makes the causal direction credible.\\nGraded PROVISIONAL: this is a single study in cultured skin fibroblasts, not keratinocytes, and no one has shown that it is what produces the hyperkeratosis. It is included because it is the best available candidate and because the rescue experiment gives it a therapeutic reading.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dermal fibroblast\"], \"biological_processes\": [\"autophagosome maturation\", \"pyroptotic inflammatory response\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Palmoplantar Epidermal Hyperkeratosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The keratoderma itself, curated as a node with an honest confidence grade because the mechanism is not known. Cathepsin C is expressed in palmoplantar and gingival keratinocytes, and the standard proposal is that its loss impairs proteolytic turnover of corneodesmosomes so corneocytes are retained and the stratum corneum thickens. That proposal has not been demonstrated - no cathepsin C substrate in the epidermal desquamation pathway has been identified.\\nTwo observations argue against simply treating the keratoderma as a downstream consequence of the periodontal or immune phenotype. Skin and periodontal severity are uncorrelated in the largest cohort; and the skin changes appear in the first three years of life, before the deciduous dentition is destroyed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cornification\", \"keratinocyte differentiation\"], \"role\": \"consequence\", \"locations\": [\"skin of palm and sole\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}], \"edges\": [{\"source\": \"Biallelic CTSC Loss of Function\", \"target\": \"Failure of Neutrophil Serine Protease Zymogen Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic CTSC Loss of Function\", \"target\": \"Lysosomal Permeabilisation and Autophagic Flux Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Neutrophil Serine Protease Zymogen Activation\", \"target\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"target\": \"Failure of Oxygen-Independent Antimicrobial Defence\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"target\": \"Impaired Neutrophil Extracellular Trap Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"target\": \"Granzyme Activation in Cytotoxic Lymphocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Oxygen-Independent Antimicrobial Defence\", \"target\": \"Dysbiotic Subgingival Colonisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neutrophil Extracellular Trap Formation\", \"target\": \"Dysbiotic Subgingival Colonisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperinflammatory Neutrophil Phenotype\", \"target\": \"Destructive Periodontal Inflammation and Alveolar Bone Resorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysbiotic Subgingival Colonisation\", \"target\": \"Destructive Periodontal Inflammation and Alveolar Bone Resorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Permeabilisation and Autophagic Flux Failure\", \"target\": \"Palmoplantar Epidermal Hyperkeratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Acitretin\", \"target\": \"Palmoplantar Epidermal Hyperkeratosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensive Periodontal Therapy and Oral Hygiene\", \"target\": \"Dysbiotic Subgingival Colonisation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antibiotic Therapy\", \"target\": \"Dysbiotic Subgingival Colonisation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"DPPI-null (Ctsc-/-) mouse\", \"target\": \"Failure of Neutrophil Serine Protease Zymogen Activation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The neutrophil arm, measured directly in this model rather than inferred from the granzyme work. The DPPI-null mouse was made to test the role of the neutrophil serine proteases in inflammation, and it established that DPPI is required for the full activation of cathepsin G, neutrophil elastase and proteinase 3 - the same three enzymes, in the same compartment, as the human node.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"\\\"Full activation\\\" is the paper\u0027s own wording, and it leaves open whether residual activity remains in the mouse where human patients have none measurable. The functional consequences the model shows are inflammatory rather than infective - protection from antibody-induced arthritis, reduced response to zymosan and immune complexes - so it speaks to the proteases\u0027 role in driving inflammation rather than to host defence.\"}, {\"source\": \"DPPI-null (Ctsc-/-) mouse\", \"target\": \"Loss of Neutrophil Serine Proteases from Azurophil Granules\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The divergence on the neutrophil arm, and arguably the more interesting one than the granzyme divergence. In the mouse the proteases are present and unprocessed - that is what \\\"not fully activated\\\" means, and it is what the granzyme work in the same model showed explicitly for granzymes A and B. In human PLS neutrophils they are not present at all: proteomic analysis found elastase, cathepsin G and proteinase 3 absent from azurophil granules, and bone-marrow work localised the loss to degradation in mature cells after normal synthesis and sorting.\\nSo cathepsin C\u0027s second, chaperone-like role - protecting these proteases from degradation, separate from activating them - is a human finding that this model does not show. A therapy that restored the activating cleavage would be sufficient in the mouse and insufficient in the patient.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The divergence is inferred from a comparison across two studies rather than measured head to head: no cached reference reports protease abundance in DPPI-null mouse neutrophils. What the mouse work establishes is unprocessed granzymes at normal abundance in cytotoxic lymphocytes; the neutrophil compartment is assumed to behave the same way. Graded LOW fidelity for that reason as much as for the divergence itself.\"}, {\"source\": \"DPPI-null (Ctsc-/-) mouse\", \"target\": \"Granzyme Activation in Cytotoxic Lymphocytes\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The mouse has a severe cytotoxic defect; human patients do not. This is the specific place where model and disease diverge, and it is why the human node it points at is graded HYPOTHETICAL.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The divergence is in the functional outcome rather than in the enzymology. Mouse cytotoxic lymphocytes lose granzyme activity and target-cell killing; PLS patients retain both in the lymphokine-activated killer compartment. Any inference from this model to human cytotoxic function is therefore unsupported - including inferences about the safety of cathepsin C inhibition, which cut in the opposite direction to the mouse.\"}, {\"source\": \"CTSC\", \"target\": \"Biallelic CTSC Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7173,6 +7308,9 @@ This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7285,6 +7423,9 @@ This clinical feature is Severe periodontitis (HP:0000166). HP:0000166 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7358,6 +7499,9 @@ This clinical feature is Alveolar bone loss around teeth (HP:0410027). HP:041002
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7424,6 +7568,9 @@ This clinical feature is Premature loss of primary teeth (HP:0006323). HP:000632
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7518,6 +7665,9 @@ This clinical feature is Premature loss of permanent teeth (HP:0006357), qualifi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7593,6 +7743,9 @@ This clinical feature is Recurrent skin infections (HP:0001581). HP:0001581 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7698,6 +7851,9 @@ This clinical feature is Diffuse palmoplantar hyperkeratosis (HP:0007447), quali
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7794,6 +7950,9 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7858,6 +8017,9 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7941,6 +8103,9 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8016,6 +8181,9 @@ This clinical feature is Intracranial calcification (HP:0430048). HP:0430048 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8130,6 +8298,9 @@ This disease-associated gene is CTSC (hgnc:2528). hgnc:2528 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -8362,6 +8533,9 @@ This treatment uses acitretin (CHEBI:50172). CHEBI:50172 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8372,6 +8546,9 @@ This treatment uses acitretin (CHEBI:50172). CHEBI:50172 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -8511,6 +8688,9 @@ This treatment is periodontal scaling and root planing (NCIT:C63714). NCIT:C6371
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8521,6 +8701,9 @@ This treatment is periodontal scaling and root planing (NCIT:C63714). NCIT:C6371
 
 
     </div>
+
+
+
 
 
 
@@ -8659,6 +8842,9 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8669,6 +8855,9 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8783,6 +8972,9 @@ This treatment is dental procedure (NCIT:C38052). NCIT:C38052 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8793,6 +8985,9 @@ This treatment is dental procedure (NCIT:C38052). NCIT:C38052 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -8914,6 +9109,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8924,6 +9122,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -12082,6 +12283,60 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated from a Perplexity deep-research report plus independent PubMed searching. The report&#39;s narrative framing was used as a lead only; every evidence snippet in this entry is quoted from a cached primary reference fetched via `just fetch-reference`, and no ontology CURIE was taken from the report - its term-validation section reported 27 of 60 checked labels mismatched, including CL:0000094 offered as &#34;neutrophil&#34; when the ontology calls it granulocyte, and UBERON:0001838 offered as &#34;gingiva&#34; when gingiva is UBERON:0001828. All bindings here were resolved independently against the committed term caches and OLS.
+No GeneReviews chapter exists for Papillon-Lefevre syndrome; a PubMed search for &#34;Papillon-Lefevre Syndrome GeneReviews&#34; returned no results, so the Step 3b baseline does not apply.
+A third allelic CTSC condition, prepubertal or aggressive periodontitis type 1, is described in the literature: periodontitis without the palmoplantar keratoderma. It is not curated as a has_subtypes entry here because the evidence consulted does not establish it as a distinct entity rather than the low-penetrance end of the keratoderma phenotype - the gene-discovery paper notes that some patients have only palmoplantar keratosis or only periodontitis. Recorded so the concept is not lost.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 3: fidelity/evidence mismatch on the DPPI-null mouse link (PR 10023)</strong> · 2026-08-29T08:25:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Papillon-Lefevre_Disease/2026-08-29T082504Z-claude-code-2a4281.yaml">View source</a></p>
+                        <p class="research-review-text">Round 3 fixed a fidelity claim that its own evidence did not support, and the fix added a mechanism link the entry should have had from the start.
+
+The defect. The animal_models link targeting Failure of Neutrophil Serine Protease Zymogen Activation was graded RECAPITULATES at HIGH fidelity, but every piece of evidence on it - and its readout - measured granzymes A and B in cytotoxic lymphocytes. That is a different protease family in a different compartment from the elastase, cathepsin G and proteinase 3 node the link points at. The link&#39;s own limitations field said so, which makes it the same prose-contradicts-data pattern as round 1 item 4, one slot over. The concrete harm the reviewer identified is the readout: readouts are written to be self-describing so they can be lifted out of their link, and lifted out, a granzyme measurement filed against a neutrophil-serine-protease node reads as a claim nobody made.
+
+The fix, and a reviewer PMID error found on the way. The reviewer offered two options and recommended fetching the primary DPPI-null neutrophil-protease paper, giving PMID:12208867. That identifier resolves to a sitosterolemia paper about ABCG5 and ABCG8 trafficking, with no DPPI content; the cache file was deleted rather than committed. The intended paper is PMID:11827996, Adkison et al., J Clin Invest 2002, found by searching the title the reviewer described. It establishes that DPPI is required for the full activation of cathepsin G, neutrophil elastase and proteinase 3 - the same three enzymes in the same compartment as the human node - so RECAPITULATES at HIGH fidelity is now supported by evidence that measures what the link claims. The limitations note that full activation is the paper&#39;s own wording and leaves open whether residual activity remains, and that the model&#39;s functional consequences are inflammatory rather than infective.
+
+This is the second reviewer PMID misattribution in this curation batch; the first was PMID:15316526 on the CVID4 entry, identified as a BAFF-R mutational analysis when the cached record is a CVID lung-disease study. Both were caught by reading the cache before citing. Worth recording as a pattern rather than two incidents: a suggested identifier is a lead, from a reviewer exactly as from a deep-research report.
+
+The addition. Taking the reviewer&#39;s non-blocking suggestion, a third modeled_mechanisms link records the divergence on the neutrophil arm, which is arguably more interesting than the granzyme one. In the mouse the proteases are present and unprocessed; in human PLS neutrophils they are absent, degraded after normal synthesis and sorting. So cathepsin C&#39;s chaperone-like role protecting the proteases from degradation - separate from activating them - is a human finding this model does not show, and a therapy restoring only the activating cleavage would be sufficient in the mouse and insufficient in the patient. Graded FAILS_TO_RECAPITULATE at LOW fidelity, with limitations stating plainly that the divergence is inferred across two studies rather than measured head to head, since no cached reference reports protease abundance in DPPI-null mouse neutrophils.
+
+Second non-blocking item, and a correction to my own reasoning. The Pham human measurement attached to the granzyme FAILS_TO_RECAPITULATE link was graded REFUTE. That was wrong and the reviewer was right that it contradicted its own explanation. supports is relative to the claim the evidence is attached to, and that link&#39;s claim is that the model fails to recapitulate the human outcome - which the measurement is exactly the evidence for. Regraded SUPPORT, with the reasoning written into the explanation so the same mistake is visible next time. The same sentence is graded SUPPORT on the discussion, so the two are now consistent.
+
+A snippet note. The most direct sentence naming all three proteases carries bracketed abbreviations, and the reference validator strips bracketed spans before matching unless conf/reference_validator_config.yaml lists a literal_bracket_patterns entry. A neighbouring bracket-free sentence is used at link level instead, with the explanation saying why, and the readout carries the three enzyme names.
+
+Validation after changes. Schema validation passes; 68 of 68 evidence snippets verified, up from 66; and the full ungated gate set was run this time - folded-hyphens, snippet-length, title-snippets, snippet-grading - alongside term validation, entity-ref and duplicate-key checks. The model-link pytest lanes pass for this file; the one failure is the pre-existing Polycystic_Kidney_Disease_3 defect on main, filed as issue 10028.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Papillon-Lefevre Disease (MONDO:0009490, CTSC)</strong> · 2026-08-29T06:43:27Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Papillon-Lefevre_Disease/2026-08-29T064327Z-claude-code-59805a.yaml">View source</a></p>
+                        <p class="research-review-text">New disorder entry for Papillon-Lefevre syndrome, the autosomal recessive cathepsin C (CTSC) deficiency.
+
+Curation inputs. One Perplexity deep-research run, committed alongside as research/Papillon-Lefevre_Disease-deep-research-perplexity.md, plus independent PubMed E-utilities searching. The report was used for narrative framing only. Two things about it are worth recording. Its reference_validation block reported 10 of 10 identifiers resolved with one flagged off topic - PMID:19882040, a paper on depigmentation after intralesional corticosteroid injection, which shares no vocabulary with the report and is not cited by this entry. Its term_validation block reported 27 of 60 checked labels mismatched, so no ontology CURIE was taken from the report at all; every binding here was resolved independently against the committed term caches and OLS. Two examples of what the report offered: CL:0000094 as neutrophil, when the ontology calls it granulocyte and neutrophil is CL:0000775; and UBERON:0001838 as gingiva, when gingiva is UBERON:0001828.
+
+GeneReviews baseline. A PubMed search for Papillon-Lefevre Syndrome GeneReviews returned no results, so Step 3b of the initiate-new-disorder-creation skill does not apply here.
+
+Structure. Ten pathophysiology nodes, running from biallelic CTSC loss of function through failure of neutrophil serine protease zymogen activation; the separate and less obvious claim that the proteases are degraded rather than merely left inactive in mature neutrophils; loss of the two oxygen-independent antimicrobial functions, LL-37 generation and leukotoxin degradation; impaired NET formation; a hyperinflammatory neutrophil phenotype; dysbiotic subgingival colonisation; and destructive periodontal inflammation with alveolar bone resorption. The cutaneous branch is kept separate rather than downstream, on the strength of two facts: skin and periodontal severity are uncorrelated across 47 patients, and the keratoderma appears in the first three years of life. It is graded HYPOTHETICAL, with the fibroblast autophagy and lysosomal-permeabilisation work carried as a PROVISIONAL node.
+
+Twelve phenotypes, two of them assigned to the Haim-Munk subtype. Haim-Munk syndrome is curated under has_subtypes rather than as a separate entry because it is allelic - the defining study found a mutation in the same CTSC codon as a classical PLS family.
+
+Three discussions. One HUMAN_MODEL_MISMATCH: mouse knockouts assign the neutrophil serine proteases a crucial antimicrobial role, while humans lacking all three are not correspondingly infection-prone, and one study states outright that they are dispensable for human immunoprotection. That claim is flagged rather than endorsed, because PLS patients do have a severe infection-linked pathology, just one confined to the periodontium. Two KNOWLEDGE_GAPs: the unidentified epidermal cathepsin C substrate, and whether residual NET formation is allele-specific.
+
+Validation. Schema validation passes; 50 of 50 evidence snippets verified against cached primary references; term validation passes; duplicate-key and entity-ref checks pass.
+
+Snippet issues fixed during curation, recorded because they are the recurring failure mode here: five snippets failed on the accented spelling of the eponym, since the sources use both a grave and an acute accent in different papers; one failed on an en-dash inside a percentage range; and ten reference titles needed the same accent correction. All were fixed by quoting the cached source exactly rather than by relaxing the claim.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

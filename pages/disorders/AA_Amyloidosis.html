@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4834,6 +4887,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-inflammatory-autoinflammatory-or-infectious-stimulus" data-dismech-node="Chronic Inflammatory, Autoinflammatory, or Infectious Stimulus" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Inflammatory, Autoinflammatory, or Infectious Stimulus</div>
 
+
                 <div class="item-desc">The proximal trigger is a persistent inflammatory drive of any cause: inflammatory arthritis (rheumatoid arthritis, ankylosing spondylitis, juvenile idiopathic arthritis), a monogenic autoinflammatory syndrome (familial Mediterranean fever, TRAPS, CAPS, mevalonate kinase deficiency), chronic infection (tuberculosis, leprosy, osteomyelitis, bronchiectasis), inflammatory bowel disease, or vasculitis. The specific disease is interchangeable; what matters mechanistically is the duration and magnitude of the cytokine drive it sustains. A substantial minority of cases remain idiopathic, with no overt trigger identified.</div>
 
 
@@ -4974,6 +5028,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-6-driven-hepatic-acute-phase-response" data-dismech-node="IL-6-Driven Hepatic Acute-Phase Response" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-6-Driven Hepatic Acute-Phase Response</div>
+
 
                 <div class="item-desc">Interleukin-6 (with contributions from IL-1beta and TNF) drives hepatocyte transcription and secretion of SAA1 and SAA2 as HDL-associated acute-phase apolipoproteins. In an ordinary self-limited acute-phase response this is physiological and transient; here it is unremitting. Adipose tissue is a second, non-hepatic source of SAA, which is how obesity feeds this node in the absence of a classical inflammatory disease.</div>
 
@@ -5182,6 +5237,7 @@ This pathophysiological event involves increased interleukin-6-mediated signalin
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-elevation-of-circulating-serum-amyloid-a" data-dismech-node="Sustained Elevation of Circulating Serum Amyloid A" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained Elevation of Circulating Serum Amyloid A</div>
 
+
                 <div class="item-desc">The amyloidogenic precursor of this disease. Unlike AL (a clonal light chain) or ATTR (a destabilized or wild-type transthyretin), the AA precursor is a structurally normal protein whose only abnormality is chronic excess. Prolonged rather than transient elevation is the rate-limiting requirement: the concentration-duration product, not any single peak, determines amyloidogenic risk. This node is the disease&#39;s therapeutic target, and the quantitative relationship between achieved SAA level and outcome is the best-documented dose-response in systemic amyloidosis.</div>
 
 
@@ -5320,6 +5376,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proteolytic-processing-and-beta-sheet-misfolding-of-saa" data-dismech-node="Proteolytic Processing and Beta-Sheet Misfolding of SAA" data-dismech-type="pathophysiology">
                 <div class="item-name">Proteolytic Processing and Beta-Sheet Misfolding of SAA</div>
+
 
                 <div class="item-desc">SAA is cleaved to an N-terminal fragment (predominantly residues 1-76, losing the C-terminal region) and converts from its native alpha-helical fold into beta-sheet-rich, aggregation-prone species. C-terminal truncation is not incidental: it destabilizes the alpha-helical structure and markedly accelerates fibril formation relative to the full-length protein. Genetic variation in SAA1 acts at exactly this step, by changing how readily the precursor is cleaved.</div>
 
@@ -5518,6 +5575,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glycosaminoglycan-assisted-fibril-nucleation-and-extracellular-deposition" data-dismech-node="Glycosaminoglycan-Assisted Fibril Nucleation and Extracellular Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Glycosaminoglycan-Assisted Fibril Nucleation and Extracellular Deposition</div>
+
 
                 <div class="item-desc">The central effector and rate-limiting convergence step. Misfolded SAA fragments nucleate and elongate into insoluble cross-beta amyloid fibrils that deposit in the extracellular space. Heparan sulfate is a potent amyloid agonist here rather than a passive co-deposit: it remodels HDL-associated SAA at mildly acidic pH, induces non-native beta-sheet, and binds synergistically to forming amyloid. Serum amyloid P component binds and stabilizes the deposits against clearance. This accessory-molecule dependence is the rationale for eprodisate and for anti-SAP strategies, and it is the node that conforms to the shared amyloidogenesis module.</div>
 
@@ -5740,6 +5798,7 @@ This pathophysiological event involves extracellular region (GO:0005576). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-multi-organ-amyloid-accumulation" data-dismech-node="Progressive Multi-Organ Amyloid Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Multi-Organ Amyloid Accumulation</div>
 
+
                 <div class="item-desc">Fibrils accumulate as a growing extracellular amyloid burden. Because the precursor is circulating, deposition is systemic and bilateral, but the distribution is characteristic: kidney (glomerular mesangium and capillary walls, plus vascular deposits), liver, spleen, and adrenal gland are the dominant sites, with perivascular deposition common across organs. Unlike the deposits of AL and ATTR, this burden is genuinely dynamic - it regresses when the precursor supply is withdrawn, which is why this node is not a therapeutic dead end.</div>
 
 
@@ -5903,6 +5962,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glomerular-filtration-barrier-disruption" data-dismech-node="Glomerular Filtration Barrier Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Glomerular Filtration Barrier Disruption</div>
+
 
                 <div class="item-desc">Amyloid expanding the mesangium and infiltrating the glomerular capillary wall breaches the filtration barrier, producing non-selective proteinuria. Glomerular (rather than purely vascular) involvement is the histological determinant of the clinical picture and of renal outcome; a vascular-predominant pattern presents with less proteinuria. Tubular atrophy and the abundance and distribution of glomerular deposits predict renal survival.</div>
 
@@ -6090,6 +6150,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-kidney-failure" data-dismech-node="Progressive Kidney Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Kidney Failure</div>
 
+
                 <div class="item-desc">The dominant clinical consequence. Proteinuria progresses to nephrotic-range proteinuria and nephrotic syndrome, then to declining glomerular filtration rate and end-stage kidney disease requiring dialysis or transplantation. Renal dysfunction, not cardiac or neurological involvement, defines the course of AA amyloidosis - the principal clinical contrast with AL amyloidosis.</div>
 
 
@@ -6175,6 +6236,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extrarenal-organ-dysfunction" data-dismech-node="Extrarenal Organ Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Extrarenal Organ Dysfunction</div>
+
 
                 <div class="item-desc">Amyloid infiltration outside the kidney. Hepatic and splenic deposition is frequent and often functionally silent, detected radiologically or as raised alkaline phosphatase rather than as liver failure. Gastrointestinal deposition causes chronic diarrhoea and malabsorption. Adrenal and thyroid infiltration occurs. Cardiac involvement and peripheral neuropathy are comparatively uncommon in AA - a point of clinical contrast with AL amyloidosis rather than a feature of this disease.</div>
 
@@ -6482,6 +6544,9 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6555,6 +6620,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6658,6 +6726,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6777,6 +6848,9 @@ This clinical feature is Diarrhea (HP:0002014), qualified as temporality chronic
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6841,6 +6915,9 @@ This clinical feature is Malabsorption (HP:0002024). HP:0002024 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6921,6 +6998,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7022,6 +7102,9 @@ This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7111,6 +7194,9 @@ This clinical feature is Renal insufficiency (HP:0000083), qualified as course p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7179,6 +7265,9 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7262,6 +7351,9 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7326,6 +7418,9 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7399,6 +7494,9 @@ This clinical feature is Elevated circulating alkaline phosphatase concentration
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7502,6 +7600,9 @@ This clinical feature is Elevated circulating C-reactive protein concentration (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7575,6 +7676,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7689,6 +7793,9 @@ This disease-associated gene is SAA1 (hgnc:10513). hgnc:10513 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -7815,6 +7922,9 @@ This disease-associated gene is MEFV (hgnc:6998). hgnc:6998 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7933,6 +8043,9 @@ This disease-associated gene is SAA2 (hgnc:10514). hgnc:10514 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -8084,6 +8197,9 @@ This treatment uses colchicine (CHEBI:23359). CHEBI:23359 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8094,6 +8210,9 @@ This treatment uses colchicine (CHEBI:23359). CHEBI:23359 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -8314,6 +8433,9 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8324,6 +8446,9 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -8508,6 +8633,9 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8518,6 +8646,9 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -8719,6 +8850,9 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8729,6 +8863,9 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -8841,6 +8978,9 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8851,6 +8991,9 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -8970,6 +9113,9 @@ This treatment is Dialysis (NCIT:C15221). NCIT:C15221 is a clinical intervention
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8980,6 +9126,9 @@ This treatment is Dialysis (NCIT:C15221). NCIT:C15221 is a clinical intervention
 
 
     </div>
+
+
+
 
 
 
@@ -9099,6 +9248,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9109,6 +9261,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -12910,6 +13065,195 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (4)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">GeneReviews baseline (curation SOP step 3b) does not apply here. AA amyloidosis is an acquired complication of chronic inflammation, not a Mendelian disorder, and a PubMed search for a GeneReviews chapter returned only chapters for the monogenic trigger diseases (Familial Mediterranean Fever, PMID:20301405; TNF Receptor-Associated Periodic Fever Syndrome, PMID:36375008), which are curated as separate dismech entries. Cardiac amyloidosis, peripheral neuropathy, and macroglossia are deliberately NOT curated as phenotypes here; they are uncommon in AA and are recorded instead as discriminators under the AL differential diagnosis. Note the nuance on macroglossia: PMID:38568326 does list it among the presenting gastrointestinal symptoms of AA amyloidosis, in a sentence this entry quotes for malabsorption and weight loss, so it is not absent from AA - it is merely far less frequent than in AL, which is what makes it useful as a discriminator rather than as an AA phenotype.
+Thyroid and adrenal involvement are likewise uncurated. The only available statement (&#34;Involvements of the thyroid, adrenals, and the nervous system might also be encountered&#34;) carries no frequency and no specific functional claim, so binding it to an HPO term would assert more precision than the source supports.
+`evidence_source` convention for PMID:38568326, which appears in this file with two different values: `HUMAN_CLINICAL` where the review makes a direct clinical observation about AA amyloidosis patients, and `OTHER` where it reports the numbers of a specific primary series it is summarizing (the colchicine 960-patient cohort, the anti-TNF 15- and 36-patient studies, the 42-patient tocilizumab comparison), and also where it makes a general narrative or background statement rather than a patient-level observation. Both of the latter cases are secondary reporting and are marked as such; every item states its reason inline.
+The rare autosomal-dominant SAA1-promoter form of hereditary AA amyloidosis reported in Kidney International (2021) is not curated, because the deep-research report supplied no verifiable PMID for it; it is a candidate subtype if a citable identifier is confirmed.
+Two evidence choices are worth stating explicitly. First, the anti-TNF treatment entry and several extrarenal phenotypes are cited to the full text of the PMID:38568326 review rather than to the primary series it summarizes, because the primary PMIDs for those series could not be independently resolved; quoting the review verbatim is preferred here over guessing an identifier. Second, Eprodisate carries no `therapeutic_agent`: both NCIT eprodisate terms (NCIT:C166957, NCIT:C65520) exist but are outside the `ChemicalEntityTerm` dynamic enum, and CHEBI has no eprodisate entry, so there is no valid ontology binding to give it.
+Nephroprotective supportive care (ACE inhibitors / ARBs) is deliberately not curated as a treatment: it is standard practice for proteinuric kidney disease generally, but no quotable AA-specific statement was found in the cached sources, and a treatment entry without evidence would be worse than its absence.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Post-approval follow-up: record MICA null result, document evidence_source convention</strong> · 2026-08-08T20:29:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/AA_Amyloidosis/2026-08-08T202949Z-claude-code-b7822a.yaml">View source</a></p>
+                        <p class="research-review-text">Follow-up on the approving re-review of PR #8222, taking the remaining
+non-blocking suggestions. No new references fetched; all evidence quotes
+already-cached full text.
+
+The MICA suggestion was investigated and NOT implemented as asked, because the
+underlying claim is wrong. The deep-research report asserted that MICA
+polymorphisms modify amyloidosis risk in FMF, citing PMID:15018633, and the
+reviewer suggested adding MICA to the genetic section on that basis. Reading the
+paper&#39;s cached full text shows it reports the opposite: it tested the MICA exon
+5 polymorphism and found no association with renal amyloidosis, while confirming
+the SAA1 association in the same cohort. Adding MICA as a modifier locus would
+have propagated a DR misreading into the KB. Instead a discussions entry
+(kind: INTERPRETATION, id mica_not_a_modifier_locus) records the negative result
+with REFUTE evidence, so the next curator who reads the same DR report does not
+re-add it. This is the second DR error in this entry traced to PMID-level
+misattribution rather than fabrication.
+
+Thyroid and adrenal involvement remain uncurated, with the reason now stated in
+notes: the only available sentence carries no frequency and no functional claim,
+so binding it to an HPO term would assert more precision than the source
+supports.
+
+The reviewer&#39;s macroglossia observation was correct and is now reflected
+honestly: PMID:38568326 does list macroglossia among AA presenting symptoms, in
+a sentence this entry already quotes twice. The notes no longer imply it is
+absent from AA - it is less frequent than in AL, which is what makes it a
+discriminator rather than an AA phenotype.
+
+The evidence_source convention for PMID:38568326 is now documented in notes:
+HUMAN_CLINICAL where the review makes a direct clinical observation, OTHER where
+it reports the numbers of a specific primary series it summarizes.
+
+Validation actually run and read: just count-verified-snippets reported 95/95
+verified; just validate-disorders (the batched sweep CI runs) passed; compliance
+90.6 -&gt; 90.7 percent global and 90.9 -&gt; 91.0 percent weighted; pytest
+tests/test_data.py -k AA_Amyloidosis passed 11/11.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address PR #8222 review: extrarenal phenotypes, anti-TNF, animal model, evidence-quality fixes</strong> · 2026-08-08T20:19:18Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/AA_Amyloidosis/2026-08-08T201918Z-claude-code-5a8778.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the ai4c-reviewer CHANGES_REQUESTED review on PR #8222 (five IMPORTANT
+findings plus most suggestions).
+
+Root cause of the gaps: PMID:38568326 is cached as full_text_xml, not
+abstract_only. The initial curation pass only read its abstract section and so
+missed the extrarenal organ paragraph, the treatment section, and the
+epidemiology figures. All new evidence in this round is quoted from that already
+cached full text or from PMID:15829582; no new references were fetched.
+
+IMPORTANT findings, all addressed:
+1. Gastrointestinal involvement now modeled as phenotypes - Chronic Diarrhea
+   (HP:0002014, CHRONIC, FREQUENT, quoting the ~30% figure), Malabsorption
+   (HP:0002024), Gastrointestinal hemorrhage (HP:0002239).
+2. Splenomegaly re-cited to HUMAN_CLINICAL evidence; the murine statement is
+   retained as explicitly supplementary rather than sole support.
+3. Hepatomegaly re-cited to the same human quote, replacing the non-AA-specific
+   mixed-cohort liver-stiffness quote, plus the reviewer-relevant caveat that
+   hepatic deposition is commonly imaged but of limited clinical relevance.
+4. Anti-TNF-alpha therapy added as a treatment with target_mechanisms on the
+   trigger node, carrying the 15-patient retrospective and 36-patient
+   prospective 5-year datasets and the head-to-head result showing tocilizumab
+   superior. The progression-in-largest-group result is marked PARTIAL so the
+   entry does not overstate efficacy.
+5. The murine AA-induction / amyloid-enhancing-factor model was added under
+   animal_models, NOT experimental_models as the review requested: the schema
+   defines ExperimentalModel as &#34;a disease-relevant non-animal experimental
+   model system&#34;, so a mouse model does not belong there. Consequence noted in
+   the PR reply - AnimalModel has no modeled_mechanisms slot, so the pathograph
+   join point the reviewer wanted is not expressible on that class.
+
+Suggestions taken: amyloid storm as a distinct progression phase; weight loss
+(HP:0001824); elevated alkaline phosphatase (HP:0003155, OCCASIONAL at 5%) with
+the acute-phase-reactant interpretive caveat; dialysis as a treatment with its
+poor-survival caveat; SAA2 as a second SUSCEPTIBILITY locus; the 960-patient
+colchicine prevention data (1.7% vs 48.9% proteinuria at 11 years) plus the
+explicit statement that colchicine evidence outside FMF is limited; the &gt;90%
+renal-presentation figure strengthening the Proteinuria frequency band; and the
+cardiac-rarity quote strengthening the AL differential.
+
+Suggestions declined, with reasons recorded in the entry notes: Eprodisate still
+carries no therapeutic_agent because both NCIT eprodisate terms (C166957,
+C65520) are outside the ChemicalEntityTerm dynamic enum and CHEBI has no
+eprodisate entry; ACE-I/ARB supportive care is omitted because no quotable
+AA-specific statement exists in the cached sources. MICA was not added - the
+review&#39;s own genetics section does not discuss it and the already-cited
+PMID:15018633 is the only source, which is thin for a standalone locus.
+
+Two reviewer observations corrected rather than accepted: the review flagged a
+divergence between CHEBI:3532 (asserted by the deep-research report for
+colchicine) and the CHEBI:23359 used in the entry - OAK confirms CHEBI:3532 is
+Centrolobine, so the entry&#39;s term is correct and the DR was wrong. Separately,
+my own earlier commit message described the DR&#39;s &#34;42 patients&#34; tocilizumab
+figure as a miscount; the full text shows it is a real 42-patient study
+(reference [82] of the review), which the DR misattributed to PMID:26120866
+(20 patients). The entry&#39;s use of 20 for that PMID was and remains correct, and
+the 42-patient comparison is now cited in its own right under anti-TNF therapy.
+
+Term-cache hygiene: three wrong NCIT IDs guessed from the DR report
+(C1728/C1857/C1490 for infliximab/etanercept/adalimumab) were caught by the
+pre-edit validation hook; OAK gave the correct C1789/C2381/C65216. The rejected
+attempts had left label rows in cache/ncit/terms.csv and
+cache/enums/chemicalentityterm_*.csv, so those files were reset with git
+checkout and re-derived by the validator, leaving only the hgnc:10514 SAA2 row
+the entry actually uses.
+
+Validation actually run and read after the changes: just count-verified-snippets
+reported 93/93 verified; just validate-terms passed; just validate-disorders
+(the batched sweep CI runs) passed with 93/93; compliance rose from 88.8% to
+90.6% global and 89.1% to 90.9% weighted; pytest tests/test_data.py -k
+AA_Amyloidosis passed 11/11; all 22 reference-title pairs still match their
+cached abstracts. No new reference cache files were added this round.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: AA Amyloidosis (MONDO:0019439), full amyloidogenesis conformer</strong> · 2026-08-08T19:45:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/AA_Amyloidosis/2026-08-08T194552Z-claude-code-b8b181.yaml">View source</a></p>
+                        <p class="research-review-text">Created the AA (serum amyloid A) amyloidosis entry, previously absent from the KB
+despite AL and ATTR entries existing and the amyloidogenesis module explicitly
+naming AA as a precursor substitution.
+
+Deep research: claude_code provider, report at
+research/AA_Amyloidosis-deep-research-claude_code.md (22 web searches, 30 turns,
+45 citations, ~$2.34, 403s).
+
+NEC preflight: `just preflight-dr` returned SKIP because MONDO records no causal
+gene for this acquired disease. Manual MONDO/Orphanet fallback passed - the
+MONDO:0019439 definition names SAA, chronic inflammation and renal dominance,
+matching the report; SAA1 dominated the report&#39;s gene mentions (56) with MEFV
+(21) as the trigger-disease gene, exactly the expected pattern.
+
+DR errors caught and corrected: PMID:26221758 was cited for the anti-SAP antibody
+NEJM study but is actually an orthopedics paper on PyroCarbon joint components -
+discarded, and the real paper (PMID:26176329) used instead. The report also
+described the tocilizumab series as 42 patients; the actual paper reports 20, and
+the entry uses the true figure.
+
+Content: the pathophysiology is a full-chain conformer to all five
+amyloidogenesis module nodes, with AA-specific substitutions - chronic
+inflammatory/autoinflammatory/infectious trigger, IL-6-driven hepatic acute-phase
+response, sustained circulating SAA as precursor, C-terminal proteolytic
+truncation with beta-sheet misfolding, and glycosaminoglycan/SAP-assisted fibril
+nucleation and deposition, leading to glomerular barrier disruption and
+progressive kidney failure. Treatments use target_mechanisms: colchicine and IL-1
+blockade on the trigger node, tocilizumab on the IL-6 node, eprodisate on the
+GAG-assisted deposition node. SAA1 and MEFV are curated as SUSCEPTIBILITY loci,
+not causal genes. Obesity is linked into the pathograph via influences_mechanisms
+with environmental_effect PREDISPOSES. Two KNOWLEDGE_GAP discussions with
+structured proposed_experiments record why sustained high SAA is necessary but
+not sufficient, and the absence of any deposit-clearing therapy.
+
+Deliberate exclusions, recorded in notes: cardiac amyloidosis, peripheral
+neuropathy and macroglossia are NOT curated as phenotypes because they are
+uncommon in AA - they appear instead as AL differential-diagnosis discriminators.
+The hereditary SAA1-promoter form was omitted because no verifiable PMID was
+available. GeneReviews baseline does not apply to this acquired disease; the
+PubMed search returned only the FMF and TRAPS chapters for the trigger diseases.
+
+Validation actually run and read: `just validate` passed (schema, terms,
+references); `just validate-terms` passed; `just count-verified-snippets`
+reported 70/70 verified; `just validate-disorders` - the batched pre-PR sweep CI
+runs - passed with 70/70 snippets verified; compliance 88.8% global / 89.1%
+weighted; `pytest tests/test_data.py -k AA_Amyloidosis` passed 11/11. All 22
+reference titles were programmatically compared against their cached abstracts
+and match. One unrelated pre-existing test failure
+(X-Linked_Infantile_Spinal_Muscular_Atrophy.yaml) is present on origin/main and
+was not touched.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
