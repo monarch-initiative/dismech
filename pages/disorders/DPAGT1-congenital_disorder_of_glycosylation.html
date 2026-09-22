@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4123,6 +4191,7 @@ Scope. This entry covers MONDO:0011964 only, the systemic encephalopathic diseas
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4144,6 +4213,7 @@ Scope. This entry covers MONDO:0011964 only, the systemic encephalopathic diseas
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4322,6 +4392,7 @@ Scope. This entry covers MONDO:0011964 only, the systemic encephalopathic diseas
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4356,6 +4427,7 @@ Scope. This entry covers MONDO:0011964 only, the systemic encephalopathic diseas
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-hypomorphic-dpagt1-variants" data-dismech-node="Biallelic Hypomorphic DPAGT1 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Hypomorphic DPAGT1 Variants</div>
+
 
                 <div class="item-desc">Germline variants on both DPAGT1 alleles reduce, but do not abolish, the amount of functional GPT the cell can make. Functional analysis of patient alleles shows three mechanisms: disruption of splicing, destabilisation of the protein, and failure to localise correctly to the ER membrane. Residual activity is a requirement rather than an incidental finding, because complete loss of the enzyme is not compatible with post-implantation development.</div>
 
@@ -4415,6 +4487,8 @@ This genetic context concerns DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4425,6 +4499,9 @@ This genetic context concerns DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous or compound heterozygous germline variants, predominantly missense or leaky splice alleles. The index genotype paired a missense allele with almost no activity against a splice allele retaining about 12 percent normal mature transcript.</div>
 
@@ -4494,6 +4571,7 @@ This genetic context concerns DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4520,6 +4598,7 @@ This genetic context concerns DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the H
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4542,6 +4621,7 @@ This genetic context concerns DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-glcnac-1-phosphotransferase-activity" data-dismech-node="Reduced GlcNAc-1-Phosphotransferase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced GlcNAc-1-Phosphotransferase Activity</div>
+
 
                 <div class="item-desc">GPT catalyses the transfer of GlcNAc-1-phosphate from UDP-GlcNAc onto dolichol phosphate on the cytoplasmic face of the endoplasmic reticulum membrane, the first and committed step of lipid-linked oligosaccharide assembly. The step is not bypassable: without it none of the subsequent glycosyltransferase reactions that build the oligosaccharide precursor can take place. Oligosaccharyltransferase activity itself is normal in patient cells, which localises the lesion to the biosynthetic arm rather than to glycan transfer.</div>
 
@@ -4672,6 +4752,7 @@ This pathophysiological event occurs in Endoplasmic reticulum membrane (GO:00057
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4693,6 +4774,7 @@ This pathophysiological event occurs in Endoplasmic reticulum membrane (GO:00057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4718,6 +4800,7 @@ This pathophysiological event occurs in Endoplasmic reticulum membrane (GO:00057
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-lipid-linked-oligosaccharide-assembly" data-dismech-node="Impaired Lipid-Linked Oligosaccharide Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Lipid-Linked Oligosaccharide Assembly</div>
+
 
                 <div class="item-desc">With less dolichol-PP-GlcNAc being made, the cell assembles less of the full-length dolichol-linked oligosaccharide that the oligosaccharyltransferase uses as its donor substrate. Metabolic labelling of patient fibroblasts shows the deficit directly: radiolabelled mannose is incorporated into full-length LLO at reduced rates.</div>
 
@@ -4830,6 +4913,7 @@ This pathophysiological event occurs in Endoplasmic reticulum membrane (GO:00057
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4851,6 +4935,7 @@ This pathophysiological event occurs in Endoplasmic reticulum membrane (GO:00057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4876,6 +4961,7 @@ This pathophysiological event occurs in Endoplasmic reticulum membrane (GO:00057
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-protein-n-hypoglycosylation" data-dismech-node="Global Protein N-Hypoglycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Protein N-Hypoglycosylation</div>
+
 
                 <div class="item-desc">Because N-glycosylation is a housekeeping modification applied to a large fraction of the secreted and membrane proteome, a partial deficit at a single early enzyme is felt as the simultaneous, partial malfunction of very many unrelated proteins. This is the point at which a single-enzyme biochemical lesion becomes a multisystem disease, and it is why the downstream branches below are organ-level consequences of one shared upstream defect rather than independent mechanisms.</div>
 
@@ -4987,6 +5073,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5008,6 +5095,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5033,6 +5121,13 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoglycosylation-of-neural-glycoproteins" data-dismech-node="Hypoglycosylation of Neural Glycoproteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoglycosylation of Neural Glycoproteins</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The central nervous system is the organ most conspicuously affected. Every reported cohort describes intractable epilepsy, global developmental delay or intellectual disability, and hypotonia, and imaging in individual patients has shown delayed myelination and cerebellar vermis abnormalities. Which hypoglycosylated neural glycoproteins mediate this is not known: no intermediate between the biosynthetic deficit and the encephalopathy has been established, so this node records a consistently observed tissue-level association rather than a resolved mechanism.</div>
 
@@ -5156,6 +5251,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5177,6 +5273,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5202,6 +5299,13 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuromuscular-transmission-impairment" data-dismech-node="Neuromuscular Transmission Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuromuscular Transmission Impairment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Alongside the encephalopathy, DPAGT1-CDG patients have a myasthenic component to their weakness. The evidence for treating this as a transmission defect rather than as central hypotonia is therapeutic: cholinesterase inhibition improves the muscle weakness of DPAGT1-CDG patients, as it does in the allelic myasthenic syndrome. This is the same endplate vulnerability that makes milder DPAGT1 alleles present as a pure congenital myasthenic syndrome, and the same one that the KB&#39;s Congenital Myasthenic Syndrome 15 entry curates for the neighbouring ALG14 subunit.</div>
 
@@ -5293,6 +5397,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5314,6 +5419,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5339,6 +5445,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-akinesia-sequence" data-dismech-node="Fetal Akinesia Sequence" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Akinesia Sequence</div>
+
 
                 <div class="item-desc">A subset of patients present prenatally with markedly reduced fetal movement, and the mechanical consequences of that immobility, namely joint contractures up to frank arthrogryposis multiplex congenita and polyhydramnios from impaired swallowing, dominate the neonatal picture. This is the severe end of the same weakness that appears postnatally as hypotonia, expressed early enough to deform the developing skeleton.</div>
 
@@ -5406,6 +5513,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5427,6 +5535,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5489,6 +5598,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5531,7 +5641,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anticonvulsant agent therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiepileptic drugs are the mainstay of managing the seizures, which are typically early-onset and often refractory. This is symptomatic management: no anticonvulsant addresses the glycosylation defect, and seizure control is frequently incomplete.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Arthrogryposis multiplex congenita\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple congenital joint contractures, in the most severe cases amounting to arthrogryposis multiplex congenita. This is a deformation secondary to fetal akinesia rather than a primary skeletal malformation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002804\"}}, {\"id\": \"Biallelic Hypomorphic DPAGT1 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline variants on both DPAGT1 alleles reduce, but do not abolish, the amount of functional GPT the cell can make. Functional analysis of patient alleles shows three mechanisms: disruption of splicing, destabilisation of the protein, and failure to localise correctly to the ER membrane. Residual activity is a requirement rather than an incidental finding, because complete loss of the enzyme is not compatible with post-implantation development.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Homozygous or compound heterozygous germline variants, predominantly missense or leaky splice alleles. The index genotype paired a missense allele with almost no activity against a splice allele retaining about 12 percent normal mature transcript.\", \"gene_terms\": [{\"label\": \"DPAGT1\", \"id\": \"hgnc:2995\"}]}, \"animal_models\": [{\"name\": \"Gpt (Dpagt1) null mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Homozygous germline deletion of the mouse GPT (Dpagt1) gene\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Complete enzyme loss produces peri-implantation lethality rather than the human phenotype, which is why every viable human genotype retains partial activity.\"}]}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral cataracts, sometimes congenital or diagnosed in the first months of life. Lens opacity is one of the features that separates DPAGT1-CDG from the purely myasthenic DPAGT1 phenotype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cerebellar hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain anomaly on MRI. Most scans in the largest series were read as normal, so this is a minority finding rather than a constant feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001321\"}}, {\"id\": \"DPAGT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DPAGT1\"], \"gene_terms\": [{\"label\": \"DPAGT1\", \"id\": \"hgnc:2995\"}], \"association\": \"DPAGT1 encodes UDP-GlcNAc:dolichol phosphate N-acetylglucosamine-1-phosphate transferase (GPT), a polytopic endoplasmic reticulum membrane protein that catalyses the first committed step of dolichol-linked oligosaccharide assembly. GPT works at the same point of the pathway as the ALG13-ALG14 heterodimer, with which it forms a multiglycosyltransferase complex that carries out the first two committed steps of asparagine-linked glycosylation; ALG14 and ALG2 are themselves disease genes, and the KB\u0027s Congenital Myasthenic Syndrome 15 entry curates the ALG14 side of the same complex. Reported DPAGT1 alleles act by disrupting splicing, destabilising the protein, or preventing its correct localisation in the ER membrane rather than by abolishing the coding sequence.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 4}}, {\"id\": \"DPAGT1 c.341C\u003eG (p.Ala114Gly)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous allele in two patients with a severe phenotype of hyperexcitability, intractable seizures, bilateral cataracts, progressive microcephaly and hypotonia; both died in the first year of life.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DPAGT1 c.660A\u003eG (p.Tyr170Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The paternal allele of the index patient. Over-expression of the mutant cDNA yields a full-length protein with essentially no transferase activity.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DPAGT1 c.902G\u003eA (p.Arg301His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous allele identified by homozygosity mapping in a large consanguineous family with 18 affected infants, in which the disorder was uniformly fatal.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DPAGT1 index maternal splicing allele\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The maternal allele of the index patient, which produces only a small fraction of normal mature transcript, the remainder being aberrantly spliced and frameshifted. It is the residual normal transcript from this allele that supplies the surviving enzyme activity.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Decreased fetal movement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced fetal movement noted in pregnancy, in the most severely affected patients amounting to a fetal akinesia phenotype with polyhydramnios.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001558\"}}, {\"id\": \"Delayed CNS myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed myelination on brain magnetic resonance imaging. Brain imaging in DPAGT1-CDG is not uniform, and several reported scans were read as normal, so this is a finding in a subset rather than a diagnostic hallmark.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002188\"}}, {\"id\": \"Drosophila DPAGT1 RNAi rough-eye model\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An eye-based knockdown model in which reduced DPAGT1 expression produces a small, improperly developed eye that can be scored quantitatively. It was used for a 1,520-compound repurposing screen, which identified 42 suppressors and implicated dopamine D2 receptor signalling as a modifier of DPAGT1 deficiency. The readout is a developmental eye phenotype, not any clinical feature of DPAGT1-CDG.\"}, {\"id\": \"Fetal Akinesia Sequence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of patients present prenatally with markedly reduced fetal movement, and the mechanical consequences of that immobility, namely joint contractures up to frank arthrogryposis multiplex congenita and polyhydramnios from impaired swallowing, dominate the neonatal picture. This is the severe end of the same weakness that appears postnatally as hypotonia, expressed early enough to deform the developing skeleton.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Global Protein N-Hypoglycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because N-glycosylation is a housekeeping modification applied to a large fraction of the secreted and membrane proteome, a partial deficit at a single early enzyme is felt as the simultaneous, partial malfunction of very many unrelated proteins. This is the point at which a single-enzyme biochemical lesion becomes a multisystem disease, and it is why the downstream branches below are organ-level consequences of one shared upstream defect rather than independent mechanisms.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay affecting all streams, evident in infancy and preceding any formal assessment of intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Gpt (Dpagt1) null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A germline deletion of the mouse GlcNAc-1-phosphotransferase gene. Nullizygous embryos implant but die within a day or two, before any organ that DPAGT1-CDG affects has formed. The model is therefore not a model of the human disease; its value is the negative constraint it places on human genotypes.\"}, {\"id\": \"Hypoglycosylation of Neural Glycoproteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central nervous system is the organ most conspicuously affected. Every reported cohort describes intractable epilepsy, global developmental delay or intellectual disability, and hypotonia, and imaging in individual patients has shown delayed myelination and cerebellar vermis abnormalities. Which hypoglycosylated neural glycoproteins mediate this is not known: no intermediate between the biosynthetic deficit and the encephalopathy has been established, so this node records a consistently observed tissue-level association rather than a resolved mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Impaired Lipid-Linked Oligosaccharide Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With less dolichol-PP-GlcNAc being made, the cell assembles less of the full-length dolichol-linked oligosaccharide that the oligosaccharyltransferase uses as its donor substrate. Metabolic labelling of patient fibroblasts shows the deficit directly: radiolabelled mannose is incorporated into full-length LLO at reduced rates.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\"], \"locations\": [\"Endoplasmic reticulum membrane\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"All patients able to be assessed have at least moderate intellectual disability. The two long-surviving adults reported with a mild phenotype are at the moderate end; most patients are more severely affected or die before formal testing is possible.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a recurrent feature and has been described as progressive in at least one family, so it reflects impaired postnatal brain growth rather than a purely prenatal reduction in head size.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Neuromuscular Transmission Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alongside the encephalopathy, DPAGT1-CDG patients have a myasthenic component to their weakness. The evidence for treating this as a transmission defect rather than as central hypotonia is therapeutic: cholinesterase inhibition improves the muscle weakness of DPAGT1-CDG patients, as it does in the allelic myasthenic syndrome. This is the same endplate vulnerability that makes milder DPAGT1 alleles present as a pure congenital myasthenic syndrome, and the same one that the KB\u0027s Congenital Myasthenic Syndrome 15 entry curates for the neighbouring ALG14 subunit.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Polyhydramnios\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excess amniotic fluid accompanying the fetal akinesia phenotype, reflecting impaired fetal swallowing.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001561\"}}, {\"id\": \"Pyridostigmine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An acetylcholinesterase inhibitor. It targets the myasthenic component of the weakness by prolonging acetylcholine dwell time at the endplate, and has produced measurable benefit in DPAGT1-CDG patients whose muscle weakness is prominent. It does nothing for the encephalopathy or the underlying glycosylation defect.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pyridostigmine\"]}}, {\"id\": \"Reduced GlcNAc-1-Phosphotransferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPT catalyses the transfer of GlcNAc-1-phosphate from UDP-GlcNAc onto dolichol phosphate on the cytoplasmic face of the endoplasmic reticulum membrane, the first and committed step of lipid-linked oligosaccharide assembly. The step is not bypassable: without it none of the subsequent glycosyltransferase reactions that build the oligosaccharide precursor can take place. Oligosaccharyltransferase activity itself is normal in patient cells, which localises the lesion to the biosynthetic arm rather than to glycan transfer.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"UDP-GlcNAc:dolichol phosphate N-acetylglucosamine-1-phosphate transferase activity\"], \"locations\": [\"Endoplasmic reticulum membrane\"], \"animal_models\": [{\"name\": \"Drosophila DPAGT1 RNAi rough-eye model\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"Eye-directed RNA interference knockdown of the Drosophila DPAGT1 orthologue\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"RNAi knockdown reproduces the partial enzyme deficiency of the human disease in a tractable invertebrate system, giving a scorable phenotype for chemical and genetic modifier screening.\"}]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Medically intractable seizures, usually of early onset, are among the most consistent and most disabling features. They were present in the index patient and recur across every subsequent cohort, and they remain difficult to control even in the patients who survive into adult life.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pronounced hypotonia is present from the neonatal period and is the usual presenting sign. It has both a central and a neuromuscular-junction component, which is why cholinesterase inhibition helps some patients without altering the encephalopathy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006829\"}}], \"edges\": [{\"source\": \"Biallelic Hypomorphic DPAGT1 Variants\", \"target\": \"Reduced GlcNAc-1-Phosphotransferase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer functional GPT molecules reach the ER membrane, so measured transferase activity in patient microsomes falls well below carrier levels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced GlcNAc-1-Phosphotransferase Activity\", \"target\": \"Impaired Lipid-Linked Oligosaccharide Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Lipid-Linked Oligosaccharide Assembly\", \"target\": \"Global Protein N-Hypoglycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A reduced supply of donor oligosaccharide leaves a fraction of N-glycosylation sequons unoccupied on glycoproteins throughout the cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Protein N-Hypoglycosylation\", \"target\": \"Hypoglycosylation of Neural Glycoproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The intermediate steps between reduced glycan supply and the neurodevelopmental phenotype have not been resolved; no specific neural glycoprotein has been shown to mediate them.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Protein N-Hypoglycosylation\", \"target\": \"Neuromuscular Transmission Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Protein N-Hypoglycosylation\", \"target\": \"Fetal Akinesia Sequence\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Protein N-Hypoglycosylation\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cataract is a recurrent feature across congenital disorders of glycosylation, but the route from generalised N-hypoglycosylation to lens opacity has not been worked out in this subtype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Delayed CNS myelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cognitive outcome of the same neural hypoglycosylation that produces the seizures and developmental delay, sharing their unknown intermediate steps.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Cerebellar hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structural brain correlate. Most scans in the largest series were read as normal, so this is a minority finding rather than a constant feature.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuromuscular Transmission Impairment\", \"target\": \"Severe muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Akinesia Sequence\", \"target\": \"Decreased fetal movement\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Akinesia Sequence\", \"target\": \"Arthrogryposis multiplex congenita\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contractures form because the fetus does not move the developing joints through their range.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Akinesia Sequence\", \"target\": \"Polyhydramnios\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired fetal swallowing is part of the akinesia sequence, and is the mechanism this node\u0027s own description already names for the polyhydramnios.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anticonvulsant agent therapy\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pyridostigmine\", \"target\": \"Neuromuscular Transmission Impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gpt (Dpagt1) null mouse\", \"target\": \"Biallelic Hypomorphic DPAGT1 Variants\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Complete enzyme loss produces peri-implantation lethality rather than the human phenotype, which is why every viable human genotype retains partial activity.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"A homozygous null, not a hypomorph, so it models the wrong end of the allelic series: the embryos die at days 4-5 post-fertilisation, long before the nervous system, lens or neuromuscular junction exist, and no DPAGT1-CDG phenotype can be assessed in them. A hypomorphic mouse allele matching a patient genotype has not been reported.\"}, {\"source\": \"Drosophila DPAGT1 RNAi rough-eye model\", \"target\": \"Reduced GlcNAc-1-Phosphotransferase Activity\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"RNAi knockdown reproduces the partial enzyme deficiency of the human disease in a tractable invertebrate system, giving a scorable phenotype for chemical and genetic modifier screening.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"An invertebrate developmental eye phenotype with no relationship to the encephalopathy, epilepsy, hypotonia or cataract of the human disease, and no measurement of glycosylation in the model itself. Hits from it are leads for mechanism, not evidence of therapeutic effect in patients.\"}, {\"source\": \"DPAGT1 c.660A\u003eG (p.Tyr170Cys)\", \"target\": \"DPAGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DPAGT1 index maternal splicing allele\", \"target\": \"DPAGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DPAGT1 c.341C\u003eG (p.Ala114Gly)\", \"target\": \"DPAGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DPAGT1 c.902G\u003eA (p.Arg301His)\", \"target\": \"DPAGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anticonvulsant agent therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiepileptic drugs are the mainstay of managing the seizures, which are typically early-onset and often refractory. This is symptomatic management: no anticonvulsant addresses the glycosylation defect, and seizure control is frequently incomplete.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Arthrogryposis multiplex congenita\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple congenital joint contractures, in the most severe cases amounting to arthrogryposis multiplex congenita. This is a deformation secondary to fetal akinesia rather than a primary skeletal malformation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002804\"}}, {\"id\": \"Biallelic Hypomorphic DPAGT1 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline variants on both DPAGT1 alleles reduce, but do not abolish, the amount of functional GPT the cell can make. Functional analysis of patient alleles shows three mechanisms: disruption of splicing, destabilisation of the protein, and failure to localise correctly to the ER membrane. Residual activity is a requirement rather than an incidental finding, because complete loss of the enzyme is not compatible with post-implantation development.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Homozygous or compound heterozygous germline variants, predominantly missense or leaky splice alleles. The index genotype paired a missense allele with almost no activity against a splice allele retaining about 12 percent normal mature transcript.\", \"gene_terms\": [{\"label\": \"DPAGT1\", \"id\": \"hgnc:2995\"}]}, \"animal_models\": [{\"name\": \"Gpt (Dpagt1) null mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Homozygous germline deletion of the mouse GPT (Dpagt1) gene\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Complete enzyme loss produces peri-implantation lethality rather than the human phenotype, which is why every viable human genotype retains partial activity.\"}]}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral cataracts, sometimes congenital or diagnosed in the first months of life. Lens opacity is one of the features that separates DPAGT1-CDG from the purely myasthenic DPAGT1 phenotype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cerebellar hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain anomaly on MRI. Most scans in the largest series were read as normal, so this is a minority finding rather than a constant feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001321\"}}, {\"id\": \"DPAGT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DPAGT1\"], \"gene_terms\": [{\"label\": \"DPAGT1\", \"id\": \"hgnc:2995\"}], \"association\": \"DPAGT1 encodes UDP-GlcNAc:dolichol phosphate N-acetylglucosamine-1-phosphate transferase (GPT), a polytopic endoplasmic reticulum membrane protein that catalyses the first committed step of dolichol-linked oligosaccharide assembly. GPT works at the same point of the pathway as the ALG13-ALG14 heterodimer, with which it forms a multiglycosyltransferase complex that carries out the first two committed steps of asparagine-linked glycosylation; ALG14 and ALG2 are themselves disease genes, and the KB\u0027s Congenital Myasthenic Syndrome 15 entry curates the ALG14 side of the same complex. Reported DPAGT1 alleles act by disrupting splicing, destabilising the protein, or preventing its correct localisation in the ER membrane rather than by abolishing the coding sequence.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 4}}, {\"id\": \"DPAGT1 c.341C\u003eG (p.Ala114Gly)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous allele in two patients with a severe phenotype of hyperexcitability, intractable seizures, bilateral cataracts, progressive microcephaly and hypotonia; both died in the first year of life.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DPAGT1 c.660A\u003eG (p.Tyr170Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The paternal allele of the index patient. Over-expression of the mutant cDNA yields a full-length protein with essentially no transferase activity.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DPAGT1 c.902G\u003eA (p.Arg301His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous allele identified by homozygosity mapping in a large consanguineous family with 18 affected infants, in which the disorder was uniformly fatal.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DPAGT1 index maternal splicing allele\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The maternal allele of the index patient, which produces only a small fraction of normal mature transcript, the remainder being aberrantly spliced and frameshifted. It is the residual normal transcript from this allele that supplies the surviving enzyme activity.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Decreased fetal movement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced fetal movement noted in pregnancy, in the most severely affected patients amounting to a fetal akinesia phenotype with polyhydramnios.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001558\"}}, {\"id\": \"Delayed CNS myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed myelination on brain magnetic resonance imaging. Brain imaging in DPAGT1-CDG is not uniform, and several reported scans were read as normal, so this is a finding in a subset rather than a diagnostic hallmark.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002188\"}}, {\"id\": \"Drosophila DPAGT1 RNAi rough-eye model\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An eye-based knockdown model in which reduced DPAGT1 expression produces a small, improperly developed eye that can be scored quantitatively. It was used for a 1,520-compound repurposing screen, which identified 42 suppressors and implicated dopamine D2 receptor signalling as a modifier of DPAGT1 deficiency. The readout is a developmental eye phenotype, not any clinical feature of DPAGT1-CDG.\"}, {\"id\": \"Fetal Akinesia Sequence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of patients present prenatally with markedly reduced fetal movement, and the mechanical consequences of that immobility, namely joint contractures up to frank arthrogryposis multiplex congenita and polyhydramnios from impaired swallowing, dominate the neonatal picture. This is the severe end of the same weakness that appears postnatally as hypotonia, expressed early enough to deform the developing skeleton.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Global Protein N-Hypoglycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because N-glycosylation is a housekeeping modification applied to a large fraction of the secreted and membrane proteome, a partial deficit at a single early enzyme is felt as the simultaneous, partial malfunction of very many unrelated proteins. This is the point at which a single-enzyme biochemical lesion becomes a multisystem disease, and it is why the downstream branches below are organ-level consequences of one shared upstream defect rather than independent mechanisms.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay affecting all streams, evident in infancy and preceding any formal assessment of intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Gpt (Dpagt1) null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A germline deletion of the mouse GlcNAc-1-phosphotransferase gene. Nullizygous embryos implant but die within a day or two, before any organ that DPAGT1-CDG affects has formed. The model is therefore not a model of the human disease; its value is the negative constraint it places on human genotypes.\"}, {\"id\": \"Hypoglycosylation of Neural Glycoproteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central nervous system is the organ most conspicuously affected. Every reported cohort describes intractable epilepsy, global developmental delay or intellectual disability, and hypotonia, and imaging in individual patients has shown delayed myelination and cerebellar vermis abnormalities. Which hypoglycosylated neural glycoproteins mediate this is not known: no intermediate between the biosynthetic deficit and the encephalopathy has been established, so this node records a consistently observed tissue-level association rather than a resolved mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Impaired Lipid-Linked Oligosaccharide Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With less dolichol-PP-GlcNAc being made, the cell assembles less of the full-length dolichol-linked oligosaccharide that the oligosaccharyltransferase uses as its donor substrate. Metabolic labelling of patient fibroblasts shows the deficit directly: radiolabelled mannose is incorporated into full-length LLO at reduced rates.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\"], \"locations\": [\"Endoplasmic reticulum membrane\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"All patients able to be assessed have at least moderate intellectual disability. The two long-surviving adults reported with a mild phenotype are at the moderate end; most patients are more severely affected or die before formal testing is possible.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a recurrent feature and has been described as progressive in at least one family, so it reflects impaired postnatal brain growth rather than a purely prenatal reduction in head size.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Neuromuscular Transmission Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alongside the encephalopathy, DPAGT1-CDG patients have a myasthenic component to their weakness. The evidence for treating this as a transmission defect rather than as central hypotonia is therapeutic: cholinesterase inhibition improves the muscle weakness of DPAGT1-CDG patients, as it does in the allelic myasthenic syndrome. This is the same endplate vulnerability that makes milder DPAGT1 alleles present as a pure congenital myasthenic syndrome, and the same one that the KB\u0027s Congenital Myasthenic Syndrome 15 entry curates for the neighbouring ALG14 subunit.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Polyhydramnios\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excess amniotic fluid accompanying the fetal akinesia phenotype, reflecting impaired fetal swallowing.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001561\"}}, {\"id\": \"Pyridostigmine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An acetylcholinesterase inhibitor. It targets the myasthenic component of the weakness by prolonging acetylcholine dwell time at the endplate, and has produced measurable benefit in DPAGT1-CDG patients whose muscle weakness is prominent. It does nothing for the encephalopathy or the underlying glycosylation defect.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pyridostigmine\"]}}, {\"id\": \"Reduced GlcNAc-1-Phosphotransferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPT catalyses the transfer of GlcNAc-1-phosphate from UDP-GlcNAc onto dolichol phosphate on the cytoplasmic face of the endoplasmic reticulum membrane, the first and committed step of lipid-linked oligosaccharide assembly. The step is not bypassable: without it none of the subsequent glycosyltransferase reactions that build the oligosaccharide precursor can take place. Oligosaccharyltransferase activity itself is normal in patient cells, which localises the lesion to the biosynthetic arm rather than to glycan transfer.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"UDP-GlcNAc:dolichol phosphate N-acetylglucosamine-1-phosphate transferase activity\"], \"locations\": [\"Endoplasmic reticulum membrane\"], \"animal_models\": [{\"name\": \"Drosophila DPAGT1 RNAi rough-eye model\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"Eye-directed RNA interference knockdown of the Drosophila DPAGT1 orthologue\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"RNAi knockdown reproduces the partial enzyme deficiency of the human disease in a tractable invertebrate system, giving a scorable phenotype for chemical and genetic modifier screening.\"}]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Medically intractable seizures, usually of early onset, are among the most consistent and most disabling features. They were present in the index patient and recur across every subsequent cohort, and they remain difficult to control even in the patients who survive into adult life.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pronounced hypotonia is present from the neonatal period and is the usual presenting sign. It has both a central and a neuromuscular-junction component, which is why cholinesterase inhibition helps some patients without altering the encephalopathy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006829\"}}], \"edges\": [{\"source\": \"Biallelic Hypomorphic DPAGT1 Variants\", \"target\": \"Reduced GlcNAc-1-Phosphotransferase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer functional GPT molecules reach the ER membrane, so measured transferase activity in patient microsomes falls well below carrier levels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced GlcNAc-1-Phosphotransferase Activity\", \"target\": \"Impaired Lipid-Linked Oligosaccharide Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Lipid-Linked Oligosaccharide Assembly\", \"target\": \"Global Protein N-Hypoglycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A reduced supply of donor oligosaccharide leaves a fraction of N-glycosylation sequons unoccupied on glycoproteins throughout the cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Protein N-Hypoglycosylation\", \"target\": \"Hypoglycosylation of Neural Glycoproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The intermediate steps between reduced glycan supply and the neurodevelopmental phenotype have not been resolved; no specific neural glycoprotein has been shown to mediate them.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Protein N-Hypoglycosylation\", \"target\": \"Neuromuscular Transmission Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Protein N-Hypoglycosylation\", \"target\": \"Fetal Akinesia Sequence\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Protein N-Hypoglycosylation\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cataract is a recurrent feature across congenital disorders of glycosylation, but the route from generalised N-hypoglycosylation to lens opacity has not been worked out in this subtype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Delayed CNS myelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cognitive outcome of the same neural hypoglycosylation that produces the seizures and developmental delay, sharing their unknown intermediate steps.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypoglycosylation of Neural Glycoproteins\", \"target\": \"Cerebellar hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structural brain correlate. Most scans in the largest series were read as normal, so this is a minority finding rather than a constant feature.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuromuscular Transmission Impairment\", \"target\": \"Severe muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Akinesia Sequence\", \"target\": \"Decreased fetal movement\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Akinesia Sequence\", \"target\": \"Arthrogryposis multiplex congenita\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contractures form because the fetus does not move the developing joints through their range.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Akinesia Sequence\", \"target\": \"Polyhydramnios\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired fetal swallowing is part of the akinesia sequence, and is the mechanism this node\u0027s own description already names for the polyhydramnios.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anticonvulsant agent therapy\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pyridostigmine\", \"target\": \"Neuromuscular Transmission Impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gpt (Dpagt1) null mouse\", \"target\": \"Biallelic Hypomorphic DPAGT1 Variants\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Complete enzyme loss produces peri-implantation lethality rather than the human phenotype, which is why every viable human genotype retains partial activity.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"A homozygous null, not a hypomorph, so it models the wrong end of the allelic series: the embryos die at days 4-5 post-fertilisation, long before the nervous system, lens or neuromuscular junction exist, and no DPAGT1-CDG phenotype can be assessed in them. A hypomorphic mouse allele matching a patient genotype has not been reported.\"}, {\"source\": \"Drosophila DPAGT1 RNAi rough-eye model\", \"target\": \"Reduced GlcNAc-1-Phosphotransferase Activity\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"RNAi knockdown reproduces the partial enzyme deficiency of the human disease in a tractable invertebrate system, giving a scorable phenotype for chemical and genetic modifier screening.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"An invertebrate developmental eye phenotype with no relationship to the encephalopathy, epilepsy, hypotonia or cataract of the human disease, and no measurement of glycosylation in the model itself. Hits from it are leads for mechanism, not evidence of therapeutic effect in patients.\"}, {\"source\": \"DPAGT1 c.660A\u003eG (p.Tyr170Cys)\", \"target\": \"DPAGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DPAGT1 index maternal splicing allele\", \"target\": \"DPAGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DPAGT1 c.341C\u003eG (p.Ala114Gly)\", \"target\": \"DPAGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DPAGT1 c.902G\u003eA (p.Arg301His)\", \"target\": \"DPAGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5605,6 +5715,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5619,6 +5732,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5682,6 +5796,9 @@ This clinical feature is Exotropia (HP:0000577). HP:0000577 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5696,6 +5813,7 @@ This clinical feature is Exotropia (HP:0000577). HP:0000577 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5750,6 +5868,9 @@ This clinical feature is Bilateral cataracts, annotated with Cataract (HP:000051
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5764,6 +5885,7 @@ This clinical feature is Bilateral cataracts, annotated with Cataract (HP:000051
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5788,6 +5910,7 @@ This clinical feature is Bilateral cataracts, annotated with Cataract (HP:000051
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5871,6 +5994,9 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5885,6 +6011,7 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5909,6 +6036,7 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5972,6 +6100,9 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5986,6 +6117,7 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6051,6 +6183,9 @@ This clinical feature is Elevated liver enzymes, annotated with Abnormal liver e
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6065,6 +6200,7 @@ This clinical feature is Elevated liver enzymes, annotated with Abnormal liver e
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6130,6 +6266,9 @@ This clinical feature is Severe muscular hypotonia (HP:0006829). HP:0006829 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6144,6 +6283,7 @@ This clinical feature is Severe muscular hypotonia (HP:0006829). HP:0006829 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6168,6 +6308,7 @@ This clinical feature is Severe muscular hypotonia (HP:0006829). HP:0006829 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6222,6 +6363,9 @@ This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6236,6 +6380,7 @@ This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6260,6 +6405,7 @@ This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6323,6 +6469,9 @@ This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6337,6 +6486,7 @@ This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6391,6 +6541,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6405,6 +6558,7 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6461,6 +6615,9 @@ This clinical feature is Medically intractable seizures, annotated with Seizure 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6475,6 +6632,7 @@ This clinical feature is Medically intractable seizures, annotated with Seizure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6499,6 +6657,7 @@ This clinical feature is Medically intractable seizures, annotated with Seizure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6555,6 +6714,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6569,6 +6731,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6625,6 +6788,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6639,6 +6805,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6693,6 +6860,9 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6707,6 +6877,7 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6731,6 +6902,7 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6794,6 +6966,9 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6808,6 +6983,7 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6832,6 +7008,7 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6886,6 +7063,9 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6900,6 +7080,7 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7002,6 +7183,9 @@ This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7016,6 +7200,7 @@ This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7040,6 +7225,7 @@ This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7076,6 +7262,12 @@ This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The paternal allele of the index patient. Over-expression of the mutant cDNA yields a full-length protein with essentially no transferase activity.</div>
 
 
@@ -7100,6 +7292,7 @@ This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7136,6 +7329,12 @@ This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The maternal allele of the index patient, which produces only a small fraction of normal mature transcript, the remainder being aberrantly spliced and frameshifted. It is the residual normal transcript from this allele that supplies the surviving enzyme activity.</div>
 
 
@@ -7160,6 +7359,7 @@ This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7196,6 +7396,12 @@ This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A homozygous allele in two patients with a severe phenotype of hyperexcitability, intractable seizures, bilateral cataracts, progressive microcephaly and hypotonia; both died in the first year of life.</div>
 
 
@@ -7220,6 +7426,7 @@ This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7256,6 +7463,12 @@ This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A homozygous allele identified by homozygosity mapping in a large consanguineous family with 18 affected infants, in which the disorder was uniformly fatal.</div>
 
 
@@ -7280,6 +7493,7 @@ This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7393,6 +7607,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7403,6 +7620,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -7452,6 +7672,7 @@ This treatment targets Medically intractable seizures, annotated with Seizure (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7540,6 +7761,9 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7550,6 +7774,9 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -7586,6 +7813,7 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7629,6 +7857,7 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7700,6 +7929,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying therapy for DPAGT1-CDG. Care is supportive: feeding support, respiratory management, seizure control, ophthalmological review for cataract, and orthopaedic management of contractures, with genetic counselling for the family given the recessive recurrence risk.</div>
 
 
@@ -7721,6 +7956,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7786,6 +8022,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7807,6 +8044,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7876,6 +8114,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7930,6 +8169,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7951,6 +8191,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8021,6 +8262,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8042,6 +8284,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8097,6 +8340,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8118,6 +8362,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8186,6 +8431,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8378,6 +8624,7 @@ This experimental model concerns DPAGT1 (hgnc:2995). hgnc:2995 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8419,6 +8666,7 @@ This experimental model concerns DPAGT1 (hgnc:2995). hgnc:2995 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8596,6 +8844,7 @@ This experimental model concerns DPAGT1 (hgnc:2995). hgnc:2995 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8645,6 +8894,7 @@ This experimental model concerns DPAGT1 (hgnc:2995). hgnc:2995 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

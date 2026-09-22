@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1596,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">sensorineural_hair_cell_loss</span>
-                <span class="badge badge-count">18 disorders</span>
+                <span class="badge badge-count">21 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1889,7 +1926,7 @@ This mechanism module involves increased neuron apoptotic process (GO:0051402). 
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">18</span>
+                <span class="card-count">21</span>
             </div>
             
             <div class="crosslink-list">
@@ -1945,6 +1982,41 @@ This mechanism module involves increased neuron apoptotic process (GO:0051402). 
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_68.html">Autosomal Dominant Nonsyndromic Hearing Loss 68</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Failure of Stereocilia Actin Maintenance → Cochlear Sensory Epithelium Insult
+                        
+                        
+                        , 
+                        
+                        Progressive Sensorineural Hearing Loss
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_124.html">Autosomal Recessive Nonsyndromic Hearing Loss 124</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Progressive Cochlear Hearing Loss → Progressive Sensorineural Hearing Loss
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_48.html">Autosomal Recessive Nonsyndromic Hearing Loss 48</a>
                     
                     <span class="crosslink-desc">
@@ -1953,6 +2025,21 @@ This mechanism module involves increased neuron apoptotic process (GO:0051402). 
                         
                         
                         Hair Cell Dysfunction and Death → Hair Cell Mechanotransduction Failure and Death
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_88.html">Autosomal Recessive Nonsyndromic Hearing Loss 88</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cochlear Sensory Transduction Failure → Cochlear Amplification Loss and Spiral Ganglion Neuron Degeneration
                         
                         
                     </span>
@@ -2283,11 +2370,13 @@ This mechanism module involves increased neuron apoptotic process (GO:0051402). 
             
             <div class="item-box anchor-target" id="module-pathophysiology-cochlear-sensory-epithelium-insult" data-dismech-node="Cochlear Sensory Epithelium Insult" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Sensory Epithelium Insult</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A primary lesion of the cochlear sensory epithelium initiates the pathway. Across disorders this is a hereditary defect of hair-cell stereocilia or the mechanotransduction apparatus (e.g., stereociliary F-actin core or tip-link/MET-complex genes), a defect of cochlear ionic homeostasis such as GJB2/connexin 26 gap-junction loss, or an acquired metabolic, noise, or ototoxic insult. The mechanosensitive cochlear hair cell is the vulnerable target, and the downstream response converges regardless of the specific trigger.</div>
                 
@@ -2401,6 +2490,13 @@ This pathophysiological event involves abnormal detection of mechanical stimulus
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_68.html">Autosomal Dominant Nonsyndromic Hearing Loss 68</a>
+                            
+                            <span class="crosslink-desc">as Failure of Stereocilia Actin Maintenance</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Hearing_Loss_Autosomal_Dominant_84.html">Hearing Loss Autosomal Dominant 84</a>
                             
                             <span class="crosslink-desc">as Cochlear Hair Cell and Supporting Cell Dysfunction</span>
@@ -2456,11 +2552,13 @@ This pathophysiological event involves abnormal detection of mechanical stimulus
             
             <div class="item-box anchor-target" id="module-pathophysiology-cochlear-ionic-homeostasis-disruption-and-oxidative-stress" data-dismech-node="Cochlear Ionic Homeostasis Disruption and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Ionic Homeostasis Disruption and Oxidative Stress</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The primary insult perturbs the cochlea&#39;s tightly regulated ionic environment and redox balance. Gap-junction (connexin) defects interrupt the potassium recycling pathway that maintains the endocochlear potential, while noise, aging, and ototoxic injury drive excess generation of reactive oxygen species. Loss of potassium homeostasis and accumulating oxidative stress together amplify injury to the sensory hair cells before overt cell death.</div>
                 
@@ -2636,11 +2734,13 @@ This pathophysiological event involves increased response to oxidative stress (G
             
             <div class="item-box anchor-target" id="module-pathophysiology-hair-cell-mechanotransduction-failure-and-death" data-dismech-node="Hair Cell Mechanotransduction Failure and Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Hair Cell Mechanotransduction Failure and Death</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Disrupted ionic homeostasis, oxidative stress, and mitochondrial and DNA damage cause hair-cell mechanotransduction to fail and trigger programmed cell death of the cochlear hair cells. Because mammalian cochlear hair cells do not regenerate, their apoptotic loss is the central, irreversible effector step that converts upstream injury into permanent sensory deficit.</div>
                 
@@ -2816,11 +2916,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             
             <div class="item-box anchor-target" id="module-pathophysiology-cochlear-amplification-loss-and-spiral-ganglion-neuron-degeneration" data-dismech-node="Cochlear Amplification Loss and Spiral Ganglion Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Amplification Loss and Spiral Ganglion Neuron Degeneration</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Loss of hair cells and reduced endocochlear potential abolish active cochlear amplification, while deafferentation and ongoing injury drive progressive degeneration and apoptosis of the afferent spiral ganglion neurons that form the auditory nerve. This couples sensory-cell loss to failure of neural transmission of the auditory signal.</div>
                 
@@ -2899,6 +3001,13 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_88.html">Autosomal Recessive Nonsyndromic Hearing Loss 88</a>
+                            
+                            <span class="crosslink-desc">as Cochlear Sensory Transduction Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Dominant_Deafness-Onychodystrophy_Syndrome.html">Dominant Deafness-Onychodystrophy Syndrome</a>
                             
                             <span class="crosslink-desc">as Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells</span>
@@ -2940,11 +3049,13 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-progressive-sensorineural-hearing-loss" data-dismech-node="Progressive Sensorineural Hearing Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Sensorineural Hearing Loss</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The combined irreversible loss of cochlear hair cells, cochlear amplification, and spiral ganglion neurons produces progressive, bilateral sensorineural hearing loss. Because the damaged cochlea does not regenerate, the deficit is permanent and current interventions are limited to prosthetic devices; this is the defining clinical consequence of the module.</div>
                 
@@ -2967,6 +3078,18 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                         
                         <div class="crosslink-item">
                             <a href="../disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_50.html">Autosomal Dominant Nonsyndromic Hearing Loss 50</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_68.html">Autosomal Dominant Nonsyndromic Hearing Loss 68</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_124.html">Autosomal Recessive Nonsyndromic Hearing Loss 124</a>
+                            
+                            <span class="crosslink-desc">as Progressive Cochlear Hearing Loss</span>
                             
                         </div>
                         

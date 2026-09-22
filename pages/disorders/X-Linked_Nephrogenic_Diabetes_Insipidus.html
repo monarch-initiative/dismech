@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4225,6 +4293,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4249,6 +4318,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4270,6 +4340,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4377,6 +4448,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4401,6 +4473,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4422,6 +4495,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4506,6 +4580,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4530,6 +4605,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4551,6 +4627,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4588,6 +4665,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-avpr2-loss-of-function-variant" data-dismech-node="AVPR2 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">AVPR2 Loss-of-Function Variant</div>
+
 
                 <div class="item-desc">A hemizygous pathogenic variant in AVPR2 on Xq28, the gene encoding the arginine vasopressin V2 receptor. The allelic spectrum is wide and largely private: 82 different putative disease-causing variants were found among 117 families, and haplotype analysis indicates that recurrences of the same variant in apparently unrelated families arose independently rather than from a shared founder. Roughly a fifth of isolated cases are de novo, arising during oogenesis in the mother.</div>
 
@@ -4641,6 +4719,8 @@ This genetic context concerns AVPR2 (hgnc:897). hgnc:897 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4653,6 +4733,9 @@ This genetic context concerns AVPR2 (hgnc:897). hgnc:897 is a gene from the HUGO
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Hemizygous in affected males. Heterozygous females are affected only when X-inactivation is skewed against the normal allele.</div>
 
@@ -4756,6 +4839,7 @@ This pathophysiological event involves arginine vasopressin V2 receptor activity
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4777,6 +4861,7 @@ This pathophysiological event involves arginine vasopressin V2 receptor activity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4802,6 +4887,7 @@ This pathophysiological event involves arginine vasopressin V2 receptor activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-or-truncated-v2-receptor-protein" data-dismech-node="Absent or Truncated V2 Receptor Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent or Truncated V2 Receptor Protein</div>
+
 
                 <div class="item-desc">The third mechanistic class of AVPR2 loss of function, and the one that cannot be addressed by rescuing a receptor, because there is no receptor to rescue. Nonsense, frameshift, large-deletion and complex-rearrangement alleles yield absent, truncated or otherwise undetectable receptor protein. The step that fails is after transcription rather than at it: in the study cited here mRNA was produced for every mutant construct tested, yet the 804delG frameshift allele gave no receptor protein on Western blot. This node exists because the entry&#39;s own flagship animal model - the Glu242stop knock-in mouse - carries an allele of exactly this class, so without it the model&#39;s variant class had no route through the graph.</div>
 
@@ -4947,6 +5033,7 @@ This pathophysiological event involves absent arginine vasopressin V2 receptor a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4968,6 +5055,7 @@ This pathophysiological event involves absent arginine vasopressin V2 receptor a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4993,6 +5081,7 @@ This pathophysiological event involves absent arginine vasopressin V2 receptor a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-retention-of-misfolded-v2-receptor" data-dismech-node="Endoplasmic Reticulum Retention of Misfolded V2 Receptor" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoplasmic Reticulum Retention of Misfolded V2 Receptor</div>
+
 
                 <div class="item-desc">The pathognomonic cell-biological lesion of XNDI, and the reason the disease is a trafficking disorder rather than a ligand-recognition disorder. A misfolded V2 receptor is held in the endoplasmic reticulum by the same chaperone-based quality control that polices any nascent membrane protein; calnexin associates with the ER-retained receptor for longer than with the wild-type one. The receptor is often intrinsically capable of signalling - it is simply in the wrong compartment. That distinction is what makes pharmacochaperone rescue conceivable at all, and it is why a cell-permeable non-peptide ligand can restore membrane expression of a mutant receptor that a membrane-impermeant peptide agonist could never reach.</div>
 
@@ -5200,6 +5289,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5221,6 +5311,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5248,6 +5339,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5270,6 +5362,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-signalling-incompetent-cell-surface-v2-receptor" data-dismech-node="Signalling-Incompetent Cell-Surface V2 Receptor" data-dismech-type="pathophysiology">
                 <div class="item-name">Signalling-Incompetent Cell-Surface V2 Receptor</div>
+
 
                 <div class="item-desc">The minority class of AVPR2 variants, in which the receptor folds well enough to be exported from the ER and delivered to the basolateral membrane of the principal cell but cannot transduce a vasopressin signal from there - either because hormone recognition is destroyed, or because coupling to Gs is. This node is kept separate from the ER-retention node because it carries a different therapeutic implication: a pharmacochaperone has nothing to correct.</div>
 
@@ -5450,6 +5543,7 @@ This pathophysiological event involves basolateral plasma membrane of the princi
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5472,6 +5566,7 @@ This pathophysiological event involves basolateral plasma membrane of the princi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-vasopressin-stimulated-camp-and-pka-signalling" data-dismech-node="Loss of Vasopressin-Stimulated cAMP and PKA Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Vasopressin-Stimulated cAMP and PKA Signalling</div>
+
 
                 <div class="item-desc">Vasopressin normally acts on the principal cell through a single linear cascade: V2 receptor occupancy activates the stimulatory G protein Gs, Gs activates adenylyl cyclase, cAMP rises, and cAMP activates protein kinase A. With no functional receptor at the membrane the cascade has no input. Note what is intact: the hormone, the G protein, the cyclase and PKA itself are all normal, which is the reason every experimental strategy for XNDI has aimed at re-entering the cascade below the receptor.</div>
 
@@ -5723,6 +5818,7 @@ This pathophysiological event involves decreased protein kinase A activity downs
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5744,6 +5840,7 @@ This pathophysiological event involves decreased protein kinase A activity downs
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5769,6 +5866,7 @@ This pathophysiological event involves decreased protein kinase A activity downs
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-aquaporin-2-phosphorylation-and-apical-insertion" data-dismech-node="Failure of Aquaporin-2 Phosphorylation and Apical Insertion" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Aquaporin-2 Phosphorylation and Apical Insertion</div>
+
 
                 <div class="item-desc">Aquaporin-2 is the vasopressin-regulated water channel of the principal cell, and it is regulated by being moved. PKA phosphorylates AQP2 at Ser256 and the channel is redistributed from intracellular vesicles into the apical membrane, where it makes the luminal surface water-permeable. In XNDI the AQP2 protein itself is normal - that is the defining feature separating this disease from the autosomal AQP2-mutation form - and the failure is purely one of regulation. It is also the reason the whole therapeutic literature is framed as &#34;reach AQP2 without the receptor&#34;.</div>
 
@@ -5995,6 +6093,7 @@ This pathophysiological event involves apical plasma membrane of the principal c
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6016,6 +6115,7 @@ This pathophysiological event involves apical plasma membrane of the principal c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6041,6 +6141,7 @@ This pathophysiological event involves apical plasma membrane of the principal c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collecting-duct-water-impermeability" data-dismech-node="Collecting Duct Water Impermeability" data-dismech-type="pathophysiology">
                 <div class="item-name">Collecting Duct Water Impermeability</div>
+
 
                 <div class="item-desc">The collecting duct is the final site at which the kidney can return water to the body, and its water permeability is not constitutive - it exists only while aquaporin-2 is in the apical membrane. An XNDI collecting duct is therefore permanently in its dilute-urine configuration regardless of how dehydrated the patient is.</div>
 
@@ -6225,6 +6326,7 @@ This pathophysiological event occurs in kidney collecting duct epithelium (UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6247,6 +6349,7 @@ This pathophysiological event occurs in kidney collecting duct epithelium (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-medullary-countercurrent-urine-concentration" data-dismech-node="Failure of Medullary Countercurrent Urine Concentration" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Medullary Countercurrent Urine Concentration</div>
+
 
                 <div class="item-desc">Urine concentration depends on two things: a corticomedullary osmotic gradient built by countercurrent multiplication in the loops of Henle, and a collecting duct able to equilibrate with it. XNDI breaks only the second. This is worth stating explicitly because it is the reason XNDI is a pure water-handling disease with normal solute excretion, and the reason the washout of the gradient by very high tubular flow is a secondary aggravation rather than the primary defect.</div>
 
@@ -6391,6 +6494,7 @@ This pathophysiological event occurs in renal medulla (UBERON:0000362). UBERON:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6413,6 +6517,7 @@ This pathophysiological event occurs in renal medulla (UBERON:0000362). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obligatory-hypotonic-free-water-loss" data-dismech-node="Obligatory Hypotonic Free Water Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Obligatory Hypotonic Free Water Loss</div>
+
 
                 <div class="item-desc">The organism-level consequence: a fixed, large output of dilute urine that continues irrespective of plasma osmolality or volume status. Because it is obligatory rather than regulated, thirst is the only defence, and an affected person is dependent on continuous access to water. Adolescents and adults may void 10 to 15 litres a day.</div>
 
@@ -6614,6 +6719,7 @@ This pathophysiological event involves abnormal organism-level water homeostasis
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6636,6 +6742,7 @@ This pathophysiological event involves abnormal organism-level water homeostasis
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-high-urinary-tract-flow" data-dismech-node="Sustained High Urinary Tract Flow" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained High Urinary Tract Flow</div>
+
 
                 <div class="item-desc">A mechanical consequence of the urine output, and the one most specific to long-standing untreated disease. Decades of very high flow through an anatomically normal urinary tract dilate it: the bladder becomes large and trabeculated, the ureters dilate, and the renal pelvis follows, all without any obstruction at the bladder outlet. The dilatation is not harmless - poor drainage of a huge compliant bladder raises residual volume, predisposes to infection, and can itself impair renal function.</div>
 
@@ -6733,6 +6840,7 @@ This pathophysiological event involves abnormal organism-level water homeostasis
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6757,6 +6865,7 @@ This pathophysiological event involves abnormal organism-level water homeostasis
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6778,6 +6887,7 @@ This pathophysiological event involves abnormal organism-level water homeostasis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6847,15 +6957,13 @@ This pathophysiological event involves abnormal organism-level water homeostasis
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(8)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6898,6 +7006,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6912,6 +7023,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6968,6 +7080,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6982,6 +7097,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7006,6 +7122,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7038,7 +7155,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-polyuria" data-dismech-node="Polyuria" data-dismech-type="phenotype">
@@ -7071,6 +7188,9 @@ This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7085,6 +7205,7 @@ This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7141,6 +7262,9 @@ This clinical feature is Hyposthenuria (HP:0003158). HP:0003158 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7155,6 +7279,7 @@ This clinical feature is Hyposthenuria (HP:0003158). HP:0003158 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7179,6 +7304,7 @@ This clinical feature is Hyposthenuria (HP:0003158). HP:0003158 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7235,6 +7361,9 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7249,6 +7378,7 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7273,6 +7403,7 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7329,6 +7460,9 @@ This clinical feature is Hydroureter (HP:0000072). HP:0000072 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7343,6 +7477,7 @@ This clinical feature is Hydroureter (HP:0000072). HP:0000072 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7399,6 +7534,9 @@ This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7413,6 +7551,7 @@ This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7440,6 +7579,7 @@ This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7448,6 +7588,80 @@ This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from
 
 
                 <div class="evidence-explanation">The management recommendation, which also establishes that significant post-void residual is the clinical problem megacystis creates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bladder-trabeculation" data-dismech-node="Bladder trabeculation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bladder trabeculation
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032465" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0032465</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bladder trabeculation (HP:0032465). HP:0032465 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22498392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22498392" target="_blank">PMID:22498392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The high flow states caused the bladder to become trabeculated in the absence of infravesical obstruction."</div>
+
+
+                <div class="evidence-explanation">States that the trabeculation is flow-driven and that obstruction is absent, which is the whole point of this phenotype.</div>
 
 
 
@@ -7479,15 +7693,18 @@ This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012622</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7507,6 +7724,7 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7534,6 +7752,7 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7555,6 +7774,7 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7599,15 +7819,18 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0010677</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0010677</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Enuresis nocturna (HP:0010677). HP:0010677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7627,6 +7850,7 @@ This clinical feature is Enuresis nocturna (HP:0010677). HP:0010677 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7659,8 +7883,89 @@ This clinical feature is Enuresis nocturna (HP:0010677). HP:0010677 is a phenoty
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypernatremia" data-dismech-node="Hypernatremia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypernatremia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003228" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003228</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypernatremia (HP:0003228). HP:0003228 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Intellectual disability</span>
+
+                    </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301356" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301356" target="_blank">PMID:20301356</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Evaluation of at-risk infants as early as possible to allow for prompt diagnosis and treatment to reduce morbidity from hypernatremia, dehydration, and dilatation of the urinary tract."</div>
+
+
+                <div class="evidence-explanation">GeneReviews names hypernatraemia as a source of morbidity that early diagnosis exists to reduce.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-dehydration" data-dismech-node="Dehydration" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7678,15 +7983,18 @@ This clinical feature is Enuresis nocturna (HP:0010677). HP:0010677 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001944</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7706,6 +8014,7 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7748,15 +8057,18 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7776,6 +8088,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7803,6 +8116,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7824,6 +8138,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7875,15 +8190,18 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001959" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001959</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001959" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001959</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Polydipsia (HP:0001959). HP:0001959 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7903,6 +8221,7 @@ This clinical feature is Polydipsia (HP:0001959). HP:0001959 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7945,15 +8264,18 @@ This clinical feature is Polydipsia (HP:0001959). HP:0001959 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7973,6 +8295,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8000,6 +8323,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8021,6 +8345,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8074,15 +8399,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8102,6 +8430,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8129,6 +8458,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8150,6 +8480,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8194,15 +8525,18 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8222,6 +8556,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8249,6 +8584,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8273,6 +8609,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8281,162 +8618,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">The cohort&#39;s own summary of its outcome findings, naming short stature among the common ones.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypernatremia" data-dismech-node="Hypernatremia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypernatremia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003228" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0003228</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypernatremia (HP:0003228). HP:0003228 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-                    <div class="item-meta">
-                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
-
-                        <span class="tag" style="background: #bbf7d0; color: #166534;">Intellectual disability</span>
-
-                    </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301356" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301356" target="_blank">PMID:20301356</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Evaluation of at-risk infants as early as possible to allow for prompt diagnosis and treatment to reduce morbidity from hypernatremia, dehydration, and dilatation of the urinary tract."</div>
-
-
-                <div class="evidence-explanation">GeneReviews names hypernatraemia as a source of morbidity that early diagnosis exists to reduce.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bladder-trabeculation" data-dismech-node="Bladder trabeculation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bladder trabeculation
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032465" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0032465</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bladder trabeculation (HP:0032465). HP:0032465 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22498392" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22498392" target="_blank">PMID:22498392</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The high flow states caused the bladder to become trabeculated in the absence of infravesical obstruction."</div>
-
-
-                <div class="evidence-explanation">States that the trabeculation is flow-driven and that obstruction is absent, which is the whole point of this phenotype.</div>
 
 
 
@@ -8526,6 +8707,9 @@ This disease-associated gene is AVPR2 (hgnc:897). hgnc:897 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -8540,6 +8724,7 @@ This disease-associated gene is AVPR2 (hgnc:897). hgnc:897 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8567,6 +8752,7 @@ This disease-associated gene is AVPR2 (hgnc:897). hgnc:897 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8588,6 +8774,7 @@ This disease-associated gene is AVPR2 (hgnc:897). hgnc:897 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8676,6 +8863,9 @@ This treatment is free access to drinking water and toilet facilities, annotated
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8686,6 +8876,9 @@ This treatment is free access to drinking water and toilet facilities, annotated
 
 
     </div>
+
+
+
 
 
 
@@ -8722,6 +8915,7 @@ This treatment is free access to drinking water and toilet facilities, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8768,6 +8962,7 @@ This treatment is free access to drinking water and toilet facilities, annotated
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8789,6 +8984,7 @@ This treatment is free access to drinking water and toilet facilities, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8877,6 +9073,9 @@ This treatment uses hydrochlorothiazide (CHEBI:5778). CHEBI:5778 is a therapeuti
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8887,6 +9086,9 @@ This treatment uses hydrochlorothiazide (CHEBI:5778). CHEBI:5778 is a therapeuti
 
 
     </div>
+
+
+
 
 
 
@@ -8926,6 +9128,7 @@ This treatment uses hydrochlorothiazide (CHEBI:5778). CHEBI:5778 is a therapeuti
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8971,6 +9174,7 @@ This treatment uses hydrochlorothiazide (CHEBI:5778). CHEBI:5778 is a therapeuti
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8995,6 +9199,7 @@ This treatment uses hydrochlorothiazide (CHEBI:5778). CHEBI:5778 is a therapeuti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9016,6 +9221,7 @@ This treatment uses hydrochlorothiazide (CHEBI:5778). CHEBI:5778 is a therapeuti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9106,6 +9312,9 @@ This treatment uses amiloride (CHEBI:2639). CHEBI:2639 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9116,6 +9325,9 @@ This treatment uses amiloride (CHEBI:2639). CHEBI:2639 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -9152,6 +9364,7 @@ This treatment uses amiloride (CHEBI:2639). CHEBI:2639 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9198,6 +9411,7 @@ This treatment uses amiloride (CHEBI:2639). CHEBI:2639 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9222,6 +9436,7 @@ This treatment uses amiloride (CHEBI:2639). CHEBI:2639 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9243,6 +9458,7 @@ This treatment uses amiloride (CHEBI:2639). CHEBI:2639 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9333,6 +9549,9 @@ This treatment uses indomethacin, annotated with indometacin (CHEBI:49662). CHEB
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9343,6 +9562,9 @@ This treatment uses indomethacin, annotated with indometacin (CHEBI:49662). CHEB
 
 
     </div>
+
+
+
 
 
 
@@ -9384,6 +9606,7 @@ This treatment uses indomethacin, annotated with indometacin (CHEBI:49662). CHEB
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9405,6 +9628,7 @@ This treatment uses indomethacin, annotated with indometacin (CHEBI:49662). CHEB
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9451,6 +9675,7 @@ This treatment uses indomethacin, annotated with indometacin (CHEBI:49662). CHEB
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9475,6 +9700,7 @@ This treatment uses indomethacin, annotated with indometacin (CHEBI:49662). CHEB
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9496,6 +9722,7 @@ This treatment uses indomethacin, annotated with indometacin (CHEBI:49662). CHEB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9565,6 +9792,9 @@ This treatment is low-solute, sodium-restricted diet, annotated with Dietary Int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9575,6 +9805,9 @@ This treatment is low-solute, sodium-restricted diet, annotated with Dietary Int
 
 
     </div>
+
+
+
 
 
 
@@ -9623,6 +9856,7 @@ This treatment is low-solute, sodium-restricted diet, annotated with Dietary Int
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9666,6 +9900,7 @@ This treatment is low-solute, sodium-restricted diet, annotated with Dietary Int
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9687,6 +9922,7 @@ This treatment is low-solute, sodium-restricted diet, annotated with Dietary Int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9754,6 +9990,9 @@ This treatment is bladder catheterisation and timed voiding, annotated with Supp
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9764,6 +10003,9 @@ This treatment is bladder catheterisation and timed voiding, annotated with Supp
 
 
     </div>
+
+
+
 
 
 
@@ -9800,6 +10042,7 @@ This treatment is bladder catheterisation and timed voiding, annotated with Supp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9846,6 +10089,7 @@ This treatment is bladder catheterisation and timed voiding, annotated with Supp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9867,6 +10111,7 @@ This treatment is bladder catheterisation and timed voiding, annotated with Supp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9933,6 +10178,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9943,6 +10191,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9973,6 +10224,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9994,6 +10246,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10085,6 +10338,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10124,6 +10378,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10197,6 +10452,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10276,6 +10532,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10297,6 +10554,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10356,6 +10614,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10380,6 +10639,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10401,6 +10661,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10460,6 +10721,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10481,6 +10743,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10540,6 +10803,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10564,6 +10828,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10585,6 +10850,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10653,6 +10919,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10677,6 +10944,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10698,6 +10966,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10753,6 +11022,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10774,6 +11044,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10827,6 +11098,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10851,6 +11123,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10872,6 +11145,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10945,6 +11219,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11050,6 +11325,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11182,6 +11458,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11221,6 +11498,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11270,6 +11548,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11389,6 +11668,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11428,6 +11708,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11475,6 +11756,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11593,6 +11875,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11669,6 +11952,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11708,6 +11992,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11787,6 +12072,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11826,6 +12112,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11905,6 +12192,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11944,6 +12232,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11988,6 +12277,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12115,6 +12405,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12154,6 +12445,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12233,6 +12525,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12272,6 +12565,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12316,6 +12610,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12443,6 +12738,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12482,6 +12778,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12526,6 +12823,7 @@ This clinical trial targets Polyuria (HP:0000103). HP:0000103 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15892,6 +16190,83 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Lump/split: curated as a single DISEASE. One gene (AVPR2), one receptor, one conserved mechanistic chain from misfolded receptor to hypotonic polyuria. There is no defensible subtype axis: the allelic spectrum is broad but genotype does not predict phenotype beyond one hedged exception, the partial-NDI variants differ in degree rather than in mechanism, and symptomatic female heterozygotes are the same disease modified by X-inactivation, not a separate entity. No has_subtypes block was created.
+Boundary with Neurohypophyseal_Diabetes_Insipidus: these are two diseases at two levels of one axis and must not be conflated. That entry is the central (AVP) form - the lesion is in the hormone, the pathograph runs through misfolding of prepro-vasopressin in magnocellular hypothalamic neurons, and the endpoint is vasopressin deficiency. This entry starts where hormone supply is normal or high and the receptor cannot receive it. The two share downstream phenotypes (polyuria, polydipsia, hyposthenuria, hypernatraemic dehydration) and nothing upstream of them, and the discriminating test is the response to desmopressin: present in the central form, absent here. Note the superficial similarity that could invite a false merge - both entries have an ER-retention node - but they are different proteins retained in different cell types with different consequences: a secreted prohormone aggregating in a neuron and progressively destroying it, versus a membrane receptor held back from the surface of a renal epithelial cell with no proteotoxicity recorded. The pathographs were built independently; nothing was copied between them.
+Boundary with AQP2-related nephrogenic diabetes insipidus: the AQP2 form is a separate locus and a separate disease (autosomal recessive, rarely dominant), not a subtype of this entry, and dismech has no AQP2 entry at the time of writing. The two are clinically indistinguishable, which is exactly why they must be kept apart in the knowledge base: the inheritance, the counselling, the recurrence risk and the mechanism at the level of the water channel all differ. The mechanistic distinction is load-bearing here, because in XNDI aquaporin-2 is intact - the V2 receptor knock-in mouse shows normal basal AQP2 abundance - so every experimental therapeutic strategy for XNDI is framed as reaching AQP2 without the receptor, which makes no sense for the AQP2 form. A kb/groupings/ Grouping over nephrogenic diabetes insipidus (MONDO:0016383) would be the right vehicle for the relationship once an AQP2 entry exists; it is deliberately not created here, since a grouping with one member is not a union.
+No conforms_to. Three candidate modules were read in full before concluding that none fits. er_protein_storage_disease scopes itself to hepatocellular storage of a secretory protein with proteotoxic gain of function and stellate-cell fibrosis, and its own notes assign the loss-of-secretion consequence to disorder entries rather than to the module - XNDI is purely that loss-of-delivery arm, in a renal epithelium, with no storage pathology. loss_of_proteostasis is an aging hallmark built on age-related decline of the proteostasis network leading to aggregation and neurodegeneration; here a single variant protein is recognised by an intact quality-control system, which is the opposite situation. renal_cystogenesis does contain a vasopressin-V2R-cAMP node, but in the direction of overstimulation driving cystogenesis, so conforming to it would invert the mechanism. A module for GPCR ER-retention trafficking disease would be a legitimate future proposal - the cited literature explicitly generalises the mechanism to other ER-retained GPCRs - but it does not exist yet and was not created in this PR.
+Deep research. falcon was requested and returned HTTP 402 on two consecutive attempts - the Edison account is out of credits. The second attempt was re-issued with --fallback, which escalated to openscientist; that job (55dbaa47-e508-4202-898f-a85d997f02b6) timed out after 3600 s and was cancelled, ending the fallback chain with no report. The provider of record is therefore claude_code, run directly, and the report&#39;s own frontmatter says so. Its reference validation resolved 14 of 14 identifiers with a confabulation rate of 0.0; needs_review is true on the strength of one reference flagged as possibly off topic (PMC:PMC11095762, &#34;Therapeutic potentials of nonpeptidic V2R agonists for partial cNDI-causing V2R mutants&#34;), which on reading is squarely on topic - a vocabulary-overlap false positive, not a bad citation. Term validation resolved 17 of 18 CURIEs with 5 of 5 labels correct and none naming a different term; no CURIE from the report was bound without an independent lookup in any case. just preflight-dr returns a WARN because AQP2 is mentioned 35 times against AVPR2&#39;s 55 and the report carries OMIM 125800 alongside 304800. That is expected here rather than a Named Entity Confusion finding: the report discusses AQP2 as the contrasting locus, which is the same boundary this entry draws explicitly above, and no AQP2 content was curated as AVPR2 disease.
+Three figures the report gives are not supported by the abstracts they are attributed to, and are deliberately absent from this entry: a 36 per cent gastrostomy rate ascribed to PMID:32039113, and - ascribed to PMID:39644399 - a 58-year-old patient with an eGFR of 25 mL/min/1.73m2, a 3.1 L post-void residual and secondary hyperparathyroidism. That paper&#39;s abstract describes a 6-month-old proband and an untreated maternal grandfather without naming his age or any of those values. The qualitative contrast it does support is curated; the numbers are not. This is recorded because the report reads fluently and those figures would have been easy to transcribe.
+Slot choice on the lesion node. The lesion node carries both genetic_context.functional_impact_category: LOSS_OF_FUNCTION and modifier: LOSS_OF_FUNCTION on its vasopressin-receptor-activity descriptor. CLAUDE.md records that these two slots may legitimately co-occur on a mutation-driven node because they make different claims - the variant&#39;s consequence and the resulting activity state. CLAUDE.md adds that no KB entry did so at the time of writing, but that sentence is stale: measured against origin/main at the time this entry was curated, 200 pathophysiology nodes already pair the two slots, 80 of them with a GAIN_OF_FUNCTION or LOSS_OF_FUNCTION modifier (Autosomal_Recessive_Robinow_Syndrome and Autosomal_Dominant_Hypocalcemia_1 among them). So the pattern here is well precedented rather than novel, and is recorded for that reason rather than as a flag. The modifier is qualitative rather than quantitative on purpose: the receptor&#39;s activity is abolished, not running below normal, which is the distinction CLAUDE.md draws between LOSS_OF_FUNCTION and DECREASED. Downstream nodes use DECREASED and ABSENT, since the cascade and the trafficking steps are intact machinery deprived of an input.
+Nomenclature. A 2022-onward working-group renaming calls this family of disorders arginine vasopressin resistance, and the 2024 international expert consensus statement (PMID:39438674) carries &#34;arginine vasopressin resistance&#34; in its own title and gives it as an alternative name in its first sentence. The three new synonyms are there so a reader arriving from recent literature finds this entry; the entry name keeps the older form because that is what MONDO:0010581 and the cited cohorts use.
+Three mechanistic routes, not two. The lesion node has three downstream edges, one per class in the functional taxonomy PMID:32138955 names: absent or truncated protein, ER retention of a misfolded receptor, and a surface receptor that cannot signal. The first of those was missing from the first version of this entry, and the omission was not cosmetic: the Glu242stop knock-in mouse is a nonsense allele, so the entry&#39;s flagship animal model belonged to a class the graph gave it no path through, and its modeled_mechanisms link entered at the cascade node instead. The node was added rather than the edge descriptions merely softened, because a pathograph whose value is being a complete chain should not omit a class its own model instantiates. The mouse now links to that node explicitly as well as to the cascade node. No proportion is asserted for any class - see the genetic notes.
+Copeptin is curated without a cutoff. The deep-research report gives a baseline plasma copeptin above 21.4 pmol/L as diagnostic for NDI in adults and attributes it to the 2024 consensus statement. That record was fetched both by DOI and by PMID: the DOI record came back with content_type unavailable and an empty body, and the PMID record&#39;s available content does not mention copeptin at all, let alone that figure. So the cutoff could not be verified and is not curated - a fourth unsupported figure from the same report, alongside the three already listed above. What is curated is the qualitative claim that basal copeptin alone diagnoses nephrogenic diabetes insipidus while the other two entities in the differential need a stimulation test, which two independent reviews state in those terms.
+GO binding on Obligatory Hypotonic Free Water Loss. This node first carried GO:0007588 (excretion), which is broad to the point of saying little. GO was searched for renal water excretion, diuresis, urine and body-fluid terms; the best fits found were GO:0035809 (regulation of urine volume) and GO:0050891 (multicellular organismal-level water homeostasis), both of which are now bound with modifier ABNORMAL, and GO:0007588 was dropped. Recording the search so that the absence of a single exact term is visible rather than inferred.
+One piece of guidance this entry&#39;s own evidence complicates. The node Failure of Aquaporin-2 Phosphorylation and Apical Insertion names phosphorylation and apical insertion together, and PMID:10710543 shows they are separable: prostaglandin E2 reversed vasopressin-induced translocation of aquaporin-2 away from the plasma membrane without decreasing its phosphorylation, and the authors conclude that recruitment and retrieval may be independently regulated and that dephosphorylation is not a prerequisite for internalization. In this disease both fail together because both are downstream of the same absent PKA signal, so the bundled node is not making a false claim here. The node was not renamed because its name is a foreign key for bare-name pathograph targets and for three model links, and splitting it would assert a distinction this disease does not exercise.
+Phenotypes deliberately left unwired to the pathograph: Vomiting, Fever and Constipation. All three are well documented as presenting features and all three have an obvious hand-waving explanation (dehydration, water deficit), but no cited source here states the causal step, so an edge would be invented rather than curated. Failure to thrive and Short stature are wired with INDIRECT_UNKNOWN_INTERMEDIATES for the weaker version of the same reason - the association is documented, the route is not. Intellectual disability reaches the graph through a sequela edge from Hypernatremia rather than from a pathophysiology node, because the only causal statement available attributes it to the electrolyte disturbance and not to a mechanism.
+Omitted deliberately. The biochemical block carries urine osmolality and serum sodium but no reference_ranges: no citable record in this round gave a reference interval for either, and the only numeric figure available (a maximal urine osmolality not exceeding 200 mosmol/kg in three patients) is a reported ceiling in affected people, not a normal interval, so inventing one was declined. The clinical_trials block carries exactly one trial, NCT07525960, because it is the only interventional study identified for this disease; the 2020 pharmacological review&#39;s conclusion that nothing is yet established as causally improving symptoms or quality of life stands alongside it, and the trial&#39;s registration record does not name the drug&#39;s mechanism so none is asserted. No datasets block: no GEO or other repository accession specific to AVPR2 nephrogenic diabetes insipidus was verified, and a gene-name search would have returned accessions about other AVPR2 biology. No environmental block: the precipitants of decompensation (intercurrent illness, heat, water withholding) are recorded in the progression and phenotype descriptions, because they act on an already-established disease rather than contributing to its causation, and an ECTO binding for &#34;withholding of water&#34; was not sought. No prevalence figure beyond the Quebec birth-incidence estimate; the numerically higher Maritime rate is noted as a founder effect rather than curated as a second population record.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1 response: add Type I variant route, water-deprivation contraindication, copeptin</strong> · 2026-09-10T19:16:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/X-Linked_Nephrogenic_Diabetes_Insipidus/2026-09-10T191614Z-claude-code-aefe16.yaml">View source</a></p>
+                        <p class="research-review-text">Response to review round 1 on PR #11634 (REQUEST_CHANGES, three yellow and five blue). All eight items worked in one push.
+
+YELLOW 1, Type I variants had no route through the pathograph. Took the reviewer&#39;s option one: added a new pathophysiology node &#39;Absent or Truncated V2 Receptor Protein&#39; (MOLECULAR, CL:1001431, GO:0005000 with modifier ABSENT) and a third downstream edge from the lesion node to it with causal_link_type DIRECT. Chose this over merely softening the edge descriptions because the gap was load-bearing rather than cosmetic: the entry&#39;s flagship animal model, the V2R Glu242stop knock-in (PMID:11104789), carries a nonsense allele and so belongs to exactly the class the graph omitted, and its modeled_mechanisms link entered at the cAMP/PKA node instead. The mouse now carries an additional RECAPITULATES link to the new node at model_scale MOLECULAR, with a limitation recording that the class assignment rests on the nature of the allele rather than on a Western blot in these mice. Evidence for the node is PMID:11389590, which is the direct in vitro demonstration: mRNA was produced for every mutant construct while the 804delG frameshift allele gave no detectable receptor protein, so the failing step is after transcription. Also reworded the two pre-existing edges so they no longer read as a partition: &#39;majority route&#39; became &#39;the commonest route, and the one with a therapeutic handle&#39; and &#39;minority route&#39; became &#39;the functional route&#39;. The three routes now correspond one-to-one to the three classes PMID:32138955 names and all three converge on the cascade node.
+
+YELLOW 2, water-deprivation safety caveat. The reviewer&#39;s quoted sentence WAS in the cache: references_cache/PMID_40922895.md has content_type full_text_xml, not abstract-only, and carries the contraindication in two places. I quoted from the cache rather than from the review comment, and verified the snippets against the strict --no-full-text gate before building on them (they pass; --no-full-text suppresses new full-text fetching, it does not restrict matching to abstracts). Added a new diagnosis entry &#39;Water deprivation test&#39; carrying three snippets from that paper: the contraindication above serum sodium 145 mmol/L and its stated reason, the operational rule including the plasma osmolality 295 mOsm/kg limb and the substitution of desmopressin challenge alone, and the statement that the diagnosis can be established without water restriction where sodium is high or high-normal with inappropriately dilute urine. The entry description makes the clinical point the reviewer raised: the median presenting serum sodium in this same cohort is 160.5 mmol/L, so the typical patient presents already past the threshold at which the test is unsafe.
+
+YELLOW 3, copeptin. Curated qualitatively, cutoff declined. The 21.4 pmol/L figure could not be verified: the consensus statement was fetched both ways, and DOI:10.1038/s41581-024-00897-z came back with content_type unavailable and an empty body while the PMID version (PMID:39438674, fetched this round, full_text_html) does not mention copeptin at all. That is a fourth unsupported figure from the same deep-research report, recorded in notes alongside the three found in round one. What is curated is the substantive claim, from two independent reviews (PMID:32374887 and PMID:32387127) stating it in those terms: unstimulated basal copeptin reliably diagnoses nephrogenic diabetes insipidus while separating central diabetes insipidus from primary polydipsia needs a stimulation test. New diagnosis entry &#39;Basal plasma copeptin&#39;, which also records why that asymmetry suits this disease and that no cutoff is curated.
+
+BLUE 1, nomenclature. Added three synonyms (arginine vasopressin resistance, AVP-R, X-linked arginine vasopressin resistance) and a notes paragraph on the renaming, cited to PMID:39438674 whose own title and first sentence both carry the new name. The entry name keeps the older form because that is what MONDO:0010581 and the cited cohorts use. PMID:39438674 also added to the top-level references block and attached as real evidence on the genetic-counselling treatment, whose scope it explicitly covers.
+
+BLUE 2, rebound Nocturnal enuresis from HP:0000805 (Enuresis) to HP:0010677 (Enuresis nocturna), which matches the preferred_term exactly. Confirmed by lookup through ols:hp and confirmed already present in both cache/hp/terms.csv and the phenotypeterm enum cache, so enum membership was established before rebinding rather than assumed.
+
+BLUE 3, GO binding on Obligatory Hypotonic Free Water Loss. Searched GO for renal water excretion, diuresis, urine, water homeostasis and body-fluid terms. Replaced the broad GO:0007588 (excretion) with GO:0035809 (regulation of urine volume) and GO:0050891 (multicellular organismal-level water homeostasis), both modifier ABNORMAL. Recorded the search in notes so the absence of a single exact term is visible rather than inferred.
+
+BLUE 4, variant-class composition. Added to the genetic notes: the variant types represented, the three functional classes and their correspondence to the three pathograph routes, and more than 200 reported AVPR2 variants (PMID:33664408). Two things deliberately not asserted and said so: no proportion for which class is commonest, because the widely circulated 70 per cent figure for the ER-retention class appears in the deep-research report but no cited source measures it and the strongest citable statement is the weaker one in PMID:17516711 that the function of most mutant receptors is not itself disturbed; and no proportion per sequence-variant type. Added PMID:17516711 and PMID:32138955 as evidence in genetic.
+
+BLUE 5, indomethacin rationale. Cited the mechanism (PMID:10710543) but DECLINED the suggested upgrade from MODULATES, because reading the source argues against it. PGE2 was shown to reverse vasopressin-INDUCED translocation of aquaporin-2 without decreasing its phosphorylation; that process does not occur in a V2 receptor-null kidney, so the demonstrated mechanism presupposes the signalling this disease lacks. And in the same experiments PGE2 alone altered neither aquaporin-2 phosphorylation nor its distribution, which argues against a standing PGE2 brake that an NSAID could release in the absence of vasopressin action. Recorded as a SUPPORT item with directness INDIRECT plus a REFUTE item quoting the PGE2-alone result, with the reasoning in the target_mechanisms description. The treatment description now states that the clinical benefit is real and well attested while the route through this node is not established by anything cited.
+
+Also recorded: PMID:10710543 shows aquaporin-2 phosphorylation and apical retention are separably regulated and that dephosphorylation is not a prerequisite for internalization, which complicates the bundled naming of the node &#39;Failure of Aquaporin-2 Phosphorylation and Apical Insertion&#39;. The node was NOT renamed, because its name is a foreign key for bare-name pathograph targets and three model links and because in this disease both limbs fail together downstream of the same absent PKA signal. Recorded in notes rather than acted on.
+
+Built on the coordinator&#39;s commit 8803affcb correcting the stale slot-co-occurrence precedent claim; that text was not reverted.
+
+Validators re-run after these changes, all pass. just validate and just validate-disorders both pass with 155/155 snippets verified against committed references_cache files (up from 138). validate-terms, check-duplicate-keys, check-entity-refs, check-causal-targets (no new dangling targets, confirmed after adding a node and four edges), check-qualifier-terms (0 qualifier terms), check-enum-values all pass. Whole-KB text checks all pass with no new findings: check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-reference-titles, check-environmental-evidence. normalize-cache, check-term-cache-integrity, check-cache-order pass. list-gene-term-mismatches 0 findings. compliance 94.5 per cent global, up from 93.7. No baseline file was modified. Cache diff is strictly additive: one new row (GO:0035809) across two files; GO:0050891 and HP:0010677 were already cached from other entries. Separately re-verified every reference_title against its cache frontmatter: 34 pairs checked, the only difference the known cosmetic U+2029 in PubMed&#39;s stored title for PMID:29162216.
+
+Five new references this round: PMID:39438674, PMID:32374887, PMID:32387127, PMID:10710543, and the clinicaltrials record was already present. 35 distinct references total.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: X-Linked Nephrogenic Diabetes Insipidus</strong> · 2026-09-10T18:08:48Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/X-Linked_Nephrogenic_Diabetes_Insipidus/2026-09-10T180848Z-claude-code-cef1ab.yaml">View source</a></p>
+                        <p class="research-review-text">New Disease entry for X-linked nephrogenic diabetes insipidus (MONDO:0010581), AVPR2 (hgnc:897) at Xq28. Curated as a single DISEASE: one gene, one receptor, one conserved mechanistic chain, no has_subtypes.
+
+Pathograph: nine nodes in one chain with a branch at the lesion. AVPR2 loss-of-function variant branches into (a) ER retention of the misfolded V2 receptor, the majority route, and (b) a signalling-incompetent cell-surface receptor, the minority route; both converge on loss of vasopressin-stimulated cAMP/PKA signalling, then failure of aquaporin-2 phosphorylation and apical insertion, collecting duct water impermeability, failure of medullary countercurrent urine concentration, obligatory hypotonic free water loss, and sustained high urinary tract flow. biological_scale set on every node. CL:1001431 bound on four nodes; GO biological processes, molecular functions and cellular components bound throughout; UBERON:0000362 and UBERON:0014388 for locations. PDB 7KH0 (cryo-EM AVP-V2R-Gs) attached to the cascade node. The lesion node carries genetic_context with GERMLINE/HEMIZYGOUS/LOSS_OF_FUNCTION plus a modifier on its receptor-activity descriptor; the deliberate co-occurrence of the two slots is flagged in notes per CLAUDE.md.
+
+Deep research provenance. falcon was requested and returned HTTP 402 twice (Edison account out of credits). The second attempt was re-issued with --fallback, which escalated to openscientist; that job (55dbaa47-e508-4202-898f-a85d997f02b6) timed out after 3600s and was cancelled, ending the fallback chain with no report. claude_code was then run directly and is the provider of record; research/X-Linked_Nephrogenic_Diabetes_Insipidus-deep-research-claude_code.md and its .citations.md are committed. Report reference validation: 14/14 resolved, confabulation_rate 0.0, needs_review true on one possibly-off-topic flag (PMC:PMC11095762) which on reading is on topic. Term validation: 17/18 resolved, 5/5 labels correct, 0 naming a different term. just preflight-dr returns WARN (AQP2 mentioned 35x vs AVPR2 55x, OMIM 125800 alongside 304800) which is expected because the report discusses AQP2 as the contrasting locus; no AQP2 content was curated as AVPR2 disease. Three figures the report attributed to abstracts do not appear in them (a 36% gastrostomy rate ascribed to PMID:32039113; a 58-year-old patient with eGFR 25, 3.1 L post-void residual and secondary hyperparathyroidism ascribed to PMID:39644399) and were deliberately not curated; this is recorded in the entry notes.
+
+Term discipline. Every CURIE was read from a lookup in the same step it was written. hgnc:897 was not in cache/hgnc/terms.csv beforehand; it was resolved from the HGNC REST API and independently confirmed against the OBO hgnc build, and the symbol AVPR2 was checked against the CURIE. One binding was corrected during review: GO:0031896 (V2 vasopressin receptor binding) was initially used for the receptor&#39;s own recognition of vasopressin, which inverts the term&#39;s meaning; replaced with GO:0017046 (peptide hormone binding) plus GO:0005000 (vasopressin receptor activity). No cell_types binding was placed on the MDCK experimental model because CL does not represent cell lines and binding the canine line to the human principal-cell term would overstate it.
+
+Validators run and results. just validate: pass (schema, terms, references). just validate-disorders (authoritative batched gate): pass. Snippets: 138/138 verified against committed references_cache files. just validate-terms: pass. just check-duplicate-keys, check-entity-refs, check-causal-targets (no new dangling targets), check-qualifier-terms (0 qualifier terms), check-enum-values: all pass. Whole-KB text checks all pass with no new findings: check-folded-hyphens (two findings introduced and fixed by reflowing, not baselined), check-snippet-length (two short snippets introduced and replaced with full propositions, not baselined), check-title-snippets, check-snippet-grading, check-environmental-evidence. just normalize-cache, check-term-cache-integrity, check-cache-order: pass. just list-gene-term-mismatches: 2 gene bindings examined, both name the gene they bind, 0 findings. just compliance: 93.7% global, 94.0% weighted.
+
+Evidence: 138 items across 30 PMIDs plus clinicaltrials:NCT07525960.
+
+Deliberate omissions, all recorded in the entry notes: no conforms_to (er_protein_storage_disease, loss_of_proteostasis and renal_cystogenesis were each read in full and each misfits; a GPCR ER-retention trafficking module would be a legitimate future proposal); no reference_ranges on the biochemical block (no citable normal interval found); no datasets block (no accession specific to AVPR2 disease verified, and a gene-name search would return other AVPR2 biology); no environmental block (the precipitants act on established disease); Vomiting, Fever and Constipation left unwired to the pathograph because no cited source states the causal step.
+
+Boundaries checked and recorded: Neurohypophyseal_Diabetes_Insipidus exists and is the central AVP form - pathograph built independently, nothing copied, and the superficial shared ER-retention node is explicitly distinguished in notes. The AQP2 form is a separate locus and disease, not a subtype; dismech has no AQP2 entry, so a kb/groupings Grouping over nephrogenic diabetes insipidus is flagged as follow-up rather than created here.
+
+Open item for a human: the neurodevelopmental attribution. Intellectual disability is curated with a sequela edge from Hypernatremia and an attached KNOWLEDGE_GAP discussion, on a hedged review sentence plus a 2025 cohort finding neurodevelopmental disorders in six of eight treated patients with normalised serum sodium, against GeneReviews&#39; position that intelligence is usually normal with early treatment. The contradiction is recorded rather than resolved.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

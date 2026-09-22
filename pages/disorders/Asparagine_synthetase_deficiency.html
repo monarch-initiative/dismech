@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4171,6 +4239,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4192,6 +4261,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4574,6 +4644,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4595,6 +4666,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4772,6 +4844,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4793,6 +4866,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4833,6 +4907,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-asns-functional-deficiency" data-dismech-node="Biallelic ASNS Functional Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ASNS Functional Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic pathogenic ASNS variants reduce protein abundance, catalytic performance, or both. The initiating lesion is deficient glutamine-dependent asparagine synthetase activity rather than a uniform complete absence of enzyme in every genotype.</div>
 
@@ -4989,6 +5070,7 @@ This pathophysiological event involves decreased asparagine synthase (glutamine-
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5011,6 +5093,13 @@ This pathophysiological event involves decreased asparagine synthase (glutamine-
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-de-novo-asparagine-synthesis" data-dismech-node="Reduced De Novo Asparagine Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced De Novo Asparagine Synthesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Deficient ASNS activity lowers the capacity to synthesize asparagine from aspartate and glutamine. Low asparagine has been measured in some patients, but plasma and CSF results can be normal; this node denotes reduced synthetic capacity rather than obligate hypaasparaginemia in every sample.</div>
 
@@ -5150,6 +5239,7 @@ This pathophysiological event involves decreased L-asparagine biosynthetic proce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5171,6 +5261,7 @@ This pathophysiological event involves decreased L-asparagine biosynthetic proce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5196,6 +5287,13 @@ This pathophysiological event involves decreased L-asparagine biosynthetic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-context-dependent-cellular-asparagine-insufficiency" data-dismech-node="Context-Dependent Cellular Asparagine Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Context-Dependent Cellular Asparagine Insufficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">ASNS-deficient patient fibroblasts and lymphoblastoid cells become vulnerable when extracellular asparagine is limited. Reported consequences include impaired proliferation and broad metabolomic disruption, including lower TCA-cycle intermediates and anaplerotic substrates. These are disease-relevant cell-culture observations, not direct measurements in developing human brain.</div>
 
@@ -5309,6 +5407,7 @@ This pathophysiological event involves decreased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5330,6 +5429,7 @@ This pathophysiological event involves decreased cell population proliferation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5355,6 +5455,13 @@ This pathophysiological event involves decreased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proposed-cerebral-excitatory-amino-acid-imbalance" data-dismech-node="Proposed Cerebral Excitatory Amino-Acid Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Proposed Cerebral Excitatory Amino-Acid Imbalance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Aspartate and glutamate excess in brain has been proposed as a contributor to hyperexcitability and neuronal injury. Mild precursor elevations were reported in selected patients, but concentrations have not been consistently abnormal, the affected brain compartment was not directly measured, and glutamate is generated by the ASNS reaction rather than being an unused substrate.</div>
 
@@ -5485,6 +5592,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5506,6 +5614,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5531,6 +5640,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cortical-development-and-brain-growth" data-dismech-node="Impaired Cortical Development and Brain Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cortical Development and Brain Growth</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">ASNS is expressed in cortical-plate neurons and ventricular/subventricular neural progenitor zones. A hypomorphic Asns gene-trap mouse has reduced cortical thickness and area with enlarged ventricles. Together with human imaging, these findings support abnormal cortical development and growth, while the exact affected cellular process remains unresolved.</div>
 
@@ -5832,6 +5948,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5853,6 +5970,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5878,6 +5996,13 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epileptic-network-dysfunction" data-dismech-node="Epileptic Network Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Epileptic Network Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">ASNSD commonly produces early multifocal or generalized epileptic activity, medically refractory seizures, and sometimes status epilepticus or myoclonus. This node captures the convergent epileptic state without choosing between structural and excitatory-amino-acid mechanisms.</div>
 
@@ -6100,6 +6225,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6122,6 +6248,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurologic-swallowing-and-respiratory-dysfunction" data-dismech-node="Neurologic Swallowing and Respiratory Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurologic Swallowing and Respiratory Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Severe neurologic impairment can lead to dysphagia, aspiration risk, apnea, and respiratory insufficiency. This is a clinically supported complication branch, but its precise neuroanatomic and neuromuscular intermediates have not been established in ASNSD.</div>
 
@@ -6216,6 +6349,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6237,6 +6371,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6285,7 +6420,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anticonvulsant therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are treated according to standard epilepsy practice by an experienced neurologist. No antiseizure medication has demonstrated ASNSD-specific superiority, and polytherapy may be required.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central axial hypotonia often precedes or coexists with appendicular spasticity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008936\"}}, {\"id\": \"Biallelic ASNS Functional Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic ASNS variants reduce protein abundance, catalytic performance, or both. The initiating lesion is deficient glutamine-dependent asparagine synthetase activity rather than a uniform complete absence of enzyme in every genotype.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"asparagine synthase (glutamine-hydrolyzing) activity\"], \"genes\": [\"ASNS\"], \"gene_terms\": [{\"label\": \"ASNS\", \"id\": \"hgnc:753\"}]}}, {\"id\": \"Biallelic pathogenic ASNS variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ASNS\"], \"gene_terms\": [{\"label\": \"ASNS\", \"id\": \"hgnc:753\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized or cortical cerebral atrophy is a consistent imaging feature and may progress.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002059\"}}, {\"id\": \"Cerebrospinal-fluid asparagine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:17196\", \"term_label\": \"L-asparagine\", \"readouts\": [{\"target\": \"Reduced De Novo Asparagine Synthesis\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low CSF asparagine is a supportive readout of reduced synthetic capacity, not an obligatory finding.\"}]}}, {\"id\": \"Context-Dependent Cellular Asparagine Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASNS-deficient patient fibroblasts and lymphoblastoid cells become vulnerable when extracellular asparagine is limited. Reported consequences include impaired proliferation and broad metabolomic disruption, including lower TCA-cycle intermediates and anaplerotic substrates. These are disease-relevant cell-culture observations, not direct measurements in developing human brain.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Cortical visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral visual impairment or cortical blindness is reported.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100704\"}}, {\"id\": \"Epileptic Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASNSD commonly produces early multifocal or generalized epileptic activity, medically refractory seizures, and sometimes status epilepticus or myoclonus. This node captures the convergent epileptic state without choosing between structural and excitatory-amino-acid mechanisms.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Exaggerated startle response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A hyperekplexia-like excessive startle response occurs in a substantial subset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002267\"}}, {\"id\": \"Feeding and enteral-nutrition support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Feeding therapy, assessment of swallowing safety, and nasogastric or gastrostomy feeding can be used when oral intake is unsafe or insufficient; aspiration and respiratory status require parallel assessment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysphagia, vomiting, reflux, and gastroesophageal incoordination can compromise nutrition and airway safety.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental impairment is usually severe or profound, although attenuated cases retain more skills.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Cortical Development and Brain Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASNS is expressed in cortical-plate neurons and ventricular/subventricular neural progenitor zones. A hypomorphic Asns gene-trap mouse has reduced cortical thickness and area with enlarged ventricles. Together with human imaging, these findings support abnormal cortical development and growth, while the exact affected cellular process remains unresolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"cerebral cortex development\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Intractable seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are usually early and often medically refractory, but type and severity vary.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Ketogenic diet for drug-resistant epilepsy, case-level evidence\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A ketogenic diet was associated with marked seizure improvement and mild cognitive improvement in one child with drug-resistant epilepsy. This first case report provides no controlled or generalizable ASNSD-specific efficacy estimate, so candidacy requires specialist epilepsy and metabolic oversight.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Erratic myoclonus can begin at birth and persist.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001336\"}}, {\"id\": \"Neurologic Swallowing and Respiratory Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe neurologic impairment can lead to dysphagia, aspiration risk, apnea, and respiratory insufficiency. This is a clinically supported complication branch, but its precise neuroanatomic and neuromuscular intermediates have not been established in ASNSD.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Plasma asparagine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"VARIABLE\", \"term_id\": \"CHEBI:17196\", \"term_label\": \"L-asparagine\", \"readouts\": [{\"target\": \"Reduced De Novo Asparagine Synthesis\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A low value supports the biochemical defect, whereas a normal value is nondiagnostic.\"}]}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is usually congenital and becomes more marked with age.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000253\"}}, {\"id\": \"Proposed Cerebral Excitatory Amino-Acid Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aspartate and glutamate excess in brain has been proposed as a contributor to hyperexcitability and neuronal injury. Mild precursor elevations were reported in selected patients, but concentrations have not been consistently abnormal, the affected brain compartment was not directly measured, and glutamate is generated by the ASNS reaction rather than being an unused substrate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Reduced De Novo Asparagine Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient ASNS activity lowers the capacity to synthesize asparagine from aspartate and glutamine. Low asparagine has been measured in some patients, but plasma and CSF results can be normal; this node denotes reduced synthetic capacity rather than obligate hypaasparaginemia in every sample.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-asparagine biosynthetic process\"]}}, {\"id\": \"Respiratory insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apnea, aspiration, or severe neurologic respiratory dysfunction may require ventilatory support.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Appendicular spasticity can progress to spastic quadriplegia with contractures and scoliosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Status epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Status epilepticus is a severe complication in some affected individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002133\"}}], \"edges\": [{\"source\": \"Biallelic ASNS Functional Deficiency\", \"target\": \"Reduced De Novo Asparagine Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ASNS catalytic activity directly lowers capacity for de novo asparagine synthesis.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced De Novo Asparagine Synthesis\", \"target\": \"Context-Dependent Cellular Asparagine Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synthesis becomes limiting when extracellular asparagine availability is low.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced De Novo Asparagine Synthesis\", \"target\": \"Proposed Cerebral Excitatory Amino-Acid Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered pathway flux has been proposed to increase excitatory amino acids in brain, but the intermediates and consistency are unresolved.\", \"hypothesis_groups\": [\"excitatory_amino_acid_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Context-Dependent Cellular Asparagine Insufficiency\", \"target\": \"Impaired Cortical Development and Brain Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cellular growth defect is proposed to impair neural progenitor expansion and post-mitotic cell survival during brain development.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed Cerebral Excitatory Amino-Acid Imbalance\", \"target\": \"Epileptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Putative excitatory amino-acid imbalance could promote seizures, but direct evidence in ASNSD brain is lacking.\", \"hypothesis_groups\": [\"excitatory_amino_acid_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced prenatal and postnatal brain growth manifests as progressive microcephaly.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cerebral volume and progressive atrophy are structural consequences of impaired brain growth and injury.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development produces severe impairment across developmental domains.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Axial hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central neurologic dysfunction contributes to axial hypotonia.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive central motor-system dysfunction manifests as appendicular spasticity or spastic quadriplegia.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Cortical visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral visual pathway dysfunction can produce cortical visual impairment.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Epileptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development and progressive structural injury can create epileptogenic networks.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Neurologic Swallowing and Respiratory Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe central neurologic impairment can compromise swallowing, airway protection, and respiratory function.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Epileptic Network Dysfunction\", \"target\": \"Intractable seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The epileptic network state manifests as recurrent, often refractory seizures.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\", \"excitatory_amino_acid_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epileptic Network Dysfunction\", \"target\": \"Status epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe seizure burden can progress to status epilepticus.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\", \"excitatory_amino_acid_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epileptic Network Dysfunction\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptic and nonepileptic network instability can manifest as persistent myoclonus.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\", \"excitatory_amino_acid_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epileptic Network Dysfunction\", \"target\": \"Exaggerated startle response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network hyperexcitability may contribute to the hyperekplexia-like startle phenotype.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\", \"excitatory_amino_acid_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurologic Swallowing and Respiratory Dysfunction\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Swallowing and gastroesophageal dysfunction directly impair safe feeding and nutrition.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurologic Swallowing and Respiratory Dysfunction\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apnea, aspiration, and impaired respiratory control can culminate in respiratory insufficiency.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Epileptic Network Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Intractable seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Status epilepticus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Myoclonus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Feeding and enteral-nutrition support\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Feeding and enteral-nutrition support\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet for drug-resistant epilepsy, case-level evidence\", \"target\": \"Epileptic Network Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet for drug-resistant epilepsy, case-level evidence\", \"target\": \"Intractable seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced De Novo Asparagine Synthesis\", \"target\": \"Cerebrospinal-fluid asparagine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low CSF asparagine is a supportive readout of reduced synthetic capacity, not an obligatory finding.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reduced De Novo Asparagine Synthesis\", \"target\": \"Plasma asparagine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A low value supports the biochemical defect, whereas a normal value is nondiagnostic.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Biallelic pathogenic ASNS variants\", \"target\": \"Biallelic ASNS Functional Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anticonvulsant therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are treated according to standard epilepsy practice by an experienced neurologist. No antiseizure medication has demonstrated ASNSD-specific superiority, and polytherapy may be required.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central axial hypotonia often precedes or coexists with appendicular spasticity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008936\"}}, {\"id\": \"Biallelic ASNS Functional Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic ASNS variants reduce protein abundance, catalytic performance, or both. The initiating lesion is deficient glutamine-dependent asparagine synthetase activity rather than a uniform complete absence of enzyme in every genotype.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"asparagine synthase (glutamine-hydrolyzing) activity\"], \"genes\": [\"ASNS\"], \"gene_terms\": [{\"label\": \"ASNS\", \"id\": \"hgnc:753\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Biallelic pathogenic ASNS variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ASNS\"], \"gene_terms\": [{\"label\": \"ASNS\", \"id\": \"hgnc:753\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized or cortical cerebral atrophy is a consistent imaging feature and may progress.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002059\"}}, {\"id\": \"Cerebrospinal-fluid asparagine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:17196\", \"term_label\": \"L-asparagine\", \"readouts\": [{\"target\": \"Reduced De Novo Asparagine Synthesis\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low CSF asparagine is a supportive readout of reduced synthetic capacity, not an obligatory finding.\"}]}}, {\"id\": \"Context-Dependent Cellular Asparagine Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASNS-deficient patient fibroblasts and lymphoblastoid cells become vulnerable when extracellular asparagine is limited. Reported consequences include impaired proliferation and broad metabolomic disruption, including lower TCA-cycle intermediates and anaplerotic substrates. These are disease-relevant cell-culture observations, not direct measurements in developing human brain.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Cortical visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral visual impairment or cortical blindness is reported.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100704\"}}, {\"id\": \"Epileptic Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASNSD commonly produces early multifocal or generalized epileptic activity, medically refractory seizures, and sometimes status epilepticus or myoclonus. This node captures the convergent epileptic state without choosing between structural and excitatory-amino-acid mechanisms.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Exaggerated startle response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A hyperekplexia-like excessive startle response occurs in a substantial subset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002267\"}}, {\"id\": \"Feeding and enteral-nutrition support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Feeding therapy, assessment of swallowing safety, and nasogastric or gastrostomy feeding can be used when oral intake is unsafe or insufficient; aspiration and respiratory status require parallel assessment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysphagia, vomiting, reflux, and gastroesophageal incoordination can compromise nutrition and airway safety.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental impairment is usually severe or profound, although attenuated cases retain more skills.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Cortical Development and Brain Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASNS is expressed in cortical-plate neurons and ventricular/subventricular neural progenitor zones. A hypomorphic Asns gene-trap mouse has reduced cortical thickness and area with enlarged ventricles. Together with human imaging, these findings support abnormal cortical development and growth, while the exact affected cellular process remains unresolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"cerebral cortex development\"], \"locations\": [\"cerebral cortex\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Intractable seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are usually early and often medically refractory, but type and severity vary.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Ketogenic diet for drug-resistant epilepsy, case-level evidence\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A ketogenic diet was associated with marked seizure improvement and mild cognitive improvement in one child with drug-resistant epilepsy. This first case report provides no controlled or generalizable ASNSD-specific efficacy estimate, so candidacy requires specialist epilepsy and metabolic oversight.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Erratic myoclonus can begin at birth and persist.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001336\"}}, {\"id\": \"Neurologic Swallowing and Respiratory Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe neurologic impairment can lead to dysphagia, aspiration risk, apnea, and respiratory insufficiency. This is a clinically supported complication branch, but its precise neuroanatomic and neuromuscular intermediates have not been established in ASNSD.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Plasma asparagine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"VARIABLE\", \"term_id\": \"CHEBI:17196\", \"term_label\": \"L-asparagine\", \"readouts\": [{\"target\": \"Reduced De Novo Asparagine Synthesis\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A low value supports the biochemical defect, whereas a normal value is nondiagnostic.\"}]}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is usually congenital and becomes more marked with age.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000253\"}}, {\"id\": \"Proposed Cerebral Excitatory Amino-Acid Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aspartate and glutamate excess in brain has been proposed as a contributor to hyperexcitability and neuronal injury. Mild precursor elevations were reported in selected patients, but concentrations have not been consistently abnormal, the affected brain compartment was not directly measured, and glutamate is generated by the ASNS reaction rather than being an unused substrate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Reduced De Novo Asparagine Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient ASNS activity lowers the capacity to synthesize asparagine from aspartate and glutamine. Low asparagine has been measured in some patients, but plasma and CSF results can be normal; this node denotes reduced synthetic capacity rather than obligate hypaasparaginemia in every sample.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-asparagine biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Respiratory insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apnea, aspiration, or severe neurologic respiratory dysfunction may require ventilatory support.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Appendicular spasticity can progress to spastic quadriplegia with contractures and scoliosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Status epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Status epilepticus is a severe complication in some affected individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002133\"}}], \"edges\": [{\"source\": \"Biallelic ASNS Functional Deficiency\", \"target\": \"Reduced De Novo Asparagine Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ASNS catalytic activity directly lowers capacity for de novo asparagine synthesis.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced De Novo Asparagine Synthesis\", \"target\": \"Context-Dependent Cellular Asparagine Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synthesis becomes limiting when extracellular asparagine availability is low.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced De Novo Asparagine Synthesis\", \"target\": \"Proposed Cerebral Excitatory Amino-Acid Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered pathway flux has been proposed to increase excitatory amino acids in brain, but the intermediates and consistency are unresolved.\", \"hypothesis_groups\": [\"excitatory_amino_acid_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Context-Dependent Cellular Asparagine Insufficiency\", \"target\": \"Impaired Cortical Development and Brain Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cellular growth defect is proposed to impair neural progenitor expansion and post-mitotic cell survival during brain development.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed Cerebral Excitatory Amino-Acid Imbalance\", \"target\": \"Epileptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Putative excitatory amino-acid imbalance could promote seizures, but direct evidence in ASNSD brain is lacking.\", \"hypothesis_groups\": [\"excitatory_amino_acid_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced prenatal and postnatal brain growth manifests as progressive microcephaly.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cerebral volume and progressive atrophy are structural consequences of impaired brain growth and injury.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development produces severe impairment across developmental domains.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Axial hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central neurologic dysfunction contributes to axial hypotonia.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive central motor-system dysfunction manifests as appendicular spasticity or spastic quadriplegia.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Cortical visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral visual pathway dysfunction can produce cortical visual impairment.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Epileptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development and progressive structural injury can create epileptogenic networks.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Development and Brain Growth\", \"target\": \"Neurologic Swallowing and Respiratory Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe central neurologic impairment can compromise swallowing, airway protection, and respiratory function.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Epileptic Network Dysfunction\", \"target\": \"Intractable seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The epileptic network state manifests as recurrent, often refractory seizures.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\", \"excitatory_amino_acid_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epileptic Network Dysfunction\", \"target\": \"Status epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe seizure burden can progress to status epilepticus.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\", \"excitatory_amino_acid_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epileptic Network Dysfunction\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptic and nonepileptic network instability can manifest as persistent myoclonus.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\", \"excitatory_amino_acid_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epileptic Network Dysfunction\", \"target\": \"Exaggerated startle response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network hyperexcitability may contribute to the hyperekplexia-like startle phenotype.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\", \"excitatory_amino_acid_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurologic Swallowing and Respiratory Dysfunction\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Swallowing and gastroesophageal dysfunction directly impair safe feeding and nutrition.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurologic Swallowing and Respiratory Dysfunction\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apnea, aspiration, and impaired respiratory control can culminate in respiratory insufficiency.\", \"hypothesis_groups\": [\"asparagine_insufficiency_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Epileptic Network Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Intractable seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Status epilepticus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant therapy\", \"target\": \"Myoclonus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Feeding and enteral-nutrition support\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Feeding and enteral-nutrition support\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet for drug-resistant epilepsy, case-level evidence\", \"target\": \"Epileptic Network Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet for drug-resistant epilepsy, case-level evidence\", \"target\": \"Intractable seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced De Novo Asparagine Synthesis\", \"target\": \"Cerebrospinal-fluid asparagine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low CSF asparagine is a supportive readout of reduced synthetic capacity, not an obligatory finding.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reduced De Novo Asparagine Synthesis\", \"target\": \"Plasma asparagine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A low value supports the biochemical defect, whereas a normal value is nondiagnostic.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Biallelic pathogenic ASNS variants\", \"target\": \"Biallelic ASNS Functional Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6355,6 +6490,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6369,6 +6507,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6436,6 +6575,9 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6450,6 +6592,7 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6533,6 +6676,9 @@ This clinical feature is Progressive microcephaly (HP:0000253), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6547,6 +6693,7 @@ This clinical feature is Progressive microcephaly (HP:0000253), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6612,6 +6759,9 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6626,6 +6776,7 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6682,6 +6833,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6696,6 +6850,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6779,6 +6934,9 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6793,6 +6951,7 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6849,6 +7008,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6863,6 +7025,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6919,6 +7082,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6933,6 +7099,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6987,6 +7154,9 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7001,6 +7171,7 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7055,6 +7226,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7069,6 +7243,7 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7125,6 +7300,9 @@ This clinical feature is Exaggerated startle response (HP:0002267). HP:0002267 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7139,6 +7317,7 @@ This clinical feature is Exaggerated startle response (HP:0002267). HP:0002267 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7202,6 +7381,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7216,6 +7398,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7314,6 +7497,9 @@ This disease-associated gene is ASNS (hgnc:753). hgnc:753 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7328,6 +7514,7 @@ This disease-associated gene is ASNS (hgnc:753). hgnc:753 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7352,6 +7539,7 @@ This disease-associated gene is ASNS (hgnc:753). hgnc:753 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7445,6 +7633,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No curative or established disease-modifying therapy exists. Management is individualized and supportive, including developmental therapies, management of tone and contractures, vision services, nutrition and airway assessment, respiratory support, and psychosocial support.</div>
 
 
@@ -7466,6 +7660,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7540,6 +7735,12 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Seizures are treated according to standard epilepsy practice by an experienced neurologist. No antiseizure medication has demonstrated ASNSD-specific superiority, and polytherapy may be required.</div>
 
 
@@ -7570,6 +7771,7 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7672,6 +7874,7 @@ This treatment targets Myoclonus (HP:0001336). HP:0001336 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7730,6 +7933,12 @@ This treatment is feeding therapy, annotated with Swallowing Therapy (NCIT:C1562
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7806,6 +8015,7 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7877,6 +8087,12 @@ This treatment is amino acid supplementation, annotated with Nutritional Supplem
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Oral L-asparagine is not an established treatment. One child developed irritability, sleep disturbance, and worsening seizures that required discontinuation; two siblings later tolerated 24 months without seizure improvement and with only limited developmental observations. These uncontrolled and conflicting reports do not establish efficacy and document potential harm.</div>
 
 
@@ -7901,6 +8117,7 @@ This treatment is amino acid supplementation, annotated with Nutritional Supplem
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7922,6 +8139,7 @@ This treatment is amino acid supplementation, annotated with Nutritional Supplem
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7996,6 +8214,12 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">A ketogenic diet was associated with marked seizure improvement and mild cognitive improvement in one child with drug-resistant epilepsy. This first case report provides no controlled or generalizable ASNSD-specific efficacy estimate, so candidacy requires specialist epilepsy and metabolic oversight.</div>
 
 
@@ -8026,6 +8250,7 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8091,6 +8316,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8165,6 +8391,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling should cover autosomal recessive inheritance, carrier testing for at-risk relatives, a 25% recurrence risk when both parents carry an ASNS pathogenic variant, and reproductive testing options once familial variants are known.</div>
 
 
@@ -8186,6 +8418,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8277,6 +8510,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8316,6 +8550,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8392,6 +8627,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8431,6 +8667,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8535,6 +8772,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8556,6 +8794,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8650,6 +8889,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8736,6 +8976,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8888,6 +9129,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9022,6 +9264,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9162,6 +9405,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9299,6 +9543,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9363,6 +9608,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9384,6 +9630,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9436,6 +9683,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9504,6 +9752,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9608,6 +9857,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9682,6 +9932,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9750,6 +10001,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9815,6 +10067,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

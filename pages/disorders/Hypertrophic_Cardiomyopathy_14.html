@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4235,6 +4303,7 @@ Named-entity caution, in two directions. First, MYH6 is Definitively associated 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4256,6 +4325,7 @@ Named-entity caution, in two directions. First, MYH6 is Definitively associated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4400,6 +4470,7 @@ Named-entity caution, in two directions. First, MYH6 is Definitively associated 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4421,6 +4492,7 @@ Named-entity caution, in two directions. First, MYH6 is Definitively associated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4725,6 +4797,7 @@ This perturbation targets MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Ge
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4749,6 +4822,7 @@ This perturbation targets MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Ge
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4770,6 +4844,7 @@ This perturbation targets MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Ge
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4853,6 +4928,7 @@ This matters concretely for curation. A text- or database-driven search for MYH6
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4874,6 +4950,7 @@ This matters concretely for curation. A text- or database-driven search for MYH6
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4947,6 +5024,7 @@ The nearest existing approach to that comparison is the ExAC-referenced burden a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5029,6 +5107,7 @@ The nearest existing approach to that comparison is the ExAC-referenced burden a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5053,6 +5132,7 @@ The nearest existing approach to that comparison is the ExAC-referenced burden a
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5089,6 +5169,7 @@ The nearest existing approach to that comparison is the ExAC-referenced burden a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myh6-missense-variant-in-alpha-myosin-heavy-chain" data-dismech-node="MYH6 Missense Variant in Alpha-Myosin Heavy Chain" data-dismech-type="pathophysiology">
                 <div class="item-name">MYH6 Missense Variant in Alpha-Myosin Heavy Chain</div>
+
 
                 <div class="item-desc">The proposed initiating lesion in CMH14 is a heterozygous missense variant in MYH6, encoding the alpha-cardiac myosin heavy chain. Four unique missense alleles have been reported in HCM probands with limited pathogenicity evidence. The reported alleles fall in conserved residues and are predicted to change the structure or chemical bonding of the protein, but no functional assay of any HCM-attributed MYH6 allele has been reported, and this node is therefore an attributed lesion rather than a demonstrated one.</div>
 
@@ -5337,6 +5418,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5358,6 +5440,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5385,6 +5468,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5407,6 +5491,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-mhc-is-the-minor-myosin-isoform-of-the-human-ventricle" data-dismech-node="Alpha-MHC Is the Minor Myosin Isoform of the Human Ventricle" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-MHC Is the Minor Myosin Isoform of the Human Ventricle</div>
+
 
                 <div class="item-desc">In the human heart alpha-MHC is the dominant myosin of the atrium and only a minor component of ventricular myosin, while beta-MHC (MYH7) is the dominant ventricular isoform. This isoform distribution is the central difficulty for any MYH6 model of a ventricular hypertrophic phenotype, and it is also why the murine literature does not transfer: the mouse ventricle runs on alpha-MHC. The same study shows the distribution is not fixed — chronically overloaded human atria shift substantially toward beta-MHC, whereas hypertrophied ventricles change only slightly.</div>
 
@@ -5618,6 +5703,7 @@ This pathophysiological event occurs in left cardiac atrium (UBERON:0002079). UB
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5639,6 +5725,7 @@ This pathophysiological event occurs in left cardiac atrium (UBERON:0002079). UB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5666,6 +5753,7 @@ This pathophysiological event occurs in left cardiac atrium (UBERON:0002079). UB
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5688,6 +5776,7 @@ This pathophysiological event occurs in left cardiac atrium (UBERON:0002079). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-sarcomere-motor-function" data-dismech-node="Altered Sarcomere Motor Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Sarcomere Motor Function</div>
+
 
                 <div class="item-desc">The hypothesised proximal consequence of an HCM-attributed MYH6 allele is a change in the actin-based motor behaviour of the affected myosin molecules within the ventricular sarcomere, by analogy with the well-characterised MYH7 missense alleles. This node carries no direct evidence for any human HCM-attributed MYH6 variant: no functional characterisation of such an allele has been published, which is one of the stated grounds for ClinGen&#39;s Disputed classification. It is retained as an explicit hypothesis node rather than dropped, so that the gap is visible and addressable.</div>
 
@@ -5941,6 +6030,7 @@ This pathophysiological event involves abnormal actin filament binding (GO:00510
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5963,6 +6053,7 @@ This pathophysiological event involves abnormal actin filament binding (GO:00510
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maladaptive-ventricular-remodeling" data-dismech-node="Maladaptive Ventricular Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Maladaptive Ventricular Remodeling</div>
+
 
                 <div class="item-desc">Downstream of a sarcomeric insult the myocardium undergoes the conserved maladaptive remodeling programme of hypertrophic cardiomyopathy: cardiomyocyte hypertrophy, myocyte disarray, and interstitial fibrosis producing asymmetric wall thickening in a non-dilated ventricle. This chain is well established for sarcomeric HCM as a class and is imported here from the cardiomyopathy_maladaptive_remodeling module; the MYH6-specific claim is only that a MYH6 allele is what initiates it, which is the disputed step upstream.</div>
 
@@ -6226,6 +6317,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6248,6 +6340,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-contractile-dysfunction-and-progression-to-dilation" data-dismech-node="Progressive Contractile Dysfunction and Progression to Dilation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Contractile Dysfunction and Progression to Dilation</div>
+
 
                 <div class="item-desc">In the single cohort that followed MYH6-attributed HCM carriers clinically, the reported course was not stable hypertrophy but progression toward chamber dilation, left ventricular dysfunction and refractory heart failure — the &#34;burnt-out&#34; end of the HCM spectrum. This is also the observation the same authors used to argue that MYH6 alleles produce a phenotypic continuum from hypertrophic to dilated cardiomyopathy, which is consistent with MYH6 being separately, if weakly, associated with dilated cardiomyopathy.</div>
 
@@ -6402,6 +6495,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6423,6 +6517,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6562,6 +6657,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712), qualified as
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6587,6 +6685,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712), qualified as
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6643,6 +6742,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6657,6 +6759,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6713,6 +6816,9 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6727,6 +6833,7 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6781,6 +6888,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6795,6 +6905,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6846,6 +6957,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately left with no incoming pathograph edge. Sudden death in HCM arises from an arrhythmic substrate of myocyte disarray and fibrosis, but no such node is curated in this entry because no MYH6-specific evidence supports one, and the single reported death comes from a family carrying an MYH7 variant as well. Drawing an edge from the remodeling node would assert a mechanism for this entity that its literature does not contain.</div>
 
 
@@ -6868,6 +6982,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6921,6 +7036,9 @@ This clinical feature is Left ventricular diastolic dysfunction (HP:0025168). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6938,6 +7056,7 @@ This clinical feature is Left ventricular diastolic dysfunction (HP:0025168). HP
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6991,6 +7110,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7014,6 +7136,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7059,6 +7182,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately carries no phenotype_term. The observation is an age-of-onset statement, and HPO encodes onset under HP:0003674 rather than as a phenotypic abnormality, so no term in the PhenotypeTerm enum names it. The structured onset data is recorded instead on the Left Ventricular Hypertrophy phenotype_term as an OnsetDescriptor (LATE, mean 62.8 years). This node is retained because the late-onset skew is the most reproducible observation about the entity and is the anchor for a knowledge gap.</div>
 
 
@@ -7078,6 +7204,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7105,6 +7232,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7126,6 +7254,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7224,6 +7353,9 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (7 references)
@@ -7238,6 +7370,7 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7265,6 +7398,7 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7289,6 +7423,7 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7431,6 +7566,9 @@ This treatment uses disopyramide (NCIT:C61730). NCIT:C61730 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7441,6 +7579,9 @@ This treatment uses disopyramide (NCIT:C61730). NCIT:C61730 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -7468,6 +7609,7 @@ This treatment uses disopyramide (NCIT:C61730). NCIT:C61730 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7573,6 +7715,9 @@ This treatment uses aficamten (CHEBI:747213). CHEBI:747213 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7583,6 +7728,9 @@ This treatment uses aficamten (CHEBI:747213). CHEBI:747213 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -7620,6 +7768,7 @@ Worth stating plainly for this entity: these drugs act on beta-cardiac myosin, t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7663,6 +7812,7 @@ Worth stating plainly for this entity: these drugs act on beta-cardiac myosin, t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7730,6 +7880,9 @@ This treatment is septal myectomy, annotated with Myectomy (NCIT:C51591). NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7740,6 +7893,9 @@ This treatment is septal myectomy, annotated with Myectomy (NCIT:C51591). NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -7767,6 +7923,7 @@ This treatment is septal myectomy, annotated with Myectomy (NCIT:C51591). NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7834,6 +7991,9 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7844,6 +8004,9 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
 
 
     </div>
+
+
+
 
 
 
@@ -7871,6 +8034,7 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7938,6 +8102,9 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7948,6 +8115,9 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7984,6 +8154,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8027,6 +8198,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8094,6 +8266,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8104,6 +8279,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8131,6 +8309,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8208,6 +8387,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8229,6 +8409,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8306,6 +8487,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8327,6 +8509,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8435,6 +8618,7 @@ This clinical trial targets Left ventricular outflow tract obstruction (HP:00320
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8507,6 +8691,7 @@ This clinical trial targets Left ventricular outflow tract obstruction (HP:00320
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8624,6 +8809,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8668,6 +8854,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8787,6 +8974,7 @@ This model is listed here for an unusual reason: to record that it is *not* evid
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8843,6 +9031,7 @@ This model is listed here for an unusual reason: to record that it is *not* evid
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8889,6 +9078,7 @@ This model is listed here for an unusual reason: to record that it is *not* evid
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8910,6 +9100,7 @@ This model is listed here for an unusual reason: to record that it is *not* evid
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -10556,6 +10747,29 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Hypertrophic Cardiomyopathy 14 (MYH6, ClinGen Disputed)</strong> · 2026-09-01T03:29:32Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypertrophic_Cardiomyopathy_14/2026-09-01T032932Z-claude-code-e268fd.yaml">View source</a></p>
+                        <p class="research-review-text">Created the MYH6-attributed node of the HCM gene series as a disputed nosological entity.
+
+ClinGen&#39;s Hereditary Cardiovascular Disease GCEP classifies MYH6-HCM as Disputed (downgraded from Limited 2023-07-12); the entity rests on three probands in two publications with no known mechanism. The entry curates it as a real MONDO entity whose pathophysiology is an explicit hypothesis under dispute, following the precedent of Hypertrophic_Cardiomyopathy_25 (TCAP, likewise Disputed). All four pathophysiology edges are scoped to a single mechanistic_hypotheses group; the unestablished step carries a NO_EVIDENCE item rather than being asserted or silently omitted.
+
+Two named-entity hazards are curated explicitly rather than left as prose. First, MYH6&#39;s Definitive association is congenital heart defects, not HCM; dismech already curates MYH6 as causative in Atrial_Septal_Defect and Dilated_Cardiomyopathy_1EE and as susceptibility in Familial_Sick_Sinus_Syndrome and Hypoplastic_Left_Heart_Syndrome (verified against each file&#39;s genetic[] block — an initial draft wrongly listed Sick_Sinus_Syndrome_2 and Dilated_Cardiomyopathy_1Z, which are HCN4 and TNNC1). Second, the reference mouse HCM models carry an MYH7-derived R403Q allele knocked into mouse Myh6 because the mouse ventricle expresses alpha-MHC where the human ventricle expresses beta-MHC; ClinGen declined to score them as MYH6 evidence. That is recorded as a HUMAN_MODEL_MISMATCH discussion plus a FAILS_TO_RECAPITULATE model link, so a text search for Myh6 plus HCM does not silently become support.
+
+Deep research: requested falcon, which is not configured in this environment; ran with --fallback, which recorded fell_back: true and produced research/Hypertrophic_Cardiomyopathy_14-deep-research-claude_code.md. Report validation was clean (24/24 references resolved, confabulation_rate 0.0; 79/82 terms resolved, 0 named as a different term, the 3 flagged being benign paraphrases). The report converged independently on the Disputed framing and contributed PMID:39971408, the 2025 JACC ClinGen reappraisal, which supplied the clinical-reporting consequence and a diagnosis section. The reappraisal abstract gives the count of downgraded genes rather than naming them; the explanation says so and attributes MYH6&#39;s membership to the ClinGen assertion record instead.
+
+Primary literature came from the ClinGen evidence summary rather than the report: PMID:11815426 (Niimura 2002, founding elderly-onset variant), PMID:15998695 (Carniel 2005, Q1065H), PMID:27483260 (Rubattu 2016, MYH6 confined to the late-onset arm), PMID:6234108 (Gorza 1984, alpha-MHC is the minor ventricular isoform), PMID:8614836, PMID:10388558, PMID:33385793, PMID:34087240, PMID:35911064, plus CGGV assertions for MYH6-HCM (Disputed) and MYH6-CHD (Definitive). No datasets block: with three probands worldwide and a disputed relationship there is no disease-specific dataset, and a gene-level search would return the ASD/sick-sinus/DCM phenotypes this entry exists to distinguish itself from.
+
+Validation: just validate passes (schema + terms); count-verified-snippets 49/49; check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms, check-enum-values, check-snippet-grading, check-environmental-evidence all OK; weighted compliance 94.8%. HGNC REST confirmed hgnc:7576 and the MYH6/MYH7 14q11.2 tandem pair; OLS confirmed the MONDO:0013197 OMIM:613251 xref.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

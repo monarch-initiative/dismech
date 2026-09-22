@@ -195,3 +195,142 @@ def test_invalid_allelic_event_rejected(validator):
     report = validator.validate(disease, target_class="Disease")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
     assert errors, "Expected validation error for ad hoc allelic event"
+
+
+def test_variant_class_and_context_coexist_with_legacy_records(validator):
+    """Mixed old/new records preserve free text and independent regulatory effects."""
+    disease = {
+        "name": "Variant classification examples",
+        "genetic": [
+            {
+                "name": "Locus",
+                "variants": [
+                    {"name": "Legacy complex event", "type": "complex rearrangement"},
+                    {
+                        "name": "Regulatory SNV",
+                        "variant_type": "single nucleotide variant",
+                        "genomic_contexts": ["intron"],
+                        "regulatory_category": "GOE",
+                    },
+                    {
+                        "name": "Duplication spanning several sequence features",
+                        "type": "tandem duplication with regulatory effects",
+                        "variant_type": "duplication",
+                        "genomic_contexts": [
+                            "coding sequence",
+                            "intron",
+                            "intergenic region",
+                        ],
+                        "regulatory_category": "GOE",
+                    },
+                    {
+                        "name": "UTR repeat expansion",
+                        "variant_type": "short tandem repeat expansion",
+                        "genomic_contexts": ["5' UTR"],
+                        "regulatory_category": "LOE",
+                    },
+                ],
+            }
+        ],
+    }
+    report = validator.validate(disease, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, [str(e) for e in errors]
+
+
+@pytest.mark.parametrize(
+    "invalid_fields",
+    [
+        {"variant_type": "regulatory gain of function"},
+        {"genomic_contexts": ["intron", "enhancer adoption"]},
+        {"variant_type": {"id": "SO:0000159", "label": "deletion"}},
+        {"genomic_contexts": [{"preferred_term": "intron"}]},
+    ],
+)
+@pytest.mark.parametrize("placement", ["variant", "genetic_context"])
+def test_variant_classification_rejects_effects_and_descriptor_objects(
+    validator, invalid_fields, placement
+):
+    """These fields accept enum scalars, not effect prose or per-record term objects."""
+    disease = {"name": "Invalid variant classification"}
+    if placement == "variant":
+        disease["variants"] = [{"name": "Variant", **invalid_fields}]
+    else:
+        disease["pathophysiology"] = [
+            {"name": "Initiating lesion", "genetic_context": invalid_fields}
+        ]
+    report = validator.validate(disease, target_class="Disease")
+    assert any(r.severity.name == "ERROR" for r in report.results)
+
+
+def test_regulatory_sv_classification_on_mechanisms_and_variants(validator):
+    """An intact regulatory target is distinct from the classified physical lesion."""
+    target = {"preferred_term": "ID4", "term": {"id": "hgnc:5363", "label": "ID4"}}
+    disease = {
+        "name": "Regulatory SV example",
+        "pathophysiology": [
+            {
+                "name": "Deletion",
+                "genetic_context": {
+                    "variant_type": "deletion",
+                    "genomic_contexts": [
+                        "coding sequence",
+                        "intron",
+                        "intergenic region",
+                    ],
+                    "zygosity": "HETEROZYGOUS",
+                    "variant_origin": "GERMLINE",
+                },
+            },
+            {
+                "name": "Inversion",
+                "genetic_context": {
+                    "variant_type": "inversion",
+                    "variant_origin": "DE_NOVO",
+                },
+            },
+            {
+                "name": "Predicted ectopic expression",
+                "gene": target,
+                "mechanism_confidence": "HYPOTHETICAL",
+                "regulatory_category": "GOE",
+            },
+            {
+                "name": "Legacy context",
+                "genetic_context": {"allele_type": "complex rearrangement"},
+            },
+        ],
+        "variants": [
+            {
+                "name": "Regulatory deletion",
+                "variant_type": "deletion",
+                "regulatory_target_gene": target,
+            }
+        ],
+    }
+    report = validator.validate(disease, target_class="Disease")
+    assert not [r for r in report.results if r.severity.name == "ERROR"]
+
+
+@pytest.mark.parametrize("model_module", ["dismech", "dismech_pydantic"])
+def test_generated_models_load_regulatory_variant_with_functional_effect(model_module):
+    """Both generated models load nested effects alongside physical classifications."""
+    from importlib import import_module
+
+    model = import_module(f"dismech.datamodel.{model_module}")
+    variant = model.Variant(
+        name="Regulatory deletion",
+        variant_type="deletion",
+        genomic_contexts=["intergenic region"],
+        regulatory_target_gene={"preferred_term": "LMNB1"},
+        functional_effects=[
+            {
+                "function": "LMNB1 gene expression",
+                "regulatory_element_type": "SILENCER",
+            }
+        ],
+    )
+    assert variant.regulatory_target_gene.preferred_term == "LMNB1"
+    assert len(variant.functional_effects) == 1
+    assert isinstance(variant.functional_effects[0], model.FunctionalEffect)
+    assert variant.functional_effects[0].function == "LMNB1 gene expression"

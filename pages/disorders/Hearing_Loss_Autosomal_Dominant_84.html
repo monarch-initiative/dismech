@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4221,6 +4289,7 @@ There is a specific therapeutic hook. If loss of flipping leaves phosphatidylser
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4245,6 +4314,7 @@ There is a specific therapeutic hook. If loss of flipping leaves phosphatidylser
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4266,6 +4336,7 @@ There is a specific therapeutic hook. If loss of flipping leaves phosphatidylser
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4358,6 +4429,7 @@ There is a specific therapeutic hook. If loss of flipping leaves phosphatidylser
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4442,6 +4514,7 @@ The clinical course was described in this family six years before the gene was f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4466,6 +4539,7 @@ The clinical course was described in this family six years before the gene was f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4487,6 +4561,7 @@ The clinical course was described in this family six years before the gene was f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4591,6 +4666,7 @@ The question is not academic. If the mechanism is haploinsufficiency, dose resto
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4615,6 +4691,7 @@ The question is not academic. If the mechanism is haploinsufficiency, dose resto
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4636,6 +4713,7 @@ The question is not academic. If the mechanism is haploinsufficiency, dose resto
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4721,6 +4799,7 @@ The proposal is nonetheless worth recording, because unlike most deafness genes 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4747,6 +4826,7 @@ The proposal is nonetheless worth recording, because unlike most deafness genes 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4768,6 +4848,7 @@ The proposal is nonetheless worth recording, because unlike most deafness genes 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4844,6 +4925,7 @@ So the disposition of DFNA33 is unresolved in a specific way that matters for th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4868,6 +4950,7 @@ So the disposition of DFNA33 is unresolved in a specific way that matters for th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4889,6 +4972,7 @@ So the disposition of DFNA33 is unresolved in a specific way that matters for th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4928,6 +5012,7 @@ So the disposition of DFNA33 is unresolved in a specific way that matters for th
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atp11a-c-terminal-and-3-region-variants" data-dismech-node="ATP11A C-Terminal and 3&#39; Region Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">ATP11A C-Terminal and 3&#39; Region Variants</div>
+
 
                 <div class="item-desc">Every established disease allele disturbs the C-terminal region or the 3&#39; end of ATP11A rather than its catalytic core. The Newfoundland allele (chr13:113534963G&gt;A) creates a cryptic donor site that retains 153 bp of intron in the 3&#39; UTR; the Israeli allele c.3322_3327+2dupGTCCAGGT extends exon 28 by 8 bp and truncates the protein 82 residues before its normal end; the German AUNA2 allele deletes 5.5 kb spanning the last coding exon; and a fourth family carries a further 3&#39; UTR deletion of more than 5 kb. One further allele, c.1221+5G&gt;C, activates a cryptic donor 44 bp into intron 12 and is the exception on both counts - it lies in the middle of the gene rather than the 3&#39; region, and it is a variant of uncertain significance rather than an established DFNA84 allele. It is listed here because the minigene result below is real, not because it extends the C-terminal pattern.
 Two curation-relevant points follow. First, several alleles do not touch the coding sequence of the MANE select transcript at all and are only interpretable against alternative ATP11A isoforms, so a MANE-anchored pipeline scores them benign. Second, the C-terminal region of a mammalian P4-ATPase is not inert: it governs folding, activity regulation, and calcium-dependent endocytosis or polarised plasma-membrane localisation, so a shortened and differently charged tail is a plausible functional lesion even where the transport domains are intact.</div>
@@ -5023,6 +5108,7 @@ This pathophysiological event involves ATP11A (hgnc:13552). hgnc:13552 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5044,6 +5130,7 @@ This pathophysiological event involves ATP11A (hgnc:13552). hgnc:13552 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5071,6 +5158,7 @@ This pathophysiological event involves ATP11A (hgnc:13552). hgnc:13552 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5095,6 +5183,7 @@ This pathophysiological event involves ATP11A (hgnc:13552). hgnc:13552 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-phosphatidylserine-flippase-activity" data-dismech-node="Loss of Phosphatidylserine Flippase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Phosphatidylserine Flippase Activity</div>
+
 
                 <div class="item-desc">ATP11A is a class-6 P4-ATPase whose substrate specificity is for phosphatidylserine and phosphatidylethanolamine. The AUNA2 deletion allele was tested directly and the C-terminally altered protein lost flippase activity for phosphatidylserine, and the 2026 multi-family analysis reads the whole allelic series the same way. Whether the heterozygous state acts by haploinsufficiency or by dominant-negative interference with wild-type protein is stated as unresolved by the discovery paper and is not settled here.</div>
 
@@ -5184,6 +5273,7 @@ This pathophysiological event involves decreased phosphatidylserine flippase act
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5205,6 +5295,7 @@ This pathophysiological event involves decreased phosphatidylserine flippase act
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5232,6 +5323,7 @@ This pathophysiological event involves decreased phosphatidylserine flippase act
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5254,6 +5346,7 @@ This pathophysiological event involves decreased phosphatidylserine flippase act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-plasma-membrane-phospholipid-asymmetry" data-dismech-node="Loss of Plasma Membrane Phospholipid Asymmetry" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Plasma Membrane Phospholipid Asymmetry</div>
+
 
                 <div class="item-desc">Eukaryotic plasma membranes hold phosphatidylserine and phosphatidylethanolamine on the inner leaflet, an asymmetry that is generated and maintained by ATP-dependent flipping and that underpins membrane potential, curvature, stability and domain organisation. Losing ATP11A flipping is expected to leave phosphatidylserine on the outer leaflet.
 The downstream consequence proposed by the discovery paper is that exposed phosphatidylserine is the canonical &#34;eat me&#34; signal, marking the cell for recognition and phagocytic clearance. That step is a mechanistic proposal drawn from general phospholipid biology and has not been demonstrated in cochlear tissue, which is why it is carried in this node&#39;s description and in the therapeutic knowledge gap rather than as its own asserted node.</div>
@@ -5405,6 +5498,7 @@ This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5431,6 +5525,7 @@ This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5452,6 +5547,7 @@ This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5477,6 +5573,7 @@ This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-hair-cell-and-supporting-cell-dysfunction" data-dismech-node="Cochlear Hair Cell and Supporting Cell Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Hair Cell and Supporting Cell Dysfunction</div>
+
 
                 <div class="item-desc">ATP11A is expressed in the sensory epithelium of the organ of Corti. Single-cell and long-read RNA-seq places the murine Atp11a exon corresponding to the short human ATP11A-203 isoform in inner hair cells, outer hair cells and Deiters cells, and identifies Atp11a as a Deiters cell defining gene with a marked postnatal rise in expression - a timing that fits a postlingual, progressive disease rather than a developmental one.
 The direct structural evidence is from zebrafish rather than from human cochlea: loss-of-function atp11a mutants have reduced stereocilia counts across four of the five larval otic sensory patches and fewer hair cells in one lateral-line neuromast.
@@ -5683,6 +5780,7 @@ This pathophysiological event involves abnormal sensory perception of sound (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5704,6 +5802,7 @@ This pathophysiological event involves abnormal sensory perception of sound (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5729,6 +5828,7 @@ This pathophysiological event involves abnormal sensory perception of sound (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-auditory-nerve-and-spiral-ganglion-dysfunction" data-dismech-node="Auditory Nerve and Spiral Ganglion Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Auditory Nerve and Spiral Ganglion Dysfunction</div>
+
 
                 <div class="item-desc">In the AUNA2 presentation the deficit is neural rather than in the cochlear amplifier. Atp11a is expressed in auditory nerve fibres, their synaptic contacts and the cochlear nucleus in mice, and conditional Atp11a knockout mice show a progressive fall in the spiral ganglion neuron compound action potential. This is the pathophysiological branch that separates the AUNA2 subtype from the nonsyndromic DFNA84 presentation; both derive from the same flippase deficit and it is not known what determines which one a given family develops.
 This node deliberately does not declare conformance to the sensorineural hair cell loss module&#39;s &#34;Cochlear Amplification Loss and Spiral Ganglion Neuron Degeneration&#34; node. That module node derives spiral ganglion degeneration from hair-cell loss and lost cochlear amplification; in AUNA2 outer hair cell amplification is explicitly preserved and the neural deficit is primary, so conforming here would assert the opposite of what the source reports.</div>
@@ -5835,6 +5935,7 @@ This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5925,6 +6026,9 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
                 </div>
 
 
+
+
+
                 <div class="item-desc">Graded OBLIGATE because it is definitional for the entity rather than because a proportion was counted: DFNA84 is diagnosed by an ATP11A variant segregating with dominant progressive SNHL, so an unaffected carrier is recorded as non-penetrant rather than as an affected individual lacking the feature.</div>
 
 
@@ -5944,6 +6048,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5968,6 +6073,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6019,6 +6125,9 @@ This clinical feature is High-frequency sensorineural hearing impairment (HP:000
                 </div>
 
 
+
+
+
                 <div class="item-desc">No frequency band is asserted. The audiometric detail comes from single probands in separate papers, and combining them would count different patients toward one denominator.</div>
 
 
@@ -6038,6 +6147,7 @@ This clinical feature is High-frequency sensorineural hearing impairment (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6062,6 +6172,7 @@ This clinical feature is High-frequency sensorineural hearing impairment (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6116,6 +6227,9 @@ This clinical feature is Postlingual sensorineural hearing impairment (HP:000859
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6130,6 +6244,7 @@ This clinical feature is Postlingual sensorineural hearing impairment (HP:000859
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6154,6 +6269,7 @@ This clinical feature is Postlingual sensorineural hearing impairment (HP:000859
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6205,6 +6321,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                 </div>
 
 
+
+
+
                 <div class="item-desc">Bound to the generic HP:0000407 on purpose. HP:0003828 &#34;Variable expressivity&#34; is the natural fit for what this phenotype records, but it sits under the clinical-modifier branch rather than under HP:0000118, so it is outside the PhenotypeTerm dynamic enum and fails term validation. The specificity is carried in the preferred_term-level phenotype name and description instead.</div>
 
 
@@ -6224,6 +6343,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6248,6 +6368,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6318,6 +6439,9 @@ This disease-associated gene is ATP11A (hgnc:13552). hgnc:13552 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6343,6 +6467,7 @@ This disease-associated gene is ATP11A (hgnc:13552). hgnc:13552 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6364,6 +6489,7 @@ This disease-associated gene is ATP11A (hgnc:13552). hgnc:13552 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6464,6 +6590,9 @@ This disease-associated gene is ATP11A (hgnc:13552). hgnc:13552 is a gene from t
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6474,6 +6603,9 @@ This disease-associated gene is ATP11A (hgnc:13552). hgnc:13552 is a gene from t
 
 
     </div>
+
+
+
 
 
 
@@ -6552,6 +6684,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6562,6 +6697,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
     </div>
+
+
+
 
 
 
@@ -6607,6 +6745,7 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6673,6 +6812,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6683,6 +6825,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6710,6 +6855,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6785,6 +6931,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6806,6 +6953,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6863,6 +7011,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6884,6 +7033,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6938,6 +7088,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7012,6 +7163,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7226,6 +7378,7 @@ This experimental model concerns ATP11A (hgnc:13552). hgnc:13552 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7285,6 +7438,7 @@ This experimental model concerns ATP11A (hgnc:13552). hgnc:13552 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7324,6 +7478,7 @@ This experimental model concerns ATP11A (hgnc:13552). hgnc:13552 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7370,6 +7525,7 @@ This experimental model concerns ATP11A (hgnc:13552). hgnc:13552 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7547,6 +7703,7 @@ This experimental model concerns ATP11A (hgnc:13552). hgnc:13552 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7586,6 +7743,7 @@ This experimental model concerns ATP11A (hgnc:13552). hgnc:13552 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7630,6 +7788,7 @@ This experimental model concerns ATP11A (hgnc:13552). hgnc:13552 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8912,6 +9071,59 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Literature base. A PubMed sweep run on 2026-09-04 for ATP11A crossed with hearing loss, deafness, auditory, cochlea, DFNA84 and 13q34 returns six ATP11A hearing-loss reports, all of which are cited here, plus PMID:28601886, the pre-gene clinical description of the AUNA2 family, which was added to the AUNA2 subtype as a result. &#34;DFNA84&#34; as a query string returns nothing indexed. A falcon deep-research report was also generated and is committed at research/Hearing_Loss_Autosomal_Dominant_84-deep-research-falcon.md. It introduced no reference the entry was missing: every indexed source in its citation list resolves to a paper already cited here - the Research Square preprint DOI:10.21203/rs.3.rs-530835/v1 is the preprint of PMID:35278131, and its remaining DOIs are PMID:36300302, PMID:37671045, PMID:40223426 and PMID:41007806. Its only other two sources are unindexed dissertations (von Loh 2021; Pater 2019) with no PMID or DOI. The manual sweep and the retrieval pass therefore agree that the citable literature base is complete, which is a stronger statement of completeness than either check alone. One preflight warning on that report is a false positive worth recording, because it will recur for every audiology entry curated from a deep-research report: preflight-dr flags &#34;ABR&#34; as a rival gene symbol - hgnc:81 is a real gene called ABR - but every occurrence of ABR in this report and in this entry is the auditory brainstem response. The report also suggests GO:0004012, which is obsolete and replaced by GO:0140326; it was treated as a lead and not bound, and this entry binds GO:0140346, GO:0140331, GO:0097035 and GO:0005886 instead.
+GeneReviews. PMID:20301607, the Genetic Hearing Loss Overview, is cached and is tagged GeneReviews in sibling hearing-loss entries, but it is deliberately not tagged here. Its cached record is abstract-only - the body is the chapter&#39;s six-point statement of scope and nothing more - and contains no occurrence of ATP11A, DFNA84 or AUNA2, so tagging it would produce a tagged-but-not-mined reference. There is no ATP11A-specific GeneReviews chapter; the entity was first described in 2022. This paragraph records the negative so it is auditable rather than looking like an omission.
+AUNA2 and kb/disorders/Auditory_Neuropathy.yaml. The AUNA2 subtype below is also carried as a subtype of Auditory_Neuropathy, bound to the same MONDO:0957279 term and citing the same PMID:36300302 finding. That is deliberate overlap along two different axes - this entry groups by gene and allelic mechanism, Auditory_Neuropathy groups by the audiological presentation - and neither is a duplicate of the other. If the two are ever reconciled, the gene-side pathophysiology lives here and the audiological differential lives there.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 3: reconcile notes with the committed deep-research artifact</strong> · 2026-09-04T17:07:00Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hearing_Loss_Autosomal_Dominant_84/2026-09-04T170700Z-claude-code-943913.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the CHANGES_REQUESTED review of 2026-09-04T08:02Z on PR #10901.
+
+IMPORTANT (fixed). The notes: literature-base paragraph still said no deep-research provider report was generated, which commit c9e341228 in this same PR falsified by adding research/Hearing_Loss_Autosomal_Dominant_84-deep-research-falcon.md. Rewrote the paragraph to record both checks: the manual PubMed sweep (which surfaced PMID:28601886) and the falcon report, plus what the report contributed. Every indexed source in the report&#39;s citation list resolves to a paper already cited here - DOI:10.21203/rs.3.rs-530835/v1 is the Research Square preprint of PMID:35278131, and the remaining DOIs are PMID:36300302, PMID:37671045, PMID:40223426 and PMID:41007806. The report&#39;s only other sources are two unindexed dissertations (von Loh 2021; Pater 2019) with no PMID or DOI. The prior round&#39;s history record was left untouched; history is append-only.
+
+SUGGESTION 1 (taken). The pathophysiology node ATP11A C-Terminal and 3&#39; Region Variants opened by asserting that all reported disease alleles disturb the C-terminal region or the 3&#39; end, then listed c.1221+5G&gt;C, an intron 12 allele that the prevalence note already and correctly calls VUS-grade. Reworded to &#39;every established disease allele&#39; and split c.1221+5G&gt;C out as the double exception - mid-gene position, and uncertain rather than established significance - so the node and the prevalence note now agree.
+
+SUGGESTION 2 (taken). Added GO:0007605 sensory perception of sound with modifier ABNORMAL to the conforming node Cochlear Hair Cell and Supporting Cell Dysfunction, and recorded in its conformance paragraph why the module&#39;s other process, GO:0050910, is deliberately omitted: no ATP11A study demonstrates a mechanotransduction defect. The nearest observation is a Yo-Pro-1 uptake difference in one zebrafish lateral-line neuromast that PMID:40223426&#39;s authors read as either cell loss or loss of mechanotransduction capacity without deciding between them, and which is not a cochlear hair cell.
+
+SUGGESTION 3 (taken). Recorded the preflight-dr Named Entity Confusion false positive in notes: it flags ABR as a rival gene symbol (hgnc:81 is a real gene called ABR), but every occurrence of ABR here is the auditory brainstem response. This will recur for any audiology entry curated from a DR report. Also recorded that the report&#39;s GO:0004012 suggestion is obsolete (replaced by GO:0140326) and was not bound.
+
+Not changed. The DFNA33 locus remains deliberately unresolved (PMID:37671045 reports implausible double and triple recombinations in the original haplotypes). The spiral-ganglion node is still not conformed to the module&#39;s amplification-loss node, because AUNA2 has preserved outer-hair-cell amplification and a primary neural deficit.
+
+Validation. just validate, validate-terms, count-verified-snippets (60/60), check-entity-refs, check-duplicate-keys, check-causal-targets, check-enum-values, check-qualifier-terms all pass on the file. Whole-KB check-folded-hyphens, check-title-snippets, check-snippet-length and check-snippet-grading all report no new divergences. The term validator again reserialized references_cache/PMID_36300302.md frontmatter; that drift was reverted so this PR does not touch a cache file another entry owns.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: address CHANGES_REQUESTED on PR #10901</strong> · 2026-09-04T06:31:32Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hearing_Loss_Autosomal_Dominant_84/2026-09-04T063132Z-claude-code-405ef0.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the eight IMPORTANT findings and three suggestions in the automated review of PR #10901.
+
+Fixed:
+- Replaced the truncated PMID:41007806 snippet (&#34;the variant induced the selection of a cryptic 5&#34;) with the authors&#39; summary sentence at cache line 102, which contains no typographic prime and names ATP11A explicitly. The previous item&#39;s justification - that the reference validator normalises the prime glyph - is not documented in conf/reference_validator_config.yaml, and the reviewer was right that a snippet stopping mid-token is not propositional.
+- Bound the AUNA2 subtype to MONDO:0957279, copying the binding already used in kb/disorders/Auditory_Neuropathy.yaml.
+- Recorded the deliberate AUNA2 overlap with Auditory_Neuropathy.yaml in a subtype review_notes and in the entry&#39;s top-level notes, rather than resolving the lump/split silently.
+- Added conforms_to &#34;sensorineural_hair_cell_loss#Cochlear Sensory Epithelium Insult&#34; on the Cochlear Hair Cell and Supporting Cell Dysfunction node, following the ADNSHL_17 precedent, and wrote into both that node and the spiral-ganglion node why the deeper module nodes are not claimed.
+- Rebound the Deiters cell descriptor from CL:0002490 (organ of Corti supporting cell) to CL:0000635 (Deiter&#39;s cell).
+- Added a top-level references: block, external_assertions for OMIM:619810, and classifications.harrisons_chapter NEUROLOGIC.
+- Added notes recording why the hearing-aid treatment_term is unbound and why the intrafamilial-variability phenotype uses the generic HP:0000407.
+
+Declined, with reasons written into the entry:
+- No deep-research artifact was added. CLAUDE.md forbids hand-writing markdown into research/, and no provider recipe was available in this environment. A manual PubMed sweep was run instead on 2026-09-04 (ATP11A crossed with hearing loss / deafness / auditory / cochlea / 13q34 / phosphatidylserine flippase, plus DFNA84 and AUNA2 as strings). It returned exactly the six ATP11A hearing-loss reports already cited, plus one genuinely missing paper: PMID:28601886, the pre-gene clinical description of the AUNA2 family. That paper was fetched and mined into the AUNA2 subtype (natural history, the 12q24/13q34 linkage that later resolved to ATP11A, and the nonsyndromic character). The sweep is recorded in the entry&#39;s top-level notes.
+- PMID:20301607 (Genetic Hearing Loss Overview) was not tagged GeneReviews. Its cached record is abstract-only and its body is the chapter&#39;s six-point statement of scope; it contains no occurrence of ATP11A, DFNA84 or AUNA2, so tagging it would create a tagged-but-not-mined reference - the same defect the reviewer flagged in the sibling DFNB26 review. The negative is recorded in the entry&#39;s notes so it is auditable.
+
+Validation: just validate (60/60 snippets verified), validate-terms, check-entity-refs, check-duplicate-keys, check-causal-targets, check-enum-values, check-qualifier-terms, check-folded-hyphens, check-title-snippets, check-snippet-length, check-snippet-grading all pass. references_cache/PMID_36300302.md was rewritten by the validator run and reverted, as in the previous round.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

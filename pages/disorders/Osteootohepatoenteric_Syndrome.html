@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4101,6 +4169,7 @@ Only about a dozen patients have been reported, so every claim here is small-n a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4215,6 +4284,7 @@ Only about a dozen patients have been reported, so every claim here is small-n a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4288,6 +4358,7 @@ Only about a dozen patients have been reported, so every claim here is small-n a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-unc45a-loss-of-function" data-dismech-node="Biallelic UNC45A Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic UNC45A Loss of Function</div>
 
+
                 <div class="item-desc">Two mechanistic classes of allele converge on the same endpoint. Nonsense and frameshift alleles abolish the protein outright. Missense alleles are subtler and more informative: several are expressed at normal levels in transfected cells yet still fail to rescue, and for the p.Val423Asp allele the defect was shown to be protein instability rather than loss of a specific function. Thr230 and Leu237 both map to the third armadillo repeat of the central domain, the segment that connects the Hsp90-binding and myosin-binding ends.</div>
 
 
@@ -4305,6 +4376,8 @@ Only about a dozen patients have been reported, so every claim here is small-n a
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4315,6 +4388,9 @@ Only about a dozen patients have been reported, so every claim here is small-n a
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4360,6 +4436,7 @@ Only about a dozen patients have been reported, so every claim here is small-n a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4381,6 +4458,7 @@ Only about a dozen patients have been reported, so every claim here is small-n a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4406,6 +4484,7 @@ Only about a dozen patients have been reported, so every claim here is small-n a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-unc45a-myosin-co-chaperone-function" data-dismech-node="Loss of UNC45A Myosin Co-Chaperone Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of UNC45A Myosin Co-Chaperone Function</div>
+
 
                 <div class="item-desc">UNC45A is a UCS-family myosin co-chaperone with a three-domain architecture: the C-terminal UCS domain binds the myosin motor domain, the N-terminal tetratricopeptide-repeat domain binds Hsp90, and a central domain connects them. Vertebrates carry two non-redundant isoforms; UNC45B is confined to striated muscle and causes myopathy, while UNC45A is ubiquitous. That division is why this disease is not a myopathy.</div>
 
@@ -4503,6 +4582,7 @@ This pathophysiological event involves myosin co-chaperone activity, annotated w
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4524,6 +4604,7 @@ This pathophysiological event involves myosin co-chaperone activity, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4549,6 +4630,7 @@ This pathophysiological event involves myosin co-chaperone activity, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myosin-vb-misfolding-and-depletion" data-dismech-node="Myosin VB Misfolding and Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Myosin VB Misfolding and Depletion</div>
+
 
                 <div class="item-desc">Myosin VB is the recycling-endosome motor. Without its co-chaperone it misfolds and its protein level falls, in hepatic as well as intestinal cells. This is the node that connects osteootohepatoenteric syndrome to microvillus inclusion disease, whose cause is loss of myosin VB itself.</div>
 
@@ -4638,6 +4720,7 @@ This pathophysiological event involves decreased myosin VB motor function, annot
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4661,6 +4744,7 @@ This pathophysiological event involves decreased myosin VB motor function, annot
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-chaperone-myosin-complex-dissociation" data-dismech-node="Altered Chaperone-Myosin Complex Dissociation" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Chaperone-Myosin Complex Dissociation</div>
 
+
                 <div class="item-desc">The mechanism of the recurrent p.Leu237Pro allele, and the reason this entry does not treat every variant as a null. The mutant protein still chaperones: it prevents myosin aggregation and supports normal nonmuscle myosin II filament formation. What it cannot do is let go. It forms atypically stable oligomers that hold the chaperone-myosin complex together, and the trapped myosin is therefore unavailable, so the cellular consequence converges on the same trafficking failure as outright deficiency.</div>
 
 
@@ -4678,6 +4762,8 @@ This pathophysiological event involves decreased myosin VB motor function, annot
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4688,6 +4774,9 @@ This pathophysiological event involves decreased myosin VB motor function, annot
         <span class="tag tag-classification">functional_impact_category: NEOMORPHIC</span>
 
     </div>
+
+
+
 
 
 
@@ -4765,6 +4854,7 @@ This pathophysiological event involves decreased availability of nonmuscle myosi
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4786,6 +4876,7 @@ This pathophysiological event involves decreased availability of nonmuscle myosi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4811,6 +4902,7 @@ This pathophysiological event involves decreased availability of nonmuscle myosi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bile-salt-export-pump-mislocalization" data-dismech-node="Bile Salt Export Pump Mislocalization" data-dismech-type="pathophysiology">
                 <div class="item-name">Bile Salt Export Pump Mislocalization</div>
+
 
                 <div class="item-desc">The hepatic arm, and the newest part of this mechanism. A patient liver biopsy shows reduced UNC45A protein together with reduced expression and aberrant localization of the bile salt export pump in hepatocytes. BSEP is the canalicular exporter, so mislocalizing it is a failure of bile formation at its first step - which matches the low-GGT biochemical picture these patients have.</div>
 
@@ -4934,6 +5026,7 @@ This pathophysiological event involves decreased canalicular bile acid transport
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4956,6 +5049,7 @@ This pathophysiological event involves decreased canalicular bile acid transport
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apical-trafficking-and-recycling-endosome-failure" data-dismech-node="Apical Trafficking and Recycling Endosome Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Apical Trafficking and Recycling Endosome Failure</div>
+
 
                 <div class="item-desc">RAB11A-positive recycling endosomes are mispositioned and apical transporters do not reach the membrane. The enterocyte can no longer build or hold a polarized absorptive surface. This is the module&#39;s trafficking arm entered one step upstream of its canonical MYO5B lesion: here the motor is present but unfolded rather than absent.</div>
 
@@ -5100,6 +5194,7 @@ This pathophysiological event involves recycling endosome (GO:0055037). GO:00550
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5121,6 +5216,7 @@ This pathophysiological event involves recycling endosome (GO:0055037). GO:00550
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5146,6 +5242,7 @@ This pathophysiological event involves recycling endosome (GO:0055037). GO:00550
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microvillus-inclusion-formation-and-brush-border-loss" data-dismech-node="Microvillus Inclusion Formation and Brush Border Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Microvillus Inclusion Formation and Brush Border Loss</div>
+
 
                 <div class="item-desc">Microvilli are internalized into intracellular inclusions instead of being presented apically, and the surviving brush border is sparse and disorganized. Duodenal biopsies show villus atrophy without inflammation, which is the finding that separates this from an immune enteropathy at the bench as well as at the bedside. The same picture is present in zebrafish enterocytes, so it is not an artefact of any one system.</div>
 
@@ -5252,6 +5349,7 @@ This pathophysiological event involves microvillus (GO:0005902). GO:0005902 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5273,6 +5371,7 @@ This pathophysiological event involves microvillus (GO:0005902). GO:0005902 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5420,6 +5519,9 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as congenital 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5434,6 +5536,7 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as congenital 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5458,6 +5561,7 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as congenital 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5514,6 +5618,9 @@ This clinical feature is Villous atrophy (HP:0011473). HP:0011473 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5528,6 +5635,7 @@ This clinical feature is Villous atrophy (HP:0011473). HP:0011473 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5584,6 +5692,9 @@ This clinical feature is Intrahepatic cholestasis (HP:0001406). HP:0001406 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5598,6 +5709,7 @@ This clinical feature is Intrahepatic cholestasis (HP:0001406). HP:0001406 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5622,6 +5734,7 @@ This clinical feature is Intrahepatic cholestasis (HP:0001406). HP:0001406 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5687,6 +5800,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5701,6 +5817,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5728,6 +5845,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5749,6 +5867,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5814,6 +5933,9 @@ This clinical feature is bone fragility, annotated with Pathologic fracture (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5828,6 +5950,7 @@ This clinical feature is bone fragility, annotated with Pathologic fracture (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5852,6 +5975,7 @@ This clinical feature is bone fragility, annotated with Pathologic fracture (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5917,6 +6041,9 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5931,6 +6058,7 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5996,6 +6124,9 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6010,6 +6141,7 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6110,6 +6242,9 @@ This disease-associated gene is UNC45A (hgnc:30594). hgnc:30594 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -6124,6 +6259,7 @@ This disease-associated gene is UNC45A (hgnc:30594). hgnc:30594 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6151,6 +6287,7 @@ This disease-associated gene is UNC45A (hgnc:30594). hgnc:30594 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6172,6 +6309,7 @@ This disease-associated gene is UNC45A (hgnc:30594). hgnc:30594 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6233,6 +6371,9 @@ This disease-associated gene is MYO5B (hgnc:7603). hgnc:7603 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6247,6 +6388,7 @@ This disease-associated gene is MYO5B (hgnc:7603). hgnc:7603 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6338,6 +6480,12 @@ This treatment is total parenteral nutrition (NCIT:C29484). NCIT:C29484 is a cli
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">The enteropathy is feeding-independent, so the absorptive deficit is bypassed rather than corrected. This is supportive management of intestinal failure and is inferred from the disease class rather than reported as an outcome in these patients.</div>
 
 
@@ -6377,6 +6525,7 @@ This treatment is total parenteral nutrition (NCIT:C29484). NCIT:C29484 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6465,6 +6614,9 @@ This treatment uses odevixibat (CHEBI:757063). CHEBI:757063 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6475,6 +6627,9 @@ This treatment uses odevixibat (CHEBI:757063). CHEBI:757063 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -6545,6 +6700,7 @@ This treatment targets Intrahepatic cholestasis (HP:0001406). HP:0001406 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6566,6 +6722,7 @@ This treatment targets Intrahepatic cholestasis (HP:0001406). HP:0001406 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6654,6 +6811,9 @@ This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeut
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6664,6 +6824,9 @@ This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeut
 
 
     </div>
+
+
+
 
 
 
@@ -6713,6 +6876,7 @@ This treatment targets Intrahepatic cholestasis (HP:0001406). HP:0001406 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6780,6 +6944,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6790,6 +6957,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
     </div>
+
+
+
 
 
 
@@ -6913,6 +7083,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6997,6 +7168,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7087,6 +7259,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7152,6 +7325,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7173,6 +7347,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7228,6 +7403,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7249,6 +7425,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7320,6 +7497,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7344,6 +7522,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7365,6 +7544,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8478,6 +8658,59 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Self-review: consume PMID:36699472, frequency anchors, UDCA, band correction</strong> · 2026-09-11T14:00:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Osteootohepatoenteric_Syndrome/2026-09-11T140014Z-claude-code-73b88f.yaml">View source</a></p>
+                        <p class="research-review-text">Self-review round performed while claude-review was unavailable (shared Claude account usage limit, resets 2026-09-12T20:00Z). I applied the two finding shapes the automated reviewer had raised on my other two PRs in this batch - an under-consumed deep-research source, and unquantified frequency bands - to this entry, and both were present.
+
+PMID:36699472 (Wang 2022, Front Genet) was named in the research report&#39;s source list and never cited. It is a case report with an eleven-patient literature review, and consuming it produced one correction and several additions.
+
+Correction:
+- Sensorineural hearing impairment was FREQUENCY VERY_FREQUENT on the strength of the feature appearing in the syndrome name, with no denominator. The review counts deafness in 4 of 10 patients, which is FREQUENT. Changed, with a second evidence item recording that two patients were diagnosed at 5 years and in the teens, so 4/10 is a floor rather than a penetrance estimate.
+
+Additions from the same source:
+- Quantitative frequency anchors for chronic diarrhoea (9/10), intrahepatic cholestasis (8/10) and pathologic fracture (6/10).
+- Ursodeoxycholic acid as a treatment - absent entirely, and the only agent in the entry with a documented clinical response. Deliberately given no target_mechanisms link, since it acts on none of the trafficking or folding nodes modelled here.
+- Parenteral nutrition had a note saying no cited paper stated a nutritional recommendation quotably. That was true only because the paper that states it had not been cited. Real evidence added and the note rewritten to say what the quote does and does not establish.
+- A progression block recording that the hepatic and intestinal features can remit in infancy, which the entry previously did not convey.
+- The negative genotype-phenotype result (15 variants, no correlation) on the UNC45A genetic record.
+- A family denominator on prevalence: ten patients from eight families.
+- The extraintestinal_mechanism_unknown discussion now names MYO15A as the one published candidate mechanism for the deafness, cited and graded OTHER, with an explanation of why it is cited in the gap rather than drawn as a pathograph edge: it is an inference in a case report&#39;s discussion, and none of the three UNC45A papers in this entry mentions MYO15A.
+
+Separate defect found by check-snippet-grading and fixed: one background sentence from PMID:35421597 was graded IN_VITRO in a pathophysiology node and HUMAN_CLINICAL in a phenotype. The grading unit is the passage, not the paper&#39;s overall design; the sentence is the paper&#39;s opening background statement, so the surviving use is graded OTHER to match its sibling quote, and the phenotype use was dropped as redundant.
+
+Validation: just validate-disorders (schema, terms, 45/45 snippets); check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values, check-environmental-evidence, check-reference-titles, check-title-snippets, check-snippet-length, check-snippet-grading, check-folded-hyphens all clean; bulk OLS id/label comparison over 27 pairs, 0 mismatches.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Osteootohepatoenteric_Syndrome</strong> · 2026-09-11T12:56:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Osteootohepatoenteric_Syndrome/2026-09-11T125604Z-claude-code-30c3ad.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of osteootohepatoenteric syndrome (MONDO:0859164, UNC45A).
+
+DEEP-RESEARCH PROVIDER: the brief asked for perplexity. The Perplexity account&#39;s quota was exhausted mid-run (HTTP 401 insufficient_quota) after two of five reports had been produced. Rather than substituting a provider by hand, the run was re-issued with just dr_fallback=&#39;--fallback&#39;, which recorded the handover in the report&#39;s own frontmatter: requested_provider perplexity, fell_back true, provider_attempts listing perplexity (ProviderNotConfiguredError), falcon (ProviderAuthError 403) and claude_code (succeeded). The report is research/Osteootohepatoenteric_Syndrome-deep-research-claude_code.md (claude_code, 270.4 s, 20 citations), correctly renamed by the alignment step.
+
+Note on the fallback trigger: --fallback did NOT fire while PERPLEXITY_API_KEY was still set, because the configuration gate only checks that a key is present, not that it has quota. The run failed outright instead of handing over. Unsetting the key made the gate trip and the documented chain then worked as designed.
+
+The report changed the entry rather than confirming it, which is worth recording because the counterfactual is a materially worse record. Working from PubMed relevance-sorted search alone I had (a) no mechanism for the cholestasis and (b) all alleles modelled as loss of function. The report surfaced 2025 literature that supplies both corrections: PMID:41861679 shows reduced UNC45A with reduced and mislocalised bile salt export pump in a patient liver biopsy, giving the hepatic arm an observation of its own; and PMID:40125554 shows the recurrent p.Leu237Pro allele RETAINS chaperone activity and fails by forming atypically stable oligomers that will not release the folded myosin. That allele is therefore curated as a separate NEOMORPHIC pathophysiology node, not folded into the loss-of-function node.
+
+Report validation: reference_validation 12/12 resolved but quotes_valid 0 of 1 (PMC:PMC9868473 quote unsupported) and needs_review true; that reference is not cited here. term_validation 28/30 verified with 0 mislabelled and 2 obsolete (GO:0051082, GO:0032313) - markedly better than the two perplexity reports in this run, which mislabelled 13 of 31 and 13 of 47 respectively. No CURIE was taken from any report; all bindings were looked up against OLS in the same step they were written, and re-checked in bulk with a per-file id/label comparison before validation.
+
+Evidence: 34 snippets across 8 PMIDs, all exact-quote verified. One pathophysiology node conforms to enterocyte_polarity_trafficking_failure, entering through the trafficking arm (#Loss of Apical Delivery Machinery) and not the adhesion arm as that module&#39;s description requires; a second conforms to cholestatic_liver_injury#Impaired Bile Formation and Secretion.
+
+MYO5B is recorded in the genetic section with relationship_type COOPERATING and a note saying explicitly that it is the UNC45A client carrying the enteropathy and NOT a second disease gene or modifier - the original series excluded MYO5B, STX3 and STXBP2 before landing on UNC45A. Also recorded: UNC45A is allelic to Aagenaes syndrome via a 5&#39;-UTR variant, which is a different disease.
+
+Two mistakes caught by validation: onset_category CONGENITAL_ONSET is not a permissible value (CONGENITAL is), and NCIT:C15189 was written with the label &#39;Biopsy&#39; from recall rather than from a lookup - its canonical label is &#39;Biopsy Procedure&#39;. The second is the failure mode CLAUDE.md warns about and is the second instance of it in this run; a bulk id/label checker was added to the loop afterwards.
+
+Validated with just validate (schema, terms, 34/34 snippets), check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

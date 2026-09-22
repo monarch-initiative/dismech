@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4114,6 +4182,7 @@ Clinically the phenotype is mainly pure HSP. In the 20-individual cohort, spasti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4135,6 +4204,7 @@ Clinically the phenotype is mainly pure HSP. In the 20-individual cohort, spasti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4410,6 +4480,7 @@ An earlier revision of this entry asserted that the lipid readout had never been
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4431,6 +4502,7 @@ An earlier revision of this entry asserted that the lipid readout had never been
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4468,6 +4540,7 @@ An earlier revision of this entry asserted that the lipid readout had never been
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gp78-e3-ubiquitin-ligase-loss-of-function" data-dismech-node="gp78 E3 Ubiquitin Ligase Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">gp78 E3 Ubiquitin Ligase Loss of Function</div>
+
 
                 <div class="item-desc">Biallelic truncating AMFR variants remove gp78, a RING-H2 finger E3 ubiquitin ligase anchored at the ER membrane. gp78 is a core ERAD component, and the demonstrated downstream consequence in patient cells is a lipid one - not because the mechanism leaves ERAD behind, but because the ERAD substrates that matter here are the sterol-pathway regulators HMGCR and INSIG-1. Generalised proteostasis stress was tested for and not found.</div>
 
@@ -4528,6 +4601,8 @@ This pathophysiological event involves AMFR (hgnc:463). hgnc:463 is a gene from 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: VARIANT</span>
 
 
@@ -4543,6 +4618,9 @@ This pathophysiological event involves AMFR (hgnc:463). hgnc:463 is a gene from 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4653,6 +4731,7 @@ This pathophysiological event occurs in endoplasmic reticulum (GO:0005783). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4675,6 +4754,7 @@ This pathophysiological event occurs in endoplasmic reticulum (GO:0005783). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blunted-erad-of-hmgcr-and-insig-1" data-dismech-node="Blunted ERAD of HMGCR and INSIG-1" data-dismech-type="pathophysiology">
                 <div class="item-name">Blunted ERAD of HMGCR and INSIG-1</div>
+
 
                 <div class="item-desc">The substrate-level step, and the one that makes the rest of the disease legible. Among the proteins gp78 polyubiquitinates for ER-associated degradation are HMGCR - the rate-limiting enzyme of cholesterol synthesis - and INSIG-1, its regulatory partner. Without the ligase their degradation is blunted, so the cholesterol-synthesis machinery is no longer turned over normally.
 This is why the mechanism is ERAD rather than a departure from it: the disease is not caused by losing a generic proteostasis function but by losing ERAD of *these* substrates. It is also the entire rationale for the statin hypothesis, since statins inhibit the very protein that accumulates.</div>
@@ -4836,6 +4916,7 @@ This pathophysiological event involves dysregulated cholesterol metabolic proces
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4857,6 +4938,7 @@ This pathophysiological event involves dysregulated cholesterol metabolic proces
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4882,6 +4964,7 @@ This pathophysiological event involves dysregulated cholesterol metabolic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-lipid-homeostasis-with-lipid-droplet-accumulation" data-dismech-node="Disturbed Lipid Homeostasis with Lipid Droplet Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Lipid Homeostasis with Lipid Droplet Accumulation</div>
+
 
                 <div class="item-desc">The central mechanistic finding. Absence of AMFR disturbs lipid homeostasis, and lipid droplets accumulate in both patient-derived fibroblasts and patient-derived neural stem cells. The accumulation is rescued by re-expressing AMFR, which is what makes this causal rather than correlative - the rescue is the control.</div>
 
@@ -5019,6 +5102,7 @@ This pathophysiological event involves lipid droplet (GO:0005811). GO:0005811 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5041,6 +5125,7 @@ This pathophysiological event involves lipid droplet (GO:0005811). GO:0005811 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-morphology-alteration" data-dismech-node="Endoplasmic Reticulum Morphology Alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoplasmic Reticulum Morphology Alteration</div>
+
 
                 <div class="item-desc">Electron microscopy shows altered ER morphology in the absence of AMFR. Recorded as a parallel structural consequence rather than placed upstream of the lipid phenotype, because the cited work does not establish which of the two comes first.</div>
 
@@ -5100,6 +5185,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5122,6 +5208,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-neuron-branching-failure" data-dismech-node="Motor Neuron Branching Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor Neuron Branching Failure</div>
+
 
                 <div class="item-desc">In amfra-null zebrafish larvae, motor neuron branching is defective and the touch-evoked escape response is altered - together described by the authors as phenocopying the human HSP. This is the node that connects the cellular lipid phenotype to a motor readout, and it currently rests on the zebrafish rather than on human tissue.</div>
 
@@ -5227,6 +5314,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5249,6 +5337,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-lower-limb-spasticity" data-dismech-node="Progressive Lower Limb Spasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Lower Limb Spasticity</div>
+
 
                 <div class="item-desc">The clinical endpoint: corticospinal dysfunction producing progressive spasticity and motor dysfunction, mainly as a pure HSP but with complex forms carrying developmental delay and intellectual disability.</div>
 
@@ -5284,6 +5373,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5398,6 +5488,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5412,6 +5505,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5508,6 +5602,9 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5522,6 +5619,7 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5578,6 +5676,9 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5592,6 +5693,7 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5657,6 +5759,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5671,6 +5776,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5756,6 +5862,9 @@ This clinical feature is Motor delay (HP:0001270), qualified as infantile onset.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5770,6 +5879,7 @@ This clinical feature is Motor delay (HP:0001270), qualified as infantile onset.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5828,6 +5938,9 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5842,6 +5955,7 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5898,6 +6012,9 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5912,6 +6029,7 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5970,6 +6088,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5984,6 +6105,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6042,6 +6164,9 @@ This clinical feature is Febrile seizure, annotated with Febrile seizure (within
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6056,6 +6181,7 @@ This clinical feature is Febrile seizure, annotated with Febrile seizure (within
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6112,6 +6238,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6126,6 +6255,7 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6184,6 +6314,9 @@ This clinical feature is Behavioral concerns, annotated with Atypical behavior (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6198,6 +6331,7 @@ This clinical feature is Behavioral concerns, annotated with Atypical behavior (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6296,6 +6430,9 @@ This disease-associated gene is AMFR (hgnc:463). hgnc:463 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6310,6 +6447,7 @@ This disease-associated gene is AMFR (hgnc:463). hgnc:463 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6344,6 +6482,12 @@ This disease-associated gene is AMFR (hgnc:463). hgnc:463 is a gene from the HUG
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous canonical splice donor variant reported in an Algerian patient with a complicated form, by a group independent of the founding report.</div>
 
 
@@ -6368,6 +6512,7 @@ This disease-associated gene is AMFR (hgnc:463). hgnc:463 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6458,6 +6603,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6468,6 +6616,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6498,6 +6649,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6519,6 +6671,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6585,6 +6738,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6595,6 +6751,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6640,6 +6799,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6745,6 +6905,9 @@ This treatment uses simvastatin (CHEBI:9150). CHEBI:9150 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6755,6 +6918,9 @@ This treatment uses simvastatin (CHEBI:9150). CHEBI:9150 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -6802,6 +6968,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6877,6 +7044,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6898,6 +7066,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6968,6 +7137,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7015,6 +7185,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7083,6 +7254,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7236,6 +7408,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7275,6 +7448,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7407,6 +7581,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7446,6 +7621,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7525,6 +7701,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7566,6 +7743,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7719,6 +7897,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7778,6 +7957,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7817,6 +7997,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7896,6 +8077,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7952,6 +8134,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8014,6 +8197,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8053,6 +8237,7 @@ No human has been treated and no trial exists. The authors&#39; own wording is &
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9185,6 +9370,28 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Evidence base and its limits. This is a recently delineated gene-disease relationship, so the claim check the curation issue asked for is worth recording explicitly: the founding report is not a single family. It describes 20 individuals from 8 unrelated consanguineous families, with segregation, patient-derived fibroblasts, patient-derived neural stem cells, electron microscopy, and an independent zebrafish model - and a second, independent group has since reported a further homozygous AMFR variant in an Algerian cohort. That is enough to support a pathograph.
+Frequencies here are measured, not inferred. Table 1 of the founding report gives per-phenotype rates for the full 20-individual cohort, and every `frequency` value in this entry is derived from it, with the count quoted in the evidence. An earlier revision of this entry claimed no such rates existed - that was wrong, and it was wrong because the entry was curated from the abstract while the full text sat in the cache file committed alongside it.
+The zero rows matter as much as the positive ones. Speech delay, regression, ataxia and bladder dysfunction are each 0%, which is a real discriminating observation in a hereditary spastic paraplegia differential rather than an absence of data.
+No GeneReviews chapter exists for AMFR or SPG89 - PubMed returns nothing for either. The Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview (PMID:20301682) exists but its cached abstract is a bare statement of the chapter&#39;s purpose with no minable clinical content, so it is not cited here.
+Deep research: the Perplexity report for this disease resolved 16/16 identifiers with zero confabulation, but only 5 of 16 were assessed on topic and 3 were flagged explicitly off topic. It was used as a lead source only; every snippet here is anchored to a PMID fetched and read directly.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Spastic Paraplegia 89 Autosomal Recessive, AMFR, MONDO:0957274</strong> · 2026-08-28T12:05:15Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spastic_Paraplegia_89_Autosomal_Recessive/2026-08-28T120515Z-claude-code-963737.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of SPG89 from claim issue #9818. The claim issue asked for a check that the evidence base supports a real pathograph rather than a single-family report; it does, and the entry notes record the check: 20 individuals from 8 unrelated consanguineous families with segregation, patient fibroblasts and neural stem cells, electron microscopy and a zebrafish model, plus an independent Algerian report of a further homozygous splice variant. Deep research: Perplexity sonar-deep-research resolved 16/16 identifiers with zero confabulation, but only 5 of 16 were assessed on topic with 3 flagged explicitly off topic, so it was used as a lead source only and every snippet is anchored to a PMID read directly. The mechanistic point recorded is that gp78 is an ERAD ligase but the demonstrated consequence in patient cells is disturbed lipid homeostasis, so the entry follows the demonstrated phenotype rather than the expected one. Statins are curated as a treatment marked NOT A TREATMENT FOR PATIENTS, graded PARTIAL and MODEL_ORGANISM, because the rescue is zebrafish-only and the authors hedge it as suggesting potential therapeutic implications. A HUMAN_MODEL_MISMATCH discussion records the specific gap: the statin rescue was measured on larval motor readouts, not on the lipid phenotype it is proposed to act through, so the drug improving the phenotype is consistent with but not equivalent to correcting the mechanism. No frequency in this entry is a measured proportion; each is assigned from the founding report&#39;s mainly pure but also complex wording and the phenotype descriptions say so. One ontology label was wrong on first pass and corrected: HP:0001256 is Mild intellectual disability. Validated with just validate, 22/22 snippets verified, plus check-entity-refs and check-duplicate-keys.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

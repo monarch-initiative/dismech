@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4221,6 +4289,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Several factors have been implicated in the cause of Crohn&#39;s disease, including a dysregulated immune system, an altered microbiota, genetic susceptibility and environmental factors, but the cause of the disease remains unknown."</div>
@@ -4312,6 +4381,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In CD, the ileum is frequently affected and about one third of patients presents with a pure ileal type."</div>
@@ -4334,6 +4404,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Gastroscopy revealed severe aphthous pangastritis with biopsies showing a focal active and chronic gastritis with presence of granulomas... coloscopy showing an aphthous terminal ileum... concordant with a slightly active, mildly chronic terminal ileitis typical for Crohn&#39;s disease."</div>
@@ -4353,6 +4424,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4416,6 +4488,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Commonly affecting the terminal ileum and proximal colon, Crohn&#39;s disease inflammation is often discontinuous and patchy, segmental, and transmural."</div>
@@ -4438,6 +4511,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The site of involvement was the ileum in three patients, the colon in one patient and both the ileum and the colon in one patient. Typical small intestinal CD occurred in four of seven patients with marked aphthous lesions of the small intestine, whereas colonic CD occurred in two of eight..."</div>
@@ -4457,6 +4531,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4522,6 +4597,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Crohn&#39;s disease can affect any part of the gastrointestinal tract; however, current European and national guidelines worldwide do not differentiate between small-intestinal and colonic Crohn&#39;s disease for medical treatment."</div>
@@ -4544,6 +4620,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The site of involvement was the ileum in three patients, the colon in one patient and both the ileum and the colon in one patient."</div>
@@ -4563,6 +4640,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4647,6 +4725,7 @@
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4668,6 +4747,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4755,6 +4835,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6097,6 +6178,7 @@ This readout is measured by epithelial inflammatory profiling.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6118,6 +6200,7 @@ This readout is measured by epithelial inflammatory profiling.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6617,6 +6700,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6641,6 +6725,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6662,6 +6747,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6701,6 +6787,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-immune-response" data-dismech-node="Dysregulated Immune Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Immune Response</div>
+
 
                 <div class="item-desc">The immune system attacks the gastrointestinal tract, leading to chronic inflammation.</div>
 
@@ -6779,6 +6866,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Several factors have been implicated in the cause of Crohn&#39;s disease, including a dysregulated immune system, an altered microbiota, genetic susceptibility and environmental factors, but the cause of the disease remains unknown."</div>
@@ -6798,6 +6886,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6823,6 +6912,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The lymphatic system is re-emerging as a critical player in inflammatory and immune processes... Recent studies reporting lymphangitis, lymphangiogenesis, bacterial infiltration and lymph node infection, immune cell trafficking, and fat-wrapping in Crohn&#39;s disease suggest altered lymph drainage..."</div>
@@ -6843,6 +6933,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microbiome-imbalance" data-dismech-node="Microbiome Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Microbiome Imbalance</div>
+
 
                 <div class="item-desc">Alterations in gut microbiota contribute to the disease mechanisms.</div>
 
@@ -6921,6 +7012,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Crohn&#39;s disease (CD) is a major form of inflammatory bowel disease characterized by transmural inflammation along the alimentary tract. Changes in the microbial composition and reduction in species diversity are recognized as pivotal hallmarks in disease dynamics, challenging the gut barrier..."</div>
@@ -6940,6 +7032,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6965,6 +7058,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Inflammatory bowel disease includes ulcerative colitis and Crohn&#39;s disease, which are both inflammatory disorders of the gastrointestinal tract. Both types of inflammatory bowel disease have a complex etiology, resulting from a genetically determined susceptibility interacting with environmental..."</div>
@@ -6985,6 +7079,7 @@ This experiment uses immune cell deconvolution and flow cytometric sorting.</spa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paneth-cell-autophagy-impairment" data-dismech-node="Paneth Cell Autophagy Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Paneth Cell Autophagy Impairment</div>
+
 
                 <div class="item-desc">Defective autophagy in Paneth cells due to mutations in autophagy genes (ATG16L1, ATG5) causes abnormal granule formation and impaired antimicrobial peptide secretion.</div>
 
@@ -7170,6 +7265,7 @@ This pathophysiological event occurs in Terminal ileum, annotated with ileum (UB
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7192,6 +7288,7 @@ This pathophysiological event occurs in Terminal ileum, annotated with ileum (UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-antimicrobial-defense-deficiency" data-dismech-node="Antimicrobial Defense Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Antimicrobial Defense Deficiency</div>
+
 
                 <div class="item-desc">Reduced secretion of antimicrobial peptides (defensins, lysozyme) allows increased bacterial translocation across the intestinal epithelium.</div>
 
@@ -7371,6 +7468,7 @@ This pathophysiological event occurs in Terminal ileum, annotated with ileum (UB
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-barrier-dysfunction" data-dismech-node="Intestinal Barrier Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Intestinal Barrier Dysfunction</div>
 
+
                 <div class="item-desc">Disrupted epithelial integrity and increased permeability permit microbial translocation and amplify mucosal immune activation.</div>
 
 
@@ -7505,6 +7603,7 @@ This pathophysiological event occurs in Terminal ileum, annotated with ileum (UB
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Crohn&#39;s disease (CD) is a major form of inflammatory bowel disease characterized by transmural inflammation along the alimentary tract. Changes in the microbial composition and reduction in species diversity are recognized as pivotal hallmarks in disease dynamics, challenging the gut barrier..."</div>
@@ -7525,6 +7624,7 @@ This pathophysiological event occurs in Terminal ileum, annotated with ileum (UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-inflammation-and-epithelial-injury" data-dismech-node="Intestinal Inflammation and Epithelial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Intestinal Inflammation and Epithelial Injury</div>
+
 
                 <div class="item-desc">Active intestinal inflammation produces epithelial and stromal injury that disrupts mucosal function in Crohn disease.</div>
 
@@ -7666,6 +7766,7 @@ This pathophysiological event occurs in Terminal ileum, annotated with ileum (UB
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Crohn&#39;s disease (CD) is a major form of inflammatory bowel disease characterized by transmural inflammation along the alimentary tract. Changes in the microbial composition and reduction in species diversity are recognized as pivotal hallmarks in disease dynamics, challenging the gut barrier..."</div>
@@ -7685,6 +7786,7 @@ This pathophysiological event occurs in Terminal ileum, annotated with ileum (UB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7708,6 +7810,7 @@ This pathophysiological event occurs in Terminal ileum, annotated with ileum (UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-autophagy-dysfunction" data-dismech-node="Macrophage Autophagy Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage Autophagy Dysfunction</div>
+
 
                 <div class="item-desc">Impaired autophagy in lamina propria macrophages (particularly with hyperactive LRRK2 variants such as G2019S, N2081D) leads to defective clearance of intracellular bacteria and pro-inflammatory cytokine release that impairs Paneth cell homeostasis.</div>
 
@@ -7901,6 +8004,7 @@ This pathophysiological event occurs in Intestinal lamina propria, annotated wit
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7922,6 +8026,7 @@ This pathophysiological event occurs in Intestinal lamina propria, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7947,6 +8052,7 @@ This pathophysiological event occurs in Intestinal lamina propria, annotated wit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-23-th17-axis-dysregulation" data-dismech-node="IL-23/Th17 Axis Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-23/Th17 Axis Dysregulation</div>
+
 
                 <div class="item-desc">Overactive IL-23 signaling drives pathogenic Th17 cell differentiation and chronic intestinal inflammation.</div>
 
@@ -8216,6 +8322,7 @@ This pathophysiological event occurs in Intestinal mucosa, annotated with ileum 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8238,6 +8345,7 @@ This pathophysiological event occurs in Intestinal mucosa, annotated with ileum 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibrosis-and-stricture-formation" data-dismech-node="Fibrosis and Stricture Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibrosis and Stricture Formation</div>
+
 
                 <div class="item-desc">Chronic inflammation leads to fibroblast activation, extracellular matrix deposition, and intestinal strictures.</div>
 
@@ -8446,6 +8554,7 @@ This pathophysiological event occurs in Mesenteric adipose tissue, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tl1a-mediated-t-cell-activation" data-dismech-node="TL1A-Mediated T Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">TL1A-Mediated T Cell Activation</div>
 
+
                 <div class="item-desc">Tumor necrosis factor-like ligand 1A (TL1A) activates T cells through death receptor 3 (DR3), promoting inflammatory cytokine production and recruitment of myeloid cells to sites of tissue damage.</div>
 
 
@@ -8627,6 +8736,7 @@ This pathophysiological event occurs in Rectal mucosa, annotated with mucosa of 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myeloid-cell-recruitment-to-perianal-tissue" data-dismech-node="Myeloid Cell Recruitment to Perianal Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Myeloid Cell Recruitment to Perianal Tissue</div>
 
+
                 <div class="item-desc">Chemokine-driven infiltration of macrophages and other myeloid cells into perianal tissues, establishing chronic inflammation.</div>
 
 
@@ -8756,6 +8866,7 @@ This pathophysiological event occurs in Perianal region, annotated with perianal
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myeloid-stromal-cell-crosstalk" data-dismech-node="Myeloid-Stromal Cell Crosstalk" data-dismech-type="pathophysiology">
                 <div class="item-name">Myeloid-Stromal Cell Crosstalk</div>
+
 
                 <div class="item-desc">Interferon-driven macrophage activation promotes fibroblast activation and matrix degradation, creating tissue disruption that leads to fistula tract formation.</div>
 
@@ -9020,6 +9131,9 @@ This clinical feature is Hematochezia (HP:0002573). HP:0002573 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">More common in colonic Crohn&#39;s disease than ileal disease.</div>
 
 
@@ -9039,6 +9153,7 @@ This clinical feature is Hematochezia (HP:0002573). HP:0002573 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9090,6 +9205,9 @@ This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">Most common extraintestinal manifestation of IBD; caused by chronic blood loss and impaired iron absorption.</div>
 
 
@@ -9112,6 +9230,7 @@ This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a ph
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Anaemia is the most common extraintestinal manifestation of IBD, correlating with disease activity, and tending to relapse even after successful therapy. Iron deficiency is the most common cause"</div>
@@ -9131,6 +9250,7 @@ This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9191,6 +9311,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Can be bloody or non-bloody</div>
 
 
@@ -9224,6 +9347,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Patients may experience diarrhea, abdominal pain, fever, weight loss, abdominal masses, and anemia."</div>
@@ -9243,6 +9367,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9296,6 +9421,9 @@ This clinical feature is Intestinal Obstruction, annotated with Gastrointestinal
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to stricturing disease</div>
 
 
@@ -9315,6 +9443,7 @@ This clinical feature is Intestinal Obstruction, annotated with Gastrointestinal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9340,6 +9469,7 @@ This clinical feature is Intestinal Obstruction, annotated with Gastrointestinal
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Approximately 70% of patients inevitably develop fibrosis-associated intestinal stricture after 10 years of CD diagnosis, which seriously affects their quality of life."</div>
@@ -9359,6 +9489,7 @@ This clinical feature is Intestinal Obstruction, annotated with Gastrointestinal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9413,6 +9544,9 @@ This clinical feature is Malnutrition (HP:0004395). HP:0004395 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9427,6 +9561,7 @@ This clinical feature is Malnutrition (HP:0004395). HP:0004395 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9449,6 +9584,7 @@ This clinical feature is Malnutrition (HP:0004395). HP:0004395 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9502,6 +9638,9 @@ This clinical feature is Intestinal stricture, annotated with Small intestinal s
                     </div>
 
 
+
+
+
                     <div class="item-desc">Approximately 35% of patients develop intestinal strictures; complications requiring surgery occur in up to 70% within 10 years. Fibrostenotic disease manifestation.</div>
 
 
@@ -9521,6 +9660,7 @@ This clinical feature is Intestinal stricture, annotated with Small intestinal s
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9574,6 +9714,9 @@ This clinical feature is Intestinal fistula (HP:0100819). HP:0100819 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Occurs in approximately 20-50% of Crohn&#39;s disease patients; often requires surgical intervention. Related to perianal abscess formation.</div>
 
 
@@ -9593,6 +9736,7 @@ This clinical feature is Intestinal fistula (HP:0100819). HP:0100819 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9646,6 +9790,9 @@ This clinical feature is Intestinal inflammation (HP:4000055). HP:4000055 is a p
                     </div>
 
 
+
+
+
                     <div class="item-desc">Characteristic feature of Crohn&#39;s disease affecting all layers of the intestinal wall.</div>
 
 
@@ -9684,6 +9831,9 @@ This clinical feature is Anal fissure (HP:0012390). HP:0012390 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Part of the spectrum of perianal disease in Crohn&#39;s.</div>
 
 
@@ -9703,6 +9853,7 @@ This clinical feature is Anal fissure (HP:0012390). HP:0012390 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9755,6 +9906,9 @@ This clinical feature is Primary sclerosing cholangitis, annotated with Sclerosi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9769,6 +9923,7 @@ This clinical feature is Primary sclerosing cholangitis, annotated with Sclerosi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9823,6 +9978,9 @@ This clinical feature is Perianal abscess (HP:0009789). HP:0009789 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9837,6 +9995,7 @@ This clinical feature is Perianal abscess (HP:0009789). HP:0009789 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9899,6 +10058,9 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Inflammation of the eye</div>
 
 
@@ -9921,6 +10083,7 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Seven patients had uveitis, eight had episcleritis, and four had anterior scleritis."</div>
@@ -9940,6 +10103,7 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9992,6 +10156,9 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10006,6 +10173,7 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10060,6 +10228,9 @@ This clinical feature is Episcleritis (HP:0100534). HP:0100534 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10074,6 +10245,7 @@ This clinical feature is Episcleritis (HP:0100534). HP:0100534 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10136,6 +10308,9 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Oxalate stones due to fat malabsorption and increased oxalate absorption, particularly in ileal disease.</div>
 
 
@@ -10155,6 +10330,7 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10217,6 +10393,9 @@ This clinical feature is Recurrent aphthous stomatitis (HP:0011107). HP:0011107 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Second most prevalent extraintestinal manifestation of IBD.</div>
 
 
@@ -10239,6 +10418,7 @@ This clinical feature is Recurrent aphthous stomatitis (HP:0011107). HP:0011107 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"dermatologic findings, such as erythema nodosum, pyoderma gangrenosum, and aphthous stomatitis (which are the most frequently occurring)"</div>
@@ -10258,6 +10438,7 @@ This clinical feature is Recurrent aphthous stomatitis (HP:0011107). HP:0011107 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10318,6 +10499,9 @@ This clinical feature is Erythema Nodosum (HP:0012219). HP:0012219 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Painful nodules on shins</div>
 
 
@@ -10340,6 +10524,7 @@ This clinical feature is Erythema Nodosum (HP:0012219). HP:0012219 is a phenotyp
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Erythema nodosum is a common cause of tender red nodules of the shins. Management includes leg elevation, NSAIDs, and potassium iodide."</div>
@@ -10359,6 +10544,7 @@ This clinical feature is Erythema Nodosum (HP:0012219). HP:0012219 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10419,6 +10605,9 @@ This clinical feature is Pyoderma gangrenosum (HP:0025452). HP:0025452 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Rare but serious cutaneous manifestation; painful ulcerating skin lesions, often on lower extremities.</div>
 
 
@@ -10438,6 +10627,7 @@ This clinical feature is Pyoderma gangrenosum (HP:0025452). HP:0025452 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10498,6 +10688,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     </div>
 
 
+
+
+
                     <div class="item-desc">More common during acute flares</div>
 
 
@@ -10517,6 +10710,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10542,6 +10736,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In 32 patients with Crohn&#39;s disease which started in childhood, abdominal pain, diarrhoea, and weight loss were the common presenting symptoms, but unexplained fever and failure to grow were also prominent."</div>
@@ -10561,6 +10756,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10621,6 +10817,9 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -10659,6 +10858,9 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Can affect both large and small joints</div>
 
 
@@ -10681,6 +10883,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The most common extraintestinal manifestation, articular involvement, occurs in 16% to 33% of inflammatory bowel disease patients. These arthropathies may increase morbidity, resulting in a worse quality of life compared with inflammatory bowel disease patients without arthropathies."</div>
@@ -10700,6 +10903,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10751,6 +10955,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Related to chronic inflammation, corticosteroid use, and malabsorption of calcium and vitamin D.</div>
 
 
@@ -10773,6 +10980,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Extraintestinal manifestations of Crohn&#39;s disease include osteoporosis, inflammatory arthropathies, scleritis, nephrolithiasis, cholelithiasis, and erythema nodosum."</div>
@@ -10792,6 +11000,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10852,6 +11061,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Often occurs in the right lower quadrant</div>
 
 
@@ -10871,6 +11083,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10894,6 +11107,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In Crohn&#39;s disease, inflammation causes pain."</div>
@@ -10911,6 +11125,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10962,6 +11177,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Often worsened during disease flares</div>
 
 
@@ -10984,6 +11202,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"A high percentage of CD patients suffer from fatigue."</div>
@@ -11003,6 +11222,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11066,6 +11286,9 @@ This clinical feature is Weight Loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11080,6 +11303,7 @@ This clinical feature is Weight Loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11102,6 +11326,7 @@ This clinical feature is Weight Loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11155,6 +11380,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Occurs in pediatric-onset Crohn&#39;s disease; related to chronic inflammation and malnutrition.</div>
 
 
@@ -11177,6 +11405,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Stunted growth was the most frequent physical abnormality when first seen in hospital."</div>
@@ -11196,6 +11425,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11239,6 +11469,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Fistulas, abscesses, skin tags</div>
 
 
@@ -11258,6 +11491,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11283,6 +11517,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Fistulas are common in Crohn&#39;s disease. A population-based study has shown a cumulative risk of 33% after 10 years and 50% after 20 years. Perianal fistulas were the most common (54%)."</div>
@@ -11302,6 +11537,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11398,6 +11634,9 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (9 references)
@@ -11412,6 +11651,7 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11437,6 +11677,7 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"NOD2 gene mutations are associated with several diseases, and some of the mutations are of diagnostic value in Blau disease and NAID... The NOD2 variants located in the leucine-rich repeat (LRR) region are susceptible to Crohn disease."</div>
@@ -11456,6 +11697,7 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11513,6 +11755,9 @@ This disease-associated gene is ATG16L1 (hgnc:21498). hgnc:21498 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -11527,6 +11772,7 @@ This disease-associated gene is ATG16L1 (hgnc:21498). hgnc:21498 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11550,6 +11796,7 @@ This disease-associated gene is ATG16L1 (hgnc:21498). hgnc:21498 is a gene from 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"single-nucleotide polymorphisms in ATG16L1 ... a key component in the autophagic response to invading pathogens, have been associated with an increased risk of developing Crohn disease."</div>
@@ -11567,6 +11814,7 @@ This disease-associated gene is ATG16L1 (hgnc:21498). hgnc:21498 is a gene from 
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -11624,6 +11872,9 @@ This disease-associated gene is IL23R (hgnc:19100). hgnc:19100 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11638,6 +11889,7 @@ This disease-associated gene is IL23R (hgnc:19100). hgnc:19100 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11660,6 +11912,7 @@ This disease-associated gene is IL23R (hgnc:19100). hgnc:19100 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11717,6 +11970,9 @@ This disease-associated gene is LRRK2 (hgnc:18618). hgnc:18618 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-tnfsf15" data-dismech-node="TNFSF15" data-dismech-type="genetic">
@@ -11748,6 +12004,9 @@ This disease-associated gene is TNFSF15 (hgnc:11931). hgnc:11931 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -11791,6 +12050,9 @@ This disease-associated gene is CARD9 (hgnc:16391). hgnc:16391 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-bach2" data-dismech-node="BACH2" data-dismech-type="genetic">
@@ -11822,6 +12084,9 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -11865,6 +12130,9 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-stat3" data-dismech-node="STAT3" data-dismech-type="genetic">
@@ -11896,6 +12164,9 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -11939,6 +12210,9 @@ This disease-associated gene is IL10 (hgnc:5962). hgnc:5962 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-cd28" data-dismech-node="CD28" data-dismech-type="genetic">
@@ -11970,6 +12244,9 @@ This disease-associated gene is CD28 (hgnc:1653). hgnc:1653 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -12013,6 +12290,9 @@ This disease-associated gene is EGR2 (hgnc:3239). hgnc:3239 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ets1" data-dismech-node="ETS1" data-dismech-type="genetic">
@@ -12044,6 +12324,9 @@ This disease-associated gene is ETS1 (hgnc:3488). hgnc:3488 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -12087,6 +12370,9 @@ This disease-associated gene is IRF4 (hgnc:6119). hgnc:6119 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-irf8" data-dismech-node="IRF8" data-dismech-type="genetic">
@@ -12118,6 +12404,9 @@ This disease-associated gene is IRF8 (hgnc:5358). hgnc:5358 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -12161,6 +12450,9 @@ This disease-associated gene is SATB1 (hgnc:10541). hgnc:10541 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ikzf1" data-dismech-node="IKZF1" data-dismech-type="genetic">
@@ -12192,6 +12484,9 @@ This disease-associated gene is IKZF1 (hgnc:13176). hgnc:13176 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -12235,6 +12530,9 @@ This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-prdm1" data-dismech-node="PRDM1" data-dismech-type="genetic">
@@ -12266,6 +12564,9 @@ This disease-associated gene is PRDM1 (hgnc:9346). hgnc:9346 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -12309,6 +12610,9 @@ This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-il21r" data-dismech-node="IL21R" data-dismech-type="genetic">
@@ -12340,6 +12644,9 @@ This disease-associated gene is IL21R (hgnc:6006). hgnc:6006 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -12414,6 +12721,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Anti-inflammatory drugs used for mild to moderate disease.</div>
 
 
@@ -12435,6 +12748,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12460,6 +12774,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"5-aminosalicylates (5-ASA) are frequently used in the management of Crohn&#39;s disease."</div>
@@ -12479,6 +12794,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -12549,6 +12865,12 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Used for short-term control during flare-ups to reduce inflammation.</div>
 
 
@@ -12570,6 +12892,7 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12595,6 +12918,7 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"corticosteroids are crucial for the induction of remission of moderate‑to‑severe flares in both UC and Crohn&#39;s disease."</div>
@@ -12614,6 +12938,7 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12683,6 +13008,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Drugs like azathioprine and methotrexate to suppress the immune response.</div>
 
 
@@ -12704,6 +13035,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12729,6 +13061,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Our results show that parenteral use of methotrexate is efficacious in inducing and maintaining remission as a step-up agent in azathioprine refractory Crohn&#39;s disease patients."</div>
@@ -12748,6 +13081,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12820,6 +13154,12 @@ This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Anti-TNF agents (infliximab, adalimumab) and integrin inhibitors (vedolizumab) for moderate to severe disease.</div>
 
 
@@ -12841,6 +13181,7 @@ This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12866,6 +13207,7 @@ This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Vedolizumab is an integrin-receptor antagonist for the treatment of CD and UC in adults with moderately to severely active disease."</div>
@@ -12885,6 +13227,7 @@ This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12952,6 +13295,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12962,6 +13308,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -12992,6 +13341,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Nutrition therapy of Crohn&#39;s disease is considered the first-line of treatment for Crohn&#39;s disease in children, especially in Europe."</div>
@@ -13014,6 +13364,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"New data in Crohn&#39;s disease supports the use of enteral liquid nutrition to help induce remission and correct malnutrition in patients heading for surgery."</div>
@@ -13033,6 +13384,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13100,6 +13452,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -13110,6 +13465,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -13140,6 +13498,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The indications for surgery include the failure of medical management, especially the persistence or worsening of symptoms in spite of proper treatment and complications of the disease process. These complications include intestinal obstruction, intestinal perforation with fistula formation or..."</div>
@@ -13162,6 +13521,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Therefore, current therapy of fibrotic strictures relies mainly on endoscopic and surgical procedures."</div>
@@ -13181,6 +13541,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13253,6 +13614,12 @@ This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Biologics targeting IL-23 (e.g., ustekinumab, risankizumab) for moderate to severe Crohn&#39;s disease refractory to anti-TNF therapy.</div>
 
 
@@ -13298,6 +13665,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -13357,6 +13730,12 @@ This treatment is JAK inhibitor therapy, annotated with Immunosuppressive Therap
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -13445,6 +13824,7 @@ This environmental factor is Tobacco smoking exposure, annotated with exposure t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Smoking increases the risk of complications, recurrences and resort of surgery, corticosteroids or immunosuppressants."</div>
@@ -13467,6 +13847,7 @@ This environmental factor is Tobacco smoking exposure, annotated with exposure t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"We identified 9 factors that increase risk of IBD: smoking (CD)..."</div>
@@ -13486,6 +13867,7 @@ This environmental factor is Tobacco smoking exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13542,6 +13924,7 @@ This environmental factor is Tobacco smoking exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13563,6 +13946,7 @@ This environmental factor is Tobacco smoking exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13643,6 +14027,7 @@ This environmental factor is Dietary exposure, annotated with diet (XCO:0000013)
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Fiber-poor Western diets fuel inflammation."</div>
@@ -13662,6 +14047,7 @@ This environmental factor is Dietary exposure, annotated with diet (XCO:0000013)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13686,6 +14072,7 @@ This environmental factor is Dietary exposure, annotated with diet (XCO:0000013)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13735,6 +14122,7 @@ This environmental factor is Dietary exposure, annotated with diet (XCO:0000013)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13815,6 +14203,7 @@ This environmental factor is Psychological stress exposure, annotated with stres
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Stress is also associated with IBD, but more as a modifier than an inducing factor, and its contribution is more obvious in IBD animal models than human IBD."</div>
@@ -13834,6 +14223,7 @@ This environmental factor is Psychological stress exposure, annotated with stres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13899,6 +14289,7 @@ This environmental factor is Psychological stress exposure, annotated with stres
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"C-reactive protein (CRP) is an important acute-phase marker, produced mainly in the liver. Its production by mesenteric adipocytes has been recently stressed in Crohn&#39;s disease (CD)."</div>
@@ -13921,6 +14312,7 @@ This environmental factor is Psychological stress exposure, annotated with stres
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"MDA/TBARS were the best predictor of CD, comparable to CRP, with high specificity (MDA/TBARS sensitivity and specificity: 75% and 90%; CRP: 76% and 93%). Combined assessment of MDA/TBARS and CRP improved sensitivity (94%) corresponding with acceptable specificity (81%)."</div>
@@ -13940,6 +14332,7 @@ This environmental factor is Psychological stress exposure, annotated with stres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13989,6 +14382,7 @@ This environmental factor is Psychological stress exposure, annotated with stres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14058,6 +14452,7 @@ This environmental factor is Psychological stress exposure, annotated with stres
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Patients were divided into a derivation (80%) cohort and a validation (20%) cohort. The primary outcome was progressive disease... In our final model, age at diagnosis older than 60 years was significantly associated with a lower risk of developing progressive disease... In patients with CD."</div>
@@ -14080,6 +14475,7 @@ This environmental factor is Psychological stress exposure, annotated with stres
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Logistic regression analysis of the initial characteristics showed that the age at diagnosis, gender, initial location and initial extra-intestinal manifestation are not associated with the progression of the disease."</div>
@@ -14099,6 +14495,7 @@ This environmental factor is Psychological stress exposure, annotated with stres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14173,6 +14570,7 @@ This environmental factor is Psychological stress exposure, annotated with stres
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Crohn&#39;s disease is a chronic inflammatory disease of the gastrointestinal tract that might lead to progressive bowel damage and disability."</div>
@@ -14192,6 +14590,7 @@ This environmental factor is Psychological stress exposure, annotated with stres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14547,6 +14946,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14568,6 +14968,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14611,6 +15012,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14822,6 +15224,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14843,6 +15246,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14889,6 +15293,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14910,6 +15315,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15123,6 +15529,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -15144,6 +15551,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15190,6 +15598,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -15211,6 +15620,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15353,6 +15763,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"the community-level production of short-chain fatty acids (SCFAs) was heterogeneous and highly individual specific"</div>
@@ -15392,6 +15803,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -17871,6 +18283,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

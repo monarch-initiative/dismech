@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4104,6 +4172,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4125,6 +4194,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4284,6 +4354,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4308,6 +4379,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4329,6 +4401,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4460,6 +4533,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4481,6 +4555,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4612,6 +4687,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4636,6 +4712,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4657,6 +4734,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4781,6 +4859,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4802,6 +4881,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4933,6 +5013,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4957,6 +5038,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4978,6 +5060,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5015,6 +5098,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-scn1b-loss-of-function-variant" data-dismech-node="Biallelic SCN1B Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SCN1B Loss-of-Function Variant</div>
+
 
                 <div class="item-desc">Two pathogenic SCN1B alleles are present, typically homozygous missense variants clustered in the extracellular immunoglobulin loop domain (p.R46C, p.R60C, p.R85C, p.R89C, p.V158M, p.R125C). This node records the genomic lesion; the several distinct protein-level consequences are modeled downstream.</div>
 
@@ -5118,6 +5202,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5139,6 +5224,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5164,6 +5250,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-beta-1-subunit-cell-surface-expression" data-dismech-node="Loss of Beta-1 Subunit Cell-Surface Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Beta-1 Subunit Cell-Surface Expression</div>
+
 
                 <div class="item-desc">Trafficking-defective variants are expressed at normal total cellular levels but fail to reach the plasma membrane, producing a functional null. This is a trafficking failure and is separable from whether a surface-resident subunit works.</div>
 
@@ -5251,6 +5338,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5273,6 +5361,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-beta-1-mediated-modulation-of-sodium-channel-gating" data-dismech-node="Loss of Beta-1-Mediated Modulation of Sodium Channel Gating" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Beta-1-Mediated Modulation of Sodium Channel Gating</div>
+
 
                 <div class="item-desc">The alpha subunit no longer receives normal beta-1 modulation. Critically, this happens even for variants whose surface expression is indistinguishable from wild type, which is why it is a separate claim from the trafficking node.</div>
 
@@ -5364,6 +5453,7 @@ This pathophysiological event involves abnormal voltage-gated sodium channel act
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5386,6 +5476,7 @@ This pathophysiological event involves abnormal voltage-gated sodium channel act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-sodium-channel-voltage-dependence-and-availability" data-dismech-node="Altered Sodium Channel Voltage Dependence and Availability" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Sodium Channel Voltage Dependence and Availability</div>
+
 
                 <div class="item-desc">Conductance-voltage relationships and channel availability shift toward more depolarized potentials across Nav1.1, Nav1.2, and Nav1.6, and recovery from fast inactivation slows for some variant-channel pairings. The effect is variant-specific and channel-subtype-specific rather than uniform.</div>
 
@@ -5493,6 +5584,7 @@ This pathophysiological event involves abnormal sodium ion transmembrane transpo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5514,6 +5606,7 @@ This pathophysiological event involves abnormal sodium ion transmembrane transpo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5539,6 +5632,7 @@ This pathophysiological event involves abnormal sodium ion transmembrane transpo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-beta-1-immunoglobulin-domain-cell-adhesion" data-dismech-node="Disrupted Beta-1 Immunoglobulin-Domain Cell Adhesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Beta-1 Immunoglobulin-Domain Cell Adhesion</div>
+
 
                 <div class="item-desc">Beta-1 is an immunoglobulin superfamily cell adhesion molecule that binds beta-1 subunits on neighbouring cells, other adhesion molecules, and extracellular matrix. Pathogenic variants cluster in exactly this domain, so the adhesion role is compromised alongside the gating role. Nothing about channel biophysics measures this arm.</div>
 
@@ -5638,6 +5732,7 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5659,6 +5754,7 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5684,6 +5780,7 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-cerebellar-neuronal-pathfinding" data-dismech-node="Altered Cerebellar Neuronal Pathfinding" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Cerebellar Neuronal Pathfinding</div>
+
 
                 <div class="item-desc">Neuronal pathfinding in the cerebellum is severely altered in Scn1b-null mice, a developmental wiring defect distinct from the excitability changes measured in the same tissue.</div>
 
@@ -5809,6 +5906,7 @@ This pathophysiological event involves abnormal axon extension involved in axon 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5831,6 +5929,7 @@ This pathophysiological event involves abnormal axon extension involved in axon 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-purkinje-cell-transient-and-resurgent-sodium-current" data-dismech-node="Reduced Purkinje Cell Transient and Resurgent Sodium Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Purkinje Cell Transient and Resurgent Sodium Current</div>
+
 
                 <div class="item-desc">Scn1b-null Purkinje cells carry reduced transient and resurgent sodium current densities. Resurgent current is what allows Purkinje cells to fire at high rates, so this is a specific biophysical loss rather than a general reduction in excitability.</div>
 
@@ -5956,6 +6055,7 @@ This pathophysiological event involves decreased sodium ion transmembrane transp
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5978,6 +6078,7 @@ This pathophysiological event involves decreased sodium ion transmembrane transp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-purkinje-cell-and-interneuron-hypoexcitability" data-dismech-node="Cerebellar Purkinje Cell and Interneuron Hypoexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Purkinje Cell and Interneuron Hypoexcitability</div>
+
 
                 <div class="item-desc">Purkinje cells and cerebellar interneurons show increased thresholds for action potential initiation and decreased repetitive firing frequency. Note the direction: in the cerebellum SCN1B loss makes neurons LESS excitable, which is the opposite of what happens in the forebrain pyramidal populations.</div>
 
@@ -6161,6 +6262,7 @@ This pathophysiological event involves decreased membrane depolarization during 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6183,6 +6285,7 @@ This pathophysiological event involves decreased membrane depolarization during 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cerebellar-motor-output" data-dismech-node="Loss of Cerebellar Motor Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cerebellar Motor Output</div>
+
 
                 <div class="item-desc">Degraded cerebellar output manifests as ataxia. This is the motor consequence, separate from the seizure consequence of the same hypoexcitability.</div>
 
@@ -6275,6 +6378,7 @@ This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6297,6 +6401,7 @@ This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cerebellar-seizure-terminating-output" data-dismech-node="Loss of Cerebellar Seizure-Terminating Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cerebellar Seizure-Terminating Output</div>
+
 
                 <div class="item-desc">Cerebellar projections can act to terminate seizures. With Purkinje cells hypoexcitable, that brake is weakened, which is proposed to exacerbate seizure severity rather than to initiate seizures.</div>
 
@@ -6350,6 +6455,7 @@ This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6372,6 +6478,7 @@ This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-forebrain-pyramidal-neuron-firing" data-dismech-node="Increased Forebrain Pyramidal Neuron Firing" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Forebrain Pyramidal Neuron Firing</div>
+
 
                 <div class="item-desc">Subicular and layer 2/3 pyramidal neurons fire action potentials at increased rates in an Scn1b mutant mouse, attributable to increased input resistance rather than to a change in sodium current density. The effect is regionally restricted - layer 5 and CA1 pyramidal neurons are unchanged.</div>
 
@@ -6517,6 +6624,7 @@ This pathophysiological event involves increased membrane depolarization during 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6538,6 +6646,7 @@ This pathophysiological event involves increased membrane depolarization during 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6563,6 +6672,7 @@ This pathophysiological event involves increased membrane depolarization during 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-subicular-pyramidal-dendritic-arborization" data-dismech-node="Reduced Subicular Pyramidal Dendritic Arborization" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Subicular Pyramidal Dendritic Arborization</div>
+
 
                 <div class="item-desc">Subicular pyramidal neurons have reduced dendritic arbors in the Scn1b mutant. A smaller arbor raises input resistance, which is the mechanism proposed for the firing change, so this structural finding is upstream of the functional one rather than a restatement of it.</div>
 
@@ -6688,6 +6798,7 @@ This pathophysiological event involves decreased dendrite development (GO:001635
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6710,6 +6821,7 @@ This pathophysiological event involves decreased dendrite development (GO:001635
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regionally-restricted-network-hyperexcitability" data-dismech-node="Regionally Restricted Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Regionally Restricted Network Hyperexcitability</div>
+
 
                 <div class="item-desc">Spontaneous synaptic activity is increased in the subiculum but not in CA1, supporting a regional rather than global seizure mechanism. This is a circuit-level property distinct from the single-cell firing measurements that support it.</div>
 
@@ -6797,6 +6909,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6819,6 +6932,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperthermia-sensitized-seizure-threshold" data-dismech-node="Hyperthermia-Sensitized Seizure Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperthermia-Sensitized Seizure Threshold</div>
+
 
                 <div class="item-desc">Seizures are triggered by fever in patients and by induced hyperthermia in the mouse models. Temperature sensitivity is a distinct property of the substrate, not simply a consequence of how excitable it is at baseline.</div>
 
@@ -6872,6 +6986,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6893,6 +7008,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6918,6 +7034,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-refractory-multifocal-and-generalized-seizures" data-dismech-node="Refractory Multifocal and Generalized Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Refractory Multifocal and Generalized Seizures</div>
+
 
                 <div class="item-desc">Seizures begin in the first months of life as multifocal myoclonus and evolve to focal, myoclonic, and generalized tonic-clonic seizures with myoclonic status epilepticus, resistant to standard anti-seizure medication.</div>
 
@@ -6979,6 +7096,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7000,6 +7118,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7025,6 +7144,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-ionic-current-remodeling" data-dismech-node="Cardiomyocyte Ionic Current Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Ionic Current Remodeling</div>
+
 
                 <div class="item-desc">SCN1B is expressed in heart as well as brain. Cardiomyocytes carrying the DEE52 variant show increased transient outward potassium current in mouse, and increased sodium current, late sodium current, and transient outward potassium current in patient-derived iPSC cardiomyocytes. Increased transient outward current is the change common to both species.</div>
 
@@ -7187,6 +7307,7 @@ This pathophysiological event involves abnormal ventricular cardiac muscle cell 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7208,6 +7329,7 @@ This pathophysiological event involves abnormal ventricular cardiac muscle cell 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7233,6 +7355,7 @@ This pathophysiological event involves abnormal ventricular cardiac muscle cell 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-fibrosis" data-dismech-node="Ventricular Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Fibrosis</div>
+
 
                 <div class="item-desc">Heart sections from the DEE52 knock-in mouse reveal ventricular fibrosis - a structural substrate for arrhythmia that is separate from, and additional to, the ionic current changes.</div>
 
@@ -7320,6 +7443,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7342,6 +7466,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-arrhythmia-susceptibility" data-dismech-node="Cardiac Arrhythmia Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Arrhythmia Susceptibility</div>
+
 
                 <div class="item-desc">The combined electrical and structural substrates make the heart susceptible to arrhythmia, demonstrated by pacing-induced arrhythmias in the knock-in mouse.</div>
 
@@ -7395,6 +7520,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7417,6 +7543,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-risk-of-sudden-unexpected-death-in-epilepsy" data-dismech-node="Elevated Risk of Sudden Unexpected Death in Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Risk of Sudden Unexpected Death in Epilepsy</div>
+
 
                 <div class="item-desc">DEE52 carries a high risk of sudden unexpected death in epilepsy, with two proposed substrates converging here - the seizures and the cardiac arrhythmia susceptibility. Scn1b-null mice die of SUDEP before weaning.</div>
 
@@ -7455,6 +7582,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7476,6 +7604,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7501,6 +7630,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-stagnation-and-regression" data-dismech-node="Developmental Stagnation and Regression" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental Stagnation and Regression</div>
+
 
                 <div class="item-desc">Development arrests or regresses after seizure onset, with severe global delay, hypotonia, spasticity, and in the most affected virtually no developmental progress.</div>
 
@@ -7539,6 +7669,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7560,6 +7691,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7678,6 +7810,9 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7692,6 +7827,7 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7757,6 +7893,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7771,6 +7910,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7834,6 +7974,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7848,6 +7991,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7872,6 +8016,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7935,6 +8080,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7949,6 +8097,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8003,6 +8152,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8017,6 +8169,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8109,6 +8262,9 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset, up 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8123,6 +8279,7 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset, up 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8179,6 +8336,9 @@ This clinical feature is Generalized myoclonic seizure (HP:0002123). HP:0002123 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8193,6 +8353,7 @@ This clinical feature is Generalized myoclonic seizure (HP:0002123). HP:0002123 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8247,6 +8408,9 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8261,6 +8425,7 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8317,6 +8482,9 @@ This clinical feature is Febrile seizure (within the age range of 3 months to 6 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8331,6 +8499,7 @@ This clinical feature is Febrile seizure (within the age range of 3 months to 6 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8385,6 +8554,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8399,6 +8571,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8453,6 +8626,9 @@ This clinical feature is EEG with burst suppression (HP:0010851). HP:0010851 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8467,6 +8643,7 @@ This clinical feature is EEG with burst suppression (HP:0010851). HP:0010851 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8521,6 +8698,9 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8535,6 +8715,7 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8591,6 +8772,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8605,6 +8789,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8632,6 +8817,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8653,6 +8839,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8707,6 +8894,9 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8721,6 +8911,7 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8775,6 +8966,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8789,6 +8983,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8843,6 +9038,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8857,6 +9055,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8920,6 +9119,9 @@ This clinical feature is Sudden unexpected death in epilepsy (HP:0033258). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8934,6 +9136,7 @@ This clinical feature is Sudden unexpected death in epilepsy (HP:0033258). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9036,6 +9239,9 @@ This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9050,6 +9256,7 @@ This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9077,6 +9284,7 @@ This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9098,6 +9306,7 @@ This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9205,6 +9414,9 @@ This treatment uses fenfluramine (CHEBI:5000). CHEBI:5000 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9215,6 +9427,9 @@ This treatment uses fenfluramine (CHEBI:5000). CHEBI:5000 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9251,6 +9466,7 @@ This treatment uses fenfluramine (CHEBI:5000). CHEBI:5000 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9294,6 +9510,7 @@ This treatment uses fenfluramine (CHEBI:5000). CHEBI:5000 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9360,6 +9577,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9370,6 +9590,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -9406,6 +9629,7 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9449,6 +9673,7 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9537,6 +9762,9 @@ This treatment uses topiramate (CHEBI:63631). CHEBI:63631 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9547,6 +9775,9 @@ This treatment uses topiramate (CHEBI:63631). CHEBI:63631 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9583,6 +9814,7 @@ This treatment uses topiramate (CHEBI:63631). CHEBI:63631 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9626,6 +9858,7 @@ This treatment uses topiramate (CHEBI:63631). CHEBI:63631 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9692,6 +9925,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9702,6 +9938,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9732,6 +9971,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9753,6 +9993,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9819,6 +10060,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9829,6 +10073,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9856,6 +10103,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9966,6 +10214,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10053,6 +10302,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10077,6 +10327,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10098,6 +10349,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10188,6 +10440,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10259,6 +10512,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10412,6 +10666,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10451,6 +10706,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10604,6 +10860,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10643,6 +10900,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10697,6 +10955,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10834,6 +11093,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10873,6 +11133,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11010,6 +11271,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11049,6 +11311,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12887,6 +13150,19 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: SCN1B-Related Developmental and Epileptic Encephalopathy DEE52</strong> · 2026-08-19T14:31:22Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SCN1B-Related_Developmental_and_Epileptic_Encephalopathy/2026-08-19T143122Z-claude-code-f24a52.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for DEE52 MONDO:0033361, the SCN1B sodium-channel beta-1 subunit encephalopathy. Deep research via &#34;just research-disorder claude_code&#34;; NEC preflight PASS with SCN1B mentioned 50 times and report OMIM 617350 among the OMIM IDs matching the MONDO xref. No GeneReviews chapter exists for SCN1B-DEE52; a PubMed search returned PMID:20301690, which is the Brugada Syndrome chapter, so it was deliberately NOT cited as an SCN1B baseline. Pathophysiology de-bundled into 20 atomic nodes across four parallel arms that the literature keeps separate: a trafficking arm, a gating-modulation arm, a cell-adhesion arm, and a cardiac arm. The forebrain and cerebellar branches are modeled in opposite directions because that is what the evidence says - pyramidal neurons are hyperexcitable while cerebellar Purkinje cells and interneurons are hypoexcitable. Four discussions, the central one a CONTROVERSY recording that the Scn1b mouse shows no interneuron changes, explicitly in contrast with Scn1a-based Dravet models, which contradicts the assumption that SCN1B disease works through the SCN1A mechanism. Three animal models and one patient-derived iPSC cardiomyocyte model are wired into the pathograph with readouts and limitations. A diagnosis section and structured onset descriptors were included from the outset following reviewer feedback on the sibling SLC12A5 PR. Validated with just validate 72/72 snippets verified, just validate-terms passed, just check-duplicate-keys, and just check-title-snippets.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

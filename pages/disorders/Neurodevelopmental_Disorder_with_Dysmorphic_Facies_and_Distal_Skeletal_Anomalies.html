@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4138,6 +4206,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4162,6 +4231,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4183,6 +4253,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4778,6 +4849,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-zmiz1-variant" data-dismech-node="Heterozygous ZMIZ1 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous ZMIZ1 Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A single heterozygous variant in ZMIZ1 (10q22.3) is the initiating lesion. Reported alleles are overwhelmingly de novo and are distributed across the coding sequence but cluster in functionally defined regions: the N-terminal tetratricopeptide repeat (TPR) that mediates NOTCH1 binding, the central intrinsically disordered alanine-rich motif, the proline-rich domains, the SP-RING/MIZ zinc finger, and the C-terminal transactivation domain. Both missense substitutions and frameshifting truncations occur, and structural lesions (balanced translocations disrupting ZMIZ1 or its regulatory region) have also been reported. ZMIZ1 is strongly constrained against loss-of-function variation in population data, consistent with dosage sensitivity. Functional consequences documented so far are nonetheless heterogeneous: an alanine-rich in-frame deletion reduced mutant protein abundance, whereas a different alanine-rich missense allele increased ZMIZ1 expression and mislocalized the protein, so a simple haploinsufficiency model does not account for every allele. The latter measurement comes from transfected constructs in skeletal muscle and HEK293T cells rather than endogenous patient cells, so it more plausibly reports altered protein stability than patient-level upregulation.</div>
 
 
@@ -4871,6 +4949,7 @@ This pathophysiological event involves ZMIZ1 (hgnc:16493). hgnc:16493 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4892,6 +4971,7 @@ This pathophysiological event involves ZMIZ1 (hgnc:16493). hgnc:16493 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4919,6 +4999,7 @@ This pathophysiological event involves ZMIZ1 (hgnc:16493). hgnc:16493 is a gene 
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4943,6 +5024,13 @@ This pathophysiological event involves ZMIZ1 (hgnc:16493). hgnc:16493 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pias-family-coactivator-function" data-dismech-node="Impaired PIAS-Family Coactivator Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired PIAS-Family Coactivator Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">ZMIZ1 is a PIAS-family transcriptional coregulator built around a conserved MIZ (Msx-interacting zinc finger) SP-RING domain that confers SUMO E3 ligase activity, an N-terminal TPR that binds NOTCH1, and a C-terminal transactivation domain. It does not bind DNA on its own; it potentiates signal-dependent transcription factors — NOTCH1, the androgen receptor, p53, and SMAD3/4 — and works with the BAF (SWI/SNF) chromatin remodeling complex. Pathogenic variants degrade this coactivation function. The best-characterized readout is androgen receptor coactivation, which is measurably impaired in vitro by patient alleles; a newly described interaction with the general transcription factor GTF2I and dysregulation of TGF-beta1 pathway genes suggest the coregulator hub is broader than the four classical partners.</div>
 
@@ -5200,6 +5288,7 @@ This pathophysiological event involves SUMO E3 ligase activity, annotated with S
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5221,6 +5310,7 @@ This pathophysiological event involves SUMO E3 ligase activity, annotated with S
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5248,6 +5338,7 @@ This pathophysiological event involves SUMO E3 ligase activity, annotated with S
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5272,6 +5363,13 @@ This pathophysiological event involves SUMO E3 ligase activity, annotated with S
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-developmental-transcriptional-programs" data-dismech-node="Dysregulated Developmental Transcriptional Programs" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Developmental Transcriptional Programs</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">ZMIZ1 is most highly expressed during embryonic brain development in both mouse and human and is enriched in cortex, hippocampus, and cerebellum — the regions most implicated in intellectual disability and autism. Loss of ZMIZ1 function changes the transcriptional programs governing neurogenesis, neuronal differentiation, and synaptic signaling. In a forebrain-specific Zmiz1 knockout mouse, ZMIZ1 was shown by RNA-seq and ChIP-seq to regulate key neurodevelopmental effectors including Lhx2, Auts2, and EfnB2, and the ZMIZ1 interaction network is enriched for autism-associated genes. Because the same coactivator serves NOTCH1, AR, p53, and SMAD3/4 in non-neural tissue, the same lesion perturbs craniofacial, skeletal, cardiac, and genitourinary developmental programs, which is why the disorder is syndromic rather than purely neurological.</div>
 
@@ -5473,6 +5571,7 @@ This pathophysiological event involves decreased ephrin receptor signaling pathw
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5494,6 +5593,7 @@ This pathophysiological event involves decreased ephrin receptor signaling pathw
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5521,6 +5621,7 @@ This pathophysiological event involves decreased ephrin receptor signaling pathw
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5545,6 +5646,13 @@ This pathophysiological event involves decreased ephrin receptor signaling pathw
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cortical-neurogenesis-neuronal-differentiation-and-positioning" data-dismech-node="Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The cellular consequence in the developing cortex, comprising reduced progenitor output, impaired neuronal differentiation and dendritic outgrowth, and abnormal neuronal positioning. The two mouse paradigms disagree on the positioning component and that disagreement is curated explicitly rather than smoothed over. In utero electroporation of patient ZMIZ1 mutant alleles into cortical progenitors produced abnormal pyramidal neuron morphology, polarization, and positioning, with mispositioned neurons accumulating in the ventricular, subventricular, and intermediate zones and depleted from the upper cortical plate. The complementary forebrain-specific Zmiz1 knockout reproduced cortical microcephaly, corpus callosum dysgenesis, and abnormal differentiation of upper-layer neurons, but its BrdU birthdating showed the surviving neurons were correctly positioned, so in that model microcephaly arises from reduced progenitor proliferation and neurogenesis rather than from a migration defect. The likeliest reconciliation is that the positioning phenotype is specific to the overexpression paradigm (see the neddfsa_allele_mechanism_direction discussion); note, however, that the human data independently support a positioning abnormality — cortical heterotopias were found at autopsy in one adult and on MRI in a majority of imaged patients. The dendritic outgrowth deficit in the knockout is rescued by reactivating the ephrin-B2 pathway, identifying a specific and in principle tractable effector arm; transcriptomically the same model disrupts synaptic-signaling gene programs.</div>
 
@@ -5944,6 +6052,7 @@ This pathophysiological event involves abnormal synaptic signaling (GO:0099536).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5965,6 +6074,7 @@ This pathophysiological event involves abnormal synaptic signaling (GO:0099536).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5992,6 +6102,7 @@ This pathophysiological event involves abnormal synaptic signaling (GO:0099536).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6016,6 +6127,13 @@ This pathophysiological event involves abnormal synaptic signaling (GO:0099536).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-craniofacial-and-distal-skeletal-patterning" data-dismech-node="Disrupted Craniofacial and Distal Skeletal Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Craniofacial and Distal Skeletal Patterning</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The non-neural developmental arm that gives the syndrome its name. ZMIZ1 is expressed broadly in embryonic tissues beyond brain — including limb-forming mesoderm, heart, and kidney — and coactivates NOTCH1 and SMAD3/4, both central to craniofacial and appendicular skeletal morphogenesis. The clinical result is a recognizable dysmorphic facial pattern together with distal skeletal anomalies of the hands and feet, joint hypermobility, and hip dysplasia; prenatally the same program failure can present as short femur with intrauterine growth restriction. The specific ZMIZ1 target genes responsible have not been identified, and no skeletal-tissue model of the disorder exists, so this node is provisional relative to the well-worked cortical arm. The one direct functional study in a non-neural cell type (human skeletal muscle cells) showed a patient allele altering proliferation and migration and dysregulating TGF-beta1 pathway genes, which is suggestive but is muscle rather than cartilage or bone.</div>
 
@@ -6175,6 +6293,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6196,6 +6315,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6225,6 +6345,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6247,6 +6368,13 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-syndromic-multisystem-malformation" data-dismech-node="Syndromic Multisystem Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Syndromic Multisystem Malformation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The organism-level structural output that makes this disorder syndromic rather than a pure neurodevelopmental disorder: the recognizable dysmorphic facial pattern, distal skeletal anomalies of the hands and feet, joint hypermobility or contracture, and the minority cardiac and genitourinary malformations. Prenatally the same failure can present as microcephaly with short femur and intrauterine growth restriction. Because no lineage-specific model exists, this node inherits the PROVISIONAL standing of its upstream patterning node.</div>
 
@@ -6404,6 +6532,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6425,6 +6554,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6450,6 +6580,13 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-neurodevelopmental-impairment" data-dismech-node="Global Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Neurodevelopmental Impairment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The organism-level neurodevelopmental output: early hypotonia and feeding difficulty, then delayed motor milestones, poor language acquisition, intellectual disability of highly variable severity, and behavioral abnormalities including autism and ADHD. Severity is not predictable from the variant. A domain-resolved re-analysis of 36 published individuals found that alanine-rich-domain variants associate preferentially with intellectual disability and motor delay while TPR and proline-rich-domain variants associate more with autism plus intellectual disability, but a prenatally-ascertained series explicitly found no clear genotype-phenotype correlation, and the intrafamilial variability in the one multigenerational family shows that genotype alone does not fix outcome.</div>
 
@@ -6567,6 +6704,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6591,6 +6729,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6612,6 +6751,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6660,7 +6800,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Corpus Callosum Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural abnormality of the corpus callosum, present in 21% of MRI-examined individuals in the domain-resolved subseries. This is one of the best cross-species-corroborated findings in the disorder: corpus callosum dysgenesis is independently reproduced in the forebrain-specific Zmiz1 knockout mouse.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001273\"}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced vision not correctable by refraction, reported in 16 percent of published cases and often accompanying the ptosis and strabismus.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000646\"}}, {\"id\": \"Attention Deficit Hyperactivity Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADHD is reported among ZMIZ1-associated neurodevelopmental diagnoses, but in the domain-resolved subseries it was present in fewer than 30 percent of individuals and showed no domain association.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Autism Spectrum Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism is a recurrent ZMIZ1-associated outcome and is preferentially associated with variants in the TPR, SPRING/MIZ, and proline-rich domains rather than the alanine-rich domain. The forebrain-specific Zmiz1 knockout mouse independently reproduces autism-like communication and social-interaction phenotypes.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"Behavioral Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral problems are part of the core description of the syndrome and were among the primary phenotypic features listed when the disorder was first delineated. No published series quantifies \\\"behavioral issues\\\" as a single aggregate, so no frequency band is asserted here; the quantified behavioral sub-phenotypes (autism, ADHD) carry their own entries and bands.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"Blepharophimosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowed horizontal palpebral fissure width, reported with congenital bilateral ptosis and floppy eyelids as a newly described ocular feature of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000581\"}}, {\"id\": \"Congenital Heart Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural cardiac defects occur in a minority of individuals and were reported both in an infant with an alanine-rich in-frame deletion and in an adult with an alanine-rich missense variant. Both sources are single case reports with no denominator, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testis, documented in a male patient with a de novo ZMIZ1 alanine-rich-region variant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor language acquisition is one of the most consistent features. Speech delay was reported in a majority of individuals in every ZMIZ1 protein domain group in the domain-resolved re-analysis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Disrupted Craniofacial and Distal Skeletal Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The non-neural developmental arm that gives the syndrome its name. ZMIZ1 is expressed broadly in embryonic tissues beyond brain \\u2014 including limb-forming mesoderm, heart, and kidney \\u2014 and coactivates NOTCH1 and SMAD3/4, both central to craniofacial and appendicular skeletal morphogenesis. The clinical result is a recognizable dysmorphic facial pattern together with distal skeletal anomalies of the hands and feet, joint hypermobility, and hip dysplasia; prenatally the same program failure can present as short femur with intrauterine growth restriction. The specific ZMIZ1 target genes responsible have not been identified, and no skeletal-tissue model of the disorder exists, so this node is provisional relative to the well-worked cortical arm. The one direct functional study in a non-neural cell type (human skeletal muscle cells) showed a patient allele altering proliferation and migration and dysregulating TGF-beta1 pathway genes, which is suggestive but is muscle rather than cartilage or bone.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"skeletal muscle cell\"], \"biological_processes\": [\"skeletal system development\", \"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Distal Skeletal Anomalies of the Hands and Feet\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal anomalies of the hands and feet are the second feature named in the disorder label and one of its defining characteristics. Reported elements include hallux valgus and, prenatally, short femur; across the wider series the pattern is described as cranio-limb skeletal dysplasia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011297\"}}, {\"id\": \"Downslanted Palpebral Fissures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Downward slant of the palpebral fissures, described as part of the periocular dysmorphic pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000494\"}}, {\"id\": \"Dysregulated Developmental Transcriptional Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZMIZ1 is most highly expressed during embryonic brain development in both mouse and human and is enriched in cortex, hippocampus, and cerebellum \\u2014 the regions most implicated in intellectual disability and autism. Loss of ZMIZ1 function changes the transcriptional programs governing neurogenesis, neuronal differentiation, and synaptic signaling. In a forebrain-specific Zmiz1 knockout mouse, ZMIZ1 was shown by RNA-seq and ChIP-seq to regulate key neurodevelopmental effectors including Lhx2, Auts2, and EfnB2, and the ZMIZ1 interaction network is enriched for autism-associated genes. Because the same coactivator serves NOTCH1, AR, p53, and SMAD3/4 in non-neural tissue, the same lesion perturbs craniofacial, skeletal, cardiac, and genitourinary developmental programs, which is why the disorder is syndromic rather than purely neurological.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"neurogenesis\", \"skeletal system development\", \"ephrin receptor signaling pathway\"]}}, {\"id\": \"Facial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A dysmorphic facial pattern is one of the two features named in the disorder label. Reported elements across the series include downslanted palpebral fissures, telecanthus, ptosis and blepharophimosis, and floppy eyelids. No single pathognomonic gestalt has been established, and morphological alterations of the brain and cranium show no association with any particular ZMIZ1 protein domain.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor overall growth with failure to thrive from early infancy, closely tied to the feeding difficulties and hypotonia. Both cited sources name it as a core feature but neither quantifies it, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor feeding from early infancy, one of the earliest presenting features and a contributor to the growth failure. Named as a core feature by the delineating cohort but not quantified there, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Genitourinary Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anomalies of the genitourinary system, first reported as a novel feature in a 6-month-old infant and independently documented in an adult woman. Cryptorchidism has been reported separately in a male patient. Both sources are single case reports with no denominator, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000119\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay across motor, language, and cognitive domains, present in essentially all reported individuals and usually the presenting concern after the infantile feeding and tone problems.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Global Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level neurodevelopmental output: early hypotonia and feeding difficulty, then delayed motor milestones, poor language acquisition, intellectual disability of highly variable severity, and behavioral abnormalities including autism and ADHD. Severity is not predictable from the variant. A domain-resolved re-analysis of 36 published individuals found that alanine-rich-domain variants associate preferentially with intellectual disability and motor delay while TPR and proline-rich-domain variants associate more with autism plus intellectual disability, but a prenatally-ascertained series explicitly found no clear genotype-phenotype correlation, and the intrafamilial variability in the one multigenerational family shows that genotype alone does not fix outcome.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Gray Matter Heterotopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heterotopic gray matter in the cortical white matter and in periventricular locations \\u2014 the human anatomical counterpart of the neuronal positioning defect seen in the overexpression model. It is not a curiosity of one case: cortical abnormalities including heterotopias were present in 57% of MRI-examined individuals in the domain-resolved subseries, and cerebral cortical neuronal heterotopias were confirmed at autopsy in a 52-year-old woman with a de novo ZMIZ1 variant.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002282\"}}, {\"id\": \"Hallux Valgus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral deviation of the great toe, one of the specific distal foot anomalies documented in this syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001822\"}}, {\"id\": \"Heterozygous ZMIZ1 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A single heterozygous variant in ZMIZ1 (10q22.3) is the initiating lesion. Reported alleles are overwhelmingly de novo and are distributed across the coding sequence but cluster in functionally defined regions: the N-terminal tetratricopeptide repeat (TPR) that mediates NOTCH1 binding, the central intrinsically disordered alanine-rich motif, the proline-rich domains, the SP-RING/MIZ zinc finger, and the C-terminal transactivation domain. Both missense substitutions and frameshifting truncations occur, and structural lesions (balanced translocations disrupting ZMIZ1 or its regulatory region) have also been reported. ZMIZ1 is strongly constrained against loss-of-function variation in population data, consistent with dosage sensitivity. Functional consequences documented so far are nonetheless heterogeneous: an alanine-rich in-frame deletion reduced mutant protein abundance, whereas a different alanine-rich missense allele increased ZMIZ1 expression and mislocalized the protein, so a simple haploinsufficiency model does not account for every allele. The latter measurement comes from transfected constructs in skeletal muscle and HEK293T cells rather than endogenous patient cells, so it more plausibly reports altered protein stability than patient-level upregulation.\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}]}}, {\"id\": \"Hip Dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental dysplasia of the hip, bilateral in the reported Chinese proband and detected in infancy through asymmetric skin creases of the lower limbs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001385\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset, often neonatal or early-infantile hypotonia. Together with poor feeding and poor growth it is typically the first manifestation, preceding the recognition of developmental delay.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular consequence in the developing cortex, comprising reduced progenitor output, impaired neuronal differentiation and dendritic outgrowth, and abnormal neuronal positioning. The two mouse paradigms disagree on the positioning component and that disagreement is curated explicitly rather than smoothed over. In utero electroporation of patient ZMIZ1 mutant alleles into cortical progenitors produced abnormal pyramidal neuron morphology, polarization, and positioning, with mispositioned neurons accumulating in the ventricular, subventricular, and intermediate zones and depleted from the upper cortical plate. The complementary forebrain-specific Zmiz1 knockout reproduced cortical microcephaly, corpus callosum dysgenesis, and abnormal differentiation of upper-layer neurons, but its BrdU birthdating showed the surviving neurons were correctly positioned, so in that model microcephaly arises from reduced progenitor proliferation and neurogenesis rather than from a migration defect. The likeliest reconciliation is that the positioning phenotype is specific to the overexpression paradigm (see the neddfsa_allele_mechanism_direction discussion); note, however, that the human data independently support a positioning abnormality \\u2014 cortical heterotopias were found at autopsy in one adult and on MRI in a majority of imaged patients. The dendritic outgrowth deficit in the knockout is rescued by reactivating the ephrin-B2 pathway, identifying a specific and in principle tractable effector arm; transcriptomically the same model disrupts synaptic-signaling gene programs.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"cortical pyramidal (projection) neuron\", \"cortical neural progenitor cell\"], \"biological_processes\": [\"regulation of neurogenesis\", \"neuron migration\", \"neuron differentiation\", \"dendrite development\", \"cerebral cortex development\", \"corpus callosum development\", \"synaptic signaling\"]}}, {\"id\": \"Impaired PIAS-Family Coactivator Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZMIZ1 is a PIAS-family transcriptional coregulator built around a conserved MIZ (Msx-interacting zinc finger) SP-RING domain that confers SUMO E3 ligase activity, an N-terminal TPR that binds NOTCH1, and a C-terminal transactivation domain. It does not bind DNA on its own; it potentiates signal-dependent transcription factors \\u2014 NOTCH1, the androgen receptor, p53, and SMAD3/4 \\u2014 and works with the BAF (SWI/SNF) chromatin remodeling complex. Pathogenic variants degrade this coactivation function. The best-characterized readout is androgen receptor coactivation, which is measurably impaired in vitro by patient alleles; a newly described interaction with the general transcription factor GTF2I and dysregulation of TGF-beta1 pathway genes suggest the coregulator hub is broader than the four classical partners.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"Notch signaling pathway\", \"androgen receptor signaling pathway\", \"protein sumoylation\", \"chromatin remodeling\"], \"molecular_functions\": [\"transcription coactivator activity\", \"SUMO E3 ligase activity\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment of highly variable severity, ranging from severe impairment to low-average or normal IQ. Variability is present even within a single family carrying the same allele, and one woman with a de novo alanine-rich-region variant had only low-average IQ and lived to 52.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intrauterine Growth Restriction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prenatal growth restriction, detected at 30 weeks of gestation together with microcephaly and short femur in a fetus with a de novo ZMIZ1 frameshift variant. This is the earliest documented manifestation of the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001511\"}}, {\"id\": \"Joint Contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fixed limitation of joint movement. Joint involvement in this disorder runs in both directions: the syndrome description explicitly pairs hypermobility with contracture, and an 11-month-old proband presented with bilateral hand contractures together with congenital vertical talus and bilateral auricular deformity.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0034392\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased joint laxity, named among the common phenotypes characterizing the entity, and documented in individual cases alongside hip dysplasia. Note that joint involvement in NEDDFSA is bidirectional \\u2014 the syndrome description pairs hypermobility with contracture, which is curated separately.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced head circumference, present from the founding cohort onward and detectable prenatally in at least one fetus. It was the most common morphological abnormality in the domain-resolved subseries, at 64% of imaged individuals. Cortical microcephaly is reproduced in the forebrain-specific Zmiz1 knockout mouse, making this one of the best cross-species-validated features.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed acquisition of motor milestones, typically described as mild. Reported in about 70 percent of individuals with alanine-rich-domain variants, and less often with variants in other domains.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"NM_020338.4:c.1310delC (p.Pro437ArgfsX84)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshifting single-base deletion in a proline-rich region, the first ZMIZ1 allele shown to be transmitted vertically \\u2014 carried by an affected father and both of his affected sons.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_020338.4:c.2330G\u003eA (p.Gly777Glu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense substitution in exon 20 affecting the SP-RING/MIZ zinc finger domain, predicted to disturb the domain\u0027s spatial conformation and hence partner binding and SUMO E3 ligase function.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_020338.4:c.2633dup (p.Gly879ArgfsTer22)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo frameshifting duplication in the C-terminal transactivation region, identified prenatally by whole-exome sequencing on amniotic fluid in a fetus with microcephaly, short femur, and intrauterine growth restriction.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_020338.4:c.858_875del (p.Val288_Ala293del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"In-frame six-codon deletion altering the alanine-rich domain; reduces mutant ZMIZ1 protein abundance in cell-based assays.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_020338.4:c.910G\u003eC (p.Ala304Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense substitution in the alanine-rich region. Unusually among reported alleles it raises rather than lowers ZMIZ1 mRNA and protein levels and mislocalizes the protein, arguing against a uniform haploinsufficiency mechanism. The measurement was made on transfected constructs in human skeletal muscle cells and HEK293T cells, not endogenous patient cells, so it is better read as altered protein stability than as patient-level upregulation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Drooping of the upper eyelid is the single most common ophthalmic finding in this disorder, reported in 35 percent of published cases. It may be congenital and bilateral, and its severity varies between members of the same family carrying the same allele.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures were listed among the primary features when the syndrome was first described but occur in a minority; in the domain-resolved subseries they were present in fewer than 30 percent of individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced height, documented in all three affected members of the multigenerational family carrying c.1310delC and consistent with the general growth failure of the syndrome. A denominator of three affected relatives sharing one allele cannot support a population frequency band, so none is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal sleep, reported in 14% of the domain-resolved subseries with no association to any particular ZMIZ1 protein domain.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular misalignment, reported in 12 percent of published cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Syndromic Multisystem Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level structural output that makes this disorder syndromic rather than a pure neurodevelopmental disorder: the recognizable dysmorphic facial pattern, distal skeletal anomalies of the hands and feet, joint hypermobility or contracture, and the minority cardiac and genitourinary malformations. Prenatally the same failure can present as microcephaly with short femur and intrauterine growth restriction. Because no lineage-specific model exists, this node inherits the PROVISIONAL standing of its upstream patterning node.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Telecanthus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased distance between the inner canthi, part of the periocular dysmorphic pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000506\"}}, {\"id\": \"ZMIZ1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"association\": \"Heterozygous ZMIZ1 variants are the sole established cause of NEDDFSA. The gene lies at 10q22.3, spans 21 exons, and encodes a 1067-amino-acid PIAS-family transcriptional coactivator. Most pathogenic alleles arise de novo; germline transmission from a mildly affected parent is documented. ZMIZ1 is highly constrained against loss of function in population data (observed/expected 0.13).\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}], \"edges\": [{\"source\": \"Heterozygous ZMIZ1 Variant\", \"target\": \"Impaired PIAS-Family Coactivator Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variants in the domains that mediate partner binding, SUMO E3 ligase activity, and transactivation directly degrade ZMIZ1 coregulator function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired PIAS-Family Coactivator Function\", \"target\": \"Dysregulated Developmental Transcriptional Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of coactivator potency at NOTCH1, AR, p53, and SMAD3/4 target promoters changes the output of the transcriptional programs those pathways drive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Transcriptional Programs\", \"target\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neural arm of the transcriptional dysregulation, expressed in cortical progenitors and their projection-neuron progeny.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Transcriptional Programs\", \"target\": \"Disrupted Craniofacial and Distal Skeletal Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The non-neural arm. ZMIZ1 is broadly expressed in embryonic tissues and partners with SMAD3/4 and NOTCH1, both central to skeletal and craniofacial morphogenesis, but the specific target genes that produce the human facial and distal limb phenotype have not been identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Miswired and mispositioned cortical circuitry is the substrate of the cognitive, language, motor, and behavioral phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced progenitor proliferation and neurogenesis lower total cortical neuron output, producing the reduced head circumference. This is the best cross-species-validated link in the disorder: the forebrain-specific knockout reproduces cortical microcephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Abnormal Corpus Callosum Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal projection neurons whose differentiation is disrupted by ZMIZ1 loss form the corpus callosum; their failure is expressed as callosal dysgenesis, reproduced in the forebrain-specific knockout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Gray Matter Heterotopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons retained in the ventricular, subventricular, and intermediate zones instead of reaching the cortical plate are the substrate of the heterotopic gray matter seen on MRI and confirmed at autopsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inferred, not disease-specific: malformations of cortical development, including heterotopic gray matter, are recognized epileptogenic substrates in general neurology, and heterotopias are present in a majority of imaged individuals. No NEDDFSA-specific study localizes the seizure focus, so the intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A published hypothesis, not an established mechanism: corticothalamic neurons are affected by Zmiz1 loss in mouse and regulate sleep cortical activity, so patient sleep abnormalities may reflect corticothalamic dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Craniofacial and Distal Skeletal Patterning\", \"target\": \"Syndromic Multisystem Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted craniofacial and appendicular patterning is expressed at the level of the whole organism as the recognizable dysmorphic and skeletal syndrome, alongside the cardiac and genitourinary malformations that share the same coactivator-dependent developmental programs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Facial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the recognizable dysmorphic facial pattern is the craniofacial expression of the malformation complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Downslanted Palpebral Fissures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: element of the periocular dysmorphic pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Telecanthus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: element of the periocular dysmorphic pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: congenital, often bilateral eyelid ptosis belongs to the periocular malformation complex together with blepharophimosis and telecanthus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Blepharophimosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: narrowed palpebral fissures, part of the periocular malformation complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Distal Skeletal Anomalies of the Hands and Feet\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the appendicular expression of the malformation complex and the second feature named in the disorder label.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Hallux Valgus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: a specific distal foot anomaly within the appendicular malformation pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: joint laxity is named among the common phenotypes of the malformation complex; joint involvement runs in both directions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Joint Contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the contracture direction of the bidirectional joint involvement, documented as bilateral hand contractures with congenital vertical talus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Hip Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: developmental dysplasia of the hip within the skeletal malformation pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Congenital Heart Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the minority cardiac malformations that share the same coactivator-dependent developmental programs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Genitourinary Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the minority genitourinary malformations collected by this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: a specific genitourinary anomaly documented in a male patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Intrauterine Growth Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prenatal presentation of the same developmental program failure, documented once as microcephaly, short femur, and growth restriction at 30 weeks of gestation; the fetal growth intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: delay across motor, language, and cognitive domains is the defining expression of the neurodevelopmental impairment this node collects.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the cognitive arm of the impairment, of highly variable severity as documented on this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: poor language acquisition is among the most consistent expressions of the impairment across all variant domains.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: delayed motor milestones are the motor arm of the impairment, compounded by the early hypotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: early-onset central hypotonia is typically the first postnatal expression of the neurodevelopmental impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Behavioral Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: behavioral problems are part of the core description of the syndrome\u0027s neurodevelopmental output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Autism Spectrum Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: autism is a recurrent expression of the impairment, preferentially with TPR and proline-rich-domain variants, and is independently reproduced as autism-like behavior in the knockout mouse.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: ADHD is among the ZMIZ1-associated neurodevelopmental diagnoses collected by this node, in a minority of individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early oromotor dysfunction and hypotonia impair feeding from infancy; poor feeding is named with hypotonia as the earliest expression of the impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Thrive\", \"target\": \"Short Stature\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Sustained poor overall growth from infancy is expressed longitudinally as reduced height, documented in all three affected members of the multigenerational family.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Feeding Difficulties\", \"target\": \"Failure to Thrive\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Poor oral intake from early infancy is the documented proximate contributor to the postnatal growth failure; an intrinsic growth component cannot be excluded, since growth restriction has been observed prenatally before any feeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ptosis\", \"target\": \"Amblyopia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Standard ophthalmic mechanism rather than a disease-specific finding: congenital ptosis occluding or degrading the visual axis causes stimulus-deprivation amblyopia, and amblyopia is reported in this disorder alongside its leading eye finding, ptosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Strabismus\", \"target\": \"Amblyopia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Standard ophthalmic mechanism rather than a disease-specific finding: cortical suppression of the deviating eye in childhood strabismus causes strabismic amblyopia; the ophthalmology review reports the two findings together in this disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ZMIZ1\", \"target\": \"Heterozygous ZMIZ1 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_020338.4:c.1310delC (p.Pro437ArgfsX84)\", \"target\": \"ZMIZ1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_020338.4:c.2330G\u003eA (p.Gly777Glu)\", \"target\": \"ZMIZ1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_020338.4:c.858_875del (p.Val288_Ala293del)\", \"target\": \"ZMIZ1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_020338.4:c.2633dup (p.Gly879ArgfsTer22)\", \"target\": \"ZMIZ1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_020338.4:c.910G\u003eC (p.Ala304Pro)\", \"target\": \"ZMIZ1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Corpus Callosum Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural abnormality of the corpus callosum, present in 21% of MRI-examined individuals in the domain-resolved subseries. This is one of the best cross-species-corroborated findings in the disorder: corpus callosum dysgenesis is independently reproduced in the forebrain-specific Zmiz1 knockout mouse.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001273\"}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced vision not correctable by refraction, reported in 16 percent of published cases and often accompanying the ptosis and strabismus.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000646\"}}, {\"id\": \"Attention Deficit Hyperactivity Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADHD is reported among ZMIZ1-associated neurodevelopmental diagnoses, but in the domain-resolved subseries it was present in fewer than 30 percent of individuals and showed no domain association.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Autism Spectrum Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism is a recurrent ZMIZ1-associated outcome and is preferentially associated with variants in the TPR, SPRING/MIZ, and proline-rich domains rather than the alanine-rich domain. The forebrain-specific Zmiz1 knockout mouse independently reproduces autism-like communication and social-interaction phenotypes.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"Behavioral Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral problems are part of the core description of the syndrome and were among the primary phenotypic features listed when the disorder was first delineated. No published series quantifies \\\"behavioral issues\\\" as a single aggregate, so no frequency band is asserted here; the quantified behavioral sub-phenotypes (autism, ADHD) carry their own entries and bands.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"Blepharophimosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowed horizontal palpebral fissure width, reported with congenital bilateral ptosis and floppy eyelids as a newly described ocular feature of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000581\"}}, {\"id\": \"Congenital Heart Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural cardiac defects occur in a minority of individuals and were reported both in an infant with an alanine-rich in-frame deletion and in an adult with an alanine-rich missense variant. Both sources are single case reports with no denominator, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testis, documented in a male patient with a de novo ZMIZ1 alanine-rich-region variant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor language acquisition is one of the most consistent features. Speech delay was reported in a majority of individuals in every ZMIZ1 protein domain group in the domain-resolved re-analysis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Disrupted Craniofacial and Distal Skeletal Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The non-neural developmental arm that gives the syndrome its name. ZMIZ1 is expressed broadly in embryonic tissues beyond brain \\u2014 including limb-forming mesoderm, heart, and kidney \\u2014 and coactivates NOTCH1 and SMAD3/4, both central to craniofacial and appendicular skeletal morphogenesis. The clinical result is a recognizable dysmorphic facial pattern together with distal skeletal anomalies of the hands and feet, joint hypermobility, and hip dysplasia; prenatally the same program failure can present as short femur with intrauterine growth restriction. The specific ZMIZ1 target genes responsible have not been identified, and no skeletal-tissue model of the disorder exists, so this node is provisional relative to the well-worked cortical arm. The one direct functional study in a non-neural cell type (human skeletal muscle cells) showed a patient allele altering proliferation and migration and dysregulating TGF-beta1 pathway genes, which is suggestive but is muscle rather than cartilage or bone.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"skeletal muscle cell\"], \"biological_processes\": [\"skeletal system development\", \"transforming growth factor beta receptor signaling pathway\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Distal Skeletal Anomalies of the Hands and Feet\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal anomalies of the hands and feet are the second feature named in the disorder label and one of its defining characteristics. Reported elements include hallux valgus and, prenatally, short femur; across the wider series the pattern is described as cranio-limb skeletal dysplasia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011297\"}}, {\"id\": \"Downslanted Palpebral Fissures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Downward slant of the palpebral fissures, described as part of the periocular dysmorphic pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000494\"}}, {\"id\": \"Dysregulated Developmental Transcriptional Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZMIZ1 is most highly expressed during embryonic brain development in both mouse and human and is enriched in cortex, hippocampus, and cerebellum \\u2014 the regions most implicated in intellectual disability and autism. Loss of ZMIZ1 function changes the transcriptional programs governing neurogenesis, neuronal differentiation, and synaptic signaling. In a forebrain-specific Zmiz1 knockout mouse, ZMIZ1 was shown by RNA-seq and ChIP-seq to regulate key neurodevelopmental effectors including Lhx2, Auts2, and EfnB2, and the ZMIZ1 interaction network is enriched for autism-associated genes. Because the same coactivator serves NOTCH1, AR, p53, and SMAD3/4 in non-neural tissue, the same lesion perturbs craniofacial, skeletal, cardiac, and genitourinary developmental programs, which is why the disorder is syndromic rather than purely neurological.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"neurogenesis\", \"skeletal system development\", \"ephrin receptor signaling pathway\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Facial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A dysmorphic facial pattern is one of the two features named in the disorder label. Reported elements across the series include downslanted palpebral fissures, telecanthus, ptosis and blepharophimosis, and floppy eyelids. No single pathognomonic gestalt has been established, and morphological alterations of the brain and cranium show no association with any particular ZMIZ1 protein domain.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor overall growth with failure to thrive from early infancy, closely tied to the feeding difficulties and hypotonia. Both cited sources name it as a core feature but neither quantifies it, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor feeding from early infancy, one of the earliest presenting features and a contributor to the growth failure. Named as a core feature by the delineating cohort but not quantified there, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Genitourinary Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anomalies of the genitourinary system, first reported as a novel feature in a 6-month-old infant and independently documented in an adult woman. Cryptorchidism has been reported separately in a male patient. Both sources are single case reports with no denominator, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000119\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay across motor, language, and cognitive domains, present in essentially all reported individuals and usually the presenting concern after the infantile feeding and tone problems.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Global Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level neurodevelopmental output: early hypotonia and feeding difficulty, then delayed motor milestones, poor language acquisition, intellectual disability of highly variable severity, and behavioral abnormalities including autism and ADHD. Severity is not predictable from the variant. A domain-resolved re-analysis of 36 published individuals found that alanine-rich-domain variants associate preferentially with intellectual disability and motor delay while TPR and proline-rich-domain variants associate more with autism plus intellectual disability, but a prenatally-ascertained series explicitly found no clear genotype-phenotype correlation, and the intrafamilial variability in the one multigenerational family shows that genotype alone does not fix outcome.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Gray Matter Heterotopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heterotopic gray matter in the cortical white matter and in periventricular locations \\u2014 the human anatomical counterpart of the neuronal positioning defect seen in the overexpression model. It is not a curiosity of one case: cortical abnormalities including heterotopias were present in 57% of MRI-examined individuals in the domain-resolved subseries, and cerebral cortical neuronal heterotopias were confirmed at autopsy in a 52-year-old woman with a de novo ZMIZ1 variant.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002282\"}}, {\"id\": \"Hallux Valgus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral deviation of the great toe, one of the specific distal foot anomalies documented in this syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001822\"}}, {\"id\": \"Heterozygous ZMIZ1 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A single heterozygous variant in ZMIZ1 (10q22.3) is the initiating lesion. Reported alleles are overwhelmingly de novo and are distributed across the coding sequence but cluster in functionally defined regions: the N-terminal tetratricopeptide repeat (TPR) that mediates NOTCH1 binding, the central intrinsically disordered alanine-rich motif, the proline-rich domains, the SP-RING/MIZ zinc finger, and the C-terminal transactivation domain. Both missense substitutions and frameshifting truncations occur, and structural lesions (balanced translocations disrupting ZMIZ1 or its regulatory region) have also been reported. ZMIZ1 is strongly constrained against loss-of-function variation in population data, consistent with dosage sensitivity. Functional consequences documented so far are nonetheless heterogeneous: an alanine-rich in-frame deletion reduced mutant protein abundance, whereas a different alanine-rich missense allele increased ZMIZ1 expression and mislocalized the protein, so a simple haploinsufficiency model does not account for every allele. The latter measurement comes from transfected constructs in skeletal muscle and HEK293T cells rather than endogenous patient cells, so it more plausibly reports altered protein stability than patient-level upregulation.\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hip Dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental dysplasia of the hip, bilateral in the reported Chinese proband and detected in infancy through asymmetric skin creases of the lower limbs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001385\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset, often neonatal or early-infantile hypotonia. Together with poor feeding and poor growth it is typically the first manifestation, preceding the recognition of developmental delay.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular consequence in the developing cortex, comprising reduced progenitor output, impaired neuronal differentiation and dendritic outgrowth, and abnormal neuronal positioning. The two mouse paradigms disagree on the positioning component and that disagreement is curated explicitly rather than smoothed over. In utero electroporation of patient ZMIZ1 mutant alleles into cortical progenitors produced abnormal pyramidal neuron morphology, polarization, and positioning, with mispositioned neurons accumulating in the ventricular, subventricular, and intermediate zones and depleted from the upper cortical plate. The complementary forebrain-specific Zmiz1 knockout reproduced cortical microcephaly, corpus callosum dysgenesis, and abnormal differentiation of upper-layer neurons, but its BrdU birthdating showed the surviving neurons were correctly positioned, so in that model microcephaly arises from reduced progenitor proliferation and neurogenesis rather than from a migration defect. The likeliest reconciliation is that the positioning phenotype is specific to the overexpression paradigm (see the neddfsa_allele_mechanism_direction discussion); note, however, that the human data independently support a positioning abnormality \\u2014 cortical heterotopias were found at autopsy in one adult and on MRI in a majority of imaged patients. The dendritic outgrowth deficit in the knockout is rescued by reactivating the ephrin-B2 pathway, identifying a specific and in principle tractable effector arm; transcriptomically the same model disrupts synaptic-signaling gene programs.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"cortical pyramidal (projection) neuron\", \"cortical neural progenitor cell\"], \"biological_processes\": [\"regulation of neurogenesis\", \"neuron migration\", \"neuron differentiation\", \"dendrite development\", \"cerebral cortex development\", \"corpus callosum development\", \"synaptic signaling\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired PIAS-Family Coactivator Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZMIZ1 is a PIAS-family transcriptional coregulator built around a conserved MIZ (Msx-interacting zinc finger) SP-RING domain that confers SUMO E3 ligase activity, an N-terminal TPR that binds NOTCH1, and a C-terminal transactivation domain. It does not bind DNA on its own; it potentiates signal-dependent transcription factors \\u2014 NOTCH1, the androgen receptor, p53, and SMAD3/4 \\u2014 and works with the BAF (SWI/SNF) chromatin remodeling complex. Pathogenic variants degrade this coactivation function. The best-characterized readout is androgen receptor coactivation, which is measurably impaired in vitro by patient alleles; a newly described interaction with the general transcription factor GTF2I and dysregulation of TGF-beta1 pathway genes suggest the coregulator hub is broader than the four classical partners.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"Notch signaling pathway\", \"androgen receptor signaling pathway\", \"protein sumoylation\", \"chromatin remodeling\"], \"molecular_functions\": [\"transcription coactivator activity\", \"SUMO E3 ligase activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment of highly variable severity, ranging from severe impairment to low-average or normal IQ. Variability is present even within a single family carrying the same allele, and one woman with a de novo alanine-rich-region variant had only low-average IQ and lived to 52.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intrauterine Growth Restriction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prenatal growth restriction, detected at 30 weeks of gestation together with microcephaly and short femur in a fetus with a de novo ZMIZ1 frameshift variant. This is the earliest documented manifestation of the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001511\"}}, {\"id\": \"Joint Contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fixed limitation of joint movement. Joint involvement in this disorder runs in both directions: the syndrome description explicitly pairs hypermobility with contracture, and an 11-month-old proband presented with bilateral hand contractures together with congenital vertical talus and bilateral auricular deformity.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0034392\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased joint laxity, named among the common phenotypes characterizing the entity, and documented in individual cases alongside hip dysplasia. Note that joint involvement in NEDDFSA is bidirectional \\u2014 the syndrome description pairs hypermobility with contracture, which is curated separately.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced head circumference, present from the founding cohort onward and detectable prenatally in at least one fetus. It was the most common morphological abnormality in the domain-resolved subseries, at 64% of imaged individuals. Cortical microcephaly is reproduced in the forebrain-specific Zmiz1 knockout mouse, making this one of the best cross-species-validated features.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed acquisition of motor milestones, typically described as mild. Reported in about 70 percent of individuals with alanine-rich-domain variants, and less often with variants in other domains.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"NM_020338.4:c.1310delC (p.Pro437ArgfsX84)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshifting single-base deletion in a proline-rich region, the first ZMIZ1 allele shown to be transmitted vertically \\u2014 carried by an affected father and both of his affected sons.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_020338.4:c.2330G\u003eA (p.Gly777Glu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense substitution in exon 20 affecting the SP-RING/MIZ zinc finger domain, predicted to disturb the domain\u0027s spatial conformation and hence partner binding and SUMO E3 ligase function.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_020338.4:c.2633dup (p.Gly879ArgfsTer22)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo frameshifting duplication in the C-terminal transactivation region, identified prenatally by whole-exome sequencing on amniotic fluid in a fetus with microcephaly, short femur, and intrauterine growth restriction.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_020338.4:c.858_875del (p.Val288_Ala293del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"In-frame six-codon deletion altering the alanine-rich domain; reduces mutant ZMIZ1 protein abundance in cell-based assays.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_020338.4:c.910G\u003eC (p.Ala304Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense substitution in the alanine-rich region. Unusually among reported alleles it raises rather than lowers ZMIZ1 mRNA and protein levels and mislocalizes the protein, arguing against a uniform haploinsufficiency mechanism. The measurement was made on transfected constructs in human skeletal muscle cells and HEK293T cells, not endogenous patient cells, so it is better read as altered protein stability than as patient-level upregulation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Drooping of the upper eyelid is the single most common ophthalmic finding in this disorder, reported in 35 percent of published cases. It may be congenital and bilateral, and its severity varies between members of the same family carrying the same allele.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures were listed among the primary features when the syndrome was first described but occur in a minority; in the domain-resolved subseries they were present in fewer than 30 percent of individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced height, documented in all three affected members of the multigenerational family carrying c.1310delC and consistent with the general growth failure of the syndrome. A denominator of three affected relatives sharing one allele cannot support a population frequency band, so none is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal sleep, reported in 14% of the domain-resolved subseries with no association to any particular ZMIZ1 protein domain.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular misalignment, reported in 12 percent of published cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Syndromic Multisystem Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level structural output that makes this disorder syndromic rather than a pure neurodevelopmental disorder: the recognizable dysmorphic facial pattern, distal skeletal anomalies of the hands and feet, joint hypermobility or contracture, and the minority cardiac and genitourinary malformations. Prenatally the same failure can present as microcephaly with short femur and intrauterine growth restriction. Because no lineage-specific model exists, this node inherits the PROVISIONAL standing of its upstream patterning node.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Telecanthus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased distance between the inner canthi, part of the periocular dysmorphic pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000506\"}}, {\"id\": \"ZMIZ1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"ZMIZ1\"], \"gene_terms\": [{\"label\": \"ZMIZ1\", \"id\": \"hgnc:16493\"}], \"association\": \"Heterozygous ZMIZ1 variants are the sole established cause of NEDDFSA. The gene lies at 10q22.3, spans 21 exons, and encodes a 1067-amino-acid PIAS-family transcriptional coactivator. Most pathogenic alleles arise de novo; germline transmission from a mildly affected parent is documented. ZMIZ1 is highly constrained against loss of function in population data (observed/expected 0.13).\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}], \"edges\": [{\"source\": \"Heterozygous ZMIZ1 Variant\", \"target\": \"Impaired PIAS-Family Coactivator Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variants in the domains that mediate partner binding, SUMO E3 ligase activity, and transactivation directly degrade ZMIZ1 coregulator function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired PIAS-Family Coactivator Function\", \"target\": \"Dysregulated Developmental Transcriptional Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of coactivator potency at NOTCH1, AR, p53, and SMAD3/4 target promoters changes the output of the transcriptional programs those pathways drive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Transcriptional Programs\", \"target\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neural arm of the transcriptional dysregulation, expressed in cortical progenitors and their projection-neuron progeny.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Transcriptional Programs\", \"target\": \"Disrupted Craniofacial and Distal Skeletal Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The non-neural arm. ZMIZ1 is broadly expressed in embryonic tissues and partners with SMAD3/4 and NOTCH1, both central to skeletal and craniofacial morphogenesis, but the specific target genes that produce the human facial and distal limb phenotype have not been identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Miswired and mispositioned cortical circuitry is the substrate of the cognitive, language, motor, and behavioral phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced progenitor proliferation and neurogenesis lower total cortical neuron output, producing the reduced head circumference. This is the best cross-species-validated link in the disorder: the forebrain-specific knockout reproduces cortical microcephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Abnormal Corpus Callosum Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal projection neurons whose differentiation is disrupted by ZMIZ1 loss form the corpus callosum; their failure is expressed as callosal dysgenesis, reproduced in the forebrain-specific knockout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Gray Matter Heterotopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons retained in the ventricular, subventricular, and intermediate zones instead of reaching the cortical plate are the substrate of the heterotopic gray matter seen on MRI and confirmed at autopsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inferred, not disease-specific: malformations of cortical development, including heterotopic gray matter, are recognized epileptogenic substrates in general neurology, and heterotopias are present in a majority of imaged individuals. No NEDDFSA-specific study localizes the seizure focus, so the intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neurogenesis, Neuronal Differentiation, and Positioning\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A published hypothesis, not an established mechanism: corticothalamic neurons are affected by Zmiz1 loss in mouse and regulate sleep cortical activity, so patient sleep abnormalities may reflect corticothalamic dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Craniofacial and Distal Skeletal Patterning\", \"target\": \"Syndromic Multisystem Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted craniofacial and appendicular patterning is expressed at the level of the whole organism as the recognizable dysmorphic and skeletal syndrome, alongside the cardiac and genitourinary malformations that share the same coactivator-dependent developmental programs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Facial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the recognizable dysmorphic facial pattern is the craniofacial expression of the malformation complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Downslanted Palpebral Fissures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: element of the periocular dysmorphic pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Telecanthus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: element of the periocular dysmorphic pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: congenital, often bilateral eyelid ptosis belongs to the periocular malformation complex together with blepharophimosis and telecanthus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Blepharophimosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: narrowed palpebral fissures, part of the periocular malformation complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Distal Skeletal Anomalies of the Hands and Feet\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the appendicular expression of the malformation complex and the second feature named in the disorder label.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Hallux Valgus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: a specific distal foot anomaly within the appendicular malformation pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: joint laxity is named among the common phenotypes of the malformation complex; joint involvement runs in both directions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Joint Contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the contracture direction of the bidirectional joint involvement, documented as bilateral hand contractures with congenital vertical talus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Hip Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: developmental dysplasia of the hip within the skeletal malformation pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Congenital Heart Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the minority cardiac malformations that share the same coactivator-dependent developmental programs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Genitourinary Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the minority genitourinary malformations collected by this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: a specific genitourinary anomaly documented in a male patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syndromic Multisystem Malformation\", \"target\": \"Intrauterine Growth Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prenatal presentation of the same developmental program failure, documented once as microcephaly, short femur, and growth restriction at 30 weeks of gestation; the fetal growth intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: delay across motor, language, and cognitive domains is the defining expression of the neurodevelopmental impairment this node collects.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the cognitive arm of the impairment, of highly variable severity as documented on this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: poor language acquisition is among the most consistent expressions of the impairment across all variant domains.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: delayed motor milestones are the motor arm of the impairment, compounded by the early hypotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: early-onset central hypotonia is typically the first postnatal expression of the neurodevelopmental impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Behavioral Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: behavioral problems are part of the core description of the syndrome\u0027s neurodevelopmental output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Autism Spectrum Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: autism is a recurrent expression of the impairment, preferentially with TPR and proline-rich-domain variants, and is independently reproduced as autism-like behavior in the knockout mouse.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: ADHD is among the ZMIZ1-associated neurodevelopmental diagnoses collected by this node, in a minority of individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early oromotor dysfunction and hypotonia impair feeding from infancy; poor feeding is named with hypotonia as the earliest expression of the impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Thrive\", \"target\": \"Short Stature\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Sustained poor overall growth from infancy is expressed longitudinally as reduced height, documented in all three affected members of the multigenerational family.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Feeding Difficulties\", \"target\": \"Failure to Thrive\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Poor oral intake from early infancy is the documented proximate contributor to the postnatal growth failure; an intrinsic growth component cannot be excluded, since growth restriction has been observed prenatally before any feeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ptosis\", \"target\": \"Amblyopia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Standard ophthalmic mechanism rather than a disease-specific finding: congenital ptosis occluding or degrading the visual axis causes stimulus-deprivation amblyopia, and amblyopia is reported in this disorder alongside its leading eye finding, ptosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Strabismus\", \"target\": \"Amblyopia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Standard ophthalmic mechanism rather than a disease-specific finding: cortical suppression of the deviating eye in childhood strabismus causes strabismic amblyopia; the ophthalmology review reports the two findings together in this disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ZMIZ1\", \"target\": \"Heterozygous ZMIZ1 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_020338.4:c.1310delC (p.Pro437ArgfsX84)\", \"target\": \"ZMIZ1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_020338.4:c.2330G\u003eA (p.Gly777Glu)\", \"target\": \"ZMIZ1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_020338.4:c.858_875del (p.Val288_Ala293del)\", \"target\": \"ZMIZ1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_020338.4:c.2633dup (p.Gly879ArgfsTer22)\", \"target\": \"ZMIZ1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_020338.4:c.910G\u003eC (p.Ala304Pro)\", \"target\": \"ZMIZ1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6740,6 +6880,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6754,6 +6897,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6778,6 +6922,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6839,6 +6984,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6862,6 +7010,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6918,6 +7067,9 @@ This clinical feature is Aganglionic megacolon (HP:0002251). HP:0002251 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6935,6 +7087,7 @@ This clinical feature is Aganglionic megacolon (HP:0002251). HP:0002251 is a phe
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7001,6 +7154,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7015,6 +7171,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7039,6 +7196,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7102,6 +7260,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7128,6 +7289,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7149,6 +7311,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7205,6 +7368,9 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7219,6 +7385,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7243,6 +7410,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7297,6 +7465,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7320,6 +7491,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7376,6 +7548,9 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7390,6 +7565,7 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7455,6 +7631,9 @@ This clinical feature is Abnormality of the genitourinary system (HP:0000119). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7469,6 +7648,7 @@ This clinical feature is Abnormality of the genitourinary system (HP:0000119). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7493,6 +7673,7 @@ This clinical feature is Abnormality of the genitourinary system (HP:0000119). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7547,6 +7728,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7561,6 +7745,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7626,6 +7811,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7640,6 +7828,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7667,6 +7856,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7688,6 +7878,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7746,6 +7937,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7760,6 +7954,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7787,6 +7982,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7811,6 +8007,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7864,6 +8061,9 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7878,6 +8078,7 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7932,6 +8133,9 @@ This clinical feature is Telecanthus (HP:0000506). HP:0000506 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7946,6 +8150,7 @@ This clinical feature is Telecanthus (HP:0000506). HP:0000506 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8000,6 +8205,9 @@ This clinical feature is Blepharophimosis (HP:0000581). HP:0000581 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8014,6 +8222,7 @@ This clinical feature is Blepharophimosis (HP:0000581). HP:0000581 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8081,6 +8290,9 @@ This clinical feature is Abnormal digit morphology (HP:0011297). HP:0011297 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8095,6 +8307,7 @@ This clinical feature is Abnormal digit morphology (HP:0011297). HP:0011297 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8119,6 +8332,7 @@ This clinical feature is Abnormal digit morphology (HP:0011297). HP:0011297 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8173,6 +8387,9 @@ This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8187,6 +8404,7 @@ This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8252,6 +8470,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8266,6 +8487,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8290,6 +8512,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8346,6 +8569,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8360,6 +8586,7 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8414,6 +8641,9 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8428,6 +8658,7 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8452,6 +8683,7 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8506,6 +8738,9 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8520,6 +8755,7 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8585,6 +8821,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8599,6 +8838,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8623,6 +8863,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8679,6 +8920,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8693,6 +8937,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8720,6 +8965,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8741,6 +8987,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8797,6 +9044,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8811,6 +9061,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8835,6 +9086,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8891,6 +9143,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8905,6 +9160,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8961,6 +9217,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8975,6 +9234,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9031,6 +9291,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9045,6 +9308,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9072,6 +9336,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9093,6 +9358,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9149,6 +9415,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9163,6 +9432,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9219,6 +9489,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9233,6 +9506,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9257,6 +9531,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9313,6 +9588,9 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9327,6 +9605,7 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9354,6 +9633,7 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9375,6 +9655,7 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9431,6 +9712,9 @@ This clinical feature is Gray matter heterotopia (HP:0002282). HP:0002282 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9445,6 +9729,7 @@ This clinical feature is Gray matter heterotopia (HP:0002282). HP:0002282 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9469,6 +9754,7 @@ This clinical feature is Gray matter heterotopia (HP:0002282). HP:0002282 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9525,6 +9811,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9539,6 +9828,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9600,6 +9890,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -9626,6 +9919,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9647,6 +9941,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9701,6 +9996,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9715,6 +10013,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9771,6 +10070,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9785,6 +10087,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9887,6 +10190,9 @@ This disease-associated gene is ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -9901,6 +10207,7 @@ This disease-associated gene is ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9928,6 +10235,7 @@ This disease-associated gene is ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9949,6 +10257,7 @@ This disease-associated gene is ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9997,6 +10306,7 @@ This disease-associated gene is ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10018,7 +10328,13 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Frameshifting single-base deletion in a proline-rich region, the first ZMIZ1 allele shown to be transmitted vertically — carried by an affected father and both of his affected sons.</div>
@@ -10045,6 +10361,7 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10080,6 +10397,7 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10101,7 +10419,13 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo missense substitution in exon 20 affecting the SP-RING/MIZ zinc finger domain, predicted to disturb the domain&#39;s spatial conformation and hence partner binding and SUMO E3 ligase function.</div>
@@ -10131,6 +10455,7 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10152,6 +10477,7 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10187,6 +10513,7 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10208,7 +10535,13 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">In-frame six-codon deletion altering the alanine-rich domain; reduces mutant ZMIZ1 protein abundance in cell-based assays.</div>
@@ -10235,6 +10568,7 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10270,6 +10604,7 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10291,7 +10626,13 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo frameshifting duplication in the C-terminal transactivation region, identified prenatally by whole-exome sequencing on amniotic fluid in a fetus with microcephaly, short femur, and intrauterine growth restriction.</div>
@@ -10318,6 +10659,7 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10353,6 +10695,7 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10374,7 +10717,13 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo missense substitution in the alanine-rich region. Unusually among reported alleles it raises rather than lowers ZMIZ1 mRNA and protein levels and mislocalizes the protein, arguing against a uniform haploinsufficiency mechanism. The measurement was made on transfected constructs in human skeletal muscle cells and HEK293T cells, not endogenous patient cells, so it is better read as altered protein stability than as patient-level upregulation.</div>
@@ -10404,6 +10753,7 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10425,6 +10775,7 @@ This variant is in ZMIZ1 (hgnc:16493). hgnc:16493 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10508,6 +10859,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10518,6 +10872,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10582,6 +10939,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling should cover the autosomal dominant mechanism, the 50 percent recurrence risk for an affected parent, and the low but non-zero recurrence risk after an apparently de novo case (parental germline mosaicism cannot be excluded). Testing both parents is specifically indicated rather than optional, because a transmitting parent may be only mildly affected and would otherwise be missed — the family reported with c.1310delC included an affected father identified only after his sons were diagnosed. Prenatal diagnosis by exome sequencing on amniotic fluid has been performed successfully.</div>
 
 
@@ -10606,6 +10969,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10627,6 +10991,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10702,6 +11067,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10726,6 +11092,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10747,6 +11114,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10824,6 +11192,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10845,6 +11214,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10991,6 +11361,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11012,6 +11383,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11142,6 +11514,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11248,6 +11621,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11269,6 +11643,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11352,6 +11727,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14578,6 +14954,46 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Identifiers. MONDO:0032855; OMIM:618659; MedGen C5231448; GARD 0018521; UMLS C5231448; causal gene ZMIZ1 (hgnc:16493, 10q22.3). Orphanet has no dedicated ORPHA code for this entity as of curation.
+Named-entity-confusion preflight. This entity sits in a large family of near-identically named OMIM &#34;neurodevelopmental disorder with ...&#34; entries and was treated as high NEC risk during curation. The MONDO record for MONDO:0032855 was pulled with OAK on 2026-08-15 and gives three concordant identity anchors: &#34;relationship: RO:0004003 HGNC:16493 ! ZMIZ1&#34;, &#34;xref: OMIM:618659&#34;, and the RELATED synonym &#34;NEDDFSA&#34;. Every clinical paper cited in this entry names ZMIZ1 as the causal gene, so gene, OMIM ID, and synonym all agree and no NEC discard was triggered. The Edison/falcon deep-research report used for this entry also passed the automated gene-frequency preflight (just preflight-dr): ZMIZ1 was mentioned 41 times against a next-highest gene count of 3 (AR), and the report&#39;s OMIM number matched the MONDO xref.
+The single most dangerous confusable is &#34;neurodevelopmental disorder with dysmorphic facies and distal LIMB anomalies&#34; (NEDDFL, MONDO:0060596, OMIM:617755), caused by BPTF (HGNC:3581). The labels differ by one word, &#34;skeletal&#34; versus &#34;limb&#34;. NEDDFL is recorded here under differential_diagnoses. Note that as of this entry&#39;s creation there is NO NEDDFL/BPTF entry in kb/disorders — MONDO:0060596 appears in the KB only as a differential reference from this entry and from the OTUD6B entry — so a future curator must not assume the confusable is already covered elsewhere. Nothing in this entry may be sourced from BPTF literature.
+Dual-genotype confound in PMID:34680978. That report describes a 5-year-old Thai girl who carries BOTH a hemizygous OTUD6B c.873delA over a paternally inherited 8q21.3 whole-gene deletion AND a heterozygous ZMIZ1 c.1491 + 2T &gt; C splice variant shown by mRNA study to skip exon 14. Her clinical features (Williams syndrome-like facial gestalt with periorbital edema, hanging cheek, long and smooth philtrum; cardiac defects; terminal broadening of the fingers; polydactyly) cannot be attributed cleanly to either locus, and the authors themselves assign the Williams-like features to the OTUD6B side. This entry therefore does NOT curate any phenotype from that proband. PMID:34680978 appears exactly FIVE times in this file, and every one is accounted for here: (1) genetic[0].evidence[4], the mRNA-study observation that the splice variant skips exon 14, supports: SUPPORT with directness: INDIRECT; (2) genetic[0].evidence[5], the observation that the allele was inherited from the father, supports: SUPPORT with directness: INDIRECT; (3) differential_diagnoses[1].evidence[0], the authors&#39; statement of the phenotypic overlap between ZMIZ1 and OTUD6B disease, supports: SUPPORT; (4) differential_diagnoses[1].evidence[1], the inheritance-mode discriminator between the two entities, supports: SUPPORT; and (5) one bibliography entry in the top-level references list, which carries no snippet and asserts nothing. All four evidence citations restate the dual-genotype confound in their explanation, and none of them attributes a phenotype to ZMIZ1. The reciprocal caveat is already recorded in the dismech OTUD6B-Related Neurodevelopmental Disorder entry.
+No GeneReviews chapter exists. PubMed searches for &#34;ZMIZ1 GeneReviews&#34; and &#34;neurodevelopmental disorder with dysmorphic facies and distal skeletal anomalies GeneReviews&#34; both returned zero results on 2026-08-15, so no GeneReviews phenotype baseline was available and the phenotype set is built from the primary case literature and the two published cohort/meta-analyses (PMID:39658964, PMID:40529245).
+Beyond-abstract sourcing. Several cached references (PMID:35432459, PMID:38686122, PMID:41354990, PMID:41633496) are cached as full text rather than abstract-only, and linkml-reference-validator checks snippets against the cached body. Evidence items in this entry therefore quote figures and Results-section sentences from those papers as well as abstract text; each such snippet was confirmed against the cached file before use. Where a paper is cached abstract-only, quotes are confined to the abstract.
+ZMIZ1-PRR12 translocation. A balanced t(10;19)(q22.3;q13.33) disrupting ZMIZ1 and PRR12 was reported before the syndrome was delineated. PRR12 causes its own distinct disorder (PRR12-related neuroocular syndrome, curated separately in dismech), so translocation cases that disrupt both genes are not clean ZMIZ1 evidence and are not used for phenotype curation here.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Neurodevelopmental Disorder with Dysmorphic Facies and Distal Skeletal Anomalies (NEDDFSA, ZMIZ1)</strong> · 2026-08-17T02:08:29Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neurodevelopmental_Disorder_with_Dysmorphic_Facies_and_Distal_Skeletal_Anomalies/2026-08-17T020829Z-claude-code-d892a8.yaml">View source</a></p>
+                        <p class="research-review-text">De novo creation of the NEDDFSA entry (MONDO:0032855, OMIM:618659, ZMIZ1 / hgnc:16493, autosomal dominant), resolving issue #8534.
+
+NEC preflight (high-risk target). This entity belongs to the large near-identically-named OMIM &#34;neurodevelopmental disorder with ...&#34; series. Ran the CLAUDE.md manual preflight: `uv run runoak -i sqlite:obo:mondo info MONDO:0032855 -O obo` returned three concordant identity anchors (relationship RO:0004003 HGNC:16493 ! ZMIZ1; xref OMIM:618659; RELATED synonym NEDDFSA). Also ran the automated `just preflight-dr` against the deep-research report: PASS, ZMIZ1 mentioned 41 times vs next-highest gene AR at 3, and the report&#39;s OMIM number matched the MONDO xref. The principal confusable, NEDDFL (MONDO:0060596, OMIM:617755, BPTF), was verified with OAK as a distinct entity and recorded under differential_diagnoses; no BPTF literature was used anywhere in this entry.
+
+Dual-genotype confound. PMID:34680978 reports a proband carrying BOTH biallelic OTUD6B lesions and a heterozygous ZMIZ1 c.1491+2T&gt;C splice variant. Per the caveat already recorded in the dismech OTUD6B entry, NO phenotype from that proband is curated here. PMID:34680978 appears exactly FIVE times in the entry, re-derived line by line and enumerated in the entry notes: genetic[0].evidence[4] (exon-14 skipping, PARTIAL), genetic[0].evidence[5] (paternal inheritance of the allele, PARTIAL), differential_diagnoses[1].evidence[0] (phenotypic overlap, SUPPORT), differential_diagnoses[1].evidence[1] (inheritance-mode discriminator, SUPPORT), and one bibliography entry in the top-level references list that carries no snippet. All four evidence citations restate the dual-genotype confound in their explanation and none attributes a phenotype to ZMIZ1. An earlier draft of both this record and the entry notes said &#34;three&#34;, written before the paternal-inheritance item was added; a PR reviewer said &#34;four&#34;, counting only evidence citations. Five is the count of occurrences of the PMID in the file. The t(10;19) ZMIZ1-PRR12 translocation cases were likewise excluded from phenotype curation because they disrupt two independent disease genes.
+
+Deep research: Edison/falcon (research/Neurodevelopmental_Disorder_with_Dysmorphic_Facies_and_Distal_Skeletal_Anomalies-deep-research-falcon.md, 1 artifact). Treated as leads only. Its two distinctive contributions that survived verification were the loss-of-function constraint metric (oe 0.13) and the Hirschsprung-disease spectrum-expansion candidate; both were re-verified as exact substrings of the cached PMID:38686122 text before use. The Hirschsprung item is marked supports PARTIAL because the primary source (Valind 2021, J Pediatr Surg Case Rep 71:101889) is not PubMed-indexed and reaches this entry only as a secondary citation.
+
+GeneReviews: none exists. PubMed searches for &#34;ZMIZ1 GeneReviews&#34; and for the full disease name plus GeneReviews both returned zero results on 2026-08-15, so no GeneReviews phenotype baseline was available; the phenotype set was built from the primary case literature plus the two published cohort/meta-analyses (PMID:39658964, PMID:40529245).
+
+Content: a seven-node pathophysiology chain (heterozygous ZMIZ1 variant -&gt; impaired PIAS-family coactivator function -&gt; dysregulated developmental transcriptional programs -&gt; parallel cortical and craniofacial/skeletal arms -&gt; global neurodevelopmental impairment and syndromic multisystem malformation), each node tagged with biological_scale. 35 HPO-bound phenotypes, 5 variants, 2 animal models, 3 differential diagnoses, 2 treatments, and 3 discussions (2 KNOWLEDGE_GAP, 1 HUMAN_MODEL_MISMATCH for the unmodeled skeletal arm). The skeletal-patterning node is deliberately marked mechanism_confidence PROVISIONAL because the only in vivo model is forebrain-restricted and by construction cannot develop that phenotype.
+
+Evidence discipline: several references are cached as full text, and linkml-reference-validator checks snippets against the cached body, so evidence items quote Results-section sentences as well as abstract text; every such snippet was confirmed against the cached file. An earlier draft wrongly assumed only abstracts were quotable and dropped two findings on that basis; both were restored (the VZ/SVZ-to-cortical-plate laminar distribution of the positioning defect, and bilateral hip dysplasia in the reported Chinese proband, now a curated phenotype). The supportive-care treatment carries no evidence items by design, because no management guideline exists for this disorder; that gap is recorded as the neddfsa_no_management_guideline discussion rather than papered over with a fabricated citation.
+
+Pre-PR red-team review: a self-review pass against the dismech-pr-review skill found and fixed two blocking issues. (1) PMID:41633496 explicitly states that BrdU birthdating showed migration was NOT disrupted in the forebrain-specific knockout, contradicting the neuron-migration annotation this entry had taken from the in utero electroporation overexpression paradigm; the contradiction is now curated as a supports: REFUTE evidence item on the cortical node, with node notes and description recording that the positioning phenotype is overexpression-specific in mouse while the human cortical heterotopias independently support it. (2) The abstract-only assumption described above. The same pass rebanded frequencies against quantitative sources (facial dysmorphism VERY_FREQUENT -&gt; FREQUENT; autism OCCASIONAL -&gt; FREQUENT at 60-66%; microcephaly and hypotonia given 64% and 57% quantitative snippets; gray matter heterotopia given the 57% MRI figure), dropped seven frequency bands that rested on bare feature-list prose with no frequency signal, added four phenotypes with already-cached quantitative support (abnormal corpus callosum morphology 21%, sleep disturbance 14%, joint contracture, hip dysplasia), added a terminal ORGANISM-scale node so the syndromic arm no longer dead-ends, corrected three evidence_source values, downgraded a misapplied REFUTE to PARTIAL, and recorded that the c.1491+2T&gt;C splice allele was paternally inherited and was excluded from the 2025 domain-resolved re-analysis.
+
+Validation: `just validate` passes end to end - schema OK, term validation OK, references 115/115 snippets verified against the cached references. `just validate-graphs` reports no errors attributable to this entry. Note for future curators: MAXO treatment terms were rejected by the TreatmentActionTerm dynamic enum (rooted at NCIT:C25218) despite the MAXO examples in CLAUDE.md, so NCIT:C15747 (Supportive Care) and NCIT:C15240 (Genetic Counseling) were used instead. This matches the rest of the KB, which currently contains no MAXO treatment terms at all.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
